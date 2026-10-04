@@ -57,9 +57,6 @@ jobs:
           unzip -p "$JAR" fabric.mod.json | tee /tmp/fabric.mod.json
           grep -q '"minecraft": "~1.21.11"' /tmp/fabric.mod.json
           unzip -p "$JAR" META-INF/MANIFEST.MF | grep -q 'Minecraft-Version: 1.21.11'
-      - name: Dump Minecraft API signatures (development aid, log only)
-        if: always()
-        run: bash scripts/ci/dump-minecraft-api.sh
       - uses: actions/upload-artifact@v4
         with:
           name: vanta-client-jar

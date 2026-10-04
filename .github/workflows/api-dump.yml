@@ -1,0 +1,36 @@
+# Development aid: prints the public API of selected Minecraft 1.21.11 classes (Mojang mappings, via Loom)
+# to the job logs. Split into small jobs so each log stays readable. Manual trigger only.
+name: Minecraft API dump
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    name: ${{ matrix.part }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [index, part1, part2, part3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Set up Minecraft through Loom
+        working-directory: client
+        run: ./gradlew classes --stacktrace
+      - name: Dump
+        run: |
+          case "${{ matrix.part }}" in
+            index) bash scripts/ci/dump-minecraft-api.sh index ;;
+            part1) bash scripts/ci/dump-minecraft-api.sh scripts/ci/api-classes-1.txt ;;
+            part2) bash scripts/ci/dump-minecraft-api.sh scripts/ci/api-classes-2.txt ;;
+            part3) bash scripts/ci/dump-minecraft-api.sh scripts/ci/api-classes-3.txt ;;
+          esac
