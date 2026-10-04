@@ -1,5 +1,6 @@
 package dev.vanta.client.screen;
 
+import dev.vanta.client.VantaClient;
 import dev.vanta.client.VantaRuntime;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.settings.VantaSettings;
@@ -21,6 +22,8 @@ public final class MainMenuReplacement {
 
     private static final boolean FORCE_VANILLA = Boolean.getBoolean(FORCE_VANILLA_PROPERTY);
     private static volatile boolean suppressed;
+    private static final java.util.concurrent.atomic.AtomicBoolean LOGGED_FIRST =
+            new java.util.concurrent.atomic.AtomicBoolean();
 
     private MainMenuReplacement() {
     }
@@ -52,6 +55,10 @@ public final class MainMenuReplacement {
         }
         if (!runtime.services().screens().isRegistered(ScreenId.MAIN_MENU)) {
             return null;
+        }
+        if (!LOGGED_FIRST.getAndSet(true)) {
+            // One line per game session so headless runs (CI) can verify the menu actually came up.
+            VantaClient.LOGGER.info("VANTA main menu shown (replacing the vanilla title screen)");
         }
         return VantaScreens.create(ScreenId.MAIN_MENU, null);
     }

@@ -241,6 +241,7 @@ jobs:
           echo "Game log: $LOG"
           if [ -z "$LOG" ]; then echo "::error::no game log found"; ls -R "$RUNNER_TEMP/vanta" | head -100; exit 1; fi
           grep -E "VANTA Client [0-9.]+ starting for Minecraft 1.21.11" "$LOG" || { echo "::error::VANTA start line missing"; tail -100 "$LOG"; exit 1; }
+          grep -F "VANTA main menu shown" "$LOG" || { echo "::error::the game never reached the VANTA main menu within the launch window"; tail -100 "$LOG"; exit 1; }
           ! grep -qiE "Mixin apply failed|MixinApplyError|Exception in thread \"Render thread\"" "$LOG" || { echo "::error::mixin or render thread failure"; grep -nE -A5 "Mixin apply failed|MixinApplyError|Exception in thread" "$LOG" | head -60; exit 1; }
           tail -40 "$LOG"
       - uses: actions/upload-artifact@v4
