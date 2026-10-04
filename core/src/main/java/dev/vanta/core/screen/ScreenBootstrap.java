@@ -17,7 +17,7 @@ public final class ScreenBootstrap {
     public static void registerAll(VantaServices services) {
         // Screen packages register themselves here (filled in as the screen packages land):
         dev.vanta.core.screen.Screens1.register(services);         // main menu, settings, search, performance, accessibility, packs, about
-        // dev.vanta.core.screen.Screens2.register(services);      profiles, keybinds, cosmetics, statistics
+        dev.vanta.core.screen.Screens2.register(services);         // profiles, keybinds, cosmetics, statistics
         dev.vanta.core.hud.editor.HudScreens.register(services);   // HUD editor, crosshair editor
     }
 }
