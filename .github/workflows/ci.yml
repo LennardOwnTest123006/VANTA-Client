@@ -66,6 +66,7 @@ jobs:
     name: Client game test (real Minecraft 1.21.11, headless)
     runs-on: ubuntu-24.04
     needs: [client]
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:
@@ -79,7 +80,31 @@ jobs:
         working-directory: client
         env:
           CI: 'true'
-        run: ./gradlew runProductionClientGametest --stacktrace
+        # A watchdog around Gradle: thread-dump every game JVM after 4 minutes (kept as a diagnostic even when the
+        # test passes) and again before killing a run that is still going after 20 minutes.
+        run: |
+          mkdir -p "$RUNNER_TEMP/gametest-out"
+          dump() {
+            for p in $(pgrep -f 'fabric.client.gametest' || true); do
+              jcmd "$p" Thread.print > "$RUNNER_TEMP/gametest-out/thread-dump-$1-pid$p.txt" 2>&1 || true
+            done
+          }
+          ./gradlew runProductionClientGametest --stacktrace &
+          GRADLE_PID=$!
+          for i in $(seq 1 240); do
+            sleep 5
+            kill -0 "$GRADLE_PID" 2>/dev/null || break
+            [ "$i" -eq 48 ] && dump 4min
+            if [ "$i" -eq 240 ]; then
+              echo "::error::client game test still running after 20 minutes; dumping threads and killing it"
+              dump 20min
+              pkill -f 'fabric.client.gametest' || true
+              kill "$GRADLE_PID" || true
+              wait "$GRADLE_PID" || true
+              exit 124
+            fi
+          done
+          wait "$GRADLE_PID"
       - name: Collect logs and screenshots
         if: always()
         run: |
@@ -182,6 +207,7 @@ jobs:
     name: Launcher integration (real install of Minecraft 1.21.11 + Fabric, headless launch)
     runs-on: ubuntu-24.04
     needs: [client]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
