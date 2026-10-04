@@ -1,0 +1,41 @@
+package dev.vanta.core.hud.widgets;
+
+import dev.vanta.core.hud.HudWidgetState;
+import dev.vanta.core.hud.HudWidgetType;
+import dev.vanta.core.hud.render.HudData;
+import dev.vanta.core.i18n.Lang;
+
+/**
+ * System time (24 h or 12 h, optionally with seconds) or the in-game time of day, selected by the {@code format}
+ * property.
+ */
+public final class ClockWidget extends AbstractLineWidget {
+
+    /** {@code format} value for the 24-hour system clock. */
+    public static final String SYSTEM_24H = "system_24h";
+    /** {@code format} value for the 12-hour system clock. */
+    public static final String SYSTEM_12H = "system_12h";
+    /** {@code format} value for the in-game time. */
+    public static final String GAME_TIME = "game_time";
+
+    @Override
+    public HudWidgetType type() {
+        return HudWidgetType.CLOCK;
+    }
+
+    @Override
+    protected String label(HudWidgetState state, HudData data) {
+        return Lang.tr("vanta.hud.label.clock");
+    }
+
+    @Override
+    protected String value(HudWidgetState state, HudData data) {
+        String format = state.prop("format");
+        boolean seconds = state.propBool("showSeconds");
+        return switch (format) {
+            case SYSTEM_12H -> data.clock12(seconds);
+            case GAME_TIME -> data.gameClock();
+            default -> data.clock24(seconds);
+        };
+    }
+}
