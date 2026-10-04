@@ -1,0 +1,132 @@
+plugins {
+    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    // Loom adds the Mojang and Fabric repositories automatically.
+}
+
+// The pure-Java core library lives in ../core and is compiled into the common source set so that
+// the mod jar is self-contained. It has no Minecraft dependencies and is unit-tested in ../core.
+sourceSets {
+    main {
+        java {
+            srcDir file('../core/src/main/java')
+        }
+        resources {
+            srcDir file('../core/src/main/resources')
+        }
+    }
+}
+
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        "vanta" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+
+    runs {
+        // Runs the Fabric client game tests (dev environment). Needs a display or xvfb-run.
+        clientGametest {
+            client()
+            inherit client
+            name "VANTA Client Game Test"
+            vmArg "-Dfabric.client.gametest"
+            vmArg "-Dvanta.gametest=true"
+            runDir "run/gametest"
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+// Production game test: runs the real built jar with the real Fabric Loader + Fabric API, like a user would.
+configurations {
+    productionMods {
+        transitive = false
+    }
+}
+
+dependencies {
+    productionMods "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+tasks.register('runProductionClientGametest', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+    description = "Launches Minecraft ${project.minecraft_version} with the built VANTA jar and runs the client game tests."
+    mods.setFrom(configurations.productionMods, remapJar.archiveFile)
+    jvmArgs.addAll([
+        "-Dfabric.client.gametest",
+        "-Dfabric.client.gametest.disableNetworkSynchronizer=true",
+        "-Dvanta.gametest=true"
+    ])
+    runDir = file("run/production-gametest")
+}
+
+processResources {
+    def props = [
+        version            : project.version,
+        minecraft_version  : project.minecraft_version,
+        loader_version     : project.loader_version,
+        fabric_api_version : project.fabric_api_version
+    ]
+    inputs.properties props
+    filesMatching("fabric.mod.json") {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+    def projectName = project.name
+    inputs.property "projectName", projectName
+    from("../LICENSE") {
+        rename { "${it}_${projectName}" }
+    }
+    manifest {
+        attributes(
+            'Implementation-Title': 'VANTA Client',
+            'Implementation-Version': project.version,
+            'Minecraft-Version': project.minecraft_version,
+            'Fabric-Loader-Version': project.loader_version
+        )
+    }
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+    repositories {
+        // Publishing targets are configured by the release workflow.
+    }
+}

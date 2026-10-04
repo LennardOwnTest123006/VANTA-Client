@@ -1,0 +1,51 @@
+# --- Gradle / Java ---
+.gradle/
+build/
+out/
+*.class
+*.log
+!docs/**/*.log
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+!.vscode/extensions.json
+.classpath
+.project
+.settings/
+bin/
+run/
+runs/
+remappedSrc/
+*.launch
+.architectury-transformer/
+.loom-cache/
+
+# --- Node / website ---
+node_modules/
+website/dist/
+website/.netlify/
+website/coverage/
+website/test-results/
+website/playwright-report/
+website/blob-report/
+website/.vite/
+*.tsbuildinfo
+
+# --- Launcher runtime artifacts ---
+launcher/build/
+launcher/jpackage/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Local secrets / env ---
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.jks

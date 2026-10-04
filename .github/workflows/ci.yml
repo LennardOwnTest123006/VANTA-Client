@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Core (Java 21)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and test core
+        working-directory: core
+        run: ./gradlew build --stacktrace --warning-mode=all
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: core-reports
+          path: core/build/reports/
+          if-no-files-found: ignore
+
+  client:
+    name: Client (Minecraft 1.21.11 / Fabric)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build client mod
+        working-directory: client
+        run: ./gradlew build --stacktrace --warning-mode=all
+      - name: Verify jar metadata targets 1.21.11
+        working-directory: client
+        run: |
+          JAR=$(ls build/libs/vanta-client-*.jar | grep -v sources | head -1)
+          echo "Built $JAR"
+          unzip -p "$JAR" fabric.mod.json | tee /tmp/fabric.mod.json
+          grep -q '"minecraft": "~1.21.11"' /tmp/fabric.mod.json
+          unzip -p "$JAR" META-INF/MANIFEST.MF | grep -q 'Minecraft-Version: 1.21.11'
+      - name: Dump Minecraft API signatures (development aid, log only)
+        if: always()
+        run: bash scripts/ci/dump-minecraft-api.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vanta-client-jar
+          path: client/build/libs/*.jar

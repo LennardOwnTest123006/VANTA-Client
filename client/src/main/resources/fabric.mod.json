@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "vanta",
+  "version": "${version}",
+  "name": "VANTA Client",
+  "description": "A modern Fabric client for Minecraft ${minecraft_version} focused on performance, customization and a clean Minecraft experience.",
+  "authors": [
+    "VANTA Client contributors"
+  ],
+  "contact": {
+    "sources": "https://github.com/LennardOwnTest123006/VANTA-Client",
+    "issues": "https://github.com/LennardOwnTest123006/VANTA-Client/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/vanta/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.vanta.client.VantaClient"
+    ],
+    "fabric-client-gametest": [
+      "dev.vanta.client.gametest.VantaClientGameTest"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "vanta.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "custom": {
+    "vanta": {
+      "minecraft": "${minecraft_version}",
+      "fabricApi": "${fabric_api_version}"
+    }
+  }
+}
