@@ -28,7 +28,7 @@ public class VantaShell extends UiNode {
     /** Footer height. */
     public static final int FOOTER_H = 16;
     /** Rail width when a rail is present. */
-    public static final int RAIL_W = 92;
+    public static final int RAIL_W = 104;
     /** Rail width on narrow screens (icons only). */
     public static final int RAIL_COMPACT_W = 32;
     /** Screens narrower than this collapse the rail to icons. */
