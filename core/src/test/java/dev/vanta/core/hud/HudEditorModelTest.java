@@ -178,7 +178,13 @@ class HudEditorModelTest {
         assertEquals(Optional.of("memory"), model.selectedId());
         HudWidgetState second = model.addWidget(HudWidgetType.MEMORY);
         assertEquals("memory-2", second.id());
-        assertEquals(16, second.offsetX(), "offset so duplicates do not overlap");
+        HudRect first = model.rectOf("memory").orElseThrow();
+        HudRect next = model.rectOf("memory-2").orElseThrow();
+        assertTrue(!first.intersects(next), "an added widget never lands on an existing one");
+        for (var entry : model.rects().entrySet()) {
+            assertTrue(entry.getKey().equals("memory-2") || !entry.getValue().intersects(next),
+                    "clear of every widget, not just its own type: " + entry.getKey());
+        }
         model.setLayout(HudPresets.find("minimal").orElseThrow().layout());
         assertEquals(3, model.layout().size());
         assertTrue(model.selectedId().isEmpty(), "selection cleared when the widget disappears");

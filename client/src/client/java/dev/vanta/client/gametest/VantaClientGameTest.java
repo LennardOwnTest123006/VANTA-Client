@@ -114,6 +114,7 @@ public final class VantaClientGameTest implements FabricClientGameTest {
 
     private static void mainMenu(ClientGameTestContext context) {
         context.waitFor(client -> client.screen instanceof VantaScreen || client.screen instanceof TitleScreen);
+        parkCursor(context);
         context.waitTicks(20);
         boolean custom = context.computeOnClient(client -> client.screen instanceof VantaScreen vanta
                 && vanta.screenId() == ScreenId.MAIN_MENU);
@@ -128,6 +129,7 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         check(registered, "No screen factory registered for " + id.id());
         context.setScreen(() -> VantaScreens.create(id, null));
         context.waitFor(client -> client.screen instanceof VantaScreen vanta && vanta.screenId() == id);
+        parkCursor(context);
         context.waitTicks(10);
         Path shot = context.takeScreenshot(screenshot);
         step("screen " + id.id() + " → " + shot.getFileName());
@@ -189,7 +191,8 @@ public final class VantaClientGameTest implements FabricClientGameTest {
                 .create()) {
             world.getClientWorld().waitForChunksRender();
             step("creative world loaded");
-            context.runOnClient(client -> enableWidgets(services));
+            context.runOnClient(client -> enableWidgets(services, client.getWindow().getGuiScaledWidth(),
+                    client.getWindow().getGuiScaledHeight()));
             context.waitTicks(20);
             Path hudShot = context.takeScreenshot("20_hud_ingame");
             step("HUD widgets enabled → " + hudShot.getFileName());
@@ -209,13 +212,15 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         }
     }
 
-    private static void enableWidgets(VantaServices services) {
+    private static void enableWidgets(VantaServices services, int guiWidth, int guiHeight) {
         HudStore hud = services.hud();
         HudLayout layout = hud.layout();
         for (HudWidgetType type : INGAME_WIDGETS) {
             List<HudWidgetState> existing = layout.byType(type);
             if (existing.isEmpty()) {
-                layout = layout.with(HudWidgetState.defaults(layout.nextId(type), type));
+                // Same placement rule as the HUD editor's add button: clear of the widgets already there.
+                layout = layout.with(layout.placedClear(HudWidgetState.defaults(layout.nextId(type), type), guiWidth,
+                        guiHeight));
             } else {
                 for (HudWidgetState widget : existing) {
                     if (!widget.enabled()) {
@@ -236,6 +241,11 @@ public final class VantaClientGameTest implements FabricClientGameTest {
     }
 
     // ---- helpers -----------------------------------------------------------------------------------------------
+
+    /** Moves the mouse into the bottom-right corner so captures show no hover highlight or tooltip. */
+    private static void parkCursor(ClientGameTestContext context) {
+        context.getInput().setCursorPos(CAPTURE_WIDTH - 2, CAPTURE_HEIGHT - 2);
+    }
 
     private static void step(String message) {
         VantaClient.LOGGER.info("[VANTA gametest] {}", message);

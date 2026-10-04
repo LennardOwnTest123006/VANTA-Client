@@ -574,14 +574,10 @@ public final class HudEditorModel {
         return commit(layout.with(next));
     }
 
-    /** Adds a widget of the type at its default anchor and selects it. */
+    /** Adds a widget of the type at its default anchor, moved clear of existing widgets, and selects it. */
     public HudWidgetState addWidget(HudWidgetType type) {
         String id = layout.nextId(type);
-        HudWidgetState widget = HudWidgetState.defaults(id, type);
-        if (!layout.byType(type).isEmpty()) {
-            int offset = 4 + 12 * layout.byType(type).size();
-            widget = widget.withPosition(type.defaultAnchor(), offset, offset);
-        }
+        HudWidgetState widget = layout.placedClear(HudWidgetState.defaults(id, type), screenW, screenH);
         commit(layout.with(widget));
         selectedId = id;
         fire();

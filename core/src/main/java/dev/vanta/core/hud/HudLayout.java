@@ -164,6 +164,45 @@ public record HudLayout(List<HudWidgetState> widgets) {
                 widget.anchor().offsetYFor(screenH, h, y));
     }
 
+    /**
+     * Copy of {@code widget} moved along its anchor's stacking direction (downwards from top and middle anchors,
+     * upwards from bottom anchors) until it no longer overlaps an enabled widget of this layout. Used when a widget
+     * is added so it never lands on top of another one. When the screen offers no free slot the widget is returned
+     * unchanged.
+     */
+    public HudWidgetState placedClear(HudWidgetState widget, int screenW, int screenH) {
+        Objects.requireNonNull(widget, "widget");
+        if (widget.type().alwaysCentered()) {
+            return widget;
+        }
+        boolean upwards = widget.anchor().row() == 2;
+        HudWidgetState candidate = widget;
+        for (int attempt = 0; attempt < 64; attempt++) {
+            HudRect rect = resolveRect(candidate, screenW, screenH);
+            HudRect blocker = null;
+            for (HudWidgetState other : widgets) {
+                if (other.id().equals(candidate.id()) || !other.enabled() || other.type().alwaysCentered()) {
+                    continue;
+                }
+                HudRect otherRect = resolveRect(other, screenW, screenH);
+                if (otherRect.intersects(rect) && (blocker == null
+                        || (upwards ? otherRect.y() < blocker.y() : otherRect.bottom() > blocker.bottom()))) {
+                    blocker = otherRect;
+                }
+            }
+            if (blocker == null) {
+                return candidate;
+            }
+            int gap = 2;
+            int y = upwards ? blocker.y() - gap - rect.height() : blocker.bottom() + gap;
+            if (y < 0 || y + rect.height() > screenH) {
+                return widget;
+            }
+            candidate = placed(candidate, rect.x(), y, screenW, screenH);
+        }
+        return widget;
+    }
+
     /** Copy of {@code widget} re-anchored to the screen third its rectangle is in, keeping the same position. */
     public static HudWidgetState reanchored(HudWidgetState widget, int screenW, int screenH) {
         if (widget.type().alwaysCentered()) {

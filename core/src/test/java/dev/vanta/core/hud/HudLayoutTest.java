@@ -160,6 +160,42 @@ class HudLayoutTest {
     }
 
     @Test
+    void placedClearStacksAwayFromOccupiedCorners() {
+        int w = 960;
+        int h = 540;
+        HudWidgetState fps = HudWidgetState.defaults("fps", HudWidgetType.FPS);
+        HudWidgetState durability = HudWidgetState.defaults("item_durability", HudWidgetType.ITEM_DURABILITY);
+        HudLayout layout = HudLayout.EMPTY.with(fps).with(durability);
+
+        // Top-left: the memory widget would cover the FPS widget, so it moves below it.
+        HudWidgetState memory = layout.placedClear(HudWidgetState.defaults("memory", HudWidgetType.MEMORY), w, h);
+        HudRect fpsRect = layout.resolveRect(fps, w, h);
+        HudRect memoryRect = layout.resolveRect(memory, w, h);
+        assertTrue(!memoryRect.intersects(fpsRect));
+        assertTrue(memoryRect.y() >= fpsRect.bottom(), "stacked below the blocker");
+        assertEquals(fpsRect.x(), memoryRect.x(), "same column");
+
+        // Bottom-right: keystrokes stack upwards, above the item durability widget.
+        HudWidgetState keys = layout.placedClear(HudWidgetState.defaults("keystrokes", HudWidgetType.KEYSTROKES), w, h);
+        HudRect durabilityRect = layout.resolveRect(durability, w, h);
+        HudRect keysRect = layout.resolveRect(keys, w, h);
+        assertTrue(!keysRect.intersects(durabilityRect));
+        assertTrue(keysRect.bottom() <= durabilityRect.y(), "stacked above the blocker");
+
+        // A free spot is left alone; disabled widgets and the widget itself do not block.
+        HudWidgetState clock = HudWidgetState.defaults("clock", HudWidgetType.CLOCK);
+        assertEquals(clock, layout.placedClear(clock, w, h));
+        HudLayout withDisabled = layout.with(fps.withEnabled(false));
+        HudWidgetState memory2 = HudWidgetState.defaults("memory", HudWidgetType.MEMORY);
+        assertEquals(memory2, withDisabled.placedClear(memory2, w, h));
+        assertEquals(fps, layout.placedClear(fps, w, h));
+
+        // No room at all (tiny screen): the widget comes back unchanged instead of being pushed off-screen.
+        HudWidgetState cramped = HudWidgetState.defaults("memory", HudWidgetType.MEMORY);
+        assertEquals(cramped, layout.placedClear(cramped, 100, 20));
+    }
+
+    @Test
     void rectHelpers() {
         HudRect r = new HudRect(10, 10, 20, 10);
         assertTrue(r.contains(10, 10));
