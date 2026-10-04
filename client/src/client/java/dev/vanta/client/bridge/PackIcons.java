@@ -6,7 +6,6 @@ import dev.vanta.core.ui.TextureRef;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
@@ -18,8 +17,9 @@ import net.minecraft.server.packs.resources.IoSupplier;
 
 /**
  * Loads resource pack icons ({@code pack.png}) into dynamic textures, exactly like the vanilla pack screen does, and
- * caches the result per pack id. Icons are registered as {@code vanta:packicon/<sanitised id>_<hash>} so the core can
- * draw them through a {@link TextureRef}.
+ * caches the result per pack id. Icons are registered under exactly the identifier the core's
+ * {@link dev.vanta.core.screen.packs.PackIcons#texture} expects ({@code vanta:pack_icons/<sanitised id>}) so the
+ * resource pack screen can draw them through a {@link TextureRef}.
  */
 final class PackIcons {
     private final Map<String, Optional<TextureRef>> cache = new HashMap<>();
@@ -48,27 +48,14 @@ final class PackIcons {
             try (InputStream in = supplier.get()) {
                 image = NativeImage.read(in);
             }
-            String path = "packicon/" + texturePath(pack.getId());
-            Identifier id = Identifier.fromNamespaceAndPath(VantaClient.MOD_ID, path);
+            TextureRef ref = dev.vanta.core.screen.packs.PackIcons.texture(pack.getId());
+            Identifier id = Identifier.fromNamespaceAndPath(ref.namespace(), ref.path());
             minecraft.getTextureManager().register(id, new DynamicTexture(() -> "VANTA pack icon " + pack.getId(),
                     image));
-            return Optional.of(new TextureRef(VantaClient.MOD_ID, path));
+            return Optional.of(ref);
         } catch (IOException | RuntimeException e) {
             VantaClient.LOGGER.debug("No usable icon for resource pack {}", pack.getId(), e);
             return Optional.empty();
         }
-    }
-
-    /** Identifier-safe path segment for a pack id plus a hash so distinct ids never collide. */
-    static String texturePath(String packId) {
-        String lower = packId.toLowerCase(Locale.ROOT);
-        StringBuilder sb = new StringBuilder(lower.length() + 9);
-        for (int i = 0; i < lower.length(); i++) {
-            char c = lower.charAt(i);
-            boolean ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '/' || c == '.' || c == '_'
-                    || c == '-';
-            sb.append(ok ? c : '_');
-        }
-        return sb.append('_').append(Integer.toHexString(packId.hashCode())).toString();
     }
 }

@@ -2,7 +2,6 @@ package dev.vanta.client.event;
 
 import dev.vanta.client.VantaClient;
 import dev.vanta.client.VantaRuntime;
-import dev.vanta.client.hud.ClickCounters;
 import dev.vanta.client.screen.VantaScreens;
 import dev.vanta.core.keybinds.VantaKeys;
 import dev.vanta.core.screen.ScreenId;
@@ -33,10 +32,7 @@ public final class GameEvents {
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> runtime.shutdown());
         ClientTickEvents.END_CLIENT_TICK.register(client -> onEndTick(runtime, client));
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> onJoin(runtime, client));
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            runtime.services().stats().onLeave();
-            ClickCounters.reset();
-        });
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> runtime.services().stats().onLeave());
         ClientPlayerBlockBreakEvents.AFTER.register((world, player, pos, state) ->
                 runtime.services().stats().onBlockBroken());
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
@@ -75,7 +71,6 @@ public final class GameEvents {
 
     private static void onJoin(VantaRuntime runtime, Minecraft client) {
         StatsTracker stats = runtime.services().stats();
-        ClickCounters.reset();
         if (client.isLocalServer()) {
             stats.onJoinWorld(worldName(client));
             return;

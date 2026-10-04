@@ -1,50 +1,32 @@
 package dev.vanta.client.hud;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import dev.vanta.core.hud.CpsCounter;
+import dev.vanta.client.VantaRuntime;
+import dev.vanta.core.ui.Keys;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.Minecraft;
 
 /**
- * Clicks-per-second counters for the attack and use keys, fed by the {@code KeyMappingMixin} from the very same
- * {@code KeyMapping.click} calls the game processes. Nothing here generates input; it only observes the user's own
- * presses (which the game never registers while a screen is open).
+ * Feeds the clicks-per-second widgets of the core {@link dev.vanta.core.hud.render.HudRenderer}. Called by the
+ * {@code KeyMappingMixin} from the very same {@code KeyMapping.click} calls the game processes. Nothing here generates
+ * input; it only observes the user's own presses (which the game never registers while a screen is open).
  */
 public final class ClickCounters {
-    private static final CpsCounter LEFT = new CpsCounter();
-    private static final CpsCounter RIGHT = new CpsCounter();
-
     private ClickCounters() {
     }
 
-    /** Attack key (left mouse button by default). */
-    public static CpsCounter left() {
-        return LEFT;
-    }
-
-    /** Use key (right mouse button by default). */
-    public static CpsCounter right() {
-        return RIGHT;
-    }
-
-    /** Records a press of {@code key} when it is bound to attack or use. */
+    /** Records a press of {@code key} when it is bound to attack (left counter) or use (right counter). */
     public static void onClick(InputConstants.Key key) {
+        VantaRuntime runtime = VantaRuntime.get();
         Minecraft minecraft = Minecraft.getInstance();
-        if (key == null || minecraft == null || minecraft.options == null) {
+        if (key == null || runtime == null || minecraft == null || minecraft.options == null) {
             return;
         }
-        long now = System.currentTimeMillis();
         if (key.equals(KeyBindingHelper.getBoundKeyOf(minecraft.options.keyAttack))) {
-            LEFT.click(now);
+            runtime.hud().onMouseClick(Keys.MOUSE_LEFT);
         }
         if (key.equals(KeyBindingHelper.getBoundKeyOf(minecraft.options.keyUse))) {
-            RIGHT.click(now);
+            runtime.hud().onMouseClick(Keys.MOUSE_RIGHT);
         }
-    }
-
-    /** Clears both counters (world change). */
-    public static void reset() {
-        LEFT.reset();
-        RIGHT.reset();
     }
 }

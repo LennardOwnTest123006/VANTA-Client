@@ -23,7 +23,12 @@ public final class PackIcons {
      * id is sanitised to the characters Minecraft allows in identifier paths.
      */
     public static TextureRef texture(PackInfo pack) {
-        return new TextureRef("vanta", "pack_icons/" + sanitize(pack.id()));
+        return texture(pack.id());
+    }
+
+    /** Same as {@link #texture(PackInfo)} for a raw pack id; the client uses it when registering the texture. */
+    public static TextureRef texture(String packId) {
+        return new TextureRef("vanta", "pack_icons/" + sanitize(packId));
     }
 
     /** Lower-cases and replaces every character outside {@code [a-z0-9/._-]} with an underscore. */
