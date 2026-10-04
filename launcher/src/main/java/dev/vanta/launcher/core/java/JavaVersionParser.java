@@ -100,7 +100,7 @@ public final class JavaVersionParser {
      * @return home
      */
     public static Path homeOf(final Path executable) {
-        final Path bin = executable.toAbsolutePath().getParent();
+        final Path bin = executable.getParent() != null ? executable.getParent() : executable.toAbsolutePath().getParent();
         return bin != null && bin.getParent() != null ? bin.getParent() : executable.toAbsolutePath();
     }
 

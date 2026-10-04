@@ -57,6 +57,7 @@ class LaunchServiceTest {
 
     @AfterAll
     static void stop() {
+        LauncherLog.close();
         world.close();
     }
 
@@ -70,7 +71,7 @@ class LaunchServiceTest {
             .withResolution(new Resolution(1600, 900));
         final LaunchCommand command = service().buildCommand(new LaunchRequest(instance, ACCOUNT, Path.of("/usr/bin/java"), settings, "My World", null));
         final List<String> c = command.command();
-        assertEquals("/usr/bin/java", c.get(0));
+        assertEquals(Path.of("/usr/bin/java").toString(), c.get(0));
         assertEquals("-Xmx3072M", c.get(1));
         final int main = c.indexOf("net.fabricmc.loader.impl.launch.knot.KnotClient");
         assertTrue(main > 0, "main class present: " + c);
@@ -172,7 +173,7 @@ class LaunchServiceTest {
 
         // launcher.log also redacted
         try (Stream<Path> logs = Files.list(paths.logsDir())) {
-            for (Path l : logs.filter(p -> p.getFileName().toString().startsWith("launcher")).toList()) {
+            for (Path l : logs.filter(p -> p.getFileName().toString().startsWith("launcher") && p.getFileName().toString().endsWith(".log")).toList()) {
                 assertFalse(Files.readString(l).contains(TOKEN), l + " leaks the token");
             }
         }

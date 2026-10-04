@@ -67,7 +67,7 @@ class LauncherCliTest {
         try (PrintStream o = new PrintStream(out, true, StandardCharsets.UTF_8); PrintStream e = new PrintStream(err, true, StandardCharsets.UTF_8)) {
             code = cli.execute(args, o, e);
         }
-        return new Run(code, out.toString(StandardCharsets.UTF_8), err.toString(StandardCharsets.UTF_8));
+        return new Run(code, out.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"), err.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"));
     }
 
     @Test

@@ -22,10 +22,10 @@ class JavaDetectorTest {
     @TempDir
     Path tmp;
 
-    private static final OsInfo LINUX = new OsInfo("linux", "x64", "6.8");
+    private static final OsInfo HOST = new OsInfo(OsInfo.detect().name(), "x64", "6.8");
 
     private Path fakeJava(final Path home, final String version) throws IOException {
-        final Path exe = home.resolve("bin/java");
+        final Path exe = home.resolve("bin").resolve(HOST.javaExecutableName());
         Files.createDirectories(exe.getParent());
         Files.writeString(exe, "#!/bin/sh\necho " + version + "\n");
         exe.toFile().setExecutable(true);
@@ -56,8 +56,11 @@ class JavaDetectorTest {
 
         final Map<String, String> env = new HashMap<>();
         env.put("JAVA_HOME", j25.getParent().getParent().toString());
-        env.put("PATH", onPath.getParent() + ":/nonexistent/bin");
-        final JavaDetector detector = new JavaDetector(LINUX, env, paths, NAME_PROBE, List.of(jvmRoot, tmp.resolve("broken")));
+        env.put("PATH", onPath.getParent() + HOST.classpathSeparator() + tmp.resolve("nonexistent/bin"));
+        env.put("ProgramFiles", tmp.resolve("pf").toString());
+        env.put("ProgramFiles(x86)", tmp.resolve("pf86").toString());
+        env.put("LOCALAPPDATA", tmp.resolve("localappdata").toString());
+        final JavaDetector detector = new JavaDetector(HOST, env, paths, NAME_PROBE, List.of(jvmRoot, tmp.resolve("broken")));
 
         final List<Path> candidates = detector.candidateExecutables();
         assertEquals(j25.toRealPath(), candidates.get(0), "JAVA_HOME first");
@@ -90,7 +93,7 @@ class JavaDetectorTest {
     @Test
     void userPathAcceptsHomeBinOrExecutable() throws IOException {
         final Path exe = fakeJava(tmp.resolve("jdk-21.0.4"), "21.0.4");
-        final JavaDetector detector = new JavaDetector(LINUX, Map.of(), new LauncherPaths(tmp.resolve("data")), NAME_PROBE, List.of());
+        final JavaDetector detector = new JavaDetector(HOST, Map.of(), new LauncherPaths(tmp.resolve("data")), NAME_PROBE, List.of());
         assertEquals(exe, detector.executableFromUserPath(tmp.resolve("jdk-21.0.4")).orElseThrow());
         assertEquals(exe, detector.executableFromUserPath(tmp.resolve("jdk-21.0.4/bin")).orElseThrow());
         assertEquals(exe, detector.executableFromUserPath(exe).orElseThrow());

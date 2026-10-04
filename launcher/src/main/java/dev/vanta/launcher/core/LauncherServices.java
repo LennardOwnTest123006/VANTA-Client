@@ -284,5 +284,6 @@ public final class LauncherServices implements AutoCloseable {
     @Override
     public void close() {
         downloader.close();
+        LauncherLog.close();
     }
 }

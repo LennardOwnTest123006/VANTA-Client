@@ -55,6 +55,18 @@ public final class LauncherLog {
     }
 
     /**
+     * Removes and closes the file handler so the current log file is released. Windows cannot delete or move an
+     * open log file, so {@code LauncherServices.close()} calls this before the data directory may be cleaned up.
+     */
+    public static synchronized void close() {
+        if (fileHandler != null) {
+            Logger.getLogger(ROOT).removeHandler(fileHandler);
+            fileHandler.close();
+            fileHandler = null;
+        }
+    }
+
+    /**
      * @param name logger suffix
      * @return logger {@code VANTA.<name>}
      */

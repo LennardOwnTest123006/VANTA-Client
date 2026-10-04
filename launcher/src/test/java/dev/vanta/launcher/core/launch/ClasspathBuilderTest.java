@@ -58,7 +58,7 @@ class ClasspathBuilderTest {
     @Test
     void joinUsesSeparator() {
         final String joined = ClasspathBuilder.join(List.of(Path.of("/a.jar"), Path.of("/b.jar")), ":");
-        assertEquals("/a.jar:/b.jar", joined);
+        assertEquals(Path.of("/a.jar") + ":" + Path.of("/b.jar"), joined);
         assertTrue(ClasspathBuilder.join(List.of(), ";").isEmpty());
     }
 }
