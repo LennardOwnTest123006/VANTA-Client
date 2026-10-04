@@ -1,0 +1,77 @@
+{
+  "01_main_menu.png": {
+    "caption": "The VANTA main menu in place of the vanilla title screen.",
+    "alt": "Dark menu with the VANTA logo and wordmark above the slogan \"Your Minecraft. Refined.\", a violet Play button, buttons for Singleplayer, Multiplayer, Options, Language, Resource Packs, Accessibility and Quit Game, six small quick-access icons, the version label \"VANTA Client 1.0.0, Minecraft 1.21.11, Fabric 0.19.5, Fabric API 0.141.6+1.21.11\" in the bottom-left corner and a \"Default\" profile badge bottom-right. Small ember particles drift over a violet horizon.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "02_settings.png": {
+    "caption": "Settings, General category: VANTA options alongside the vanilla ones, saved automatically.",
+    "alt": "Settings screen with a category rail on the left (General, Video, Audio, Controls, HUD, Performance, Accessibility, Language, Cosmetics, Privacy), a search field top-right and rows for VANTA main menu, Menu background, Menu particles, Show version label, Notification position and duration, Interface scale, Interface sounds, Theme, Reset all settings and Open config folder.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "03_hud_editor.png": {
+    "caption": "HUD editor with the Default layout; outside a world the preview shows sample data.",
+    "alt": "HUD editor with a widget list on the left (FPS, Ping, Coordinates, Direction, Biome, Server, CPS, Clock, Armor, Item durability, Potion effects, Keystrokes, Memory, CPU, Entities, Minecraft version, Crosshair), a gridded preview of the game screen in the middle showing the enabled widgets, an empty inspector on the right and a toolbar with the preset selector, grid and snap toggles and a Done button.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "04_performance.png": {
+    "caption": "Performance Center outside a world: memory, system info and the four presets with their before/after table.",
+    "alt": "Performance Center with a notice that live metrics need a world, cards for FPS, Frame time, Memory (411 MB used of 3998 MB), Distances with render and simulation distance sliders, System (CPU, Java 21.0.12.1, Linux, 4 threads) and a Presets card with Low, Balanced, High and Ultra tabs and a table comparing current and new values.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "05_profiles.png": {
+    "caption": "Profiles: the five built-in profiles with activate, duplicate, rename, export, reset and delete actions.",
+    "alt": "Profiles screen with an unsaved-changes banner, Import and Save current as profile buttons, and cards for Default (active), PvP, Building, Performance and Recording, each listing its HUD, crosshair and performance preset.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "06_keybinds.png": {
+    "caption": "Keybinds with conflict detection across VANTA and vanilla key mappings.",
+    "alt": "Keybinds screen with a banner reporting 14 conflicts, a Show only conflicts switch, a Reset all keys button and grouped rows: VANTA (Open VANTA menu on Right Shift, Toggle HUD, Open HUD editor, Open Performance Center, Zoom on C, HUD-free screenshot), Gameplay and Movement, with conflicting keys highlighted in red.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "07_crosshair.png": {
+    "caption": "Crosshair editor: previews on four backgrounds, six presets and every style control.",
+    "alt": "Crosshair screen with preview tiles labelled Dark, Light, Noisy and 3× zoom, preset tiles Default, Dot, Thin, Bold, Circle and Precision, and a Style panel with Shape, Size, Thickness, Gap, Opacity, Colour, Outline, Outline thickness, Outline colour, Dynamic, Hide in third person and Use vanilla crosshair controls.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "08_cosmetics.png": {
+    "caption": "Cosmetics, Themes tab: five built-in UI themes, all free and purely visual.",
+    "alt": "Cosmetics screen with a rail (Themes, Backdrops, HUD style, Crosshair, Particles, Badges, Packs) and theme cards VANTA Dark (selected), Midnight, Graphite, Aurora and Ember, each with a miniature preview, plus a note that all built-in cosmetics are free.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "09_statistics.png": {
+    "caption": "Local statistics on a fresh installation: nothing recorded yet, and nothing ever leaves the computer.",
+    "alt": "Statistics screen with All time cards (Playtime, Sessions, Average FPS, Best FPS, Worlds, Servers, Distance travelled, Blocks broken, Blocks placed) all reading zero or \"No session recorded yet\", a This session card marked Recording this session, and an empty Recent sessions list.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "10_resource_packs.png": {
+    "caption": "Resource pack manager with available and selected packs, icons and ordering controls.",
+    "alt": "Resource Packs screen with an Available list (a Fabric mod pack, High Contrast, Programmer Art) and a Selected list of 48 packs starting with VANTA Client and Fabric Loader, each with its pack icon, Required and File badges and up/down arrows, plus Open pack folder, Vanilla pack screen, Discard changes and Apply & reload buttons.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "11_accessibility.png": {
+    "caption": "Accessibility: interface scale, larger text, high contrast, reduced transparency and motion, colour-blind palettes.",
+    "alt": "Accessibility screen with a Display section (Interface scale slider, Larger text, High contrast, Reduce transparency switches), a Motion section (Reduce motion), a Colours section with a Colour-blind palette dropdown and Success, Warning and Danger preview chips, and a Keyboard navigation section listing shortcuts.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "12_search.png": {
+    "caption": "Global search over settings, screens and key bindings.",
+    "alt": "Centered command palette with a search field reading \"Search settings, screens and keys...\", a Screens section listing Open Settings, HUD Editor, Performance Center, Profiles, Keybinds, Crosshair, Cosmetics, Statistics, Resource Packs, Accessibility and About with one-line descriptions, and a footer with keyboard hints.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "13_about.png": {
+    "caption": "About: exact versions, links, licences and the fair-play statement.",
+    "alt": "About VANTA screen with the logo, a Versions card (VANTA Client 1.0.0, Minecraft 1.21.11, Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11, Java 21.0.12.1 Eclipse Adoptium, Linux amd64) with a Copy version info button, a Links card (Documentation, Source code, Report an issue, Open config folder), a Licenses card and a green Fair play banner stating that VANTA adds no cheats, combat automation or unfair advantages.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "20_hud_ingame.png": {
+    "caption": "In a freshly created creative world with FPS, coordinates, biome, clock, memory, keystrokes, armour and ping widgets enabled.",
+    "alt": "First-person view over a flat grass plain under a blue sky. Top-left: HUD widgets for memory, server (Local), coordinates, facing direction and biome. Top-right: clock and an effects panel reading No effects. Bottom-left: Armor 0. Bottom-right: a keystrokes cluster (W, A, S, D, LMB, RMB, Shift) above the item durability widget. The vanilla hotbar sits at the bottom centre.",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  },
+  "21_ingame_menu.png": {
+    "caption": "The VANTA settings opened from inside a world, with the game blurred behind and a notification confirming the applied preset.",
+    "alt": "Settings screen, General category, drawn over a blurred first-person view of a grass plain, with a toast in the top-right corner reading \"Preset applied: Balanced video options are active\".",
+    "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
+  }
+}

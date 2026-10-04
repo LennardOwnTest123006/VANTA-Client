@@ -17,17 +17,20 @@ VANTA screen:
 | `20_hud_ingame.png` | in-world HUD with several widgets enabled |
 | `21_ingame_menu.png` | VANTA menu opened while in a world |
 
-They land in `client/run/production-gametest/screenshots/` on the runner, are attached to the workflow run as the
-`client-gametest` artifact, and `scripts/ci/publish-screenshots.sh` mirrors them to the orphan `ci-artifacts` branch
-for review. Nothing is copied here automatically.
+The test resizes the window to 1920×1080 at GUI scale 2 (960×540 logical pixels, the desktop layout of every
+screen) and parks the mouse in a corner before each capture, so no hover state or tooltip ends up in the picture. The
+files land in `client/run/production-gametest/screenshots/` on the runner (prefixed with a running counter, e.g.
+`0003_04_performance.png`), are attached to the workflow run as the `client-gametest` artifact, and
+`scripts/ci/publish-screenshots.sh` mirrors them to the orphan `ci-artifacts` branch for review. Nothing is copied
+here automatically.
 
 ## Promoting screenshots to this folder
 
 A maintainer reviews a run and copies the files that should be public:
 
 1. Download the `client-gametest` artifact of a green run on the default branch (or a release run).
-2. Copy the PNGs here keeping their names (`NN_name.png`). Do not retouch them; cropping to the window and lossless
-   PNG optimisation (`oxipng`/`zopflipng`) are the only allowed edits.
+2. Copy the PNGs here keeping their names without the counter prefix (`NN_name.png`). Do not retouch them; lossless
+   PNG re-encoding (`oxipng`, `zopflipng`, or `sharp` with `png({ compressionLevel: 9 })`) is the only allowed edit.
 3. Describe each image in `captions.json` (the website reads it when present):
 
    ```json

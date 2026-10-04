@@ -11,7 +11,9 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Pull request runs are superseded by newer pushes; branch runs always finish, because the headless game test
+  # publishes its screenshots and logs and a cancelled run leaves nothing to review.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   core:
