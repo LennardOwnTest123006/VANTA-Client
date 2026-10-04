@@ -156,7 +156,7 @@ public final class ProfilesScreen extends ThemedScreen implements ProfileCard.Li
                 Lang.tr("vanta.profiles.duplicate.hint"), actions.copyName(source.get().name()),
                 Lang.tr("vanta.profiles.duplicate"), name -> actions.validateName(name, null), name -> {
                     Optional<Profile> copy = profiles.duplicate(profileId, name);
-                    copy.ifPresent(c -> notify(NotificationKind.SUCCESS, "vanta.profiles.notification.duplicated",
+                    copy.ifPresent(c -> notify(NotificationKind.SUCCESS, "vanta.profiles.notification.duplicated.",
                             c.name()));
                     refresh();
                 });
@@ -191,7 +191,7 @@ public final class ProfilesScreen extends ThemedScreen implements ProfileCard.Li
                 Lang.tr("vanta.profiles.confirm_reset.body"), Lang.tr("vanta.common.reset"),
                 Lang.tr("vanta.common.cancel"), true, () -> {
                     if (actions.resetBuiltIn(profileId)) {
-                        notify(NotificationKind.INFO, "vanta.profiles.notification.reset", profile.get().name());
+                        notify(NotificationKind.INFO, "vanta.profiles.notification.reset.", profile.get().name());
                         refresh();
                     }
                 });
@@ -215,7 +215,7 @@ public final class ProfilesScreen extends ThemedScreen implements ProfileCard.Li
                 Lang.tr("vanta.common.delete"), Lang.tr("vanta.common.cancel"), true, () -> {
                     if (profiles.delete(profileId)) {
                         services().keybinds().refresh();
-                        notify(NotificationKind.INFO, "vanta.profiles.notification.deleted", profile.get().name());
+                        notify(NotificationKind.INFO, "vanta.profiles.notification.deleted.", profile.get().name());
                         refresh();
                     }
                 });
@@ -228,7 +228,7 @@ public final class ProfilesScreen extends ThemedScreen implements ProfileCard.Li
         return NameDialog.open(context(), Lang.tr("vanta.profiles.create.title"), Lang.tr("vanta.profiles.create.hint"),
                 "", Lang.tr("vanta.profiles.create.button"), name -> actions.validateName(name, null), name -> {
                     Profile created = profiles.createFromCurrent(name, Profile.DEFAULT_ICON);
-                    notify(NotificationKind.SUCCESS, "vanta.profiles.notification.created", created.name());
+                    notify(NotificationKind.SUCCESS, "vanta.profiles.notification.created.", created.name());
                     refresh();
                 });
     }
@@ -244,14 +244,15 @@ public final class ProfilesScreen extends ThemedScreen implements ProfileCard.Li
     /** Stores the live configuration into the active profile. */
     public void saveToActive() {
         Optional<Profile> updated = profiles.updateActiveFromCurrent();
-        updated.ifPresent(p -> notify(NotificationKind.SUCCESS, "vanta.profiles.notification.saved", p.name()));
+        updated.ifPresent(p -> notify(NotificationKind.SUCCESS, "vanta.profiles.notification.saved.", p.name()));
         refresh();
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------
 
+    /** Posts a toast from a key prefix ending in a dot ({@code <prefix>title} and {@code <prefix>body}). */
     private void notify(NotificationKind kind, String keyPrefix, Object... args) {
-        services().notifications().post(kind, Lang.tr(keyPrefix + ".title"), Lang.tr(keyPrefix + ".body", args));
+        services().notifications().post(kind, Lang.tr(keyPrefix + "title"), Lang.tr(keyPrefix + "body", args));
     }
 
     private void copyToClipboard(String text) {

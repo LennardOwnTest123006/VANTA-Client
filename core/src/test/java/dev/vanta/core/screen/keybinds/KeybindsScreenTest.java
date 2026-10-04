@@ -95,7 +95,9 @@ class KeybindsScreenTest {
         fx.key(screen, Keys.BACKSPACE);
         assertTrue(fx.keys.find("key.sprint").orElseThrow().isUnbound());
         assertEquals(Lang.tr("vanta.keybinds.unbound"), row("key.sprint").field().keyName());
-        fx.click(screen, row("key.sprint").resetButton());
+        // The sprint row sits below the fold at 854x480, so press its reset button directly.
+        row("key.sprint").resetButton().click(screen.context());
+        fx.frame(screen);
         assertTrue(fx.keys.find("key.sprint").orElseThrow().isDefault());
         assertFalse(row("key.sprint").resetButton().isVisible());
     }

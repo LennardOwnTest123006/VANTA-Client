@@ -38,7 +38,9 @@ class StatisticsScreenTest {
         assertFalse(screen.clearButton().isEnabled());
         assertFalse(screen.disabledBanner().isVisible());
         assertTrue(screen.enabledToggle().isOn());
-        TestCanvas canvas = fx.ui.frame(screen, -1, -1);
+        assertNotNull(screen.root().findById("stats.empty"));
+        StatisticsScreen tall = fx.open(ScreenId.STATISTICS, 854, 1200);
+        TestCanvas canvas = fx.ui.frame(tall, -1, -1);
         assertTrue(canvas.ops().stream().anyMatch(op -> op instanceof TestCanvas.Text t
                 && t.text().equals(Lang.tr("vanta.stats.no_sessions"))));
     }
@@ -109,11 +111,14 @@ class StatisticsScreenTest {
         assertEquals(Lang.tr("vanta.stats.export"), toasts.get(toasts.size() - 1).title());
         assertTrue(toasts.get(toasts.size() - 1).body().contains("config/vanta/exports/"));
 
-        fx.click(screen, screen.clearButton());
+        // The privacy card sits below the fold at 854x480, so press the button directly.
+        screen.clearButton().click(screen.context());
+        fx.frame(screen);
         assertNotNull(fx.topDialog(screen));
         fx.cancelDialog(screen);
         assertEquals(3, fx.services.statsStore().lifetime().sessions());
-        fx.click(screen, screen.clearButton());
+        screen.clearButton().click(screen.context());
+        fx.frame(screen);
         fx.clock.advance(2000);
         fx.confirmDialog(screen);
         assertEquals(0, fx.services.statsStore().lifetime().sessions());

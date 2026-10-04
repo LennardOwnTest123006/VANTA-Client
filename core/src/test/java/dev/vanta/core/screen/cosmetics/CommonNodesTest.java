@@ -85,9 +85,11 @@ class CommonNodesTest {
         InfoBanner banner = new InfoBanner(InfoBanner.Tone.WARNING, "Title", "Body text that is long enough to wrap.");
         Button action = Button.primary("Act", () -> { });
         banner.action(action);
+        banner.setBounds(0, 0, 400, 0);
         ui.place(banner, 0, 0, 400, banner.preferredSize(ui.ctx()).h());
         assertTrue(action.bounds().right() <= 400 && action.bounds().x() > 200);
         int wideH = banner.bounds().h();
+        banner.setBounds(0, 0, 200, 0);
         ui.place(banner, 0, 0, 200, banner.preferredSize(ui.ctx()).h());
         assertTrue(banner.bounds().h() > wideH);
         assertTrue(action.bounds().y() > banner.bounds().y() + 10);

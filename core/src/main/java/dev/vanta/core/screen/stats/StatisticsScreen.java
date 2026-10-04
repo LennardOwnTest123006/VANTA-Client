@@ -140,8 +140,10 @@ public final class StatisticsScreen extends ThemedScreen {
         body.add(new SectionHeader(Lang.tr("vanta.stats.recent"))
                 .trailing(recent.isEmpty() ? "" : Lang.tr("vanta.stats.last_sessions", recent.size())));
         if (recent.isEmpty()) {
-            body.add(new EmptyState(Icons.CHART, Lang.tr("vanta.stats.no_sessions"),
-                    Lang.tr("vanta.stats.no_sessions.hint")));
+            EmptyState empty = new EmptyState(Icons.CHART, Lang.tr("vanta.stats.no_sessions"),
+                    Lang.tr("vanta.stats.no_sessions.hint"));
+            empty.setId("stats.empty");
+            body.add(empty);
             table = null;
         } else {
             table = new SessionTable(recent, zone, privacy.trackWorlds() || privacy.trackServers());

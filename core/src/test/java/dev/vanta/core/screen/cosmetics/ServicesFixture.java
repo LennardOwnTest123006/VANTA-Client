@@ -66,6 +66,8 @@ public final class ServicesFixture {
         UiScreen screen = (UiScreen) services.screens().create(id).orElseThrow();
         screen.attach(env());
         screen.init(width, height);
+        // Move past the open transition so frames draw at full alpha (the recording canvas drops alpha-0 draws).
+        ui.clock.advance(UiScreen.TRANSITION_MS * 4);
         frame(screen);
         return (T) screen;
     }

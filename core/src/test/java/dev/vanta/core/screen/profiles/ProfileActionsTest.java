@@ -93,9 +93,9 @@ class ProfileActionsTest {
     void resetBuiltInRestoresShippedContentButKeepsNameAndAppliesWhenActive() {
         ProfileManager profiles = fx.services.profiles();
         profiles.rename("pvp", "My PvP");
+        profiles.activate("pvp");
         fx.services.crosshair().applyPreset(CrosshairPresets.find(CrosshairPresets.CIRCLE).orElseThrow());
         fx.services.settings().set(VantaSettings.HUD_GLOBAL_SCALE, 1.5);
-        profiles.activate("pvp");
         profiles.updateActiveFromCurrent();
         Profile drifted = profiles.find("pvp").orElseThrow();
         assertEquals(CrosshairPresets.find(CrosshairPresets.CIRCLE).orElseThrow().style(), drifted.crosshair());

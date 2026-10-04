@@ -59,12 +59,10 @@ class ProfileSummaryTest {
         fx.services.profiles().updateActiveFromCurrent();
         assertEquals(List.of(), ProfileSummary.unsavedChanges(fx.services));
 
-        fx.services.crosshair().applyPreset(CrosshairPresets.find(CrosshairPresets.DOT).orElseThrow());
-        fx.services.hud().setLayout(HudLayout.EMPTY.with(fx.services.hud().layout().widgets().get(0)));
-        fx.keys.setKey("key.vanta.zoom", KeyRef.keyboard(90, "key.keyboard.z"));
-        fx.services.keybinds().refresh();
-        // Activate pvp so its key override (zoom = C) is recorded, then drift the live binding.
-        fx.services.profiles().activate("pvp");
+        // A profile created from the current state records the VANTA key bindings (built-ins have none).
+        Profile withKeys = fx.services.profiles().createFromCurrent("With keys", "profile");
+        fx.services.profiles().activate(withKeys.id());
+        assertEquals(List.of(), ProfileSummary.unsavedChanges(fx.services));
         fx.keys.setKey("key.vanta.zoom", KeyRef.keyboard(90, "key.keyboard.z"));
         fx.services.keybinds().refresh();
         fx.services.crosshair().applyPreset(CrosshairPresets.find(CrosshairPresets.DOT).orElseThrow());

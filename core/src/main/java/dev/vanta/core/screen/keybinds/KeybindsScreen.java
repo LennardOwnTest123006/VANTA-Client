@@ -110,8 +110,9 @@ public final class KeybindsScreen extends ThemedScreen {
         return shell;
     }
 
-    /** Re-reads the model and rebuilds banner, toolbar and rows. */
+    /** Re-reads the key mappings from the game and rebuilds banner, toolbar and rows. */
     public void rebuildList() {
+        model.refresh();
         UiContext ctx = context();
         String focusedId = ctx != null && ctx.focus().focused() != null ? ctx.focus().focused().id() : null;
         List<ConflictDetector.Conflict> conflicts = model.conflicts();
