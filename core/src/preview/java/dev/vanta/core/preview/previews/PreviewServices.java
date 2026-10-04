@@ -6,6 +6,7 @@ import dev.vanta.core.bridge.FakeKeybindBridge;
 import dev.vanta.core.bridge.FakeOptionsBridge;
 import dev.vanta.core.bridge.FakeResourcePackBridge;
 import dev.vanta.core.bridge.FakeScreenshotBridge;
+import dev.vanta.core.bridge.ResourcePackBridge;
 import dev.vanta.core.config.MutableClock;
 import dev.vanta.core.config.VantaPaths;
 import dev.vanta.core.screen.Screens1;
@@ -25,14 +26,15 @@ public final class PreviewServices {
     public final FakeGameBridge game = new FakeGameBridge();
     /** Fake options bridge. */
     public final FakeOptionsBridge options = new FakeOptionsBridge();
-    /** Fake resource packs. */
-    public final FakeResourcePackBridge packs = new FakeResourcePackBridge();
+    /** Resource packs (the test fake unless {@link #createWithPacks} supplied another bridge). */
+    public final ResourcePackBridge packs;
     /** Deterministic clock (2026-10-04T12:00Z). */
     public final MutableClock clock = MutableClock.standard();
     /** The services. */
     public final VantaServices services;
 
-    private PreviewServices() {
+    private PreviewServices(ResourcePackBridge packs) {
+        this.packs = packs;
         Path dir;
         try {
             dir = Files.createTempDirectory("vanta-preview");
@@ -47,7 +49,12 @@ public final class PreviewServices {
 
     /** Fresh services with the screens of {@link Screens1} registered. */
     public static PreviewServices create() {
-        return new PreviewServices();
+        return new PreviewServices(new FakeResourcePackBridge());
+    }
+
+    /** Fresh services using the given resource pack bridge. */
+    public static PreviewServices createWithPacks(ResourcePackBridge packs) {
+        return new PreviewServices(packs);
     }
 
     /**

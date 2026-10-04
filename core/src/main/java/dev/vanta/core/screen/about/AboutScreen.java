@@ -7,6 +7,7 @@ import dev.vanta.core.perf.SystemInfo;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaLinks;
 import dev.vanta.core.screen.VantaServices;
+import dev.vanta.core.screen.common.Brand;
 import dev.vanta.core.screen.common.InfoBanner;
 import dev.vanta.core.screen.common.LabelValueRow;
 import dev.vanta.core.screen.common.LinkRow;
@@ -21,7 +22,6 @@ import dev.vanta.core.ui.FontKind;
 import dev.vanta.core.ui.Icons;
 import dev.vanta.core.ui.Rect;
 import dev.vanta.core.ui.Size;
-import dev.vanta.core.ui.TextureRef;
 import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiContext;
 import dev.vanta.core.ui.UiNode;
@@ -154,6 +154,7 @@ public final class AboutScreen extends VantaUiScreen {
     /** Logo, wordmark, version line and the one-paragraph description. */
     private final class Hero extends UiNode {
         private static final int LOGO = 44;
+        private static final int WORD_W = 96;
         private List<String> lines = List.of();
 
         private int textLeft() {
@@ -165,8 +166,8 @@ public final class AboutScreen extends VantaUiScreen {
             int w = explicitWidth() > 0 ? explicitWidth() : Math.max(bounds().w(), 240);
             lines = CanvasText.wrap(Lang.tr("vanta.about.description"), Math.max(40, w - textLeft()), FontKind.UI,
                     ctx.metrics());
-            int textH = (LOGO * 3 / 8) + Theme.SPACE_2 + ctx.lineHeight(FontKind.UI) + Theme.SPACE_3
-                    + lines.size() * ctx.lineHeight(FontKind.UI);
+            int textH = Brand.wordmarkTextHeight(Math.min(w - textLeft(), WORD_W)) + Theme.SPACE_3
+                    + ctx.lineHeight(FontKind.UI) + Theme.SPACE_3 + lines.size() * ctx.lineHeight(FontKind.UI);
             return new Size(w, Math.max(LOGO, textH) + Theme.SPACE_2);
         }
 
@@ -180,13 +181,11 @@ public final class AboutScreen extends VantaUiScreen {
         protected void renderSelf(Canvas canvas, UiContext ctx) {
             Theme theme = ctx.theme();
             Rect b = bounds();
-            canvas.fillRounded(b.x() - 4, b.y() - 4, LOGO + 8, LOGO + 8, Theme.RADIUS_LG, Colors.withAlpha(theme.accent(), 0.10f));
-            canvas.image(TextureRef.VANTA_LOGO, b.x(), b.y(), LOGO, LOGO);
+            Brand.drawLogo(canvas, theme, b.x(), b.y(), LOGO);
             int x = b.x() + textLeft();
-            int wordmarkW = Math.min(b.w() - textLeft(), 120);
-            int wordmarkH = wordmarkW / 4;
-            canvas.image(TextureRef.VANTA_WORDMARK, x, b.y() + 1, wordmarkW, wordmarkH);
-            int y = b.y() + wordmarkH + Theme.SPACE_2;
+            int wordmarkW = Math.min(b.w() - textLeft(), WORD_W);
+            int wordmarkH = Brand.drawWordmarkText(canvas, x, b.y() + 1, wordmarkW);
+            int y = b.y() + wordmarkH + Theme.SPACE_3;
             canvas.text(canvas.textClipped(services().versionLine(), b.right() - x, FontKind.UI), x, y,
                     theme.textSecondary(), FontKind.UI, false);
             y += canvas.lineHeight(FontKind.UI) + Theme.SPACE_3;

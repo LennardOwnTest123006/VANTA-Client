@@ -88,6 +88,9 @@ public abstract class VantaUiScreen extends UiScreen {
             }
         });
         liveTheme = true;
+        // Width-dependent nodes (wrapped text, responsive grids) measure against bounds from the previous pass;
+        // a second pass before the first frame lets them settle.
+        invalidateLayout();
         onScreenInit();
         if (afterInit != null) {
             Runnable once = afterInit;
@@ -110,6 +113,16 @@ public abstract class VantaUiScreen extends UiScreen {
 
     /** Hook after the first layout (replaces {@link UiScreen#onInit()}). */
     protected void onScreenInit() {
+    }
+
+    @Override
+    protected void onResize() {
+        invalidateLayout();
+        onScreenResize();
+    }
+
+    /** Hook after a resize layout (replaces {@link UiScreen#onResize()}). */
+    protected void onScreenResize() {
     }
 
     /** Rebuilds the theme from the services and applies it when it differs from the current one. */

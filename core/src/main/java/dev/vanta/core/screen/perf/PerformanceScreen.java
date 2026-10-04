@@ -15,6 +15,7 @@ import dev.vanta.core.screen.common.InfoBanner;
 import dev.vanta.core.screen.common.LabelValueRow;
 import dev.vanta.core.screen.common.ResponsiveGrid;
 import dev.vanta.core.screen.common.ScreenNavigator;
+import dev.vanta.core.screen.common.SettingFormats;
 import dev.vanta.core.screen.common.SettingRow;
 import dev.vanta.core.screen.common.Sparkline;
 import dev.vanta.core.screen.common.VantaUiScreen;
@@ -78,6 +79,7 @@ public final class PerformanceScreen extends VantaUiScreen {
     private final SettingsListener externalChange = change -> onSettingsChanged();
 
     private VantaShell shell;
+    private ScrollPanel scroll;
     private Column content;
     private InfoBanner noWorldBanner;
     private InfoBanner suggestionBanner;
@@ -171,6 +173,11 @@ public final class PerformanceScreen extends VantaUiScreen {
         return List.copyOf(rows);
     }
 
+    /** The scroll panel holding every card (tests scroll it to reach the lower cards). */
+    public ScrollPanel scrollPanel() {
+        return scroll;
+    }
+
     // ---------------------------------------------------------------- build
 
     @Override
@@ -204,7 +211,7 @@ public final class PerformanceScreen extends VantaUiScreen {
         content.add(new InfoBanner(InfoBanner.Tone.NEUTRAL, Lang.tr("vanta.perf.honest_note.title"),
                 Lang.tr("vanta.perf.honest_note")).icon(Icons.LOCK));
 
-        ScrollPanel scroll = new ScrollPanel(content).edgeFade(Colors.withAlpha(theme.bgBase(), 0.92f));
+        scroll = new ScrollPanel(content).edgeFade(Colors.withAlpha(theme.bgBase(), 0.92f));
         shell.content(scroll);
         applySnapshot();
         return shell;
@@ -226,7 +233,7 @@ public final class PerformanceScreen extends VantaUiScreen {
         card.setId("perf.frameTime");
         card.body().gap(Theme.SPACE_2);
         frameAvg = card.add(new LabelValueRow(Lang.tr("vanta.perf.average"), ""));
-        frameLow = card.add(new LabelValueRow(Lang.tr("vanta.perf.one_percent_low"), ""));
+        frameLow = card.add(new LabelValueRow(SettingFormats.text("vanta.perf.one_percent_low"), ""));
         frameMax = card.add(new LabelValueRow(Lang.tr("vanta.perf.max_frame_time"), ""));
         return card;
     }
@@ -246,8 +253,8 @@ public final class PerformanceScreen extends VantaUiScreen {
         Card card = new Card(Lang.tr("vanta.perf.distances"));
         card.setId("perf.distances");
         card.body().gap(0);
-        card.add(row(VantaSettings.VIDEO_RENDER_DISTANCE, false));
-        card.add(row(VantaSettings.VIDEO_SIMULATION_DISTANCE, true));
+        card.add(row(VantaSettings.VIDEO_RENDER_DISTANCE, false).compact(true));
+        card.add(row(VantaSettings.VIDEO_SIMULATION_DISTANCE, true).compact(true));
         entities = card.add(new LabelValueRow(Lang.tr("vanta.perf.entities"), ""));
         return card;
     }
@@ -362,11 +369,13 @@ public final class PerformanceScreen extends VantaUiScreen {
     private void acceptSuggestion() {
         perf.acceptSuggestion();
         onSettingsChanged();
+        snapshot = perf.snapshot();
         applySnapshot();
     }
 
     private void dismissSuggestion() {
         perf.dismissSuggestion();
+        snapshot = perf.snapshot();
         applySnapshot();
     }
 
@@ -457,7 +466,7 @@ public final class PerformanceScreen extends VantaUiScreen {
             int ty = b.y() + (b.h() - canvas.lineHeight(FontKind.UI)) / 2 + 2;
             canvas.text(Lang.tr("vanta.perf.fps"), x, ty, theme.textMuted(), FontKind.UI, false);
             if (low > 0) {
-                String lowText = Lang.tr("vanta.perf.one_percent_low") + " " + Math.round(low);
+                String lowText = SettingFormats.text("vanta.perf.one_percent_low") + " " + Math.round(low);
                 canvas.textRight(canvas.textClipped(lowText, b.w() / 2, FontKind.UI), b.right(), ty, theme.textSecondary(),
                         FontKind.UI, false);
             }

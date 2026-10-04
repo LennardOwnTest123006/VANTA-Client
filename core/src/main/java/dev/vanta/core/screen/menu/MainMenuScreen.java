@@ -11,6 +11,7 @@ import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaServices;
+import dev.vanta.core.screen.common.Brand;
 import dev.vanta.core.screen.common.ConfirmDialogs;
 import dev.vanta.core.screen.common.ScreenNavigator;
 import dev.vanta.core.screen.common.VantaUiScreen;
@@ -23,7 +24,6 @@ import dev.vanta.core.ui.Icons;
 import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.Rect;
 import dev.vanta.core.ui.Size;
-import dev.vanta.core.ui.TextureRef;
 import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiContext;
 import dev.vanta.core.ui.UiNode;
@@ -299,19 +299,18 @@ public final class MainMenuScreen extends VantaUiScreen {
         }
     }
 
-    /** Logo, wordmark and tagline. Falls back to display-font text when the textures are unavailable. */
+    /** Logo tile, the "VANTA" word of the wordmark (the tile already shows the mark) and the tagline. */
     private final class BrandBlock extends UiNode {
-        private static final int LOGO_WIDE = 60;
-        private static final int LOGO_COMPACT = 30;
+        private static final int LOGO_WIDE = 56;
+        private static final int LOGO_COMPACT = 28;
+        private static final int WORD_WIDE = 150;
 
         Size sizeFor(boolean compact) {
             if (compact) {
-                int wordmarkW = LOGO_COMPACT * 3;
-                return new Size(LOGO_COMPACT + Theme.SPACE_4 + wordmarkW, LOGO_COMPACT);
+                int wordW = LOGO_COMPACT * 3;
+                return new Size(LOGO_COMPACT + Theme.SPACE_4 + wordW, LOGO_COMPACT);
             }
-            int wordmarkW = LOGO_WIDE * 3;
-            int wordmarkH = wordmarkW / 4;
-            return new Size(wordmarkW, LOGO_WIDE + Theme.SPACE_3 + wordmarkH + Theme.SPACE_2
+            return new Size(WORD_WIDE, LOGO_WIDE + Theme.SPACE_4 + Brand.wordmarkTextHeight(WORD_WIDE) + Theme.SPACE_2
                     + FontKind.UI.lineHeight());
         }
 
@@ -327,24 +326,18 @@ public final class MainMenuScreen extends VantaUiScreen {
             boolean compact = ctx.screenHeight() < WIDE_MIN_HEIGHT;
             if (compact) {
                 int logo = LOGO_COMPACT;
-                canvas.image(TextureRef.VANTA_LOGO, b.x(), b.y(), logo, logo);
-                int wordmarkW = b.w() - logo - Theme.SPACE_4;
-                int wordmarkH = wordmarkW / 4;
-                canvas.image(TextureRef.VANTA_WORDMARK, b.x() + logo + Theme.SPACE_4, b.y() + (logo - wordmarkH) / 2,
-                        wordmarkW, wordmarkH);
+                Brand.drawLogo(canvas, theme, b.x(), b.y(), logo);
+                int wordW = b.w() - logo - Theme.SPACE_4;
+                int wordH = Brand.wordmarkTextHeight(wordW);
+                Brand.drawWordmarkText(canvas, b.x() + logo + Theme.SPACE_4, b.y() + (logo - wordH) / 2, wordW);
                 return;
             }
             int logo = LOGO_WIDE;
             int cx = b.centerX();
-            // Soft glow behind the mark.
-            canvas.fillRounded(cx - logo / 2 - 6, b.y() - 6, logo + 12, logo + 12, Theme.RADIUS_LG,
-                    Colors.withAlpha(theme.accent(), 0.10f));
-            canvas.image(TextureRef.VANTA_LOGO, cx - logo / 2, b.y(), logo, logo);
-            int wordmarkW = b.w();
-            int wordmarkH = wordmarkW / 4;
-            int wy = b.y() + logo + Theme.SPACE_3;
-            canvas.image(TextureRef.VANTA_WORDMARK, b.x(), wy, wordmarkW, wordmarkH);
-            canvas.textCentered(Lang.tr("vanta.menu.tagline"), cx, wy + wordmarkH + Theme.SPACE_2,
+            Brand.drawLogo(canvas, theme, cx - logo / 2, b.y(), logo);
+            int wy = b.y() + logo + Theme.SPACE_4;
+            int wordH = Brand.drawWordmarkText(canvas, b.x(), wy, b.w());
+            canvas.textCentered(Lang.tr("vanta.menu.tagline"), cx, wy + wordH + Theme.SPACE_2,
                     Colors.withAlpha(theme.textSecondary(), 0.9f), FontKind.UI, true);
         }
     }

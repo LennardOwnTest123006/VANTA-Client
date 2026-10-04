@@ -43,6 +43,12 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// The preview source set lists its default resources directory explicitly above, so Gradle sees every resource
+// (e.g. the PreviewProvider services file) twice; keep one copy instead of failing the build.
+tasks.named('processPreviewResources', ProcessResources) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 21

@@ -109,7 +109,7 @@ public class ResponsiveGrid extends UiNode {
         List<UiNode> visible = visibleChildren();
         Rect b = bounds();
         int columns = columnsFor(b.w());
-        if (lastColumns >= 0 && lastColumns != columns) {
+        if (lastColumns != columns) {
             ctx.requestLayout();
         }
         lastColumns = columns;

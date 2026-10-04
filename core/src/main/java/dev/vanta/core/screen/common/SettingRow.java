@@ -43,6 +43,10 @@ import java.util.function.Consumer;
 public class SettingRow extends UiNode {
     /** Fixed row height. */
     public static final int HEIGHT = 32;
+    /** Height of a compact row whose editor sits inline. */
+    public static final int HEIGHT_COMPACT = 24;
+    /** Height of a compact row whose editor sits on its own line. */
+    public static final int HEIGHT_STACKED = 42;
     /** Duration of the highlight flash. */
     public static final long FLASH_MS = 1600L;
     private static final int PAD_X = Theme.SPACE_4;
@@ -63,6 +67,7 @@ public class SettingRow extends UiNode {
     private boolean refreshing;
     private long flashStart = -1L;
     private AnimatedValue hoverT;
+    private boolean compact;
 
     /**
      * @param setting       the setting to edit
@@ -80,8 +85,40 @@ public class SettingRow extends UiNode {
         this.reset.setTooltip(Lang.tr("vanta.settings.reset_to_default"));
         this.reset.setId("setting." + setting.id() + ".reset");
         add(reset);
-        setTooltip(Lang.tr(setting.descriptionKey()));
+        setTooltip(description());
         setId("row." + setting.id());
+    }
+
+    /** Translated description. */
+    public String description() {
+        return SettingFormats.text(setting.descriptionKey());
+    }
+
+    /**
+     * Compact mode for narrow containers (cards): the description is dropped (it stays as the tooltip) and slider
+     * or text editors move to a second line spanning the row, so titles are never truncated by wide editors.
+     */
+    public SettingRow compact(boolean on) {
+        this.compact = on;
+        return this;
+    }
+
+    /** Whether compact mode is on. */
+    public boolean isCompact() {
+        return compact;
+    }
+
+    /** True when the editor sits on its own line below the title (compact sliders and text fields). */
+    public boolean isStacked() {
+        return compact && (editor instanceof Slider || editor instanceof TextField);
+    }
+
+    /** Height of this row for its mode. */
+    public int rowHeight() {
+        if (!compact) {
+            return HEIGHT;
+        }
+        return isStacked() ? HEIGHT_STACKED : HEIGHT_COMPACT;
     }
 
     /** The setting shown. */
@@ -113,7 +150,7 @@ public class SettingRow extends UiNode {
 
     /** Translated title. */
     public String title() {
-        return Lang.tr(setting.titleKey());
+        return SettingFormats.text(setting.titleKey());
     }
 
     /** Whether the current value equals the default. */
@@ -216,6 +253,7 @@ public class SettingRow extends UiNode {
             return;
         }
         store.set(s, value);
+        reset.setVisible(showsReset() && !isDefault());
         fireChanged();
     }
 
@@ -257,6 +295,7 @@ public class SettingRow extends UiNode {
                 case ACTION -> {
                 }
             }
+            reset.setVisible(showsReset() && !isDefault());
         } finally {
             refreshing = false;
         }
@@ -281,24 +320,34 @@ public class SettingRow extends UiNode {
 
     @Override
     protected Size measure(UiContext ctx) {
-        return new Size(explicitWidth() > 0 ? explicitWidth() : 320, HEIGHT);
+        return new Size(explicitWidth() > 0 ? explicitWidth() : 320, rowHeight());
     }
 
     @Override
     public void layout(UiContext ctx) {
         Rect b = bounds();
         int right = b.right() - PAD_X;
+        boolean stacked = isStacked();
+        int lhBold = ctx.lineHeight(FontKind.UI_BOLD);
+        int resetY = stacked ? b.y() + Theme.SPACE_2 + (lhBold - RESET_SIZE) / 2 : b.centerY() - RESET_SIZE / 2;
         if (showsReset()) {
-            reset.setBounds(right - RESET_SIZE, b.centerY() - RESET_SIZE / 2, RESET_SIZE, RESET_SIZE);
+            reset.setBounds(right - RESET_SIZE, resetY, RESET_SIZE, RESET_SIZE);
             right -= RESET_SIZE + GAP;
         }
         reset.setVisible(showsReset() && !isDefault());
         reset.layout(ctx);
         Size pref = editor.preferredSize(ctx);
-        int maxW = Math.max(40, b.w() / 2);
-        int w = Math.min(pref.w(), maxW);
-        int h = Math.min(pref.h(), b.h() - 4);
-        editor.setBounds(right - w, b.y() + (b.h() - h) / 2, w, h);
+        if (stacked) {
+            int left = b.x() + PAD_X + 4;
+            int w = Math.max(40, b.right() - PAD_X - left);
+            int h = Math.min(pref.h(), 20);
+            editor.setBounds(left, b.bottom() - Theme.SPACE_2 - h, w, h);
+        } else {
+            int maxW = Math.max(40, b.w() / 2);
+            int w = Math.min(pref.w(), maxW);
+            int h = Math.min(pref.h(), b.h() - 4);
+            editor.setBounds(right - w, b.y() + (b.h() - h) / 2, w, h);
+        }
         editor.layout(ctx);
     }
 
@@ -337,12 +386,21 @@ public class SettingRow extends UiNode {
                     theme.gradientStart(), theme.gradientEnd());
         }
         boolean enabled = isEffectivelyEnabled();
+        boolean stacked = isStacked();
         int textX = b.x() + PAD_X + 4;
-        int textRight = editor.bounds().x() - GAP;
+        int textRight = stacked ? (reset.isVisible() ? reset.bounds().x() - GAP : b.right() - PAD_X)
+                : editor.bounds().x() - GAP;
         int textW = Math.max(0, textRight - textX);
         int lhBold = canvas.lineHeight(FontKind.UI_BOLD);
         int lh = canvas.lineHeight(FontKind.UI);
-        int titleY = b.y() + (b.h() - lhBold - lh - 1) / 2;
+        int titleY;
+        if (stacked) {
+            titleY = b.y() + Theme.SPACE_2;
+        } else if (compact) {
+            titleY = b.y() + (b.h() - lhBold) / 2;
+        } else {
+            titleY = b.y() + (b.h() - lhBold - lh - 1) / 2;
+        }
         String title = title();
         List<String> badges = badges();
         int badgesW = 0;
@@ -368,9 +426,10 @@ public class SettingRow extends UiNode {
             canvas.text(badge, bx + BADGE_PAD, by + (BADGE_H - lh) / 2, fg, FontKind.UI, false);
             bx += bw + Theme.SPACE_2;
         }
-        String description = Lang.tr(setting.descriptionKey());
-        canvas.text(canvas.textClipped(description, textW, FontKind.UI), textX, titleY + lhBold + 1, theme.textMuted(),
-                FontKind.UI, false);
+        if (!compact) {
+            canvas.text(canvas.textClipped(description(), textW, FontKind.UI), textX, titleY + lhBold + 1,
+                    theme.textMuted(), FontKind.UI, false);
+        }
         if (!last) {
             canvas.fill(b.x() + PAD_X, b.bottom() - 1, b.w() - PAD_X * 2, 1, Colors.withAlpha(theme.borderSubtle(), 0.7f));
         }

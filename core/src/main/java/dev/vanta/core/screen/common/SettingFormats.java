@@ -16,6 +16,14 @@ public final class SettingFormats {
     private SettingFormats() {
     }
 
+    /**
+     * Translated text of a key with no arguments, with {@code %%} collapsed to {@code %} (language files escape
+     * literal percent signs the {@link String#format} way, which {@link Lang#tr(String)} leaves untouched).
+     */
+    public static String text(String key) {
+        return Lang.format(Lang.tr(key));
+    }
+
     /** Formats a value of {@code setting} for display. Enum and boolean values use their translations. */
     public static String format(Setting<?> setting, Object value) {
         if (value == null) {

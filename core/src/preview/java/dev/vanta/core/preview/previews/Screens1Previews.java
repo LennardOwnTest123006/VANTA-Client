@@ -109,12 +109,12 @@ public final class Screens1Previews implements PreviewProvider {
         out.add(ScreenPreviews.Entry.of("search-overlay", settings(p -> screen(p, ScreenId.SEARCH)), desktop()));
         out.add(ScreenPreviews.Entry.of("search-overlay-query", settings(p -> {
             SearchOverlay s = (SearchOverlay) screen(p, ScreenId.SEARCH);
-            s.setQuery("render");
+            s.onceInitialised(() -> s.field().setText("render"));
             return s;
         }), desktop()));
         out.add(ScreenPreviews.Entry.of("search-overlay-small", settings(p -> {
             SearchOverlay s = (SearchOverlay) screen(p, ScreenId.SEARCH);
-            s.setQuery("hud");
+            s.onceInitialised(() -> s.field().setText("hud"));
             return s;
         }), small()));
 
@@ -150,16 +150,22 @@ public final class Screens1Previews implements PreviewProvider {
         out.add(ScreenPreviews.Entry.of("accessibility-small", settings(p -> screen(p, ScreenId.ACCESSIBILITY)), small()));
 
         // ---- resource packs
-        out.add(ScreenPreviews.Entry.of("resource-packs", settings(p -> screen(p, ScreenId.RESOURCE_PACKS)), desktop()));
+        out.add(ScreenPreviews.Entry.of("resource-packs", () -> {
+            PreviewServices p = PreviewServices.createWithPacks(new PreviewResourcePackBridge()).onTitleScreen();
+            return screen(p, ScreenId.RESOURCE_PACKS);
+        }, desktop()));
         out.add(ScreenPreviews.Entry.of("resource-packs-pending", () -> {
-            PreviewServices p = PreviewServices.create().onTitleScreen();
-            p.packs.setEnabled("programmer_art", true);
-            p.packs.setEnabled("high_contrast", true);
-            p.packs.move("high_contrast", 1);
+            PreviewResourcePackBridge packs = new PreviewResourcePackBridge();
+            packs.setEnabled("file/Faithful 32x.zip", true);
+            packs.setEnabled("high_contrast", true);
+            packs.move("high_contrast", 1);
+            PreviewServices p = PreviewServices.createWithPacks(packs).onTitleScreen();
             return screen(p, ScreenId.RESOURCE_PACKS);
         }, desktop().mouseOver("pack.high_contrast")));
-        out.add(ScreenPreviews.Entry.of("resource-packs-small", settings(p -> screen(p, ScreenId.RESOURCE_PACKS)),
-                small()));
+        out.add(ScreenPreviews.Entry.of("resource-packs-small", () -> {
+            PreviewServices p = PreviewServices.createWithPacks(new PreviewResourcePackBridge()).onTitleScreen();
+            return screen(p, ScreenId.RESOURCE_PACKS);
+        }, small()));
 
         // ---- about
         out.add(ScreenPreviews.Entry.of("about", settings(p -> {
