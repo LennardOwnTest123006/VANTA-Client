@@ -25,7 +25,12 @@ class JavaDetectorTest {
     private static final OsInfo HOST = new OsInfo(OsInfo.detect().name(), "x64", "6.8");
 
     private Path fakeJava(final Path home, final String version) throws IOException {
-        final Path exe = home.resolve("bin").resolve(HOST.javaExecutableName());
+        return fakeJava(home, version, HOST.javaExecutableName());
+    }
+
+    /** Creates a fake Java executable with an explicit file name (e.g. {@code java} for a macOS layout test on Windows). */
+    private Path fakeJava(final Path home, final String version, final String executableName) throws IOException {
+        final Path exe = home.resolve("bin").resolve(executableName);
         Files.createDirectories(exe.getParent());
         Files.writeString(exe, "#!/bin/sh\necho " + version + "\n");
         exe.toFile().setExecutable(true);
@@ -105,7 +110,7 @@ class JavaDetectorTest {
     void macContentsHomeLayout() throws IOException {
         final OsInfo mac = new OsInfo("osx", "arm64", "14");
         final Path root = tmp.resolve("JavaVirtualMachines");
-        final Path exe = fakeJava(root.resolve("jdk-21.0.4.jdk/Contents/Home"), "21.0.4");
+        final Path exe = fakeJava(root.resolve("jdk-21.0.4.jdk/Contents/Home"), "21.0.4", mac.javaExecutableName());
         assertEquals(exe, JavaDetector.executableIn(root.resolve("jdk-21.0.4.jdk"), mac));
         final JavaDetector detector = new JavaDetector(mac, Map.of(), new LauncherPaths(tmp.resolve("data")), e -> Optional.of(
             new JavaInstall(JavaVersionParser.homeOf(e), e, "21.0.4", 21, "Eclipse Adoptium", "aarch64", true)), List.of(root));
