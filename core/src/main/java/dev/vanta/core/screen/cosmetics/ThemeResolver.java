@@ -1,13 +1,11 @@
 package dev.vanta.core.screen.cosmetics;
 
 import dev.vanta.core.accessibility.AccessibilityState;
-import dev.vanta.core.accessibility.ColorBlindPalette;
 import dev.vanta.core.cosmetics.UiThemeDefinition;
+import dev.vanta.core.screen.common.ThemeFactory;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.ui.Theme;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -30,25 +28,9 @@ public final class ThemeResolver {
         return build(services.cosmetics().activeTheme(), services.accessibility().state());
     }
 
-    /** Builds a theme from explicit inputs. */
+    /** Builds a theme from explicit inputs (single implementation in {@link ThemeFactory}). */
     public static Theme build(UiThemeDefinition definition, AccessibilityState state) {
-        Objects.requireNonNull(definition, "definition");
-        Objects.requireNonNull(state, "state");
-        Theme theme = Theme.DEFAULT.withOverrides(definition.tokenOverrides())
-                .withIdentity(definition.id(), Lang.tr(definition.langKey()))
-                .withScale((float) state.uiScale())
-                .withReducedMotion(state.reducedMotion())
-                .withLargeText(state.largeText())
-                .withReducedTransparency(state.reducedTransparency())
-                .withHighContrast(state.highContrast());
-        if (state.palette() != ColorBlindPalette.NONE) {
-            Map<String, Integer> status = new LinkedHashMap<>();
-            status.put("state.success", state.successColor());
-            status.put("state.warning", state.warningColor());
-            status.put("state.danger", state.dangerColor());
-            theme = theme.withOverrides(status);
-        }
-        return theme;
+        return ThemeFactory.build(definition, state);
     }
 
     /**
