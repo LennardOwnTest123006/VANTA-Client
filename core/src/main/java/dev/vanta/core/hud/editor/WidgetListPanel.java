@@ -46,6 +46,7 @@ public final class WidgetListPanel extends UiNode {
     private String filter = "";
     private List<String> builtKeys = List.of();
     private boolean dirty = true;
+    private UiContext lastContext;
 
     /** Panel for a session. */
     public WidgetListPanel(HudEditorSession session) {
@@ -55,6 +56,9 @@ public final class WidgetListPanel extends UiNode {
         this.search.onChange(text -> {
             filter = text == null ? "" : text.trim().toLowerCase(Locale.ROOT);
             dirty = true;
+            if (lastContext != null) {
+                lastContext.requestLayout();
+            }
         });
         this.scroll = new ScrollPanel(rows);
         add(search);
@@ -160,6 +164,7 @@ public final class WidgetListPanel extends UiNode {
 
     @Override
     public void layout(UiContext ctx) {
+        lastContext = ctx;
         rebuildIfNeeded(ctx);
         Rect b = bounds();
         int y = b.y() + PAD + ctx.lineHeight(FontKind.UI_BOLD) + Theme.SPACE_3;

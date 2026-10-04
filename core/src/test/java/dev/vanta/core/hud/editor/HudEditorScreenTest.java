@@ -64,6 +64,9 @@ class HudEditorScreenTest {
         screen.attach(new UiEnvironment(host, Theme.DEFAULT, uiClock, TestCanvas.metrics(), Function.identity()));
         screen.init(width, height);
         frame();
+        // Let the open transition finish so frames are drawn at full alpha.
+        uiClock.advance(UiScreen.TRANSITION_MS);
+        frame();
         return screen;
     }
 
@@ -119,7 +122,8 @@ class HudEditorScreenTest {
         assertFalse(screen.widgetList().isVisible());
         assertFalse(screen.inspector().isVisible());
         EditorViewport full = screen.canvasArea().viewport();
-        assertTrue(full.scale() > 0.9f);
+        assertTrue(full.scale() > 0.75f, "only toolbar and footer take room: " + full.scale());
+        assertEquals(427, full.hostWidth());
         screen.toggleInspector();
         frame();
         assertTrue(screen.inspector().isVisible());

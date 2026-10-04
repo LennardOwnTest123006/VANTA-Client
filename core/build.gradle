@@ -59,6 +59,12 @@ tasks.named('test', Test) {
     }
 }
 
+// The preview source set lists src/preview/resources explicitly on top of the convention directory, so every
+// resource file (e.g. the PreviewProvider services file) is seen twice; keep the first copy.
+tasks.named('processPreviewResources', ProcessResources) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 def previewDir = layout.buildDirectory.dir('previews')
 
 tasks.register('previewScreens', JavaExec) {

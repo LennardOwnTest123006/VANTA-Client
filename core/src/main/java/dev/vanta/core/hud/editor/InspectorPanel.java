@@ -527,6 +527,8 @@ public final class InspectorPanel extends UiNode {
         Rect b = bounds();
         int y = b.y() + PAD + ctx.lineHeight(FontKind.UI_BOLD) + Theme.SPACE_3;
         scroll.setBounds(b.x() + PAD, y, b.w() - PAD * 2, Math.max(0, b.bottom() - PAD - y));
+        // Two passes so wrapped labels measure against the real column width.
+        scroll.layout(ctx);
         scroll.layout(ctx);
     }
 

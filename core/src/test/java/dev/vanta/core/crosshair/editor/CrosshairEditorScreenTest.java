@@ -54,6 +54,9 @@ class CrosshairEditorScreenTest {
         screen.attach(new UiEnvironment(host, Theme.DEFAULT, uiClock, TestCanvas.metrics(), Function.identity()));
         screen.init(w, h);
         frame();
+        // Let the open transition finish so frames are drawn at full alpha.
+        uiClock.advance(UiScreen.TRANSITION_MS);
+        frame();
         return screen;
     }
 

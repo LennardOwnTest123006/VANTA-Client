@@ -50,14 +50,21 @@ public final class CrosshairPreviewStrip extends UiNode {
         return LABEL_KEYS.size();
     }
 
-    /** Rectangle of tile {@code index} (0 dark, 1 light, 2 noisy, 3 zoom). Tiles wrap onto a second row when narrow. */
+    /** Smallest tile width used when the strip is narrow. */
+    public static final int MIN_TILE_W = 40;
+
+    /** Tile width for a strip width: all tiles share one row and shrink down to {@link #MIN_TILE_W}. */
+    public int tileWidth(int stripWidth) {
+        int available = (stripWidth - GAP * (tileCount() - 1)) / tileCount();
+        return Math.max(MIN_TILE_W, Math.min(TILE_W, available));
+    }
+
+    /** Rectangle of tile {@code index} (0 dark, 1 light, 2 noisy, 3 zoom); the four tiles always share one row. */
     public Rect tileRect(int index) {
         Rect b = bounds();
-        int perRow = Math.max(1, Math.min(tileCount(), (b.w() + GAP) / (TILE_W + GAP)));
-        int row = index / perRow;
-        int column = index % perRow;
-        int rowH = TILE_H + FontKind.UI.lineHeight() + Theme.SPACE_2;
-        return new Rect(b.x() + column * (TILE_W + GAP), b.y() + row * rowH, TILE_W, TILE_H);
+        int w = tileWidth(b.w());
+        int h = Math.round(TILE_H * (w / (float) TILE_W));
+        return new Rect(b.x() + index * (w + GAP), b.y(), w, h);
     }
 
     /** Current pulse expansion for dynamic styles (0 when static or under reduced motion). */
@@ -73,10 +80,9 @@ public final class CrosshairPreviewStrip extends UiNode {
     @Override
     protected Size measure(UiContext ctx) {
         int width = bounds().w() > 0 ? bounds().w() : tileCount() * (TILE_W + GAP) - GAP;
-        int perRow = Math.max(1, Math.min(tileCount(), (width + GAP) / (TILE_W + GAP)));
-        int rows = (tileCount() + perRow - 1) / perRow;
-        int rowH = TILE_H + ctx.lineHeight(FontKind.UI) + Theme.SPACE_2;
-        return new Size(Math.min(width, tileCount() * (TILE_W + GAP) - GAP), rows * rowH - Theme.SPACE_2);
+        int w = tileWidth(width);
+        int h = Math.round(TILE_H * (w / (float) TILE_W));
+        return new Size(tileCount() * (w + GAP) - GAP, h + Theme.SPACE_1 + ctx.lineHeight(FontKind.UI));
     }
 
     @Override

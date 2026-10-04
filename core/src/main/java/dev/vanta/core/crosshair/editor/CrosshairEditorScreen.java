@@ -444,15 +444,18 @@ public final class CrosshairEditorScreen extends UiScreen {
             Rect b = bounds();
             boolean twoColumns = b.w() >= WIDE_BREAKPOINT - VantaShell.CONTENT_PAD * 2;
             arrange(twoColumns);
-            if (twoColumns) {
-                leftScroll.setBounds(b.x(), b.y(), LEFT_W, b.h());
-                leftScroll.layout(ctx);
-                int rx = b.x() + LEFT_W + Theme.SPACE_5;
-                rightScroll.setBounds(rx, b.y(), Math.max(0, b.right() - rx), b.h());
-                rightScroll.layout(ctx);
-            } else {
-                singleScroll.setBounds(b);
-                singleScroll.layout(ctx);
+            // Two passes: wrapped labels and the preview strip measure against the width of the previous pass.
+            for (int pass = 0; pass < 2; pass++) {
+                if (twoColumns) {
+                    leftScroll.setBounds(b.x(), b.y(), LEFT_W, b.h());
+                    leftScroll.layout(ctx);
+                    int rx = b.x() + LEFT_W + Theme.SPACE_5;
+                    rightScroll.setBounds(rx, b.y(), Math.max(0, b.right() - rx), b.h());
+                    rightScroll.layout(ctx);
+                } else {
+                    singleScroll.setBounds(b);
+                    singleScroll.layout(ctx);
+                }
             }
         }
     }
