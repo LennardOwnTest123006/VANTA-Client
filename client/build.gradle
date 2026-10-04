@@ -65,6 +65,10 @@ configurations {
 
 dependencies {
     productionMods "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    // The client game test runner is a dev-only Fabric API module: it is deliberately NOT inside the fabric-api
+    // fat jar (Maven resolves it through the POM). Without it nothing starts the tests in a production run and the
+    // game simply idles on the title screen. In the dev run (runClientGametest) Loom provides it automatically.
+    productionMods fabricApi.module("fabric-client-gametest-api-v1", project.fabric_api_version)
 }
 
 tasks.register('runProductionClientGametest', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
