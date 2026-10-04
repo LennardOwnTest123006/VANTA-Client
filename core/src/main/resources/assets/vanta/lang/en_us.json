@@ -926,5 +926,22 @@
   "vanta.dialog.open_url.title": "Open link?",
   "vanta.dialog.open_url.body": "This opens %s in your browser.",
   "vanta.zoom.indicator": "%sx",
-  "vanta.zoom.hint": "Scroll to adjust"
+  "vanta.zoom.hint": "Scroll to adjust",
+  "key.category.vanta.vanta": "VANTA",
+  "key.categories.vanta.vanta": "VANTA",
+  "vanta.command.usage": "Usage: /vanta <menu|hud|perf|profiles [name]|stats|reload>",
+  "vanta.command.menu": "Opening the VANTA menu…",
+  "vanta.command.hud": "Opening the HUD editor…",
+  "vanta.command.perf": "Opening the Performance Center…",
+  "vanta.command.profiles.header": "Profiles (%s):",
+  "vanta.command.profiles.entry": "%s %s (%s)",
+  "vanta.command.profiles.active_marker": "●",
+  "vanta.command.profiles.inactive_marker": "○",
+  "vanta.command.profiles.activated": "Profile “%s” is now active",
+  "vanta.command.profiles.unknown": "No profile named “%s” — use /vanta profiles to list them",
+  "vanta.command.profiles.none": "No profiles yet — create one in the Profiles screen",
+  "vanta.command.stats": "This session: %s played · %s blocks broken · %s placed · %s blocks travelled · %s fps average",
+  "vanta.command.stats.none": "No session recorded yet",
+  "vanta.command.stats.disabled": "Statistics are turned off in Privacy settings",
+  "vanta.command.reload": "VANTA configuration reloaded from disk"
 }
