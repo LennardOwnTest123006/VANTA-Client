@@ -24,9 +24,12 @@ if [ "$MODE" = "index" ]; then
   echo "::endgroup::"
   exit 0
 fi
+# Lists whose file name contains "private" are dumped with -p (all members, needed for mixin targets).
+FLAG="-public"
+case "$MODE" in *private*) FLAG="-p";; esac
 while IFS= read -r cls; do
   [ -z "$cls" ] && continue
   echo "::group::$cls"
-  javap -public -cp "$CP" "$cls" 2>&1 | grep -vE '^Compiled from|^\s*$' || echo "MISSING $cls"
+  javap $FLAG -cp "$CP" "$cls" 2>&1 | grep -vE '^Compiled from|^\s*$' || echo "MISSING $cls"
   echo "::endgroup::"
 done < "$MODE"

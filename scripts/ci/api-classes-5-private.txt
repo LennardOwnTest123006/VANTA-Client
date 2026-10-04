@@ -1,0 +1,17 @@
+net.minecraft.client.Minecraft
+net.minecraft.client.gui.screens.Screen
+net.minecraft.client.gui.screens.TitleScreen
+net.minecraft.client.renderer.GameRenderer
+net.minecraft.client.KeyMapping
+net.minecraft.client.MouseHandler
+net.minecraft.client.KeyboardHandler
+net.minecraft.client.gui.Gui
+net.minecraft.client.gui.components.events.GuiEventListener
+net.minecraft.client.gui.components.events.ContainerEventHandler
+net.minecraft.client.gui.components.events.AbstractContainerEventHandler
+net.minecraft.client.gui.components.AbstractWidget
+com.mojang.blaze3d.platform.Window
+net.minecraft.client.Options
+net.minecraft.client.multiplayer.ClientLevel
+net.minecraft.client.player.LocalPlayer
+net.minecraft.client.renderer.LevelRenderer

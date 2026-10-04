@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [index, part1, part2, part3]
+        part: [index, part1, part2, part3, part4, part5]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -33,4 +33,6 @@ jobs:
             part1) bash scripts/ci/dump-minecraft-api.sh scripts/ci/api-classes-1.txt ;;
             part2) bash scripts/ci/dump-minecraft-api.sh scripts/ci/api-classes-2.txt ;;
             part3) bash scripts/ci/dump-minecraft-api.sh scripts/ci/api-classes-3.txt ;;
+            part4) bash scripts/ci/dump-minecraft-api.sh scripts/ci/api-classes-4.txt ;;
+            part5) bash scripts/ci/dump-minecraft-api.sh scripts/ci/api-classes-5-private.txt ;;
           esac
