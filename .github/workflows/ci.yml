@@ -61,3 +61,44 @@ jobs:
         with:
           name: vanta-client-jar
           path: client/build/libs/*.jar
+
+  website:
+    name: Website (Vite/React)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Install
+        working-directory: website
+        run: npm ci
+      - name: Lint and typecheck
+        working-directory: website
+        run: npm run lint
+      - name: Unit tests
+        working-directory: website
+        run: npm test
+      - name: Build
+        working-directory: website
+        run: npm run build
+      - name: Install Playwright Chromium
+        working-directory: website
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        working-directory: website
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: website-dist
+          path: website/dist
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: website-playwright-report
+          path: website/playwright-report
+          if-no-files-found: ignore

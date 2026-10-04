@@ -4,10 +4,11 @@
  *
  * Usage: `npm run tokens` (the output is committed so the build never depends on this step).
  *
- * Every token becomes a CSS custom property on `:root`. Naming follows the JSON path in kebab-case
- * with a group prefix, e.g. `color.surface.1` → `--color-surface-1`, `radius.lg` → `--radius-lg`,
- * `motion.duration.base` → `--duration-base`. Tailwind 4 picks these up through `@theme` in
- * `src/styles/index.css`.
+ * Every token becomes a CSS custom property on `:root`, namespaced with `--vanta-` so the raw tokens
+ * never collide with the theme variables Tailwind 4 emits itself. Naming follows the JSON path in
+ * kebab-case, e.g. `color.surface.1` → `--vanta-color-surface-1`, `radius.lg` → `--vanta-radius-lg`,
+ * `motion.duration.base` → `--vanta-duration-base`. `src/styles/index.css` maps them onto Tailwind's
+ * `@theme` namespaces (`--color-surface-1`, `--radius-lg`, `--font-display`, …).
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -17,7 +18,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const tokensPath = resolve(here, '../../shared/design/tokens.json');
 const outPath = resolve(here, '../src/styles/tokens.css');
 
-/** @type {import('./tokens').Tokens} */
+/** Parsed token document (see shared/design/tokens.schema.json for the shape). */
 const tokens = JSON.parse(readFileSync(tokensPath, 'utf8'));
 
 /** Converts `violetHover` → `violet-hover`, `2xl` stays `2xl`. */
@@ -25,7 +26,7 @@ const kebab = (key) => key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 
 /** @type {string[]} */
 const lines = [];
-const emit = (name, value) => lines.push(`  --${name}: ${value};`);
+const emit = (name, value) => lines.push(`  --vanta-${name}: ${value};`);
 
 const px = (n) => `${n}px`;
 
@@ -37,7 +38,10 @@ for (const [group, values] of Object.entries(tokens.color)) {
   }
 }
 for (const [key, gradient] of Object.entries(tokens.color.gradient)) {
-  emit(`gradient-${kebab(key)}`, `linear-gradient(${gradient.angle}deg, ${gradient.stops.join(', ')})`);
+  emit(
+    `gradient-${kebab(key)}`,
+    `linear-gradient(${gradient.angle}deg, ${gradient.stops.join(', ')})`,
+  );
 }
 
 // Radii ------------------------------------------------------------------------------------
@@ -51,7 +55,10 @@ for (const [key, value] of Object.entries(tokens.spacing)) {
 }
 
 // Typography -------------------------------------------------------------------------------
-emit('font-ui', `"${tokens.typography.family.ui}", system-ui, -apple-system, "Segoe UI", sans-serif`);
+emit(
+  'font-ui',
+  `"${tokens.typography.family.ui}", system-ui, -apple-system, "Segoe UI", sans-serif`,
+);
 emit(
   'font-display',
   `"${tokens.typography.family.display}", "${tokens.typography.family.ui}", system-ui, sans-serif`,
@@ -61,13 +68,13 @@ for (const [key, value] of Object.entries(tokens.typography.weight)) {
   emit(`font-weight-${key}`, String(value));
 }
 for (const [key, value] of Object.entries(tokens.typography.size)) {
-  emit(`text-${key}`, px(value));
+  emit(`font-size-${key}`, px(value));
 }
 for (const [key, value] of Object.entries(tokens.typography.tracking)) {
   emit(`tracking-${key}`, value);
 }
 for (const [key, value] of Object.entries(tokens.typography.leading)) {
-  emit(`leading-${key}`, String(value));
+  emit(`line-height-${key}`, String(value));
 }
 
 // Shadows ----------------------------------------------------------------------------------

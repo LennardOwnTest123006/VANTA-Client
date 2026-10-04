@@ -1,0 +1,393 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/*
+ * Tailwind 4 theme. Every value points at a generated token in tokens.css (`--vanta-*`, built from
+ * shared/design/tokens.json) so the website, the launcher and the in-game UI share one palette.
+ * Tailwind emits the mapped variables (`--color-surface-1`, `--radius-lg`, …) on :root as well,
+ * which is what the component CSS further down uses.
+ */
+@theme {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-bg-void: var(--vanta-color-bg-void);
+  --color-bg-base: var(--vanta-color-bg-base);
+  --color-surface-1: var(--vanta-color-surface-1);
+  --color-surface-2: var(--vanta-color-surface-2);
+  --color-surface-3: var(--vanta-color-surface-3);
+  --color-surface-4: var(--vanta-color-surface-4);
+  --color-border-subtle: var(--vanta-color-border-subtle);
+  --color-border-strong: var(--vanta-color-border-strong);
+  --color-border-focus: var(--vanta-color-border-focus);
+  --color-text-primary: var(--vanta-color-text-primary);
+  --color-text-secondary: var(--vanta-color-text-secondary);
+  --color-text-muted: var(--vanta-color-text-muted);
+  --color-text-inverse: var(--vanta-color-text-inverse);
+  --color-accent-violet: var(--vanta-color-accent-violet);
+  --color-accent-violet-hover: var(--vanta-color-accent-violet-hover);
+  --color-accent-violet-pressed: var(--vanta-color-accent-violet-pressed);
+  --color-accent-violet-soft: var(--vanta-color-accent-violet-soft);
+  --color-accent-blue: var(--vanta-color-accent-blue);
+  --color-accent-blue-soft: var(--vanta-color-accent-blue-soft);
+  --color-success: var(--vanta-color-state-success);
+  --color-warning: var(--vanta-color-state-warning);
+  --color-danger: var(--vanta-color-state-danger);
+  --color-info: var(--vanta-color-state-info);
+
+  --font-ui: var(--vanta-font-ui);
+  --font-display: var(--vanta-font-display);
+  --font-mono: var(--vanta-font-mono);
+
+  --radius-xs: var(--vanta-radius-xs);
+  --radius-sm: var(--vanta-radius-sm);
+  --radius-md: var(--vanta-radius-md);
+  --radius-lg: var(--vanta-radius-lg);
+  --radius-xl: var(--vanta-radius-xl);
+  --radius-pill: var(--vanta-radius-pill);
+
+  --shadow-sm: var(--vanta-shadow-sm);
+  --shadow-md: var(--vanta-shadow-md);
+  --shadow-lg: var(--vanta-shadow-lg);
+  --shadow-glow: var(--vanta-shadow-glow);
+
+  --ease-standard: var(--vanta-ease-standard);
+  --ease-emphasized: var(--vanta-ease-emphasized);
+  --default-transition-timing-function: var(--vanta-ease-standard);
+  --default-transition-duration: var(--vanta-duration-base);
+
+  --tracking-display: var(--vanta-tracking-display);
+  --tracking-wordmark: var(--vanta-tracking-wordmark);
+  --tracking-label: var(--vanta-tracking-label);
+
+  --breakpoint-xs: 23.4375rem; /* 375px */
+  --breakpoint-3xl: 120rem; /* 1920px */
+
+  --container-content: 80rem; /* 1280px */
+  --container-wide: 90rem; /* 1440px */
+}
+
+/* --- Self-hosted fonts (SIL OFL 1.1, see /fonts/LICENSE-*.txt) ----------------------------- */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/Inter-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/SpaceGrotesk-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* --- Base ------------------------------------------------------------------------------------ */
+@layer base {
+  :root {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scrollbar-color: var(--color-surface-4) var(--color-bg-base);
+  }
+
+  html {
+    background-color: var(--color-bg-base);
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    line-height: var(--vanta-line-height-normal);
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    overflow-x: clip;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-accent-violet) 45%, transparent);
+    color: var(--color-text-primary);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-display);
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  code,
+  kbd,
+  pre {
+    font-family: var(--font-mono);
+    font-feature-settings: normal;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* --- Utilities ------------------------------------------------------------------------------- */
+@utility text-gradient {
+  background-image: linear-gradient(
+    135deg,
+    var(--color-accent-violet-hover),
+    var(--color-accent-blue)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@utility bg-gradient-accent {
+  background-image: linear-gradient(135deg, var(--color-accent-violet), var(--color-accent-blue));
+}
+
+@utility eyebrow {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-accent-violet-hover);
+}
+
+@utility hairline {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-border-strong) 20%,
+    var(--color-border-strong) 80%,
+    transparent
+  );
+}
+
+/* Block-grid pattern built from CSS only (hero and section backdrops). */
+@utility bg-blockgrid {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-border-strong) 60%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-border-strong) 60%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 56px 56px;
+}
+
+/* Isometric block grid: three line families (vertical, +30°, -30°) as a crisp SVG tile. */
+@utility bg-isogrid {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='37' viewBox='0 0 64 37'%3E%3Cg fill='none' stroke='%232C2C3A' stroke-width='1'%3E%3Cpath d='M0 0.5 L64 36.5 M0 36.5 L64 0.5 M32 0 V37'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 64px 37px;
+}
+
+@utility mask-fade-b {
+  mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+}
+
+@utility mask-fade-radial {
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 100%);
+}
+
+/* --- Component primitives (kept in CSS so they stay consistent across pages) ---------------- */
+@layer components {
+  .surface-card {
+    position: relative;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-xl);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-surface-2) 70%, transparent),
+        transparent 60%
+      ),
+      var(--color-surface-1);
+    box-shadow: var(--shadow-sm);
+    transition:
+      transform var(--vanta-duration-base) var(--ease-standard),
+      border-color var(--vanta-duration-base) var(--ease-standard),
+      box-shadow var(--vanta-duration-base) var(--ease-standard);
+  }
+
+  .surface-card-interactive:hover,
+  .surface-card-interactive:focus-within {
+    border-color: var(--color-border-strong);
+    box-shadow:
+      var(--shadow-md),
+      0 0 0 1px color-mix(in srgb, var(--color-accent-violet) 28%, transparent);
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .surface-card-interactive:hover {
+      transform: translateY(-3px);
+    }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity var(--vanta-duration-slow) var(--ease-standard),
+      transform var(--vanta-duration-slow) var(--ease-standard);
+    transition-delay: var(--reveal-delay, 0ms);
+    will-change: opacity, transform;
+  }
+
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce), print {
+    .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid var(--color-border-strong);
+    border-bottom-width: 2px;
+    border-radius: var(--radius-xs);
+    background: var(--color-surface-2);
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+
+  /* Hero ambience: deep layered radial gradients over the void. */
+  .hero-ambience {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        60% 50% at 50% 0%,
+        color-mix(in srgb, var(--color-accent-violet) 22%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        40% 35% at 85% 20%,
+        color-mix(in srgb, var(--color-accent-blue) 12%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        45% 40% at 15% 30%,
+        color-mix(in srgb, var(--color-accent-violet) 10%, transparent),
+        transparent 70%
+      ),
+      linear-gradient(180deg, var(--color-bg-void) 0%, var(--color-bg-base) 100%);
+  }
+
+  /* Faint violet horizon at the bottom of the hero: a 1px line with a soft elliptical glow. */
+  .hero-horizon {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: min(1200px, 120vw);
+    height: 1px;
+    transform: translateX(-50%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--color-accent-violet) 35%,
+      var(--color-accent-blue) 65%,
+      transparent
+    );
+    opacity: 0.55;
+  }
+
+  .hero-horizon::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 70%;
+    height: 160px;
+    transform: translateX(-50%);
+    background: radial-gradient(
+      50% 100% at 50% 100%,
+      color-mix(in srgb, var(--color-accent-violet) 28%, transparent),
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  /* Isometric "block" shapes made from three CSS gradients (top / left / right faces). */
+  .iso-block {
+    position: absolute;
+    pointer-events: none;
+    aspect-ratio: 1;
+    background:
+      linear-gradient(
+        150deg,
+        color-mix(in srgb, var(--color-surface-4) 65%, transparent) 0 50%,
+        transparent 50%
+      ),
+      linear-gradient(
+        30deg,
+        color-mix(in srgb, var(--color-surface-2) 85%, transparent) 0 50%,
+        transparent 50%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-surface-3) 90%, transparent),
+        color-mix(in srgb, var(--color-surface-1) 90%, transparent)
+      );
+    border: 1px solid color-mix(in srgb, var(--color-border-strong) 70%, transparent);
+    border-radius: 2px;
+    transform: rotate(45deg) skew(-15deg, -15deg);
+  }
+}

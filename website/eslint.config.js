@@ -28,11 +28,20 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { ignoreRestSiblings: true, argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
       '@typescript-eslint/no-unnecessary-condition': 'off',
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
       'no-console': ['error', { allow: ['warn', 'error'] }],
     },
+  },
+  {
+    // Library modules export helpers next to small internal components; they are not refresh boundaries.
+    files: ['src/lib/**/*.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
   {
     files: ['src/**/*.test.{ts,tsx}', 'src/test/**/*.{ts,tsx}', 'e2e/**/*.ts'],

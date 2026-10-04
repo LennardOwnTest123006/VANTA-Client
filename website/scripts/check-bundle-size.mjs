@@ -60,13 +60,20 @@ for (const key of initial) {
 }
 for (const [key, chunk] of Object.entries(manifest)) {
   if (initial.has(key) || !chunk.file.endsWith('.js')) continue;
-  rows.push({ kind: 'lazy js', file: chunk.file, raw: rawSize(chunk.file), gzip: gzipSize(chunk.file) });
+  rows.push({
+    kind: 'lazy js',
+    file: chunk.file,
+    raw: rawSize(chunk.file),
+    gzip: gzipSize(chunk.file),
+  });
 }
 
 const pad = (s, n) => String(s).padEnd(n);
 process.stdout.write('\nBundle report (gzip):\n');
 for (const row of rows) {
-  process.stdout.write(`  ${pad(row.kind, 12)} ${pad(row.file, 48)} ${pad(kb(row.raw), 10)} → ${kb(row.gzip)}\n`);
+  process.stdout.write(
+    `  ${pad(row.kind, 12)} ${pad(row.file, 48)} ${pad(kb(row.raw), 10)} → ${kb(row.gzip)}\n`,
+  );
 }
 process.stdout.write(
   `\n  initial JS: ${kb(totalJsGzip)} gzip (budget ${kb(BUDGET_GZIP_BYTES)}) · initial CSS: ${kb(totalCssGzip)} gzip\n\n`,
