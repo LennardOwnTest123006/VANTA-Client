@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "name": "vanta.hud.preset.minimal",
+  "widgets": [
+    {
+      "id": "fps",
+      "type": "fps",
+      "enabled": true,
+      "anchor": "top_left",
+      "offsetX": 4,
+      "offsetY": 4,
+      "scale": 1.0,
+      "opacity": 1.0,
+      "width": 44,
+      "height": 14,
+      "background": true,
+      "backgroundColor": "#B30B0B10",
+      "textColor": "#FFF5F5F7",
+      "accentColor": "#FF7C5CFF",
+      "props": {}
+    },
+    {
+      "id": "coordinates",
+      "type": "coordinates",
+      "enabled": true,
+      "anchor": "top_left",
+      "offsetX": 4,
+      "offsetY": 20,
+      "scale": 1.0,
+      "opacity": 1.0,
+      "width": 112,
+      "height": 14,
+      "background": true,
+      "backgroundColor": "#B30B0B10",
+      "textColor": "#FFF5F5F7",
+      "accentColor": "#FF7C5CFF",
+      "props": {}
+    },
+    {
+      "id": "crosshair",
+      "type": "crosshair",
+      "enabled": true,
+      "anchor": "center",
+      "offsetX": 0,
+      "offsetY": 0,
+      "scale": 1.0,
+      "opacity": 1.0,
+      "width": 16,
+      "height": 16,
+      "background": true,
+      "backgroundColor": "#B30B0B10",
+      "textColor": "#FFF5F5F7",
+      "accentColor": "#FF7C5CFF",
+      "props": {}
+    }
+  ]
+}

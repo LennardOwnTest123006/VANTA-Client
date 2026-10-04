@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vanta.dev/schemas/profile.schema.json",
+  "title": "VANTA profile export",
+  "description": "A VANTA Client profile as written by Profiles > Export (config/vanta/exports/vanta-profile-<name>.json) and read by Import. Produced by dev.vanta.core.profiles.ProfileCodec. Imports are additionally limited to 1 MiB; unknown keys are ignored by the client.",
+  "type": "object",
+  "required": ["schemaVersion", "name", "settings", "hud"],
+  "properties": {
+    "schemaVersion": {
+      "description": "Profile schema version. The client refuses files newer than it supports.",
+      "const": 1
+    },
+    "id": {
+      "description": "File stem of the profile. Ignored on import (the importer derives a fresh id from the file name).",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,47}$"
+    },
+    "name": {
+      "description": "Display name.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "icon": {
+      "description": "Icon id shown on the profile card.",
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,32}$"
+    },
+    "createdAt": { "description": "Creation time, epoch milliseconds.", "type": "integer", "minimum": 0 },
+    "updatedAt": { "description": "Last change, epoch milliseconds.", "type": "integer", "minimum": 0 },
+    "settings": {
+      "description": "Setting id (e.g. hud.globalScale) to primitive JSON value. At most 512 entries; string values at most 1024 characters.",
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean"]
+      }
+    },
+    "hud": { "$ref": "hud-preset.schema.json#/$defs/layout" },
+    "keybinds": {
+      "description": "VANTA key mapping id to serialised key (type:code:name), e.g. key.vanta.zoom. At most 64 entries.",
+      "type": "object",
+      "additionalProperties": { "type": "string", "maxLength": 128 }
+    },
+    "crosshair": { "$ref": "#/$defs/crosshair" },
+    "cosmetics": { "$ref": "#/$defs/cosmetics" }
+  },
+  "$defs": {
+    "argbColor": {
+      "description": "ARGB colour as #AARRGGBB (or #RRGGBB, alpha FF).",
+      "type": "string",
+      "pattern": "^#([0-9A-Fa-f]{8}|[0-9A-Fa-f]{6})$"
+    },
+    "crosshair": {
+      "type": "object",
+      "required": ["shape"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "shape": { "enum": ["cross", "dot", "circle", "square", "chevron", "plus_dot"] },
+        "size": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "thickness": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "gap": { "type": "integer", "minimum": 0, "maximum": 16 },
+        "outline": { "type": "boolean" },
+        "outlineThickness": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "color": { "$ref": "#/$defs/argbColor" },
+        "outlineColor": { "$ref": "#/$defs/argbColor" },
+        "dynamic": { "type": "boolean" },
+        "hideOnThirdPerson": { "type": "boolean" }
+      }
+    },
+    "cosmetics": {
+      "type": "object",
+      "properties": {
+        "theme": { "description": "UI theme id (built-in or from an installed cosmetic pack).", "type": "string", "maxLength": 64 },
+        "menuBackground": { "enum": ["gradient_dark", "graphite_grid", "violet_horizon", "vanilla_panorama", "solid"] },
+        "menuParticles": { "enum": ["none", "embers", "dust"] },
+        "hudTheme": { "enum": ["clean", "glass", "outline", "minimal"] },
+        "badge": { "enum": ["none", "founder", "contributor", "supporter"] },
+        "crosshairPreset": { "type": "string", "maxLength": 64 }
+      }
+    }
+  }
+}

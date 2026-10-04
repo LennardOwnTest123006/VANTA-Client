@@ -1,0 +1,16 @@
+{
+  "id": "midnight",
+  "name": "vanta.cosmetics.theme.midnight",
+  "tokens": {
+    "accent.violet": "#4F8DFF",
+    "accent.violetHover": "#7FAAFF",
+    "accent.violetPressed": "#2F66D6",
+    "accent.blue": "#38C8FF",
+    "border.focus": "#7FAAFF",
+    "bg.void": "#05070D",
+    "bg.base": "#080B14",
+    "surface.1": "#0E1220",
+    "surface.2": "#131829",
+    "surface.3": "#1A2033"
+  }
+}

@@ -16,6 +16,23 @@ repositories {
     mavenCentral()
 }
 
+// The `preview` source set hosts the Java2D renderer that draws every VANTA screen to PNG without Minecraft.
+// It sees the main classes and the test classes (fake bridges, TestCanvas) so other agents can register
+// previews that use fake game data. It is never shipped: the client only compiles src/main.
+sourceSets {
+    preview {
+        java.srcDir 'src/preview/java'
+        resources.srcDir 'src/preview/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.test.output
+    }
+}
+
+configurations {
+    previewImplementation.extendsFrom implementation, testImplementation
+    previewRuntimeOnly.extendsFrom runtimeOnly, testRuntimeOnly
+}
+
 dependencies {
     // Gson is the only runtime dependency. Minecraft 1.21.11 ships Gson on its classpath, so the
     // client never bundles it; the launcher declares its own Gson dependency.
@@ -29,13 +46,39 @@ dependencies {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 21
-    options.compilerArgs.addAll(['-Xlint:all', '-Xlint:-serial', '-Xlint:-processing'])
+    // `this-escape` is disabled on purpose: the retained-mode UI tree wires child nodes in constructors.
+    options.compilerArgs.addAll(['-Xlint:all', '-Xlint:-serial', '-Xlint:-processing', '-Xlint:-this-escape'])
 }
 
 tasks.named('test', Test) {
     useJUnitPlatform()
+    systemProperty 'java.awt.headless', 'true'
     testLogging {
         events 'failed'
         exceptionFormat 'full'
     }
+}
+
+def previewDir = layout.buildDirectory.dir('previews')
+
+tasks.register('previewScreens', JavaExec) {
+    group = 'verification'
+    description = 'Renders every registered VANTA screen to build/previews/<name>.png with the Java2D canvas.'
+    dependsOn tasks.named('previewClasses')
+    classpath = sourceSets.preview.runtimeClasspath
+    mainClass = 'dev.vanta.core.preview.PreviewMain'
+    args previewDir.get().asFile.absolutePath
+    systemProperty 'java.awt.headless', 'true'
+    inputs.files(sourceSets.preview.runtimeClasspath)
+    outputs.dir(previewDir)
+}
+
+tasks.register('previewGallery', JavaExec) {
+    group = 'verification'
+    description = 'Renders only the widget gallery preview (fast feedback while designing widgets).'
+    dependsOn tasks.named('previewClasses')
+    classpath = sourceSets.preview.runtimeClasspath
+    mainClass = 'dev.vanta.core.preview.PreviewMain'
+    args previewDir.get().asFile.absolutePath, '--only', 'widget-gallery'
+    systemProperty 'java.awt.headless', 'true'
 }

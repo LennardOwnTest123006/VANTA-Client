@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vanta.dev/schemas/doc-page.schema.json",
+  "title": "Documentation page front matter",
+  "description": "Front matter of docs/*.md, rendered under /documentation on the website. Validate with: node scripts/release/validate-json.mjs --front-matter shared/schemas/doc-page.schema.json docs/*.md",
+  "type": "object",
+  "required": ["title", "description", "order", "category"],
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string", "minLength": 2, "maxLength": 80 },
+    "description": {
+      "description": "One sentence used for search results and meta descriptions.",
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 200
+    },
+    "order": {
+      "description": "Sort key inside the category (ascending).",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 999
+    },
+    "category": {
+      "enum": ["Getting started", "Launcher", "Client", "Reference", "Help"]
+    }
+  }
+}

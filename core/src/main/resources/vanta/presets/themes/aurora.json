@@ -1,0 +1,16 @@
+{
+  "id": "aurora",
+  "name": "vanta.cosmetics.theme.aurora",
+  "tokens": {
+    "accent.violet": "#3DDC97",
+    "accent.violetHover": "#6CE9B2",
+    "accent.violetPressed": "#27B377",
+    "accent.blue": "#38C8FF",
+    "border.focus": "#6CE9B2",
+    "bg.void": "#060A09",
+    "bg.base": "#090F0D",
+    "surface.1": "#0F1715",
+    "surface.2": "#141E1B",
+    "surface.3": "#1B2724"
+  }
+}

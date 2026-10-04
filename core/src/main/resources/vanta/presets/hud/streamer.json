@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "name": "vanta.hud.preset.streamer",
+  "widgets": [
+    {
+      "id": "clock",
+      "type": "clock",
+      "enabled": true,
+      "anchor": "top_left",
+      "offsetX": 4,
+      "offsetY": 4,
+      "scale": 1.0,
+      "opacity": 1.0,
+      "width": 56,
+      "height": 14,
+      "background": true,
+      "backgroundColor": "#B30B0B10",
+      "textColor": "#FFF5F5F7",
+      "accentColor": "#FF7C5CFF",
+      "props": {
+        "showSeconds": "true"
+      }
+    },
+    {
+      "id": "fps",
+      "type": "fps",
+      "enabled": true,
+      "anchor": "top_left",
+      "offsetX": 4,
+      "offsetY": 20,
+      "scale": 1.0,
+      "opacity": 1.0,
+      "width": 44,
+      "height": 14,
+      "background": true,
+      "backgroundColor": "#B30B0B10",
+      "textColor": "#FFF5F5F7",
+      "accentColor": "#FF7C5CFF",
+      "props": {}
+    },
+    {
+      "id": "server",
+      "type": "server",
+      "enabled": true,
+      "anchor": "top_left",
+      "offsetX": 4,
+      "offsetY": 36,
+      "scale": 1.0,
+      "opacity": 1.0,
+      "width": 104,
+      "height": 14,
+      "background": true,
+      "backgroundColor": "#B30B0B10",
+      "textColor": "#FFF5F5F7",
+      "accentColor": "#FF7C5CFF",
+      "props": {
+        "showAddress": "false"
+      }
+    },
+    {
+      "id": "keystrokes",
+      "type": "keystrokes",
+      "enabled": true,
+      "anchor": "bottom_right",
+      "offsetX": 4,
+      "offsetY": 4,
+      "scale": 1.0,
+      "opacity": 1.0,
+      "width": 62,
+      "height": 84,
+      "background": true,
+      "backgroundColor": "#B30B0B10",
+      "textColor": "#FFF5F5F7",
+      "accentColor": "#FF7C5CFF",
+      "props": {
+        "showCps": "true"
+      }
+    },
+    {
+      "id": "cps",
+      "type": "cps",
+      "enabled": true,
+      "anchor": "bottom_right",
+      "offsetX": 4,
+      "offsetY": 92,
+      "scale": 1.0,
+      "opacity": 1.0,
+      "width": 60,
+      "height": 14,
+      "background": true,
+      "backgroundColor": "#B30B0B10",
+      "textColor": "#FFF5F5F7",
+      "accentColor": "#FF7C5CFF",
+      "props": {}
+    },
+    {
+      "id": "minecraft_version",
+      "type": "minecraft_version",
+      "enabled": true,
+      "anchor": "bottom_left",
+      "offsetX": 4,
+      "offsetY": 4,
+      "scale": 1.0,
+      "opacity": 1.0,
+      "width": 96,
+      "height": 14,
+      "background": true,
+      "backgroundColor": "#B30B0B10",
+      "textColor": "#FFF5F5F7",
+      "accentColor": "#FF7C5CFF",
+      "props": {
+        "showFabric": "true"
+      }
+    },
+    {
+      "id": "crosshair",
+      "type": "crosshair",
+      "enabled": true,
+      "anchor": "center",
+      "offsetX": 0,
+      "offsetY": 0,
+      "scale": 1.0,
+      "opacity": 1.0,
+      "width": 16,
+      "height": 16,
+      "background": true,
+      "backgroundColor": "#B30B0B10",
+      "textColor": "#FFF5F5F7",
+      "accentColor": "#FF7C5CFF",
+      "props": {}
+    }
+  ]
+}

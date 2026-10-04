@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vanta.dev/schemas/changelog-entry.schema.json",
+  "title": "Website changelog entry front matter",
+  "description": "Front matter of website/content/changelog/<product>-<version>.md. The body uses the headings '## Added', '## Improved', '## Fixed' (any subset, in that order) and optionally '## Notes'. Validate with: node scripts/release/validate-json.mjs --front-matter shared/schemas/changelog-entry.schema.json website/content/changelog/*.md",
+  "type": "object",
+  "required": ["product", "version", "date"],
+  "additionalProperties": false,
+  "properties": {
+    "product": { "enum": ["client", "launcher", "website"] },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "title": {
+      "description": "Display title, e.g. 'VANTA Client 1.0.0'. Defaults to '<Product> <version>' when absent.",
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 80
+    },
+    "minecraftVersion": {
+      "description": "Minecraft version the release targets. Required for client and launcher entries.",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?$"
+    }
+  },
+  "if": {
+    "properties": { "product": { "enum": ["client", "launcher"] } }
+  },
+  "then": {
+    "required": ["minecraftVersion"],
+    "properties": { "minecraftVersion": { "const": "1.21.11" } }
+  }
+}

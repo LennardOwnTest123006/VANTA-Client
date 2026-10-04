@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "shape": "circle",
+  "size": 5,
+  "thickness": 1,
+  "gap": 1,
+  "outline": true,
+  "outlineThickness": 1,
+  "opacity": 1.0,
+  "color": "#FF7C5CFF",
+  "outlineColor": "#FF000000",
+  "dynamic": false,
+  "hideOnThirdPerson": false
+}

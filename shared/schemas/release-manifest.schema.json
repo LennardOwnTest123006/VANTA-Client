@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vanta.dev/schemas/release-manifest.schema.json",
+  "title": "VANTA release manifest",
+  "description": "Describes one release of the VANTA Client (Fabric mod jar) or the VANTA Launcher. Stored in shared/releases/<product>-<version>.json. The downloadUrl, size and sha256 of every file are filled in by the release workflow from the real uploaded artifacts; an empty downloadUrl means 'not published yet'.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "product",
+    "version",
+    "minecraftVersion",
+    "fabricVersion",
+    "fabricApiVersion",
+    "javaVersion",
+    "releaseDate",
+    "channel",
+    "files"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "description": "Manifest schema version. Only 1 exists.",
+      "const": 1
+    },
+    "product": {
+      "description": "Which product the manifest describes.",
+      "enum": ["client", "launcher"]
+    },
+    "version": {
+      "description": "Semantic version of the product (MAJOR.MINOR.PATCH with an optional pre-release suffix).",
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "minecraftVersion": {
+      "description": "Minecraft Java Edition version the release targets.",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?$"
+    },
+    "fabricVersion": {
+      "description": "Fabric Loader version the release is built against / installs.",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "fabricApiVersion": {
+      "description": "Fabric API Maven version, e.g. 0.141.6+1.21.11.",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+\\+\\d+\\.\\d+(\\.\\d+)?$"
+    },
+    "javaVersion": {
+      "description": "Required Java major version.",
+      "const": 21
+    },
+    "releaseDate": {
+      "description": "Release date as YYYY-MM-DD (UTC).",
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "channel": {
+      "description": "Release channel.",
+      "enum": ["stable", "beta"]
+    },
+    "files": {
+      "description": "Downloadable files of the release. The first entry is the primary artifact.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/releaseFile" }
+    },
+    "changelog": {
+      "description": "Repository-relative path of the release notes markdown (website/content/changelog/<product>-<version>.md).",
+      "type": "string",
+      "pattern": "^website/content/changelog/[a-z]+-[0-9A-Za-z.+-]+\\.md$"
+    },
+    "notes": {
+      "description": "Optional free-text note shown next to the release (e.g. known issues).",
+      "type": "string",
+      "maxLength": 2000
+    }
+  },
+  "if": {
+    "properties": { "product": { "const": "client" } }
+  },
+  "then": {
+    "properties": {
+      "minecraftVersion": {
+        "description": "The client is built for exactly one Minecraft version.",
+        "const": "1.21.11"
+      }
+    }
+  },
+  "$defs": {
+    "releaseFile": {
+      "type": "object",
+      "required": ["name", "downloadUrl", "size", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "File name as uploaded to the GitHub Release (no path separators).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
+        },
+        "downloadUrl": {
+          "description": "Absolute https URL, or an empty string while the file is not published.",
+          "type": "string",
+          "pattern": "^(https://[^\\s]+)?$"
+        },
+        "size": {
+          "description": "Size in bytes (0 while unpublished).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "description": "Lower-case hex SHA-256 digest, or an empty string while unpublished.",
+          "type": "string",
+          "pattern": "^([a-f0-9]{64})?$"
+        }
+      }
+    }
+  }
+}

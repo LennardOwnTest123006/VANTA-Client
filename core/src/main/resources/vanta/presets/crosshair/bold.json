@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "shape": "cross",
+  "size": 6,
+  "thickness": 3,
+  "gap": 2,
+  "outline": true,
+  "outlineThickness": 1,
+  "opacity": 1.0,
+  "color": "#FFFFFFFF",
+  "outlineColor": "#FF000000",
+  "dynamic": true,
+  "hideOnThirdPerson": false
+}

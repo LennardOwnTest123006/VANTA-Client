@@ -1,0 +1,16 @@
+{
+  "id": "ember",
+  "name": "vanta.cosmetics.theme.ember",
+  "tokens": {
+    "accent.violet": "#FF7A59",
+    "accent.violetHover": "#FF9B82",
+    "accent.violetPressed": "#D95A3B",
+    "accent.blue": "#F5B942",
+    "border.focus": "#FF9B82",
+    "bg.void": "#0A0706",
+    "bg.base": "#100B09",
+    "surface.1": "#17110F",
+    "surface.2": "#1E1614",
+    "surface.3": "#271D1A"
+  }
+}

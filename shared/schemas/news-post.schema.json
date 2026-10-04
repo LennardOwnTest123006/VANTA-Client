@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vanta.dev/schemas/news-post.schema.json",
+  "title": "Website news post front matter",
+  "description": "Front matter of website/content/news/<yyyy-mm-dd>-<slug>.md. Validate with: node scripts/release/validate-json.mjs --front-matter shared/schemas/news-post.schema.json website/content/news/*.md",
+  "type": "object",
+  "required": ["title", "date", "summary", "author"],
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string", "minLength": 3, "maxLength": 120 },
+    "date": {
+      "description": "Publication date, YYYY-MM-DD.",
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "summary": {
+      "description": "One or two sentences shown on the news list and in meta descriptions.",
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 300
+    },
+    "author": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "tags": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$" }
+    },
+    "draft": {
+      "description": "When true the website skips the post.",
+      "type": "boolean"
+    }
+  }
+}

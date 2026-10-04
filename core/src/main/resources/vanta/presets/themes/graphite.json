@@ -1,0 +1,16 @@
+{
+  "id": "graphite",
+  "name": "vanta.cosmetics.theme.graphite",
+  "tokens": {
+    "accent.violet": "#C7C7D1",
+    "accent.violetHover": "#E3E3EA",
+    "accent.violetPressed": "#9A9AA6",
+    "accent.blue": "#8E8EA0",
+    "border.focus": "#E3E3EA",
+    "surface.1": "#121214",
+    "surface.2": "#18181B",
+    "surface.3": "#202024",
+    "border.subtle": "#26262B",
+    "border.strong": "#303036"
+  }
+}

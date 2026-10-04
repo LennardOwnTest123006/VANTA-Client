@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vanta.dev/schemas/hud-preset.schema.json",
+  "title": "VANTA HUD preset",
+  "description": "A HUD layout preset: the built-in files in core/src/main/resources/vanta/presets/hud/*.json, user presets in config/vanta/hud/presets/*.json and the live layout config/vanta/hud/layout.json share this shape (dev.vanta.core.hud.HudLayoutCodec).",
+  "$ref": "#/$defs/layout",
+  "$defs": {
+    "argbColor": {
+      "description": "ARGB colour as #AARRGGBB (or #RRGGBB, alpha FF).",
+      "type": "string",
+      "pattern": "^#([0-9A-Fa-f]{8}|[0-9A-Fa-f]{6})$"
+    },
+    "layout": {
+      "type": "object",
+      "required": ["widgets"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "name": {
+          "description": "Display name, or a translation key (vanta.hud.preset.<id>) for built-in presets.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "widgets": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/widget" }
+        }
+      }
+    },
+    "widget": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": {
+          "description": "Unique id inside the layout (usually equal to the type id).",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,47}$"
+        },
+        "type": {
+          "enum": [
+            "fps", "ping", "coordinates", "direction", "biome", "server", "cps", "clock", "armor",
+            "item_durability", "potion_effects", "keystrokes", "memory", "cpu", "entity_count",
+            "minecraft_version", "crosshair"
+          ]
+        },
+        "enabled": { "type": "boolean" },
+        "anchor": {
+          "enum": [
+            "top_left", "top_center", "top_right", "middle_left", "center", "middle_right",
+            "bottom_left", "bottom_center", "bottom_right"
+          ]
+        },
+        "offsetX": { "description": "Offset from the anchored edge towards the screen centre, GUI pixels.", "type": "integer" },
+        "offsetY": { "type": "integer" },
+        "scale": { "type": "number", "minimum": 0.5, "maximum": 2 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "integer", "minimum": 8 },
+        "height": { "type": "integer", "minimum": 8 },
+        "background": { "type": "boolean" },
+        "backgroundColor": { "$ref": "#/$defs/argbColor" },
+        "textColor": { "$ref": "#/$defs/argbColor" },
+        "accentColor": { "$ref": "#/$defs/argbColor" },
+        "props": {
+          "description": "Widget-specific options (see docs/hud.md), e.g. {\"showLabel\": true, \"decimals\": 1}.",
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        }
+      }
+    }
+  }
+}
