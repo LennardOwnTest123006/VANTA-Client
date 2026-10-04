@@ -66,7 +66,7 @@
   },
   "20_hud_ingame.png": {
     "caption": "In a freshly created creative world with FPS, coordinates, biome, clock, memory, keystrokes, armour and ping widgets enabled.",
-    "alt": "First-person view over a flat grass plain under a blue sky. Top-left: HUD widgets for memory, server (Local), coordinates, facing direction and biome. Top-right: clock and an effects panel reading No effects. Bottom-left: Armor 0. Bottom-right: a keystrokes cluster (W, A, S, D, LMB, RMB, Shift) above the item durability widget. The vanilla hotbar sits at the bottom centre.",
+    "alt": "First-person view over a flat grass plain under a blue sky. Top-left: HUD widgets for FPS, server (Local), coordinates, facing direction, biome and memory with a usage bar. Top-right: clock and an effects panel reading No effects. Bottom-left: Armor 0. Bottom-right: a keystrokes cluster (W, A, S, D, LMB, RMB, Shift) above the item durability widget. The vanilla hotbar sits at the bottom centre.",
     "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
   },
   "21_ingame_menu.png": {

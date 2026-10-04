@@ -114,7 +114,7 @@ test.describe('faq', () => {
 });
 
 test.describe('screenshots', () => {
-  test('shows the honest empty state while no real screenshots exist', async ({ page }) => {
+  test('shows the honest empty state without captures, otherwise the gallery and lightbox', async ({ page }) => {
     const errors = trackConsoleErrors(page);
     await page.goto('/screenshots');
     await waitForApp(page);

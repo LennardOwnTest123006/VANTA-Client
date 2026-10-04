@@ -1,8 +1,10 @@
 # Screenshots
 
 This folder holds the **real** screenshots shown on the website's Screenshots page and in the documentation.
-It is intentionally empty until the first release: VANTA never ships mock-ups, renders or edited images as
-screenshots. While it is empty, the website shows "Screenshots will be published with the first release".
+VANTA never ships mock-ups, renders or edited images as screenshots. The current set was captured by the automated
+game test described below from the development build (`captions.json` records the client, Minecraft and Fabric
+versions of each capture); it is replaced when the UI changes. If the folder is ever empty, the website shows
+"Screenshots will be published with the first release".
 
 ## Where screenshots come from
 
