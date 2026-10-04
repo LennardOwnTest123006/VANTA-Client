@@ -1,0 +1,16 @@
+{
+  "name": "vanta-scripts",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build, brand and release helper scripts for the VANTA monorepo (not shipped).",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "brand": "node brand/generate-icons.mjs",
+    "release:manifest": "node release/build-manifest.mjs",
+    "release:verify": "node release/verify-manifest.mjs"
+  },
+  "dependencies": {
+    "sharp": "0.35.5"
+  }
+}
