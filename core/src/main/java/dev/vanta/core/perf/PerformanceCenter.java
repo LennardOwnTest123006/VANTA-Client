@@ -140,8 +140,16 @@ public final class PerformanceCenter {
     /** Applies every option of a preset that the running game supports, saves options and notifies. */
     public void applyPreset(PerformancePreset preset) {
         Objects.requireNonNull(preset, "preset");
-        for (Map.Entry<VanillaOption, Object> entry : preset.optionValues().entrySet()) {
-            if (options.supports(entry.getKey())) {
+        Map<VanillaOption, Object> values = preset.optionValues();
+        // Minecraft 1.21.11's graphics preset (Fast / Fancy / Fabulous) is a bundle: applying it also rewrites the
+        // render and simulation distance, clouds, particles and more. Apply it first so the preset's explicit values
+        // below are what the player ends up with; the game then reports the graphics preset as "custom".
+        Object graphics = values.get(VanillaOption.GRAPHICS_MODE);
+        if (graphics != null && options.supports(VanillaOption.GRAPHICS_MODE)) {
+            options.set(VanillaOption.GRAPHICS_MODE, graphics);
+        }
+        for (Map.Entry<VanillaOption, Object> entry : values.entrySet()) {
+            if (entry.getKey() != VanillaOption.GRAPHICS_MODE && options.supports(entry.getKey())) {
                 options.set(entry.getKey(), entry.getValue());
             }
         }
@@ -171,6 +179,11 @@ public final class PerformanceCenter {
                 }
                 Optional<Object> current = options.get(entry.getKey());
                 Optional<Object> expected = entry.getKey().normalize(entry.getValue());
+                if (entry.getKey() == VanillaOption.GRAPHICS_MODE && current.isEmpty()) {
+                    // The game reports a graphics preset outside Fast / Fancy / Fabulous ("custom") as soon as any
+                    // bundled option differs, which is exactly the state every VANTA preset leaves behind.
+                    continue;
+                }
                 if (current.isEmpty() || expected.isEmpty() || !valuesEqual(current.get(), expected.get())) {
                     continue outer;
                 }

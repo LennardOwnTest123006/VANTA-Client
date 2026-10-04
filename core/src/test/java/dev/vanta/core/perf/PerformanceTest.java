@@ -129,6 +129,29 @@ class PerformanceTest {
     }
 
     @Test
+    void presetsApplyTheGraphicsBundleFirstSoTheirDistancesWin() {
+        // Minecraft 1.21.11: the graphics preset rewrites render/simulation distance when applied and reads back as
+        // "CUSTOM" once any bundled option differs. Seen live in the CI game test before the ordering fix.
+        MutableClock clock = MutableClock.standard();
+        FakeOptionsBridge options = new FakeOptionsBridge();
+        options.graphicsPresetBundle = true;
+        SettingsStore settings = new SettingsStore(VantaSettings.registry(), new JsonStore(clock),
+                dir.resolve("settings.json"), Optional.of(options));
+        PerformanceCenter center = new PerformanceCenter(new FakeGameBridge(), options, settings,
+                new NotificationCenter(clock), clock, new dev.vanta.core.hud.FrameTimeTracker(),
+                new MemorySampler(() -> new MemorySampler.MemorySample(512L << 20, 1024L << 20, 2048L << 20)),
+                new CpuSampler(() -> OptionalDouble.of(0.25)));
+
+        center.applyPreset(PerformancePreset.BALANCED);
+        assertEquals(VanillaOption.GRAPHICS_MODE, options.setOrder.get(0), "graphics bundle goes first");
+        assertEquals(10, options.getInt(VanillaOption.RENDER_DISTANCE, 0), "preset render distance wins");
+        assertEquals(8, options.getInt(VanillaOption.SIMULATION_DISTANCE, 0), "preset simulation distance wins");
+        assertTrue(options.get(VanillaOption.GRAPHICS_MODE).isEmpty(), "game now reports a custom graphics preset");
+        assertEquals(Optional.of(PerformancePreset.BALANCED), center.detectPreset(),
+                "the custom read-back must not hide the preset that was just applied");
+    }
+
+    @Test
     void centerAppliesPresetsDetectsThemAndRunsAdvisor() {
         MutableClock clock = MutableClock.standard();
         FakeGameBridge game = new FakeGameBridge();

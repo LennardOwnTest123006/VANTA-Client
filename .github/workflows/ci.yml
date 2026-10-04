@@ -233,6 +233,11 @@ jobs:
       - name: Launch the game headless for 120 seconds (development offline account)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb mesa-utils >/dev/null
+          # A brand-new profile shows vanilla's one-time accessibility onboarding screen instead of the title
+          # screen; nobody can click it on a headless runner, so seed the instance like a player who finished it.
+          INSTANCE=$(ls -d "$RUNNER_TEMP"/vanta/instances/*/ | head -1)
+          printf 'onboardAccessibility:false\nnarrator:0\n' > "$INSTANCE/options.txt"
+          echo "Seeded $INSTANCE/options.txt"
           VANTA_DEV_OFFLINE=1 xvfb-run -a -s "-screen 0 1280x720x24" java -jar launcher/build/libs/vanta-launcher-*-all.jar --launch --dev-offline --username CI --exit-after 120 --resolution 1280x720 --data-dir "$RUNNER_TEMP/vanta"
       - name: Verify the VANTA client loaded inside the game
         if: always()

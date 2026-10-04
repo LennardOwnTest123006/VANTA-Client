@@ -14,6 +14,14 @@ public final class FakeOptionsBridge implements OptionsBridge {
     private final Set<VanillaOption> unsupported = EnumSet.noneOf(VanillaOption.class);
     /** Number of {@link #save()} calls. */
     public int saveCount;
+    /** Every option written through {@link #set}, in order. */
+    public final java.util.List<VanillaOption> setOrder = new java.util.ArrayList<>();
+    /**
+     * When true, emulates Minecraft 1.21.11 where the graphics preset is a bundle: setting it also rewrites the
+     * render and simulation distance (to 16 / 12 here) and afterwards reads back as the unknown value "CUSTOM" as
+     * soon as any bundled option differs.
+     */
+    public boolean graphicsPresetBundle;
 
     public FakeOptionsBridge() {
         values.put(VanillaOption.FRAMERATE_LIMIT, 120);
@@ -76,7 +84,10 @@ public final class FakeOptionsBridge implements OptionsBridge {
         if (!supports(option)) {
             return Optional.empty();
         }
-        return Optional.ofNullable(values.get(option));
+        Object raw = values.get(option);
+        // Like the real bridge: a value the option does not know (e.g. the game's "CUSTOM" graphics preset) reads
+        // back as empty rather than leaking through.
+        return raw == null ? Optional.empty() : option.normalize(raw);
     }
 
     @Override
@@ -87,6 +98,14 @@ public final class FakeOptionsBridge implements OptionsBridge {
         Optional<Object> normalized = option.normalize(value);
         if (normalized.isEmpty()) {
             return false;
+        }
+        setOrder.add(option);
+        if (graphicsPresetBundle && option == VanillaOption.GRAPHICS_MODE) {
+            values.put(VanillaOption.RENDER_DISTANCE, 16);
+            values.put(VanillaOption.SIMULATION_DISTANCE, 12);
+        } else if (graphicsPresetBundle && (option == VanillaOption.RENDER_DISTANCE
+                || option == VanillaOption.SIMULATION_DISTANCE)) {
+            values.put(VanillaOption.GRAPHICS_MODE, "CUSTOM");
         }
         values.put(option, normalized.get());
         return true;
