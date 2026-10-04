@@ -8,6 +8,7 @@ import dev.vanta.core.profiles.ProfileCodec;
 import dev.vanta.core.profiles.ProfileImportException;
 import dev.vanta.core.profiles.ProfileManager;
 import dev.vanta.core.screen.VantaServices;
+import dev.vanta.core.screen.cosmetics.ThemedScreen;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -58,14 +59,7 @@ public final class ProfileActions {
 
     /** Path of a file relative to the game directory for display ({@code config/vanta/exports/x.json}). */
     public String displayPath(Path file) {
-        Path root = services.paths().root();
-        Path gameDir = root.getParent() != null && root.getParent().getParent() != null
-                ? root.getParent().getParent() : root;
-        try {
-            return gameDir.relativize(file.toAbsolutePath().normalize()).toString().replace('\\', '/');
-        } catch (IllegalArgumentException e) {
-            return file.toString();
-        }
+        return ThemedScreen.displayPath(services, file);
     }
 
     /**

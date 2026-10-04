@@ -7,6 +7,7 @@ import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.screen.cosmetics.CardGrid;
 import dev.vanta.core.screen.cosmetics.EmptyState;
 import dev.vanta.core.screen.cosmetics.InfoBanner;
+import dev.vanta.core.screen.cosmetics.Plurals;
 import dev.vanta.core.screen.cosmetics.SectionHeader;
 import dev.vanta.core.screen.cosmetics.ThemedScreen;
 import dev.vanta.core.settings.Setting;
@@ -93,7 +94,7 @@ public final class StatisticsScreen extends ThemedScreen {
         // ---- lifetime tiles
         LifetimeStats life = summary.lifetime();
         body.add(new SectionHeader(Lang.tr("vanta.stats.lifetime"))
-                .trailing(Lang.tr("vanta.stats.sessions_recorded", life.sessions())));
+                .trailing(Plurals.count(life.sessions(), "vanta.stats.sessions_recorded")));
         CardGrid grid = new CardGrid(150, 3, Theme.SPACE_4).rowHeight(StatTile.HEIGHT);
         Optional<SessionRecord> last = summary.lastSession();
         tile(grid, "stats.playtime", Lang.tr("vanta.stats.playtime"), StatFormats.duration(life.playtimeMs()),
@@ -216,19 +217,9 @@ public final class StatisticsScreen extends ThemedScreen {
         String json = services().jsonStore().gson().toJson(store.toJson());
         services().clipboard().ifPresentOrElse(c -> c.set(json), () -> context().host().setClipboard(json));
         services().notifications().post(NotificationKind.SUCCESS, Lang.tr("vanta.stats.export"),
-                Lang.tr("vanta.stats.exported", displayPath(target)) + " · " + Lang.tr("vanta.stats.copied"));
+                Lang.tr("vanta.stats.exported", displayPath(services(), target)) + " · "
+                        + Lang.tr("vanta.stats.copied"));
         return Optional.of(target);
-    }
-
-    private String displayPath(Path file) {
-        Path root = services().paths().root();
-        Path gameDir = root.getParent() != null && root.getParent().getParent() != null
-                ? root.getParent().getParent() : root;
-        try {
-            return gameDir.relativize(file.toAbsolutePath().normalize()).toString().replace('\\', '/');
-        } catch (IllegalArgumentException e) {
-            return file.toString();
-        }
     }
 
     /** Asks for confirmation, then deletes every statistic. */

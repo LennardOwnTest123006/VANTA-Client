@@ -10,6 +10,7 @@ import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.screen.cosmetics.EmptyState;
 import dev.vanta.core.screen.cosmetics.InfoBanner;
+import dev.vanta.core.screen.cosmetics.Plurals;
 import dev.vanta.core.screen.cosmetics.SectionHeader;
 import dev.vanta.core.screen.cosmetics.ThemedScreen;
 import dev.vanta.core.ui.Icons;
@@ -125,7 +126,7 @@ public final class KeybindsScreen extends ThemedScreen {
         } else {
             int involved = ConflictDetector.involvedCount(conflicts);
             conflictBanner.tone(InfoBanner.Tone.WARNING)
-                    .setTitle(Lang.tr("vanta.keybinds.conflicts", conflicts.size()))
+                    .setTitle(Plurals.count(conflicts.size(), "vanta.keybinds.conflicts"))
                     .setBody(Lang.tr("vanta.keybinds.conflicts.body", involved));
             conflictsOnly.setEnabled(true);
         }
@@ -147,7 +148,7 @@ public final class KeybindsScreen extends ThemedScreen {
         for (KeybindModel.Category category : sections) {
             SectionHeader header = new SectionHeader(category.isVanta()
                     ? Lang.tr("vanta.keybinds.category_vanta") : category.name());
-            header.trailing(Lang.tr("vanta.keybinds.key_count", category.bindings().size()));
+            header.trailing(Plurals.count(category.bindings().size(), "vanta.keybinds.key_count"));
             header.setId("keybinds.section." + category.id());
             list.add(header);
             for (KeyBinding binding : category.bindings()) {

@@ -67,8 +67,10 @@ public final class KeybindRow extends UiNode {
             }
         });
         field.capturePrompt(Lang.tr("vanta.keybinds.press_key"));
-        field.conflict(conflict.map(c -> c.severity() == ConflictDetector.Severity.HIGH).orElse(false));
-        field.setTooltip(Lang.tr("vanta.keybinds.esc_to_cancel"));
+        boolean high = conflict.map(c -> c.severity() == ConflictDetector.Severity.HIGH).orElse(false);
+        field.conflict(high);
+        field.setTooltip(high ? conflictText() + " · " + Lang.tr("vanta.keybinds.esc_to_cancel")
+                : Lang.tr("vanta.keybinds.esc_to_cancel"));
         field.setId("keybind." + binding.id() + ".field");
         add(field);
         reset = new IconButton(Icons.RESET, () -> onReset.accept(binding.id())).sizes(ICON_BOX + 2, ICON);
@@ -77,7 +79,8 @@ public final class KeybindRow extends UiNode {
         reset.setId("keybind." + binding.id() + ".reset");
         add(reset);
         conflictIcon = new ConflictIcon();
-        conflictIcon.setVisible(conflict.isPresent());
+        // The field itself turns red for a high-severity conflict; the separate icon marks medium overlaps.
+        conflictIcon.setVisible(conflict.isPresent() && !high);
         add(conflictIcon);
     }
 

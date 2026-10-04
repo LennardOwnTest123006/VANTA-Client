@@ -7,6 +7,8 @@ import dev.vanta.core.ui.Canvas;
 import dev.vanta.core.ui.Rect;
 import dev.vanta.core.ui.UiContext;
 import dev.vanta.core.ui.UiNode;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Live thumbnail of a {@link MenuParticles} kind: a deterministic {@link ParticleSystem} advanced once per tick,
@@ -16,6 +18,12 @@ import dev.vanta.core.ui.UiNode;
 public final class ParticlePreview extends UiNode {
     /** Milliseconds simulated per game tick. */
     public static final long TICK_MS = 50L;
+    /**
+     * The simulation runs on a canvas this many times larger than the thumbnail and positions are scaled down when
+     * drawing: the particle system sizes its population by area, so a tiny thumbnail would otherwise show only the
+     * minimum handful of particles.
+     */
+    public static final int VIRTUAL_SCALE = 5;
     private static final int WARM_UP_TICKS = 80;
 
     private final ParticleSystem system;
@@ -37,7 +45,7 @@ public final class ParticlePreview extends UiNode {
         if (!warmed && b.w() > 0 && b.h() > 0) {
             warmed = true;
             for (int i = 0; i < WARM_UP_TICKS; i++) {
-                system.update(TICK_MS, b.w(), b.h());
+                system.update(TICK_MS, b.w() * VIRTUAL_SCALE, b.h() * VIRTUAL_SCALE);
             }
         }
     }
@@ -47,7 +55,7 @@ public final class ParticlePreview extends UiNode {
         super.onTick(ctx);
         Rect b = bounds();
         if (b.w() > 0 && b.h() > 0 && !ctx.theme().reducedMotion()) {
-            system.update(TICK_MS, b.w(), b.h());
+            system.update(TICK_MS, b.w() * VIRTUAL_SCALE, b.h() * VIRTUAL_SCALE);
         }
     }
 
@@ -55,6 +63,11 @@ public final class ParticlePreview extends UiNode {
     protected void renderSelf(Canvas canvas, UiContext ctx) {
         Rect b = bounds();
         Thumbnails.background(canvas, b, MenuBackground.GRADIENT_DARK, ctx.theme());
-        Thumbnails.particles(canvas, b, system.particles());
+        List<ParticleSystem.Particle> scaled = new ArrayList<>();
+        for (ParticleSystem.Particle p : system.particles()) {
+            scaled.add(new ParticleSystem.Particle(p.x() / VIRTUAL_SCALE, p.y() / VIRTUAL_SCALE, p.size(), p.alpha(),
+                    p.color()));
+        }
+        Thumbnails.particles(canvas, b, scaled);
     }
 }

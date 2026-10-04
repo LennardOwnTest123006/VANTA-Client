@@ -58,8 +58,14 @@ public final class CosmeticsScreen extends ThemedScreen {
             return name().toLowerCase(Locale.ROOT);
         }
 
+        /** Translation key of the section heading. */
         public String langKey() {
             return langKey;
+        }
+
+        /** Translation key of the short rail label. */
+        public String railKey() {
+            return "vanta.cosmetics.rail." + id();
         }
 
         public Icons icon() {
@@ -98,7 +104,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         shell.footerText(Lang.tr("vanta.cosmetics.footer"));
         List<VantaShell.RailItem> items = new ArrayList<>();
         for (Section s : Section.values()) {
-            items.add(new VantaShell.RailItem(s.id(), s.icon(), Lang.tr(s.langKey())));
+            items.add(new VantaShell.RailItem(s.id(), s.icon(), Lang.tr(s.railKey())));
         }
         shell.rail(items, section.id(), id -> showSection(Section.fromId(id)));
         body = new Column(Theme.SPACE_4);
@@ -111,13 +117,14 @@ public final class CosmeticsScreen extends ThemedScreen {
     /** Switches the rail section. */
     public void showSection(Section next) {
         section = next;
-        if (shell != null && !next.id().equals(shell.selectedRail())) {
+        if (shell == null) {
+            return; // before build(): the section is picked up when the tree is created
+        }
+        if (!next.id().equals(shell.selectedRail())) {
             shell.selectRail(context(), next.id());
         }
         rebuild();
-        if (context() != null) {
-            scroll.setScrollY(context(), 0f, false);
-        }
+        scroll.setScrollY(context(), 0f, false);
     }
 
     /** Current section. */
@@ -173,7 +180,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         CosmeticsSelection selection = cosmetics.selection();
         List<UiThemeDefinition> themes = registry.themes();
         body.add(new SectionHeader(Lang.tr("vanta.cosmetics.themes"))
-                .trailing(Lang.tr("vanta.cosmetics.theme_count", themes.size())));
+                .trailing(Plurals.count(themes.size(), "vanta.cosmetics.theme_count")));
         CardGrid grid = grid(128, 4);
         Theme current = theme();
         for (UiThemeDefinition definition : themes) {
@@ -203,7 +210,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         MenuBackground selected = cosmetics.selection().menuBackground();
         List<MenuBackground> backgrounds = registry.backgrounds();
         body.add(new SectionHeader(Lang.tr("vanta.cosmetics.backgrounds"))
-                .trailing(Lang.tr("vanta.cosmetics.count", backgrounds.size())));
+                .trailing(Plurals.count(backgrounds.size(), "vanta.cosmetics.count")));
         CardGrid grid = grid(128, 4);
         for (MenuBackground background : backgrounds) {
             card(grid, new CosmeticCard.Painted((c, ctx, r) -> Thumbnails.background(c, r, background, ctx.theme())),
@@ -221,7 +228,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         HudTheme selected = cosmetics.selection().hudTheme();
         List<HudTheme> themes = registry.hudThemes();
         body.add(new SectionHeader(Lang.tr("vanta.cosmetics.hud_theme"))
-                .trailing(Lang.tr("vanta.cosmetics.count", themes.size())));
+                .trailing(Plurals.count(themes.size(), "vanta.cosmetics.count")));
         CardGrid grid = grid(128, 4);
         for (HudTheme hudTheme : themes) {
             card(grid, new CosmeticCard.Painted((c, ctx, r) -> Thumbnails.hudWidget(c, r, hudTheme, ctx.theme())),
@@ -239,7 +246,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         List<CrosshairPreset> presets = CrosshairPresets.builtIns();
         Optional<CrosshairPreset> active = services().crosshair().activePreset();
         SectionHeader header = new SectionHeader(Lang.tr("vanta.cosmetics.crosshair_presets"))
-                .trailing(active.isPresent() ? Lang.tr("vanta.cosmetics.count", presets.size())
+                .trailing(active.isPresent() ? Plurals.count(presets.size(), "vanta.cosmetics.count")
                         : Lang.tr("vanta.cosmetics.crosshair_custom"));
         body.add(header);
         CardGrid grid = grid(110, 6);
@@ -273,7 +280,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         MenuParticles selected = cosmetics.selection().menuParticles();
         List<MenuParticles> kinds = registry.particles();
         body.add(new SectionHeader(Lang.tr("vanta.cosmetics.particles"))
-                .trailing(Lang.tr("vanta.cosmetics.count", kinds.size())));
+                .trailing(Plurals.count(kinds.size(), "vanta.cosmetics.count")));
         CardGrid grid = grid(128, 3);
         for (MenuParticles kind : kinds) {
             card(grid, new ParticlePreview(kind, PARTICLE_SEED + kind.ordinal()), Lang.tr(kind.langKey()),
@@ -290,7 +297,7 @@ public final class CosmeticsScreen extends ThemedScreen {
         Badge selected = cosmetics.selection().badge();
         List<Badge> badges = registry.badges();
         body.add(new SectionHeader(Lang.tr("vanta.cosmetics.badges"))
-                .trailing(Lang.tr("vanta.cosmetics.count", badges.size())));
+                .trailing(Plurals.count(badges.size(), "vanta.cosmetics.count")));
         body.add(new InfoBanner(InfoBanner.Tone.INFO, Lang.tr("vanta.cosmetics.visual_only_title"),
                 Lang.tr("vanta.cosmetics.badges_note")));
         CardGrid grid = grid(110, 4);
@@ -312,8 +319,8 @@ public final class CosmeticsScreen extends ThemedScreen {
     private void buildPacks() {
         List<CosmeticPack> packs = registry.packs();
         body.add(new SectionHeader(Lang.tr("vanta.cosmetics.packs"))
-                .trailing(Lang.tr("vanta.cosmetics.pack_count", packs.size())));
-        String folder = services().paths().cosmeticPacksDir().toString().replace('\\', '/');
+                .trailing(Plurals.count(packs.size(), "vanta.cosmetics.pack_count")));
+        String folder = displayPath(services(), services().paths().cosmeticPacksDir());
         Button refresh = Button.secondary(Lang.tr("vanta.cosmetics.refresh"), this::reloadPacks).icon(Icons.RESET)
                 .compact(true);
         refresh.setId("cosmetics.refresh-packs");
@@ -334,9 +341,9 @@ public final class CosmeticsScreen extends ThemedScreen {
         }
         CardGrid grid = grid(150, 3);
         for (CosmeticPack pack : packs) {
-            String caption = pack.author().isEmpty() ? Lang.tr("vanta.cosmetics.pack_themes", pack.themes().size())
-                    : Lang.tr("vanta.cosmetics.by_author", pack.author()) + " · "
-                            + Lang.tr("vanta.cosmetics.pack_themes", pack.themes().size());
+            String themeCount = Plurals.count(pack.themes().size(), "vanta.cosmetics.pack_themes");
+            String caption = pack.author().isEmpty() ? themeCount
+                    : Lang.tr("vanta.cosmetics.by_author", pack.author()) + " · " + themeCount;
             UiThemeDefinition first = pack.themes().get(0);
             Theme preview = ThemeResolver.preview(first, theme());
             CosmeticCard card = new CosmeticCard(new CosmeticCard.Painted((c, ctx, r) -> Thumbnails.palette(c, r, preview)),

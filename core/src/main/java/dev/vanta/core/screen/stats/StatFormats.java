@@ -114,7 +114,7 @@ public final class StatFormats {
             return Lang.tr("vanta.stats.ago.hours", delta / HOUR);
         }
         if (delta < 30 * DAY) {
-            return Lang.tr("vanta.stats.ago.days", delta / DAY);
+            return dev.vanta.core.screen.cosmetics.Plurals.count(delta / DAY, "vanta.stats.ago.days");
         }
         return date(epochMillis, zone);
     }

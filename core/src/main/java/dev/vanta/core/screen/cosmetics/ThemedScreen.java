@@ -6,6 +6,7 @@ import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiScreen;
 import dev.vanta.core.ui.VantaShell;
+import java.nio.file.Path;
 import java.util.Objects;
 
 /**
@@ -138,5 +139,20 @@ public abstract class ThemedScreen extends UiScreen {
 
     /** Hook when the screen was removed (after everything was saved). */
     protected void onScreenClose() {
+    }
+
+    /**
+     * A path for display, relative to the game directory when it lies below it
+     * ({@code config/vanta/exports/x.json}), otherwise absolute.
+     */
+    public static String displayPath(VantaServices services, Path file) {
+        Path root = services.paths().root();
+        Path gameDir = root.getParent() != null && root.getParent().getParent() != null
+                ? root.getParent().getParent() : root;
+        Path absolute = file.toAbsolutePath().normalize();
+        if (absolute.startsWith(gameDir)) {
+            return gameDir.relativize(absolute).toString().replace('\\', '/');
+        }
+        return absolute.toString().replace('\\', '/');
     }
 }

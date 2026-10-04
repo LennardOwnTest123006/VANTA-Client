@@ -8,6 +8,7 @@ import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.screen.cosmetics.CardGrid;
 import dev.vanta.core.screen.cosmetics.InfoBanner;
+import dev.vanta.core.screen.cosmetics.Plurals;
 import dev.vanta.core.screen.cosmetics.SectionHeader;
 import dev.vanta.core.screen.cosmetics.ThemedScreen;
 import dev.vanta.core.ui.Icons;
@@ -91,7 +92,7 @@ public final class ProfilesScreen extends ThemedScreen implements ProfileCard.Li
                     active.get().name()));
         }
         List<Profile> all = profiles.list();
-        header.trailing(Lang.tr("vanta.profiles.count", all.size()));
+        header.trailing(Plurals.count(all.size(), "vanta.profiles.count"));
         grid.clearChildren();
         cards.clear();
         boolean deletable = all.size() > 1;

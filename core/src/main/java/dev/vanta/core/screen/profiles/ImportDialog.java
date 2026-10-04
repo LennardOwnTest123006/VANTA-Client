@@ -74,7 +74,6 @@ public final class ImportDialog extends UiNode {
         files = new ListView<>(actions.listImportFiles(), p -> p.getFileName().toString()).rowHeight(14)
                 .emptyText(Lang.tr("vanta.profiles.import.no_files"));
         files.setId("import.files");
-        files.onSelect(p -> importSelected.setEnabled(true));
         files.onActivate(this::importFile);
         add(files);
         folderButtons = new Row(Theme.SPACE_3);
@@ -87,6 +86,7 @@ public final class ImportDialog extends UiNode {
                 () -> files.selectedItem().ifPresent(this::importFile)).compact(true);
         importSelected.setId("import.selected");
         importSelected.setEnabled(false);
+        files.onSelect(p -> importSelected.setEnabled(true));
         folderButtons.add(refresh);
         folderButtons.add(openFolder);
         folderButtons.add(importSelected);
