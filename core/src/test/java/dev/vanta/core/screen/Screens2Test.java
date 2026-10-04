@@ -1,9 +1,11 @@
 package dev.vanta.core.screen;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.i18n.Lang;
+import dev.vanta.core.screen.common.ScreenNavigator;
 import dev.vanta.core.screen.cosmetics.CosmeticsScreen;
 import dev.vanta.core.screen.cosmetics.ServicesFixture;
 import dev.vanta.core.screen.cosmetics.ThemedScreen;
@@ -38,5 +40,18 @@ class Screens2Test {
             fx.open(id);
             fx.open(id, 427, 240);
         }
+    }
+
+    @Test
+    void keybindDeepLinkFromTheNavigatorRevealsTheMapping() {
+        ServicesFixture fx = new ServicesFixture(dir);
+        ScreenNavigator navigator = ScreenNavigator.forServices(fx.services);
+        ProfilesScreen origin = fx.open(ScreenId.PROFILES);
+        navigator.openKeybind(origin.context(), "key.jump");
+        KeybindsScreen screen = fx.open(ScreenId.KEYBINDS);
+        assertTrue(screen.row("key.jump").orElseThrow().field().isFocused(), "the staged mapping is focused");
+        assertTrue(navigator.takePendingKeybind().isEmpty(), "the pending id is consumed");
+        KeybindsScreen plain = fx.open(ScreenId.KEYBINDS);
+        assertFalse(plain.row("key.jump").orElseThrow().field().isFocused(), "no deep link, no focus");
     }
 }

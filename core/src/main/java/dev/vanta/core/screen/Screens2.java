@@ -1,5 +1,6 @@
 package dev.vanta.core.screen;
 
+import dev.vanta.core.screen.common.ScreenNavigator;
 import dev.vanta.core.screen.cosmetics.CosmeticsScreen;
 import dev.vanta.core.screen.keybinds.KeybindsScreen;
 import dev.vanta.core.screen.profiles.ProfilesScreen;
@@ -24,8 +25,14 @@ public final class Screens2 {
     public static void register(VantaServices services) {
         Objects.requireNonNull(services, "services");
         ScreenRegistry registry = services.screens();
+        ScreenNavigator navigator = ScreenNavigator.forServices(services);
         registry.register(ScreenId.PROFILES, () -> new ProfilesScreen(services));
-        registry.register(ScreenId.KEYBINDS, () -> new KeybindsScreen(services));
+        registry.register(ScreenId.KEYBINDS, () -> {
+            KeybindsScreen screen = new KeybindsScreen(services);
+            // Deep link from the search overlay / settings: reveal the requested mapping once the list exists.
+            navigator.takePendingKeybind().ifPresent(id -> screen.onceInitialised(() -> screen.revealKeybind(id)));
+            return screen;
+        });
         registry.register(ScreenId.COSMETICS, () -> new CosmeticsScreen(services));
         registry.register(ScreenId.STATISTICS, () -> new StatisticsScreen(services));
     }
