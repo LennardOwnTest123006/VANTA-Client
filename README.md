@@ -53,6 +53,20 @@ This is a monorepo. Each product is an independent build with its own README.
 
 See [CHANGELOG.md](CHANGELOG.md) for what is implemented. Release downloads are published through the
 release manifests in [`shared/releases/`](shared/releases/) and never hardcoded in the website or launcher.
+No release has been published yet, so the download page and the launcher report "not published" until the
+first release workflow run fills in the manifests.
+
+### What CI verifies on every push ([`ci.yml`](.github/workflows/ci.yml))
+
+- **core**: JUnit tests and Java2D previews of every VANTA screen.
+- **client**: compiled against the real Minecraft 1.21.11 (Mojang mappings); the production game test then starts
+  the built jar with Fabric Loader 0.19.5 and Fabric API in a headless game, opens every screen, creates a world,
+  applies a performance preset and screenshots everything. The captures in [`assets/screenshots/`](assets/screenshots/)
+  come from that test.
+- **launcher**: unit tests on Ubuntu and Windows, `jlink` + `jpackage`, and an integration job that installs
+  Minecraft 1.21.11 + Fabric from the official endpoints with the launcher's fat jar, launches the game headlessly and
+  checks that the VANTA main menu came up.
+- **website**: lint, unit tests, production build with a bundle budget, Playwright end-to-end and accessibility checks.
 
 ## License
 
