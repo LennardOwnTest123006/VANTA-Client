@@ -98,6 +98,9 @@ tasks.withType(Javadoc).configureEach {
 tasks.named('test', Test) {
     useJUnitPlatform()
     systemProperty 'file.encoding', 'UTF-8'
+    // No single test may hang the build (network fakes, process launches).
+    systemProperty 'junit.jupiter.execution.timeout.default', '120 s'
+    systemProperty 'junit.jupiter.execution.timeout.mode', 'enabled'
     testLogging {
         events 'failed'
         exceptionFormat 'full'
@@ -205,10 +208,13 @@ tasks.register('jdeps', Exec) {
 // ---------------------------------------------------------------------------------------------
 // jlinkImage: custom Java 21 runtime with JavaFX for the target platform
 // ---------------------------------------------------------------------------------------------
-// Verified with `./gradlew jdeps` for the fat jar; JavaFX modules are added for the UI.
+// `./gradlew jdeps` reports java.base, java.desktop, java.net.http, java.sql (Gson), jdk.management (RAM detection)
+// for the fat jar. java.logging is used directly; jdk.unsupported covers Gson's reflective sun.misc.Unsafe use,
+// jdk.crypto.ec provides the TLS cipher suites used by Mojang/Microsoft endpoints, jdk.localedata keeps date and
+// number formatting correct outside the English locale. JavaFX modules are added for the UI.
 ext.runtimeModules = [
     'java.base', 'java.logging', 'java.net.http', 'java.desktop', 'java.management', 'jdk.management',
-    'java.naming', 'java.sql', 'jdk.unsupported', 'jdk.crypto.ec', 'jdk.zipfs', 'jdk.localedata',
+    'java.sql', 'jdk.unsupported', 'jdk.crypto.ec', 'jdk.localedata',
     'javafx.base', 'javafx.graphics', 'javafx.controls'
 ]
 

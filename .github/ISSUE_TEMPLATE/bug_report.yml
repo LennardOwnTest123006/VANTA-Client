@@ -1,0 +1,97 @@
+name: Bug report
+description: Something in the VANTA Client, Launcher or website does not work as documented.
+title: '[Bug]: '
+labels: ['bug', 'needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. VANTA Client targets **Minecraft Java Edition 1.21.11** with
+        **Fabric Loader 0.19.5** and **Java 21** only; reports about other Minecraft versions are closed as out of scope.
+        Please check [docs/troubleshooting.md](https://github.com/LennardOwnTest123006/VANTA-Client/blob/main/docs/troubleshooting.md)
+        and search existing issues first.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - VANTA Client (the Fabric mod, in game)
+        - VANTA Launcher
+        - Website
+        - Documentation
+        - Build / CI / release scripts
+    validations:
+      required: true
+  - type: input
+    id: vanta-version
+    attributes:
+      label: VANTA version
+      description: Client or launcher version (About screen, or `vanta-launcher --version`).
+      placeholder: '1.0.0'
+    validations:
+      required: true
+  - type: input
+    id: minecraft-version
+    attributes:
+      label: Minecraft version
+      description: Must be 1.21.11. If you are on another version, VANTA does not support it.
+      value: '1.21.11'
+    validations:
+      required: true
+  - type: input
+    id: java-version
+    attributes:
+      label: Java version
+      description: Output of `java -version` (the launcher's Java card shows the one it uses). Must be Java 21.
+      placeholder: 'openjdk version "21.0.x" ...'
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: 'Windows 11 23H2 / Ubuntu 24.04 / macOS 15'
+    validations:
+      required: true
+  - type: input
+    id: other-mods
+    attributes:
+      label: Other mods installed
+      description: Fabric API is expected. List everything else in `mods/` (or "none").
+      placeholder: 'Fabric API 0.141.6+1.21.11, none'
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Game: `<instance>/logs/latest.log` (launcher instance or `.minecraft`). Launcher: `logs/launcher-0.log` in the launcher
+        data directory (see docs/launcher.md). Remove personal data such as your username or tokens before pasting.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I am using Minecraft 1.21.11, Fabric Loader 0.19.5 and Java 21.
+          required: true
+        - label: I searched existing issues and the troubleshooting guide.
+          required: true
+        - label: This report does not ask for cheats, automation or any unfair multiplayer advantage (such requests are closed).
+          required: true

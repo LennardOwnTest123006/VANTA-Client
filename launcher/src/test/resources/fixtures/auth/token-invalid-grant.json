@@ -1,0 +1,10 @@
+{
+  "error": "invalid_grant",
+  "error_description": "AADSTS70000: The provided value for the input parameter 'refresh_token' is not valid.",
+  "error_codes": [
+    70000
+  ],
+  "timestamp": "2026-10-04 12:00:00Z",
+  "trace_id": "4f3f0f12-7c8e-4b3a-9f1e-2a1b3c4d5e73",
+  "correlation_id": "9d7c6b5a-4e3d-2c1b-0a9f-8e7d6c5b4a39"
+}

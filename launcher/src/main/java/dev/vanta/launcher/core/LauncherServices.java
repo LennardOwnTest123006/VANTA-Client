@@ -1,0 +1,288 @@
+package dev.vanta.launcher.core;
+
+import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.core.auth.AccountStore;
+import dev.vanta.launcher.core.auth.MicrosoftAuthService;
+import dev.vanta.launcher.core.install.FabricApiService;
+import dev.vanta.launcher.core.install.FabricService;
+import dev.vanta.launcher.core.install.Installer;
+import dev.vanta.launcher.core.install.MojangService;
+import dev.vanta.launcher.core.install.SharedFileSource;
+import dev.vanta.launcher.core.install.VantaClientService;
+import dev.vanta.launcher.core.java.AdoptiumService;
+import dev.vanta.launcher.core.java.JavaDetector;
+import dev.vanta.launcher.core.java.JavaProbe;
+import dev.vanta.launcher.core.java.ProcessJavaProbe;
+import dev.vanta.launcher.core.launch.LaunchService;
+import dev.vanta.launcher.core.log.LauncherLog;
+import dev.vanta.launcher.core.net.Downloader;
+import dev.vanta.launcher.core.net.HttpTransport;
+import dev.vanta.launcher.core.net.JdkHttpTransport;
+import dev.vanta.launcher.core.paths.LauncherPaths;
+import dev.vanta.launcher.core.settings.LauncherSettings;
+import dev.vanta.launcher.core.settings.SettingsStore;
+import dev.vanta.launcher.core.update.SemVer;
+import dev.vanta.launcher.core.update.UpdateService;
+import dev.vanta.launcher.core.util.OsInfo;
+import dev.vanta.launcher.core.util.Sleeper;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Clock;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * Composition root: wires paths, settings, HTTP, installer, Java detection, authentication, launch and update
+ * services. The JavaFX UI and the CLI both obtain everything from here.
+ *
+ * <p>Settings are cached; {@link #settings()} returns the current value and {@link #saveSettings} persists and
+ * replaces it. Services that depend on settings (releases URL, client id) read them lazily through suppliers, so
+ * a settings change takes effect immediately.</p>
+ */
+public final class LauncherServices implements AutoCloseable {
+
+    private static final Logger LOG = LauncherLog.get("Services");
+
+    private final LauncherPaths paths;
+    private final OsInfo os;
+    private final Map<String, String> env;
+    private final Clock clock;
+    private final HttpTransport transport;
+    private final Downloader downloader;
+    private final SettingsStore settingsStore;
+    private volatile LauncherSettings settings;
+    private final MojangService mojang;
+    private final FabricService fabric;
+    private final FabricApiService fabricApi;
+    private final VantaClientService vantaClient;
+    private final JavaProbe probe;
+    private final JavaDetector javaDetector;
+    private final AdoptiumService adoptium;
+    private final MicrosoftAuthService auth;
+    private final AccountStore accounts;
+    private final LaunchService launch;
+    private final UpdateService updates;
+    private final Optional<Path> officialMinecraftDir;
+    private final ServiceEndpoints endpoints;
+
+    /**
+     * Services with production endpoints.
+     *
+     * @param paths     launcher paths
+     * @param os        host platform
+     * @param env       environment variables
+     * @param transport HTTP transport
+     * @param probe     Java probe
+     * @param clock     clock
+     * @param sleeper   sleeper for retries and OAuth polling
+     */
+    public LauncherServices(final LauncherPaths paths, final OsInfo os, final Map<String, String> env, final HttpTransport transport,
+                            final JavaProbe probe, final Clock clock, final Sleeper sleeper) {
+        this(paths, os, env, transport, probe, clock, sleeper, ServiceEndpoints.DEFAULT);
+    }
+
+    /**
+     * @param paths     launcher paths
+     * @param os        host platform
+     * @param env       environment variables
+     * @param transport HTTP transport
+     * @param probe     Java probe
+     * @param clock     clock
+     * @param sleeper   sleeper for retries and OAuth polling
+     * @param endpoints remote endpoints
+     */
+    public LauncherServices(final LauncherPaths paths, final OsInfo os, final Map<String, String> env, final HttpTransport transport,
+                            final JavaProbe probe, final Clock clock, final Sleeper sleeper, final ServiceEndpoints endpoints) {
+        this.paths = Objects.requireNonNull(paths, "paths");
+        this.endpoints = Objects.requireNonNull(endpoints, "endpoints");
+        this.os = Objects.requireNonNull(os, "os");
+        this.env = Map.copyOf(Objects.requireNonNull(env, "env"));
+        this.clock = Objects.requireNonNull(clock, "clock");
+        this.transport = Objects.requireNonNull(transport, "transport");
+        this.probe = Objects.requireNonNull(probe, "probe");
+        try {
+            paths.createDirectories();
+            LauncherLog.init(paths.logsDir());
+        } catch (IOException e) {
+            LOG.log(Level.WARNING, "Could not initialise launcher directories/logging", e);
+        }
+        this.downloader = new Downloader(transport, sleeper, Downloader.DEFAULT_ATTEMPTS, Downloader.DEFAULT_CONCURRENCY);
+        this.settingsStore = new SettingsStore(paths.settingsFile());
+        this.settings = settingsStore.load();
+        this.mojang = new MojangService(downloader, paths, endpoints.mojangManifest(), endpoints.mojangResources());
+        this.fabric = new FabricService(downloader, paths, endpoints.fabricMeta());
+        this.fabricApi = new FabricApiService(fabric, paths, endpoints.fabricMaven());
+        this.vantaClient = new VantaClientService(downloader, paths, () -> settings().releasesBaseUrl());
+        this.javaDetector = new JavaDetector(os, env, paths, probe, List.of());
+        this.adoptium = new AdoptiumService(downloader, paths, os, probe, endpoints.adoptiumApi());
+        this.auth = new MicrosoftAuthService(transport, endpoints.auth(),
+            MicrosoftAuthService.clientIdFrom(() -> settings().msClientId(), env), clock, sleeper);
+        this.accounts = AccountStore.open(paths, os);
+        this.launch = new LaunchService(paths, os, clock);
+        this.updates = new UpdateService(downloader, paths, () -> settings().releasesBaseUrl(),
+            SemVer.tryParse(LauncherVersion.VERSION).orElse(SemVer.of(1, 0, 0)), os, vantaClient);
+        this.officialMinecraftDir = LauncherPaths.officialMinecraftDir(os, env, Path.of(System.getProperty("user.home", ".")));
+    }
+
+    /**
+     * Production services for the host with the default data directory.
+     *
+     * @return services
+     */
+    public static LauncherServices createDefault() {
+        return create(LauncherPaths.detect());
+    }
+
+    /**
+     * Production services for a specific data directory.
+     *
+     * @param paths paths
+     * @return services
+     */
+    public static LauncherServices create(final LauncherPaths paths) {
+        return new LauncherServices(paths, OsInfo.detect(), System.getenv(), new JdkHttpTransport(), new ProcessJavaProbe(),
+            Clock.systemUTC(), Sleeper.REAL);
+    }
+
+    /** @return paths */
+    public LauncherPaths paths() {
+        return paths;
+    }
+
+    /** @return host platform */
+    public OsInfo os() {
+        return os;
+    }
+
+    /** @return environment variables */
+    public Map<String, String> env() {
+        return env;
+    }
+
+    /** @return clock */
+    public Clock clock() {
+        return clock;
+    }
+
+    /** @return settings store */
+    public SettingsStore settingsStore() {
+        return settingsStore;
+    }
+
+    /** @return current settings */
+    public LauncherSettings settings() {
+        return settings;
+    }
+
+    /**
+     * Persists and activates settings.
+     *
+     * @param updated new settings
+     * @throws IOException on failure
+     */
+    public void saveSettings(final LauncherSettings updated) throws IOException {
+        settingsStore.save(updated);
+        settings = updated;
+    }
+
+    /**
+     * Replaces the in-memory settings without persisting (CLI overrides).
+     *
+     * @param updated settings
+     */
+    public void overrideSettings(final LauncherSettings updated) {
+        settings = Objects.requireNonNull(updated, "updated");
+    }
+
+    /** @return transport */
+    public HttpTransport transport() {
+        return transport;
+    }
+
+    /** @return downloader */
+    public Downloader downloader() {
+        return downloader;
+    }
+
+    /** @return Mojang service */
+    public MojangService mojang() {
+        return mojang;
+    }
+
+    /** @return Fabric service */
+    public FabricService fabric() {
+        return fabric;
+    }
+
+    /** @return Fabric API service */
+    public FabricApiService fabricApi() {
+        return fabricApi;
+    }
+
+    /** @return VANTA client service */
+    public VantaClientService vantaClient() {
+        return vantaClient;
+    }
+
+    /** @return a new installer honouring the current settings */
+    public Installer installer() {
+        final Optional<SharedFileSource> shared = settings().shareOfficialMinecraftFiles()
+            ? officialMinecraftDir.map(SharedFileSource::new) : Optional.empty();
+        return new Installer(paths, os, downloader, mojang, fabric, fabricApi, vantaClient, shared, clock);
+    }
+
+    /** @return Java probe */
+    public JavaProbe javaProbe() {
+        return probe;
+    }
+
+    /** @return Java detector */
+    public JavaDetector javaDetector() {
+        return javaDetector;
+    }
+
+    /** @return Adoptium service */
+    public AdoptiumService adoptium() {
+        return adoptium;
+    }
+
+    /** @return Microsoft authentication */
+    public MicrosoftAuthService auth() {
+        return auth;
+    }
+
+    /** @return account store */
+    public AccountStore accounts() {
+        return accounts;
+    }
+
+    /** @return launch service */
+    public LaunchService launch() {
+        return launch;
+    }
+
+    /** @return update service */
+    public UpdateService updates() {
+        return updates;
+    }
+
+    /** @return the official {@code .minecraft} directory when present */
+    public Optional<Path> officialMinecraftDir() {
+        return officialMinecraftDir;
+    }
+
+    /** @return remote endpoints in use */
+    public ServiceEndpoints endpoints() {
+        return endpoints;
+    }
+
+    @Override
+    public void close() {
+        downloader.close();
+    }
+}

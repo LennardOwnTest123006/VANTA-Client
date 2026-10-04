@@ -1,0 +1,12 @@
+{
+  "IssueInstant": "2026-10-04T12:00:12.3456789Z",
+  "NotAfter": "2026-10-18T12:00:12.3456789Z",
+  "Token": "eyJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwiYWxnIjoiUlNBLU9BRVAiLCJjdHkiOiJKV1QiLCJ6aXAiOiJERUYiLCJ4NXQiOiJ0ZXN0In0.XBL-TEST-TOKEN-FIXTURE.ONLY",
+  "DisplayClaims": {
+    "xui": [
+      {
+        "uhs": "12345678901234567890"
+      }
+    ]
+  }
+}

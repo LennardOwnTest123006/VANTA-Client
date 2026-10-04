@@ -1,0 +1,40 @@
+{
+  "objects": {
+    "minecraft/lang/de_de.json": {
+      "hash": "51dc8013cedd8872a8ff91a4978c26653df7d70e",
+      "size": 1425
+    },
+    "minecraft/lang/fr_fr.json": {
+      "hash": "c2561bcf6241a62f6d185891997581d1d64e02d8",
+      "size": 1425
+    },
+    "minecraft/sounds/ambient/cave/cave1.ogg": {
+      "hash": "6c55a8ea499598d7c1dbc71409eda5aaeff0dc7e",
+      "size": 1663
+    },
+    "minecraft/sounds/random/click.ogg": {
+      "hash": "ad1e3a885ae965f0f45a6922f7e284f42e8fcb1d",
+      "size": 1561
+    },
+    "minecraft/textures/entity/alex.png": {
+      "hash": "a4a06fcf4acdb845d0af6913a387c57b739d1d8f",
+      "size": 1578
+    },
+    "pack.mcmeta": {
+      "hash": "ce63af365ed12f9392d2ffbe59d461c2da04b8c3",
+      "size": 1187
+    },
+    "minecraft/icons/icon_16x16.png": {
+      "hash": "2ff1d310dd45f26b0d040ff52f42774b1960b1bd",
+      "size": 1510
+    },
+    "minecraft/icons/icon_32x32.png": {
+      "hash": "d8584bb78602914957308afd45ea934fb39d55f6",
+      "size": 1510
+    },
+    "minecraft/sounds/random/click_duplicate.ogg": {
+      "hash": "ad1e3a885ae965f0f45a6922f7e284f42e8fcb1d",
+      "size": 1561
+    }
+  }
+}

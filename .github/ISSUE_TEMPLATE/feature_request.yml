@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest an improvement to the client, launcher or website.
+title: '[Feature]: '
+labels: ['enhancement', 'needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        VANTA is a legitimate client: visual, quality-of-life, performance (vanilla options only), accessibility and
+        interface features are welcome. Anything that automates combat, manipulates packets, bypasses anti-cheat, tracks
+        other players or otherwise gives an unfair multiplayer advantage is rejected without discussion.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - VANTA Client (HUD, settings, menus, profiles, cosmetics, performance center)
+        - VANTA Launcher
+        - Website
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation today and why it is annoying or missing.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should VANTA do? Mock-ups and examples from other software are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: input
+    id: minecraft-version
+    attributes:
+      label: Minecraft version this applies to
+      description: VANTA 1.x targets 1.21.11 only. Requests for other versions are out of scope.
+      value: '1.21.11'
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: This feature gives no unfair advantage on multiplayer servers and works within vanilla game rules.
+          required: true
+        - label: I searched existing issues and the feature list on the website / in docs.
+          required: true

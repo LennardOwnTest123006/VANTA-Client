@@ -30,7 +30,7 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 ### VANTA Launcher 1.0.0
 - Detects Java 21, installs Minecraft 1.21.11 and Fabric Loader from official sources with checksum verification,
   installs Fabric API and the VANTA Client jar, Microsoft account sign-in (device code flow), logs, settings,
-  version information, update checks against signed release manifests
+  version information, update checks against SHA-256 verified release manifests
 
 ### Website 1.0.0
 - Official website with download center, features, performance, screenshots, changelog, news, searchable

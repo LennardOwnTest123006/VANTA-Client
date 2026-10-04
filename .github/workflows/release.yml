@@ -1,0 +1,348 @@
+# Release workflow: builds one tagged product, publishes a GitHub Release with SHA-256 checksums and opens
+# a pull request with the completed release manifest (shared/releases). Documented in RELEASE.md.
+#
+# Triggers   push a tag `client-v<version>` or `launcher-v<version>`, or "Run workflow" with product + version.
+# Secrets    none beyond the automatic GITHUB_TOKEN. Code signing is out of scope (RELEASE.md, "Signing (future)").
+# Settings   Settings > Actions > General > Workflow permissions must allow GitHub Actions to create pull requests;
+#            otherwise the last step fails and the manifest PR has to be opened by hand from the workflow artifact.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'client-v*'
+      - 'launcher-v*'
+  workflow_dispatch:
+    inputs:
+      product:
+        description: Product to release
+        type: choice
+        options: [client, launcher]
+        required: true
+      version:
+        description: Version to release (SemVer; must equal the version pinned in the repository)
+        type: string
+        required: true
+      channel:
+        description: Release channel (beta publishes a GitHub pre-release)
+        type: choice
+        options: [stable, beta]
+        default: stable
+      draft:
+        description: Create the GitHub Release as a draft
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Resolve product and version
+    runs-on: ubuntu-24.04
+    outputs:
+      product: ${{ steps.resolve.outputs.product }}
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      channel: ${{ steps.resolve.outputs.channel }}
+      draft: ${{ steps.resolve.outputs.draft }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve and validate
+        id: resolve
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_PRODUCT: ${{ inputs.product }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
+          INPUT_DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            PRODUCT="$INPUT_PRODUCT"
+            VERSION="$INPUT_VERSION"
+            CHANNEL="${INPUT_CHANNEL:-stable}"
+            DRAFT="${INPUT_DRAFT:-false}"
+          else
+            case "$REF_NAME" in
+              client-v*)   PRODUCT=client;   VERSION="${REF_NAME#client-v}" ;;
+              launcher-v*) PRODUCT=launcher; VERSION="${REF_NAME#launcher-v}" ;;
+              *) echo "::error::Unsupported tag '$REF_NAME' (expected client-v<version> or launcher-v<version>)"; exit 1 ;;
+            esac
+            if [[ "$VERSION" == *-* ]]; then CHANNEL=beta; else CHANNEL=stable; fi
+            DRAFT=false
+          fi
+          SEMVER='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$'
+          if ! [[ "$VERSION" =~ $SEMVER ]]; then
+            echo "::error::'$VERSION' is not a SemVer version"; exit 1
+          fi
+          case "$PRODUCT" in
+            client)   PINNED=$(sed -n 's/^mod_version=//p' client/gradle.properties) ;;
+            launcher) PINNED=$(sed -n 's/^launcher_version=//p' launcher/gradle.properties) ;;
+          esac
+          if [ "$PINNED" != "$VERSION" ]; then
+            echo "::error::Release version $VERSION does not match the pinned $PRODUCT version '$PINNED'. Run: node scripts/release/bump-version.mjs --product $PRODUCT --to $VERSION"
+            exit 1
+          fi
+          MANIFEST="shared/releases/${PRODUCT}-${VERSION}.json"
+          if [ ! -f "$MANIFEST" ]; then
+            echo "::error::$MANIFEST is missing. Run: node scripts/release/bump-version.mjs --product $PRODUCT --to $VERSION"
+            exit 1
+          fi
+          node scripts/release/validate-json.mjs shared/schemas/release-manifest.schema.json "$MANIFEST"
+          {
+            echo "product=$PRODUCT"
+            echo "version=$VERSION"
+            echo "tag=${PRODUCT}-v${VERSION}"
+            echo "channel=$CHANNEL"
+            echo "draft=$DRAFT"
+          } >> "$GITHUB_OUTPUT"
+          echo "Releasing $PRODUCT $VERSION ($CHANNEL) as ${PRODUCT}-v${VERSION}"
+
+  client:
+    name: Client jar (Minecraft 1.21.11, Fabric)
+    needs: prepare
+    if: needs.prepare.outputs.product == 'client'
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and test
+        working-directory: client
+        run: ./gradlew build --stacktrace
+      - name: Verify jar metadata targets Minecraft 1.21.11
+        working-directory: client
+        run: |
+          set -euo pipefail
+          JAR="build/libs/vanta-client-${VERSION}.jar"
+          test -f "$JAR" || { echo "::error::$JAR was not produced (version mismatch?)"; ls -la build/libs; exit 1; }
+          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": "~1.21.11"'
+          unzip -p "$JAR" META-INF/MANIFEST.MF | grep -q 'Minecraft-Version: 1.21.11'
+          echo "ok: $JAR"
+      - name: Install Xvfb for the headless game test
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
+      - name: Smoke test the built jar (production client game test, real Minecraft under Xvfb)
+        working-directory: client
+        env:
+          CI: 'true'
+        run: ./gradlew runProductionClientGametest --stacktrace
+      - name: Collect game test screenshots and logs
+        if: always()
+        run: |
+          mkdir -p gametest-out
+          cp -r client/run/production-gametest/screenshots gametest-out/ 2>/dev/null || true
+          cp client/run/production-gametest/logs/latest.log gametest-out/ 2>/dev/null || true
+          ls -la gametest-out || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-gametest
+          path: gametest-out
+          if-no-files-found: ignore
+      - name: Stage release files
+        run: |
+          mkdir -p dist
+          cp "client/build/libs/vanta-client-${VERSION}.jar" dist/
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-client
+          path: dist/*
+          if-no-files-found: error
+
+  launcher-windows:
+    name: Launcher installers (Windows)
+    needs: prepare
+    if: needs.prepare.outputs.product == 'launcher'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and test
+        working-directory: launcher
+        run: ./gradlew build fatJar --stacktrace
+      - name: MSI installer (jlink runtime + jpackage, WiX preinstalled on the runner)
+        working-directory: launcher
+        run: |
+          set -euo pipefail
+          ./gradlew jlinkImage jpackage -PjpackageType=msi --stacktrace
+          mkdir -p ../dist
+          cp build/jpackage/*.msi "../dist/VANTA-Launcher-${VERSION}.msi"
+      - name: EXE installer
+        working-directory: launcher
+        run: |
+          set -euo pipefail
+          ./gradlew jpackage -PjpackageType=exe --stacktrace
+          cp build/jpackage/*.exe "../dist/VANTA-Launcher-${VERSION}.exe"
+      - name: Portable jar and smoke test
+        run: |
+          set -euo pipefail
+          cp "launcher/build/libs/vanta-launcher-${VERSION}-all.jar" dist/
+          java -jar "dist/vanta-launcher-${VERSION}-all.jar" --version
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-launcher-windows
+          path: dist/*
+          if-no-files-found: error
+
+  launcher-linux:
+    name: Launcher app image (Linux)
+    needs: prepare
+    if: needs.prepare.outputs.product == 'launcher'
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build, test, jlink and app image
+        working-directory: launcher
+        run: ./gradlew build fatJar jlinkImage jpackage --stacktrace
+      - name: Package app image and smoke test the CLI
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          tar -C launcher/build/jpackage -czf "dist/VANTA-Launcher-${VERSION}-linux-x64.tar.gz" "VANTA Launcher"
+          java -jar "launcher/build/libs/vanta-launcher-${VERSION}-all.jar" --version
+          java -jar "launcher/build/libs/vanta-launcher-${VERSION}-all.jar" --check-java
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-launcher-linux
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release and manifest
+    needs: [prepare, client, launcher-windows, launcher-linux]
+    if: >-
+      ${{ !cancelled() && needs.prepare.result == 'success' &&
+          ((needs.prepare.outputs.product == 'client' && needs.client.result == 'success') ||
+           (needs.prepare.outputs.product == 'launcher' && needs.launcher-windows.result == 'success' && needs.launcher-linux.result == 'success')) }}
+    runs-on: ubuntu-24.04
+    env:
+      PRODUCT: ${{ needs.prepare.outputs.product }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      CHANNEL: ${{ needs.prepare.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The manifest pull request targets the default branch, so build it from there.
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Build the manifest from the real artifacts
+        run: |
+          set -euo pipefail
+          ls -la dist
+          rm -f dist/SHA256SUMS.txt
+          for file in dist/*; do
+            name=$(basename "$file")
+            node scripts/release/build-manifest.mjs \
+              --product "$PRODUCT" --version "$VERSION" \
+              --file "$file" --name "$name" \
+              --url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${name}" \
+              --date "$(date -u +%Y-%m-%d)" --channel "$CHANNEL" \
+              --sums dist/SHA256SUMS.txt
+          done
+      - name: Validate and verify the manifest against the artifacts
+        run: |
+          set -euo pipefail
+          node scripts/release/validate-json.mjs shared/schemas/release-manifest.schema.json shared/releases/*.json shared/releases/latest/*.json
+          node scripts/release/verify-manifest.mjs "shared/releases/${PRODUCT}-${VERSION}.json" --local dist
+          echo "SHA256SUMS.txt:"; cat dist/SHA256SUMS.txt
+          cp "shared/releases/${PRODUCT}-${VERSION}.json" dist/
+      - name: Compose release notes
+        run: |
+          set -euo pipefail
+          NOTES="website/content/changelog/${PRODUCT}-${VERSION}.md"
+          {
+            if [ -f "$NOTES" ]; then
+              # Drop the front matter block.
+              awk 'NR==1 && /^---$/ {fm=1; next} fm==1 && /^---$/ {fm=0; next} fm!=1 {print}' "$NOTES"
+            else
+              echo "Release notes: see CHANGELOG.md in the repository."
+            fi
+            echo
+            echo "## Verify your download"
+            echo
+            echo '```'
+            cat dist/SHA256SUMS.txt
+            echo '```'
+            echo
+            echo 'Windows: `certutil -hashfile <file> SHA256` · macOS: `shasum -a 256 <file>` · Linux: `sha256sum -c SHA256SUMS.txt`'
+            echo
+            echo "Minecraft 1.21.11 · Fabric Loader 0.19.5 · Java 21. Not affiliated with Mojang or Microsoft."
+          } > release-notes.md
+          cat release-notes.md
+      - name: Create the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ env.PRODUCT == 'client' && 'VANTA Client' || 'VANTA Launcher' }} ${{ env.VERSION }}
+          body_path: release-notes.md
+          draft: ${{ needs.prepare.outputs.draft == 'true' }}
+          prerelease: ${{ env.CHANNEL == 'beta' }}
+          make_latest: ${{ env.CHANNEL == 'stable' }}
+          files: dist/*
+          fail_on_unmatched_files: true
+      - name: Open a pull request with the completed manifest (never pushes to the default branch directly)
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: release/${{ env.TAG }}-manifest
+          base: ${{ github.event.repository.default_branch }}
+          delete-branch: true
+          add-paths: shared/releases/**
+          commit-message: 'chore(release): publish manifest for ${{ env.TAG }}'
+          title: 'chore(release): publish manifest for ${{ env.TAG }}'
+          labels: release
+          body: |
+            Completed release manifest for **${{ env.TAG }}**, generated by the release workflow from the uploaded
+            GitHub Release assets (`downloadUrl`, `size`, `sha256`) and verified with `scripts/release/verify-manifest.mjs`.
+
+            - Release: https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG }}
+            - Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Merging publishes the manifest to the website (Netlify redeploys) and to `shared/releases/latest/`
+            for the launcher update check. Do not edit the values by hand; re-run the workflow instead.

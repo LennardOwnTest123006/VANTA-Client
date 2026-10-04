@@ -1,0 +1,18 @@
+{
+  "IssueInstant": "2026-10-04T12:00:13.3456789Z",
+  "NotAfter": "2026-10-04T20:00:13.3456789Z",
+  "Token": "eyJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwiYWxnIjoiUlNBLU9BRVAiLCJjdHkiOiJKV1QiLCJ6aXAiOiJERUYiLCJ4NXQiOiJ0ZXN0In0.XSTS-TEST-TOKEN-FIXTURE.ONLY",
+  "DisplayClaims": {
+    "xui": [
+      {
+        "gtg": "VantaTester",
+        "xid": "2535412345678901",
+        "uhs": "12345678901234567890",
+        "agg": "Adult",
+        "usr": "234",
+        "utr": "190",
+        "prv": "184 185 186 187 188 190 191 192 193 194 195 196 198 199 200 201 203 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 224 227 228 235 238 245 247 249 252 254 255"
+      }
+    ]
+  }
+}

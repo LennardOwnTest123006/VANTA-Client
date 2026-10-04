@@ -1,0 +1,78 @@
+{
+  "id": "fabric-loader-0.19.5-1.21.11",
+  "inheritsFrom": "1.21.11",
+  "releaseTime": "2026-02-03T10:14:52+0000",
+  "time": "2026-02-03T10:14:52+0000",
+  "type": "release",
+  "mainClass": "net.fabricmc.loader.impl.launch.knot.KnotClient",
+  "arguments": {
+    "game": [],
+    "jvm": [
+      "-DFabricMcEmu= net.minecraft.client.main.Main "
+    ]
+  },
+  "libraries": [
+    {
+      "name": "org.ow2.asm:asm:9.9",
+      "url": "https://maven.fabricmc.net/",
+      "md5": "598fbce799b17820b8b5aff2541e6477",
+      "sha1": "d5a7b8be62bcfe9e44b29dd2c8105eac3f71894f",
+      "sha256": "b5351cb34e7bc1877953c3e07c3b3b82d83e27e422968c707778db2f6d6f4d24",
+      "size": 126989,
+      "sha512": "6845b6d16336da0543672192ed5632d7f696eedd2335be3348de9806be13c35db3b182090e9a0cc1a3b0130ef6a3edf4e2605a7b28f07b5de27565e58e750681"
+    },
+    {
+      "name": "org.ow2.asm:asm-analysis:9.9",
+      "url": "https://maven.fabricmc.net/",
+      "md5": "dd81fdbed33385eb3b6f21c899bc03c0",
+      "sha1": "917a579552537faac8b6239d03ea9990675fdbbd",
+      "sha256": "58817da8d2fc231cf0b5311abcbd157aaa7de99a85671d7a05332b94fb3b0956",
+      "size": 35136,
+      "sha512": "4594d5f0af26597855b53e48b5449f4741870506921a58bf38586e78ee9b11cef9987d293cf02250643628a6bf528c3a69d480b5e845c099a7c18b33d48e216c"
+    },
+    {
+      "name": "org.ow2.asm:asm-commons:9.9",
+      "url": "https://maven.fabricmc.net/",
+      "md5": "50c8241631268ab0f137806397fe8749",
+      "sha1": "46bf309facf2b44b9acaa42b04bee9144b2100d0",
+      "sha256": "c3132190dfaac6c2ee935927bd83527fb9e124f6aa3150c72ae92c01314a29ca",
+      "size": 73513,
+      "sha512": "e9b068ccf098277e874a0d34053e5e7e2161537f87068a6f2d6a7dfbf87916fdffc97baaafed4e440094140c1244ea1c3c12973d0395d73cfbbf561205884b1b"
+    },
+    {
+      "name": "org.ow2.asm:asm-tree:9.9",
+      "url": "https://maven.fabricmc.net/",
+      "md5": "b43470797e655f1deb79316386070aa1",
+      "sha1": "14095bc6913a63b5b443d4aa8b2738407808c9f6",
+      "sha256": "ac0a60656f9af1aa4ee0bfcd425edde4460b6566e28ef52b43d52a103a90d44f",
+      "size": 51924,
+      "sha512": "5b488c168583b10ef079bc51dc2a994c6fe6b90ae05e42207470301d24ef1c4813694655774ff8b40f7716f4577162d72e5c0dc95701048016c3ceb030438947"
+    },
+    {
+      "name": "org.ow2.asm:asm-util:9.9",
+      "url": "https://maven.fabricmc.net/",
+      "md5": "46797bc237a840ad41f53b1070a9aa18",
+      "sha1": "0b05b4cbff269c70606413e3e06d3c8721b24b86",
+      "sha256": "1d261f287f14e47baf3f3cb7051c89384f134df205e39de96b439ce09389e149",
+      "size": 94320,
+      "sha512": "360f3f6f8d632448436efa5691fc39d68f770170652b1beb1ab04a8da896d0e5b2a81d2e5ebab2d2b4cb5015fcbe35ee08452bf586b5b6aec15b4bf0ff7062a4"
+    },
+    {
+      "name": "net.fabricmc:sponge-mixin:0.16.5+mixin.0.8.7",
+      "url": "https://maven.fabricmc.net/",
+      "md5": "dc9fca925140b57cdb8411733c17fc4d",
+      "sha1": "444ac7e2fb0e6827d4f91d0e3ee1d09b8e32c5c2",
+      "sha256": "968defcf181dbf89cba0fc9605d75f4f8a9524c507a6c6a23a6ac02fd8d0f8f0",
+      "size": 1604132,
+      "sha512": "f5ae2f2c8dd734ae8e1a2574f5133784a058564a5d9ad14e0073302fe0c10c7d7263874f2e4d4ad7fe45ff3dad98a7a1db2fe2447e0b5a91a95259e18687712a"
+    },
+    {
+      "name": "net.fabricmc:intermediary:1.21.11",
+      "url": "https://maven.fabricmc.net/"
+    },
+    {
+      "name": "net.fabricmc:fabric-loader:0.19.5",
+      "url": "https://maven.fabricmc.net/"
+    }
+  ]
+}

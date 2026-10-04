@@ -1,0 +1,8 @@
+{
+  "username": "3f2a1b4c5d6e7f8091a2b3c4d5e6f708",
+  "roles": [],
+  "metadata": {},
+  "access_token": "eyJhbGciOiJIUzI1NiJ9.MC-TEST-ACCESS-TOKEN-FIXTURE-ONLY-NOT-REAL-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "expires_in": 86400,
+  "token_type": "Bearer"
+}
