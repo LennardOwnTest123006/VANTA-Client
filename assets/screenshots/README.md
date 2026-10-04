@@ -13,7 +13,7 @@ VANTA screen:
 | File | Content |
 | --- | --- |
 | `01_main_menu.png` | VANTA main menu replacing the title screen |
-| `02_settings.png` … `12_about.png` | settings, HUD editor, performance center, profiles, keybinds, crosshair, cosmetics, statistics, resource packs, accessibility, search, about |
+| `02_settings.png` … `13_about.png` | settings, HUD editor, performance center, profiles, keybinds, crosshair, cosmetics, statistics, resource packs, accessibility, search, about |
 | `20_hud_ingame.png` | in-world HUD with several widgets enabled |
 | `21_ingame_menu.png` | VANTA menu opened while in a world |
 
