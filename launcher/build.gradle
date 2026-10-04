@@ -1,0 +1,303 @@
+/*
+ * VANTA Launcher build.
+ *
+ * Plain `java` + `application` plugins; no third-party packaging plugins. Packaging uses the JDK's own
+ * `jlink` and `jpackage` tools through Exec tasks so the build is fully reproducible with a stock JDK 21.
+ *
+ * Properties:
+ *   -PjavafxPlatform=win|linux|mac|mac-aarch64|linux-aarch64   JavaFX classifier (defaults to the host)
+ *   -PjpackageType=app-image|msi|exe|dmg|pkg|deb|rpm             jpackage output type (default app-image)
+ */
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = project.launcher_group
+version = project.launcher_version
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+// ---------------------------------------------------------------------------------------------
+// JavaFX platform classifier
+// ---------------------------------------------------------------------------------------------
+ext.hostJavafxPlatform = {
+    final String os = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+    final String arch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
+    final boolean arm = arch.contains('aarch64') || arch.contains('arm64')
+    if (os.contains('win')) {
+        return 'win'
+    }
+    if (os.contains('mac') || os.contains('darwin')) {
+        return arm ? 'mac-aarch64' : 'mac'
+    }
+    return arm ? 'linux-aarch64' : 'linux'
+}
+ext.javafxPlatform = project.hasProperty('javafxPlatform') ? project.property('javafxPlatform') : hostJavafxPlatform()
+ext.javafxModules = ['javafx-base', 'javafx-graphics', 'javafx-controls']
+
+final Set<String> VALID_JAVAFX_PLATFORMS = ['win', 'linux', 'mac', 'mac-aarch64', 'linux-aarch64'] as Set
+if (!VALID_JAVAFX_PLATFORMS.contains(javafxPlatform)) {
+    throw new GradleException("Unknown javafxPlatform '${javafxPlatform}'. Expected one of ${VALID_JAVAFX_PLATFORMS}")
+}
+
+configurations {
+    // JavaFX modular jars for the *target* platform; used as the jlink module path.
+    javafxRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+}
+
+dependencies {
+    implementation "com.google.code.gson:gson:${gson_version}"
+    implementation "net.java.dev.jna:jna:${jna_version}"
+    implementation "net.java.dev.jna:jna-platform:${jna_version}"
+
+    // JavaFX. The OpenJFX POMs select the platform classifier with Maven OS profiles that Gradle does not
+    // evaluate, so every module is declared explicitly with the classifier. The JavaFX UI lives in
+    // dev.vanta.launcher.ui and is loaded reflectively by dev.vanta.launcher.Main.
+    javafxModules.each { String module ->
+        implementation("org.openjfx:${module}:${javafx_version}:${javafxPlatform}") {
+            transitive = false
+        }
+        javafxRuntime("org.openjfx:${module}:${javafx_version}:${javafxPlatform}") {
+            transitive = false
+        }
+    }
+
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+application {
+    mainClass = 'dev.vanta.launcher.Main'
+    applicationDefaultJvmArgs = ['-Dfile.encoding=UTF-8']
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+    options.compilerArgs.addAll(['-Xlint:all', '-Xlint:-serial', '-Xlint:-processing', '-parameters'])
+}
+
+tasks.withType(Javadoc).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    systemProperty 'file.encoding', 'UTF-8'
+    testLogging {
+        events 'failed'
+        exceptionFormat 'full'
+    }
+}
+
+tasks.named('jar', Jar) {
+    manifest {
+        attributes(
+            'Main-Class': 'dev.vanta.launcher.Main',
+            'Implementation-Title': 'VANTA Launcher',
+            'Implementation-Version': project.version,
+            'Implementation-Vendor': 'VANTA',
+            'Minecraft-Version': project.minecraft_version,
+            'Fabric-Loader-Version': project.fabric_loader_version,
+            'Fabric-Api-Version': project.fabric_api_version
+        )
+    }
+}
+
+// Writes the pinned versions into a resource so the Java code never duplicates them.
+def generatedResources = layout.buildDirectory.dir('generated-resources/launcher')
+def generateBuildInfo = tasks.register('generateBuildInfo') {
+    def outDir = generatedResources
+    def props = [
+        'launcher.version'    : project.version.toString(),
+        'minecraft.version'   : project.minecraft_version,
+        'fabric.loader.version': project.fabric_loader_version,
+        'fabric.api.version'  : project.fabric_api_version,
+        'javafx.version'      : project.javafx_version
+    ]
+    inputs.properties(props)
+    outputs.dir(outDir)
+    doLast {
+        def target = outDir.get().file('dev/vanta/launcher/build-info.properties').asFile
+        target.parentFile.mkdirs()
+        target.withWriter('UTF-8') { w ->
+            w.write("# Generated by Gradle - do not edit\n")
+            props.each { k, v -> w.write("${k}=${v}\n") }
+        }
+    }
+}
+sourceSets.main.resources.srcDir(generatedResources)
+tasks.named('processResources') { dependsOn generateBuildInfo }
+
+// ---------------------------------------------------------------------------------------------
+// fatJar: everything except JavaFX (JavaFX comes from the jlink runtime image or the host JDK classpath)
+// ---------------------------------------------------------------------------------------------
+def isJavafxJar = { File f -> f.name.startsWith('javafx-') }
+
+def fatJar = tasks.register('fatJar', Jar) {
+    group = 'build'
+    description = 'Assembles a single runnable jar with all dependencies except JavaFX.'
+    dependsOn tasks.named('classes')
+    archiveClassifier = 'all'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes(
+            'Main-Class': 'dev.vanta.launcher.Main',
+            'Implementation-Title': 'VANTA Launcher',
+            'Implementation-Version': project.version,
+            'Implementation-Vendor': 'VANTA',
+            'Multi-Release': 'true'
+        )
+    }
+    from(sourceSets.main.output)
+    def runtimeJars = configurations.runtimeClasspath.filter { File f -> !isJavafxJar(f) }
+    inputs.files(runtimeJars)
+    from({ runtimeJars.collect { File f -> zipTree(f) } }) {
+        exclude 'module-info.class'
+        exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/*.EC'
+        exclude 'META-INF/versions/*/module-info.class'
+        exclude 'META-INF/MANIFEST.MF'
+        exclude 'META-INF/INDEX.LIST'
+    }
+}
+tasks.named('assemble') { dependsOn fatJar }
+
+// ---------------------------------------------------------------------------------------------
+// jdeps: prints the JDK modules the fat jar really needs (used to maintain the jlink module list)
+// ---------------------------------------------------------------------------------------------
+// JDK used for jdeps/jlink/jpackage: the configured Java 21 toolchain (falls back to the Gradle JVM).
+def javaHome = javaToolchains.launcherFor(java.toolchain)
+    .map { it.metadata.installationPath.asFile.absolutePath }
+    .orElse(System.getProperty('java.home'))
+def jdkTool = { String name ->
+    def bin = new File(javaHome.get(), 'bin/' + name + (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win') ? '.exe' : ''))
+    return bin.absolutePath
+}
+
+tasks.register('jdeps', Exec) {
+    group = 'verification'
+    description = 'Prints the JDK module dependencies of the fat jar (maintenance aid for jlinkImage).'
+    dependsOn fatJar
+    def jarFile = fatJar.flatMap { it.archiveFile }
+    def fxPath = configurations.javafxRuntime
+    inputs.file(jarFile)
+    doFirst {
+        def modulePath = fxPath.files.join(File.pathSeparator)
+        commandLine([jdkTool('jdeps'), '--multi-release', '21', '--ignore-missing-deps', '--print-module-deps',
+                     '--module-path', modulePath, jarFile.get().asFile.absolutePath])
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// jlinkImage: custom Java 21 runtime with JavaFX for the target platform
+// ---------------------------------------------------------------------------------------------
+// Verified with `./gradlew jdeps` for the fat jar; JavaFX modules are added for the UI.
+ext.runtimeModules = [
+    'java.base', 'java.logging', 'java.net.http', 'java.desktop', 'java.management', 'jdk.management',
+    'java.naming', 'java.sql', 'jdk.unsupported', 'jdk.crypto.ec', 'jdk.zipfs', 'jdk.localedata',
+    'javafx.base', 'javafx.graphics', 'javafx.controls'
+]
+
+def runtimeDir = layout.buildDirectory.dir('runtime')
+
+def jlinkImage = tasks.register('jlinkImage', Exec) {
+    group = 'distribution'
+    description = 'Creates a trimmed Java runtime image (JDK + JavaFX) under build/runtime with jlink.'
+    def fxPath = configurations.javafxRuntime
+    inputs.files(fxPath)
+    inputs.property('modules', runtimeModules)
+    inputs.property('platform', javafxPlatform)
+    outputs.dir(runtimeDir)
+    doFirst {
+        def out = runtimeDir.get().asFile
+        if (out.exists()) {
+            delete(out)
+        }
+        def jmods = new File(javaHome.get(), 'jmods')
+        if (!jmods.isDirectory()) {
+            throw new GradleException("The JDK at ${javaHome.get()} has no jmods directory; a full JDK 21 is required for jlink.")
+        }
+        def modulePath = ([jmods.absolutePath] + fxPath.files.collect { it.absolutePath }).join(File.pathSeparator)
+        commandLine([jdkTool('jlink'),
+                     '--module-path', modulePath,
+                     '--add-modules', runtimeModules.join(','),
+                     '--strip-debug', '--no-header-files', '--no-man-pages',
+                     '--compress', 'zip-6',
+                     '--output', out.absolutePath])
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// jpackage: installer / app image built from the runtime image + fat jar
+// ---------------------------------------------------------------------------------------------
+def jpackageType = project.hasProperty('jpackageType') ? project.property('jpackageType') : 'app-image'
+def jpackageInput = layout.buildDirectory.dir('jpackage-input')
+def jpackageDest = layout.buildDirectory.dir('jpackage')
+
+def prepareJpackageInput = tasks.register('prepareJpackageInput', Sync) {
+    dependsOn fatJar
+    from(fatJar.flatMap { it.archiveFile })
+    into(jpackageInput)
+}
+
+tasks.register('jpackage', Exec) {
+    group = 'distribution'
+    description = "Builds the platform package (type: ${jpackageType}) under build/jpackage using the JDK jpackage tool."
+    dependsOn prepareJpackageInput, jlinkImage
+    inputs.dir(jpackageInput)
+    inputs.dir(runtimeDir)
+    inputs.property('type', jpackageType)
+    outputs.dir(jpackageDest)
+    doFirst {
+        def dest = jpackageDest.get().asFile
+        if (dest.exists()) {
+            delete(dest)
+        }
+        dest.mkdirs()
+        def os = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+        def mainJar = fatJar.get().archiveFileName.get()
+        def args = [jdkTool('jpackage'),
+                    '--type', jpackageType,
+                    '--name', 'VANTA Launcher',
+                    '--app-version', project.version.toString(),
+                    '--vendor', 'VANTA',
+                    '--description', 'VANTA Launcher for Minecraft 1.21.11',
+                    '--copyright', 'Copyright (c) VANTA. MIT License.',
+                    '--input', jpackageInput.get().asFile.absolutePath,
+                    '--main-jar', mainJar,
+                    '--main-class', 'dev.vanta.launcher.Main',
+                    '--runtime-image', runtimeDir.get().asFile.absolutePath,
+                    '--dest', dest.absolutePath,
+                    '--java-options', '-Dfile.encoding=UTF-8',
+                    '--java-options', '-Dvanta.launcher.packaged=true']
+        if (os.contains('win')) {
+            args += ['--icon', file('packaging/icon.ico').absolutePath]
+            if (jpackageType != 'app-image') {
+                args += ['--win-menu', '--win-menu-group', 'VANTA', '--win-shortcut', '--win-dir-chooser',
+                         '--win-per-user-install', '--win-upgrade-uuid', '5f3a1c2e-7b44-4d7e-9c1a-2d0c4b6e8a10']
+            }
+        } else if (os.contains('mac')) {
+            args += ['--mac-package-name', 'VANTA Launcher', '--mac-package-identifier', 'dev.vanta.launcher']
+        } else {
+            args += ['--icon', file('packaging/icon-512.png').absolutePath]
+            if (jpackageType == 'deb' || jpackageType == 'rpm') {
+                args += ['--linux-shortcut', '--linux-menu-group', 'Game', '--linux-package-name', 'vanta-launcher']
+            }
+        }
+        commandLine(args)
+    }
+}

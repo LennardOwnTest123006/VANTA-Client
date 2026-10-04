@@ -7,8 +7,8 @@ LIST="${1:-$(dirname "$0")/api-classes.txt}"
 CACHE="${GRADLE_USER_HOME:-$HOME/.gradle}/caches/fabric-loom"
 mapfile -t JARS < <(find "$CACHE" -path "*minecraftMaven*" -name "*.jar" ! -name "*-sources*" 2>/dev/null | sort)
 if [ "${#JARS[@]}" -eq 0 ]; then
-  echo "::warning::No Loom Minecraft jars found under $CACHE"
-  find "$CACHE" -maxdepth 3 -type d | head -50
+  echo "::warning::No Loom Minecraft jars found under $CACHE (build probably failed before Loom set up Minecraft)"
+  { find "$CACHE" -maxdepth 3 -type d 2>/dev/null || true; } | head -50
   exit 0
 fi
 printf 'Using jars:\n'; printf '  %s\n' "${JARS[@]}"

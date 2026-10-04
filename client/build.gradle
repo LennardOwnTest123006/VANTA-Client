@@ -41,7 +41,6 @@ loom {
         // Runs the Fabric client game tests (dev environment). Needs a display or xvfb-run.
         clientGametest {
             client()
-            inherit client
             name "VANTA Client Game Test"
             vmArg "-Dfabric.client.gametest"
             vmArg "-Dvanta.gametest=true"

@@ -25,7 +25,7 @@ This is a monorepo. Each product is an independent build with its own README.
 
 | Directory | What it is | Build |
 | --- | --- | --- |
-| [`client/`](client/) | The Fabric mod for Minecraft 1.21.11 (Mojang official mappings, Loom 1.18.2) | `./gradlew build` |
+| [`client/`](client/) | The Fabric mod for Minecraft 1.21.11 (Mojang official mappings, Loom 1.17.21) | `./gradlew build` |
 | [`core/`](core/) | Pure Java 21 library with the whole UI kit, settings, HUD engine, profiles and statistics logic. No Minecraft dependency, fully unit tested. Compiled into the client jar. | `./gradlew build` |
 | [`launcher/`](launcher/) | VANTA Launcher (JavaFX 21). Installs Minecraft 1.21.11 + Fabric legitimately, handles Microsoft sign-in, detects Java 21 and launches the client. | `./gradlew build` / `./gradlew jpackage` |
 | [`website/`](website/) | Official website (Vite, React, TypeScript, Tailwind). Deployed to Netlify. | `npm install && npm run build` |

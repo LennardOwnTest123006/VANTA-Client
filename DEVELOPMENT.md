@@ -39,7 +39,7 @@
 | Minecraft Java Edition | 1.21.11 (released 2025-12-09) | `client/gradle.properties` |
 | Fabric Loader | 0.19.5 | FabricMC/fabric-loader tags |
 | Fabric API | 0.141.6+1.21.11 | FabricMC/fabric branch `1.21.11` |
-| Fabric Loom | 1.18.2 (`net.fabricmc.fabric-loom-remap`) | FabricMC/fabric-loom tags |
+| Fabric Loom | 1.17.21 (`net.fabricmc.fabric-loom-remap`; Loom 1.18+ needs JDK 25 to run Gradle, 1.17 runs on JDK 21) | FabricMC/fabric-loom tags |
 | Mappings | Mojang official mappings | official 1.21.11 Fabric template |
 | Java | 21 | all Gradle builds use `options.release = 21` |
 | Gradle | 9.7.1 (wrapper) | `gradle/wrapper/gradle-wrapper.properties` |

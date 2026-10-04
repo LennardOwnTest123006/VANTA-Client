@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "product": "launcher",
+  "version": "1.0.0",
+  "minecraftVersion": "1.21.11",
+  "fabricVersion": "0.19.5",
+  "fabricApiVersion": "0.141.6+1.21.11",
+  "javaVersion": 21,
+  "releaseDate": "2026-10-04",
+  "channel": "stable",
+  "files": [
+    {
+      "name": "VANTA-Launcher-1.0.0.msi",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "VANTA-Launcher-1.0.0.exe",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "vanta-launcher-1.0.0-all.jar",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    }
+  ],
+  "changelog": "website/content/changelog/launcher-1.0.0.md"
+}
