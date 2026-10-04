@@ -2,6 +2,7 @@ import { Mail, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router';
 import { type FooterLink, footerColumns } from '../../config/footer';
 import { site, toolchainLine } from '../../config/site';
+import { prefetchRoute } from '../../lib/prefetch';
 import { Container } from '../ui/Container';
 import { Logo } from '../ui/Logo';
 import { GitHubIcon } from './GitHubIcon';
@@ -10,8 +11,18 @@ function FooterAnchor({ link }: { link: FooterLink }) {
   const className =
     'inline-flex items-center gap-1.5 text-sm text-text-secondary transition-colors hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus rounded-xs';
   if (link.to !== undefined) {
+    const to = link.to;
     return (
-      <Link to={link.to} className={className}>
+      <Link
+        to={to}
+        className={className}
+        onMouseEnter={() => {
+          prefetchRoute(to);
+        }}
+        onFocus={() => {
+          prefetchRoute(to);
+        }}
+      >
         {link.label}
       </Link>
     );

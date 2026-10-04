@@ -7,18 +7,47 @@ import { ThemeMeta } from '../ui/ThemeMeta';
 import { Footer } from './Footer';
 import { Header } from './Header';
 
-/** Scrolls to the top on navigation (or to the hash target when present). */
+/** How long a hash target may take to appear (lazy route chunks and markdown render asynchronously). */
+const HASH_TARGET_TIMEOUT_MS = 4000;
+
+/**
+ * Scrolls to the top on navigation, or to the hash target when present. Content such as rendered
+ * markdown arrives after the route commits, so a missing target is waited for with a
+ * MutationObserver instead of silently scrolling to the top.
+ */
 function ScrollManager() {
   const { pathname, hash } = useLocation();
   useEffect(() => {
-    if (hash) {
-      const target = document.getElementById(hash.slice(1));
-      if (target) {
-        target.scrollIntoView({ block: 'start' });
-        return;
-      }
+    const id = hash.startsWith('#') ? decodeURIComponent(hash.slice(1)) : '';
+    if (!id) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      return undefined;
     }
+    const scrollTo = (target: HTMLElement) => {
+      target.scrollIntoView({ block: 'start' });
+    };
+    const existing = document.getElementById(id);
+    if (existing) {
+      scrollTo(existing);
+      return undefined;
+    }
+    // Start at the top of the new page while the content loads, then jump once the anchor exists.
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const observer = new MutationObserver(() => {
+      const target = document.getElementById(id);
+      if (!target) return;
+      observer.disconnect();
+      window.clearTimeout(timer);
+      scrollTo(target);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    const timer = window.setTimeout(() => {
+      observer.disconnect();
+    }, HASH_TARGET_TIMEOUT_MS);
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(timer);
+    };
   }, [pathname, hash]);
   return null;
 }

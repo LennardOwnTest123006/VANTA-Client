@@ -5,6 +5,7 @@ import { headerNavItems, type NavItem, siteNav } from '../../config/siteNav';
 import { site } from '../../config/site';
 import { cn } from '../../lib/cn';
 import { useBodyScrollLock, useFocusTrap, useScrolled } from '../../lib/hooks';
+import { prefetchRoute } from '../../lib/prefetch';
 import { Button } from '../ui/Button';
 import { Container } from '../ui/Container';
 import { Logo } from '../ui/Logo';
@@ -56,7 +57,7 @@ export function Header({ items }: HeaderProps) {
   // Close when the viewport grows past the mobile breakpoint.
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return undefined;
-    const media = window.matchMedia('(min-width: 768px)');
+    const media = window.matchMedia('(min-width: 1024px)');
     const onChange = (event: MediaQueryListEvent) => {
       if (event.matches) setOpen(false);
     };
@@ -89,11 +90,20 @@ export function Header({ items }: HeaderProps) {
           <Logo variant="wordmark" size={13} className="text-text-primary" />
         </Link>
 
-        <nav aria-label="Primary" className="hidden md:block">
+        <nav aria-label="Primary" className="hidden lg:block">
           <ul className="flex items-center gap-1">
             {navItems.map((item) => (
               <li key={item.to}>
-                <NavLink to={item.to} className={({ isActive }) => desktopLink(isActive)}>
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) => desktopLink(isActive)}
+                  onMouseEnter={() => {
+                    prefetchRoute(item.to);
+                  }}
+                  onFocus={() => {
+                    prefetchRoute(item.to);
+                  }}
+                >
                   {item.label}
                 </NavLink>
               </li>
@@ -120,6 +130,12 @@ export function Header({ items }: HeaderProps) {
               leadingIcon={<Download />}
               aria-label={downloadItem.label}
               className="max-xs:px-2.5"
+              onMouseEnter={() => {
+                prefetchRoute(downloadItem.to);
+              }}
+              onFocus={() => {
+                prefetchRoute(downloadItem.to);
+              }}
             >
               <span className="max-xs:sr-only">{downloadItem.label}</span>
             </Button>
@@ -127,7 +143,7 @@ export function Header({ items }: HeaderProps) {
           <button
             ref={toggleRef}
             type="button"
-            className="inline-flex size-10 items-center justify-center rounded-md text-text-primary transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus md:hidden"
+            className="inline-flex size-10 items-center justify-center rounded-md text-text-primary transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus lg:hidden"
             aria-expanded={open}
             aria-controls={sheetId}
             aria-label={open ? 'Close menu' : 'Open menu'}
@@ -143,7 +159,7 @@ export function Header({ items }: HeaderProps) {
       {/* Mobile sheet */}
       <div
         className={cn(
-          'fixed inset-0 top-16 z-40 md:hidden',
+          'fixed inset-0 top-16 z-40 lg:hidden',
           open ? 'pointer-events-auto' : 'pointer-events-none',
         )}
         aria-hidden={!open}
@@ -187,6 +203,9 @@ export function Header({ items }: HeaderProps) {
                       to={item.to}
                       className={({ isActive }) => sheetLink(isActive)}
                       onClick={close}
+                      onTouchStart={() => {
+                        prefetchRoute(item.to);
+                      }}
                     >
                       {item.label}
                     </NavLink>

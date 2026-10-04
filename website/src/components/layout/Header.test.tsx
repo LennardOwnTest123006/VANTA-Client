@@ -23,7 +23,11 @@ describe('Header', () => {
       'href',
       '/performance',
     );
-    expect(within(nav).queryByRole('link', { name: 'Documentation' })).toBeNull();
+    expect(within(nav).getByRole('link', { name: 'Documentation' })).toHaveAttribute(
+      'href',
+      '/documentation',
+    );
+    expect(within(nav).queryByRole('link', { name: 'News' })).toBeNull();
     expect(screen.getAllByRole('link', { name: 'Download' })[0]).toHaveAttribute(
       'href',
       '/download',

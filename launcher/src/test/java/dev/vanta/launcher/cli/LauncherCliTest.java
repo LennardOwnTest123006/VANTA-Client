@@ -84,7 +84,7 @@ class LauncherCliTest {
         assertTrue(LauncherCli.wantsCli(new String[] {"--version"}));
         assertFalse(LauncherCli.wantsCli(new String[] {}));
         assertFalse(LauncherCli.wantsCli(new String[] {"--ui"}));
-        assertFalse(Main.uiAvailable(), "no UI class on the test class path");
+        assertTrue(Main.uiAvailable(), "the JavaFX UI class and runtime are on the test class path");
     }
 
     @Test

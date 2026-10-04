@@ -197,8 +197,38 @@ dev.vanta.launcher.core.auth            MicrosoftAuthService, AccountStore (DPAP
 dev.vanta.launcher.core.settings        LauncherSettings, SettingsStore
 dev.vanta.launcher.core.update          UpdateService, UpdateInfo, SemVer
 dev.vanta.launcher.core.log             LauncherLog (java.util.logging, rotating), Redactor
-dev.vanta.launcher.ui                   JavaFX user interface (separate module of work; loaded reflectively by Main)
+dev.vanta.launcher.ui                   JavaFX user interface (loaded reflectively by Main), see below
 ```
+
+## User interface
+
+`dev.vanta.launcher.ui.LauncherApp` is the JavaFX application. It never talks to the core services directly:
+
+```
+dev.vanta.launcher.ui.backend   LauncherBackend (the single seam between UI and core), CoreBackend (delegates every
+                                call to LauncherServices), RunningGame (game process as seen by the UI)
+dev.vanta.launcher.ui.model     view models: SessionModel (account, Java, instance, settings), HomeViewModel
+                                (NOT_READY → READY → INSTALLING/VERIFYING → RUNNING → READY/ERROR), SignInViewModel
+                                (device code flow), SettingsViewModel, VersionsViewModel, LogsViewModel + LogBuffer,
+                                UpdateViewModel, ToastModel, NavigationModel, ErrorMessages (core exceptions → text)
+dev.vanta.launcher.ui.view      MainWindow, Sidebar, pages (Home, Versions, Logs, Settings, About), in-window dialogs
+                                (sign-in, update/changelog, accounts, confirm), toasts, custom controls
+dev.vanta.launcher.ui.prefs     ui-preferences.json (reduced motion, window size, last page) — presentation only
+resources .../ui/               theme/vanta.css (design tokens), i18n/launcher_en.properties (every UI string),
+                                fonts/ (Inter, Space Grotesk, OFL), links.properties (external links), icon-*.png
+```
+
+View models run blocking core calls on a background executor and publish results on the JavaFX thread
+(`UiExecutors`, `Async`); the views only bind. The launch flow is: pick Java → `Installer.install` (verifies every
+file, downloads what is missing) → refresh the account token → `LaunchService` → stream the process output into the
+Logs page → notify on exit. Settings changes go through `LauncherServices.saveSettings`; a launcher update is
+downloaded and re-verified by `UpdateService` and only then, after an explicit confirmation, handed to the operating
+system.
+
+Tests: the view models are covered with a scriptable `FakeBackend` (`src/test/.../ui/testutil`), and
+`LauncherAppSmokeTest` starts the real application on the Monocle headless platform, visits every page and dialog
+and fails on any stylesheet warning or uncaught exception. `./gradlew screenshots` (run under `xvfb-run -a`, or with
+`-Pheadless`) renders every screen with fake services to `build/screenshots/*.png` for visual review.
 
 All of `dev.vanta.launcher.core` is headless and covered by unit tests (`./gradlew test`). Network-facing code is
 tested against local fake servers with recorded JSON fixtures under `src/test/resources/fixtures/`; nothing in the

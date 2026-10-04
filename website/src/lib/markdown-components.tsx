@@ -1,12 +1,14 @@
 import { type Components } from 'react-markdown';
 import { type AnchorHTMLAttributes, type ImgHTMLAttributes, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import { cn } from './cn';
 
 /**
  * Sanitised component map shared by every markdown surface of the website.
  *
  * - Links are restricted to `http(s)`, `mailto:` and relative URLs; external links open in a new tab
- *   with `rel="noopener noreferrer"`.
+ *   with `rel="noopener noreferrer"`, site-relative links (`/documentation/...`) navigate through
+ *   the router without a full page load.
  * - Images are only rendered from the same origin or `https:`; everything else falls back to the
  *   alt text.
  */
@@ -14,20 +16,32 @@ import { cn } from './cn';
 const SAFE_LINK = /^(https?:|mailto:|\/|#|\.\/|\.\.\/)/i;
 const SAFE_IMAGE = /^(https:|\/(?!\/)|\.\/)/i;
 
+type AnchorProps = AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown };
+
 function isExternal(href: string): boolean {
   return /^https?:/i.test(href);
 }
 
-function SafeLink({ href, children, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement>) {
+const LINK_CLASS =
+  'text-accent-violet-hover underline decoration-accent-violet/40 underline-offset-4 transition-colors hover:text-text-primary hover:decoration-accent-violet-hover';
+
+function SafeLink({ href, children, node: _node, ...rest }: AnchorProps) {
   if (!href || !SAFE_LINK.test(href)) {
     return <span className="text-text-secondary">{children}</span>;
+  }
+  if (href.startsWith('/') && !href.startsWith('//')) {
+    return (
+      <Link to={href} className={LINK_CLASS} {...rest}>
+        {children}
+      </Link>
+    );
   }
   const external = isExternal(href);
   return (
     <a
       {...rest}
       href={href}
-      className="text-accent-violet-hover underline decoration-accent-violet/40 underline-offset-4 transition-colors hover:text-text-primary hover:decoration-accent-violet-hover"
+      className={LINK_CLASS}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
     >
       {children}
@@ -112,13 +126,20 @@ export const markdownComponents: Components = {
       </code>
     );
   },
+  // Scrollable regions are focusable so keyboard users can scroll wide code and tables.
   pre: ({ children }) => (
-    <pre className="my-6 overflow-x-auto rounded-lg border border-border-subtle bg-surface-1 p-4 text-sm leading-relaxed">
+    <pre
+      tabIndex={0}
+      className="my-6 overflow-x-auto rounded-lg border border-border-subtle bg-surface-1 p-4 text-sm leading-relaxed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+    >
       {children}
     </pre>
   ),
   table: ({ children }) => (
-    <div className="my-6 overflow-x-auto rounded-lg border border-border-subtle">
+    <div
+      tabIndex={0}
+      className="my-6 overflow-x-auto rounded-lg border border-border-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+    >
       <table className="w-full border-collapse text-left text-sm">{children}</table>
     </div>
   ),

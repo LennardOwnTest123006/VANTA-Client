@@ -3,6 +3,10 @@ import { findNavItem, headerNavItems, isRouteReady, navGroupItems, siteNav } fro
 import { footerColumns } from './footer';
 
 describe('siteNav', () => {
+  it('marks every route as ready now that all pages exist', () => {
+    expect(siteNav.every((item) => item.ready)).toBe(true);
+  });
+
   it('lists every planned route exactly once with an absolute path', () => {
     const paths = siteNav.map((item) => item.to);
     expect(new Set(paths).size).toBe(paths.length);
@@ -29,21 +33,33 @@ describe('siteNav', () => {
     const header = headerNavItems();
     expect(header.every((item) => item.ready)).toBe(true);
     expect(header.map((item) => item.to)).not.toContain('/download');
-    expect(header.map((item) => item.to)).toEqual(['/features', '/performance']);
+    expect(header.map((item) => item.to)).toEqual([
+      '/features',
+      '/performance',
+      '/screenshots',
+      '/changelog',
+      '/documentation',
+    ]);
   });
 
   it('reports readiness per route, including nested paths and the home page', () => {
     expect(isRouteReady('/')).toBe(true);
     expect(isRouteReady('/download')).toBe(true);
-    expect(isRouteReady('/documentation')).toBe(false);
-    expect(isRouteReady('/documentation/install')).toBe(false);
+    expect(isRouteReady('/documentation')).toBe(true);
+    expect(isRouteReady('/documentation/install')).toBe(true);
     expect(isRouteReady('/nope')).toBe(false);
     expect(findNavItem('/features#hud')?.label).toBe('Features');
   });
 
   it('groups footer items by column and drops empty columns', () => {
-    expect(navGroupItems('legal')).toEqual([]);
+    expect(navGroupItems('legal').map((item) => item.to)).toEqual(['/privacy', '/terms']);
     const columns = footerColumns();
+    expect(columns.map((column) => column.title)).toEqual([
+      'Product',
+      'Resources',
+      'Community',
+      'Legal',
+    ]);
     const titles = columns.map((column) => column.title);
     expect(titles).toContain('Product');
     for (const column of columns) expect(column.links.length).toBeGreaterThan(0);

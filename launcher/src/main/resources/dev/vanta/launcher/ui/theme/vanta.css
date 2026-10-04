@@ -1,0 +1,1538 @@
+/*
+ * VANTA Launcher theme.
+ *
+ * Every colour, radius and duration mirrors shared/design/tokens.json. Looked-up colours are declared on .root so
+ * the high-contrast variant (.root.high-contrast) only has to override a handful of values. Fonts (Inter, Space
+ * Grotesk) are loaded from the class path by dev.vanta.launcher.ui.view.Typography before this stylesheet applies.
+ */
+
+.root {
+    /* --- tokens: colour --- */
+    -vanta-bg-void: #07070A;
+    -vanta-bg-base: #0B0B10;
+    -vanta-surface-1: #111118;
+    -vanta-surface-2: #17171F;
+    -vanta-surface-3: #1F1F29;
+    -vanta-surface-4: #272733;
+    -vanta-border-subtle: #232330;
+    -vanta-border-strong: #2C2C3A;
+    -vanta-border-focus: #9B82FF;
+    -vanta-text-primary: #F5F5F7;
+    -vanta-text-secondary: #A1A1AA;
+    -vanta-text-muted: #6B6B78;
+    -vanta-text-inverse: #0B0B10;
+    -vanta-accent-violet: #7C5CFF;
+    -vanta-accent-violet-hover: #9B82FF;
+    -vanta-accent-violet-pressed: #5B3DE0;
+    -vanta-accent-violet-soft: #7C5CFF33;
+    -vanta-accent-blue: #4F8DFF;
+    -vanta-accent-blue-soft: #4F8DFF33;
+    -vanta-success: #3DDC97;
+    -vanta-warning: #F5B942;
+    -vanta-danger: #FF5C7A;
+    -vanta-info: #4F8DFF;
+    -vanta-gradient-accent: linear-gradient(from 0% 0% to 100% 100%, #7C5CFF 0%, #4F8DFF 100%);
+    -vanta-gradient-accent-hover: linear-gradient(from 0% 0% to 100% 100%, #9B82FF 0%, #6FA3FF 100%);
+    -vanta-gradient-accent-pressed: linear-gradient(from 0% 0% to 100% 100%, #5B3DE0 0%, #3C76E0 100%);
+
+    /* --- Modena overrides so no light control leaks through --- */
+    -fx-base: -vanta-surface-2;
+    -fx-background: -vanta-bg-base;
+    -fx-control-inner-background: -vanta-surface-2;
+    -fx-control-inner-background-alt: -vanta-surface-3;
+    -fx-accent: -vanta-accent-violet;
+    -fx-focus-color: -vanta-border-focus;
+    -fx-faint-focus-color: #9B82FF33;
+    -fx-selection-bar: -vanta-surface-4;
+    -fx-selection-bar-non-focused: -vanta-surface-3;
+    -fx-text-fill: -vanta-text-primary;
+    -fx-text-background-color: -vanta-text-primary;
+    -fx-text-inner-color: -vanta-text-primary;
+    -fx-mark-color: -vanta-text-secondary;
+    -fx-font-family: "Inter";
+    -fx-font-size: 14px;
+    -fx-background-color: -vanta-bg-base;
+}
+
+.root.high-contrast {
+    -vanta-surface-1: #0E0E14;
+    -vanta-surface-2: #16161E;
+    -vanta-surface-3: #22222E;
+    -vanta-surface-4: #2E2E3C;
+    -vanta-border-subtle: #3C3C4E;
+    -vanta-border-strong: #5C5C74;
+    -vanta-border-focus: #C4B5FF;
+    -vanta-text-secondary: #D8D8E0;
+    -vanta-text-muted: #ABABB8;
+    -vanta-accent-violet-soft: #7C5CFF55;
+}
+
+/* ------------------------------------------------------------------ typography helpers */
+
+.label {
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.text-secondary {
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.text-muted {
+    -fx-text-fill: -vanta-text-muted;
+}
+
+.text-success {
+    -fx-text-fill: -vanta-success;
+}
+
+.text-warning {
+    -fx-text-fill: -vanta-warning;
+}
+
+.text-danger {
+    -fx-text-fill: -vanta-danger;
+}
+
+.text-accent {
+    -fx-text-fill: -vanta-accent-violet-hover;
+}
+
+.text-small {
+    -fx-font-size: 12px;
+}
+
+.text-medium {
+    -fx-font-family: "Inter Medium";
+}
+
+.text-semibold {
+    -fx-font-family: "Inter SemiBold";
+}
+
+.text-bold {
+    -fx-font-family: "Inter";
+    -fx-font-weight: bold;
+}
+
+.mono {
+    -fx-font-family: "monospace";
+    -fx-font-size: 12.5px;
+}
+
+.display {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-weight: bold;
+}
+
+.eyebrow {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 11px;
+    -fx-text-fill: -vanta-accent-violet-hover;
+}
+
+.page-title {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-weight: bold;
+    -fx-font-size: 28px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.page-subtitle {
+    -fx-font-size: 14px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.section-title {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 15px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.card-title {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 14px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.card-caption {
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.value-large {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-weight: bold;
+    -fx-font-size: 22px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.hyperlink {
+    -fx-text-fill: -vanta-accent-violet-hover;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+    -fx-underline: false;
+    -fx-cursor: hand;
+}
+
+.hyperlink:hover {
+    -fx-underline: true;
+}
+
+.hyperlink:focused {
+    -fx-border-color: -vanta-border-focus;
+    -fx-border-radius: 4;
+}
+
+.hyperlink:visited {
+    -fx-text-fill: -vanta-accent-violet-hover;
+}
+
+/* ------------------------------------------------------------------ app shell */
+
+.app-shell {
+    -fx-background-color: -vanta-bg-base;
+}
+
+.content {
+    -fx-background-color: transparent;
+}
+
+.content-glow {
+    -fx-background-color: radial-gradient(focus-angle 0deg, focus-distance 0%, center 22% 0%, radius 60%, #7C5CFF1F 0%, transparent 100%);
+}
+
+.hero-watermark {
+    -fx-opacity: 0.07;
+}
+
+.page {
+    -fx-padding: 28 32 24 32;
+    -fx-background-color: transparent;
+}
+
+.page-header {
+    -fx-spacing: 6;
+}
+
+/* ------------------------------------------------------------------ sidebar */
+
+.sidebar {
+    -fx-background-color: -vanta-surface-1;
+    -fx-border-color: transparent -vanta-border-subtle transparent transparent;
+    -fx-border-width: 0 1 0 0;
+    -fx-padding: 24 16 16 16;
+    -fx-pref-width: 236;
+    -fx-min-width: 236;
+    -fx-max-width: 236;
+}
+
+.brand {
+    -fx-padding: 0 8 26 8;
+}
+
+.brand-wordmark {
+    -fx-fill: -vanta-text-primary;
+}
+
+.brand-mark {
+    -fx-fill: -vanta-gradient-accent;
+}
+
+.brand-tagline {
+    -fx-font-size: 11px;
+    -fx-text-fill: -vanta-text-muted;
+}
+
+.nav-section-label {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 10.5px;
+    -fx-text-fill: -vanta-text-muted;
+    -fx-padding: 14 12 6 12;
+}
+
+.nav-row {
+    -fx-alignment: CENTER_LEFT;
+}
+
+.nav-indicator {
+    -fx-background-color: -vanta-accent-violet;
+    -fx-background-radius: 2;
+    -fx-min-width: 3;
+    -fx-pref-width: 3;
+    -fx-max-width: 3;
+    -fx-min-height: 18;
+    -fx-pref-height: 18;
+    -fx-max-height: 18;
+    -fx-opacity: 0;
+}
+
+.nav-indicator.active {
+    -fx-opacity: 1;
+}
+
+.nav-item {
+    -fx-background-color: transparent;
+    -fx-background-radius: 8;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-padding: 9 12 9 12;
+    -fx-alignment: CENTER_LEFT;
+    -fx-graphic-text-gap: 12;
+    -fx-font-family: "Inter Medium";
+    -fx-font-size: 13.5px;
+    -fx-text-fill: -vanta-text-secondary;
+    -fx-cursor: hand;
+}
+
+.nav-item:hover {
+    -fx-background-color: -vanta-surface-2;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.nav-item:selected {
+    -fx-background-color: -vanta-surface-3;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.nav-item:focused {
+    -fx-border-color: -vanta-border-focus;
+}
+
+.nav-item:disabled {
+    -fx-opacity: 0.45;
+}
+
+.nav-item .nav-icon {
+    -fx-stroke: -vanta-text-muted;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.nav-item:hover .nav-icon {
+    -fx-stroke: -vanta-text-secondary;
+}
+
+.nav-item:selected .nav-icon {
+    -fx-stroke: -vanta-accent-violet-hover;
+}
+
+.nav-item .nav-external {
+    -fx-stroke: -vanta-text-muted;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.5;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.nav-link-note {
+    -fx-font-size: 10.5px;
+    -fx-text-fill: -vanta-text-muted;
+}
+
+.nav-link-label {
+    -fx-font-family: "Inter Medium";
+    -fx-font-size: 13.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.nav-item:hover .nav-link-label {
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.sidebar-divider {
+    -fx-background-color: -vanta-border-subtle;
+    -fx-min-height: 1;
+    -fx-pref-height: 1;
+    -fx-max-height: 1;
+}
+
+.account-chip {
+    -fx-background-color: -vanta-surface-2;
+    -fx-background-radius: 12;
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-radius: 12;
+    -fx-padding: 10 12 10 12;
+    -fx-spacing: 10;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.account-name {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 13px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.value-medium {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-weight: bold;
+    -fx-font-size: 18px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.account-sub {
+    -fx-font-size: 11.5px;
+    -fx-text-fill: -vanta-text-muted;
+}
+
+/* ------------------------------------------------------------------ avatar */
+
+.avatar {
+    -fx-background-color: -vanta-gradient-accent;
+    -fx-background-radius: 999;
+}
+
+.avatar.avatar-neutral {
+    -fx-background-color: -vanta-surface-4;
+}
+
+.avatar-initials {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+/* ------------------------------------------------------------------ cards */
+
+.card {
+    -fx-background-color: -vanta-surface-1;
+    -fx-background-radius: 14;
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-radius: 14;
+    -fx-border-width: 1;
+    -fx-padding: 16 18 16 18;
+    -fx-spacing: 10;
+}
+
+.card.card-elevated {
+    -fx-effect: dropshadow(gaussian, #00000073, 24, 0.2, 0, 8);
+}
+
+.hero-card {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #16151F 0%, #111118 55%, #0E0E14 100%);
+    -fx-background-radius: 18;
+    -fx-border-color: -vanta-border-strong;
+    -fx-border-radius: 18;
+    -fx-border-width: 1;
+    -fx-padding: 34 34 30 34;
+    -fx-effect: dropshadow(gaussian, #00000080, 40, 0.25, 0, 16);
+}
+
+.hero-title {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-weight: bold;
+    -fx-font-size: 40px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.hero-lead {
+    -fx-font-size: 14.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.facts {
+    -fx-font-family: "Inter Medium";
+    -fx-font-size: 13px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.facts-divider {
+    -fx-text-fill: -vanta-text-muted;
+}
+
+.status-line {
+    -fx-spacing: 8;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.status-text {
+    -fx-font-family: "Inter Medium";
+    -fx-font-size: 13.5px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.status-dot {
+    -fx-fill: -vanta-text-muted;
+}
+
+.status-dot.ready {
+    -fx-fill: -vanta-success;
+}
+
+.status-dot.busy {
+    -fx-fill: -vanta-accent-violet-hover;
+}
+
+.status-dot.running {
+    -fx-fill: -vanta-accent-blue;
+}
+
+.status-dot.error {
+    -fx-fill: -vanta-danger;
+}
+
+.status-dot.idle {
+    -fx-fill: -vanta-text-muted;
+}
+
+.block-reason {
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -vanta-text-muted;
+}
+
+.step-text {
+    -fx-font-family: "Inter Medium";
+    -fx-font-size: 13px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.detail-text {
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.kv-key {
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -vanta-text-muted;
+}
+
+.kv-value {
+    -fx-font-family: "Inter Medium";
+    -fx-font-size: 13px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.list-row {
+    -fx-padding: 10 0 10 0;
+    -fx-border-color: -vanta-border-subtle transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.list-row.first {
+    -fx-border-width: 0;
+}
+
+/* ------------------------------------------------------------------ buttons */
+
+.button {
+    -fx-background-color: -vanta-surface-3;
+    -fx-background-insets: 0;
+    -fx-background-radius: 9;
+    -fx-border-color: transparent;
+    -fx-border-radius: 9;
+    -fx-border-width: 1;
+    -fx-padding: 8 16 8 16;
+    -fx-font-family: "Inter Medium";
+    -fx-font-size: 13px;
+    -fx-text-fill: -vanta-text-primary;
+    -fx-cursor: hand;
+    -fx-graphic-text-gap: 8;
+}
+
+.button:hover {
+    -fx-background-color: -vanta-surface-4;
+}
+
+.button:pressed, .button:armed {
+    -fx-background-color: -vanta-surface-2;
+}
+
+.button:focused {
+    -fx-border-color: -vanta-border-focus;
+}
+
+.button:disabled {
+    -fx-opacity: 0.45;
+    -fx-cursor: default;
+}
+
+.button .button-icon {
+    -fx-stroke: -vanta-text-secondary;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.button.primary {
+    -fx-background-color: -vanta-accent-violet;
+    -fx-text-fill: white;
+}
+
+.button.primary:hover {
+    -fx-background-color: -vanta-accent-violet-hover;
+}
+
+.button.primary:pressed, .button.primary:armed {
+    -fx-background-color: -vanta-accent-violet-pressed;
+}
+
+.button.primary .button-icon {
+    -fx-stroke: white;
+}
+
+.button.secondary {
+    -fx-background-color: transparent;
+    -fx-border-color: -vanta-border-strong;
+}
+
+.button.secondary:hover {
+    -fx-background-color: -vanta-surface-2;
+    -fx-border-color: #3A3A4C;
+}
+
+.button.secondary:pressed, .button.secondary:armed {
+    -fx-background-color: -vanta-surface-3;
+}
+
+.button.secondary:focused {
+    -fx-border-color: -vanta-border-focus;
+}
+
+.button.ghost {
+    -fx-background-color: transparent;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.button.ghost:hover {
+    -fx-background-color: -vanta-surface-2;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.button.danger {
+    -fx-background-color: transparent;
+    -fx-border-color: #FF5C7A55;
+    -fx-text-fill: -vanta-danger;
+}
+
+.button.danger:hover {
+    -fx-background-color: #FF5C7A1A;
+    -fx-border-color: -vanta-danger;
+}
+
+.button.small {
+    -fx-padding: 5 11 5 11;
+    -fx-font-size: 12px;
+    -fx-background-radius: 7;
+    -fx-border-radius: 7;
+}
+
+.button.icon-only {
+    -fx-padding: 6;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-min-width: 30;
+    -fx-min-height: 30;
+}
+
+.button.icon-only.ghost .button-icon {
+    -fx-stroke: -vanta-text-muted;
+}
+
+.button.icon-only.ghost:hover .button-icon {
+    -fx-stroke: -vanta-text-primary;
+}
+
+.play-button {
+    -fx-background-color: -vanta-gradient-accent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 14;
+    -fx-border-color: #FFFFFF22;
+    -fx-border-radius: 14;
+    -fx-border-width: 1;
+    -fx-pref-height: 56;
+    -fx-min-height: 56;
+    -fx-max-height: 56;
+    -fx-min-width: 220;
+    -fx-padding: 0 44 0 44;
+    -fx-font-family: "Space Grotesk";
+    -fx-font-weight: bold;
+    -fx-font-size: 19px;
+    -fx-text-fill: white;
+    -fx-graphic-text-gap: 14;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, #7C5CFF66, 28, 0.25, 0, 10);
+}
+
+.play-button .button-icon {
+    -fx-fill: white;
+    -fx-stroke: transparent;
+}
+
+.play-button:hover {
+    -fx-background-color: -vanta-gradient-accent-hover;
+    -fx-effect: dropshadow(gaussian, #9B82FF80, 32, 0.3, 0, 12);
+}
+
+.play-button:pressed, .play-button:armed {
+    -fx-background-color: -vanta-gradient-accent-pressed;
+    -fx-effect: dropshadow(gaussian, #5B3DE066, 18, 0.2, 0, 6);
+}
+
+.play-button:focused {
+    -fx-border-color: white;
+    -fx-border-width: 2;
+}
+
+.play-button:disabled {
+    -fx-background-color: -vanta-surface-3;
+    -fx-border-color: -vanta-border-strong;
+    -fx-text-fill: -vanta-text-muted;
+    -fx-effect: null;
+    -fx-opacity: 1;
+    -fx-cursor: default;
+}
+
+.play-button:disabled .button-icon {
+    -fx-fill: -vanta-text-muted;
+}
+
+/* ------------------------------------------------------------------ segmented control */
+
+.segmented {
+    -fx-background-color: -vanta-surface-2;
+    -fx-background-radius: 9;
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-radius: 9;
+    -fx-padding: 3;
+    -fx-spacing: 2;
+}
+
+.segmented .toggle-button {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 7;
+    -fx-border-color: transparent;
+    -fx-border-radius: 7;
+    -fx-padding: 5 14 5 14;
+    -fx-font-family: "Inter Medium";
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -vanta-text-secondary;
+    -fx-cursor: hand;
+}
+
+.segmented .toggle-button:hover {
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.segmented .toggle-button:selected {
+    -fx-background-color: -vanta-surface-4;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.segmented .toggle-button:focused {
+    -fx-border-color: -vanta-border-focus;
+}
+
+/* level chips in the log view */
+
+.chip {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-background-radius: 999;
+    -fx-border-color: -vanta-border-strong;
+    -fx-border-radius: 999;
+    -fx-padding: 3 11 3 11;
+    -fx-font-family: "Inter Medium";
+    -fx-font-size: 11.5px;
+    -fx-text-fill: -vanta-text-muted;
+    -fx-cursor: hand;
+}
+
+.chip:hover {
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.chip:selected {
+    -fx-background-color: -vanta-accent-violet-soft;
+    -fx-border-color: -vanta-accent-violet;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.chip:focused {
+    -fx-border-color: -vanta-border-focus;
+}
+
+/* ------------------------------------------------------------------ badges */
+
+.badge {
+    -fx-background-color: -vanta-surface-3;
+    -fx-background-radius: 999;
+    -fx-padding: 2 9 2 9;
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 11px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.badge.success {
+    -fx-background-color: #3DDC9722;
+    -fx-text-fill: -vanta-success;
+}
+
+.badge.warning {
+    -fx-background-color: #F5B94222;
+    -fx-text-fill: -vanta-warning;
+}
+
+.badge.danger {
+    -fx-background-color: #FF5C7A22;
+    -fx-text-fill: -vanta-danger;
+}
+
+.badge.accent {
+    -fx-background-color: -vanta-accent-violet-soft;
+    -fx-text-fill: -vanta-accent-violet-hover;
+}
+
+.badge.info {
+    -fx-background-color: -vanta-accent-blue-soft;
+    -fx-text-fill: #8DB5FF;
+}
+
+/* ------------------------------------------------------------------ inputs */
+
+.text-field, .text-area {
+    -fx-background-color: -vanta-surface-2;
+    -fx-background-insets: 0;
+    -fx-background-radius: 9;
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-radius: 9;
+    -fx-border-width: 1;
+    -fx-text-fill: -vanta-text-primary;
+    -fx-prompt-text-fill: -vanta-text-muted;
+    -fx-highlight-fill: -vanta-accent-violet-soft;
+    -fx-highlight-text-fill: -vanta-text-primary;
+    -fx-font-size: 13.5px;
+    -fx-padding: 8 12 8 12;
+}
+
+.text-field:hover, .text-area:hover {
+    -fx-border-color: -vanta-border-strong;
+}
+
+.text-field:focused, .text-area:focused {
+    -fx-border-color: -vanta-border-focus;
+    -fx-effect: dropshadow(gaussian, #7C5CFF55, 8, 0.5, 0, 0);
+}
+
+.text-field.invalid, .text-area.invalid {
+    -fx-border-color: -vanta-danger;
+}
+
+.text-field:disabled, .text-area:disabled {
+    -fx-opacity: 0.5;
+}
+
+.text-field.mono {
+    -fx-font-family: "monospace";
+    -fx-font-size: 12.5px;
+}
+
+.text-area .content {
+    -fx-background-color: -vanta-surface-2;
+    -fx-background-radius: 9;
+}
+
+.text-area .scroll-pane {
+    -fx-background-color: transparent;
+}
+
+.text-area .scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+.search-field {
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-padding: 7 14 7 34;
+}
+
+.search-icon {
+    -fx-stroke: -vanta-text-muted;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.field-label {
+    -fx-font-family: "Inter Medium";
+    -fx-font-size: 13px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.field-help {
+    -fx-font-size: 12px;
+    -fx-text-fill: -vanta-text-muted;
+}
+
+.field-error {
+    -fx-font-size: 12px;
+    -fx-text-fill: -vanta-danger;
+}
+
+.field-ok {
+    -fx-font-size: 12px;
+    -fx-text-fill: -vanta-success;
+}
+
+/* switch (custom control) */
+
+.switch {
+    -fx-cursor: hand;
+    -fx-min-width: 40;
+    -fx-pref-width: 40;
+    -fx-max-width: 40;
+    -fx-min-height: 22;
+    -fx-pref-height: 22;
+    -fx-max-height: 22;
+    -fx-background-radius: 999;
+    -fx-border-color: transparent;
+    -fx-border-radius: 999;
+    -fx-border-width: 2;
+}
+
+.switch:focused {
+    -fx-border-color: -vanta-border-focus;
+}
+
+.switch:disabled {
+    -fx-opacity: 0.45;
+}
+
+.switch .track {
+    -fx-background-color: -vanta-surface-4;
+    -fx-background-radius: 999;
+    -fx-border-color: -vanta-border-strong;
+    -fx-border-radius: 999;
+}
+
+.switch:selected .track {
+    -fx-background-color: -vanta-accent-violet;
+    -fx-border-color: -vanta-accent-violet;
+}
+
+.switch .thumb {
+    -fx-background-color: -vanta-text-secondary;
+    -fx-background-radius: 999;
+}
+
+.switch:selected .thumb {
+    -fx-background-color: white;
+}
+
+/* slider */
+
+.slider .track {
+    -fx-background-color: -vanta-surface-3;
+    -fx-background-insets: 0;
+    -fx-background-radius: 3;
+    -fx-pref-height: 6;
+}
+
+.slider .thumb {
+    -fx-background-color: -vanta-accent-violet;
+    -fx-background-insets: 0;
+    -fx-background-radius: 999;
+    -fx-pref-width: 18;
+    -fx-pref-height: 18;
+    -fx-border-color: #FFFFFF22;
+    -fx-border-radius: 999;
+}
+
+.slider .thumb:hover {
+    -fx-background-color: -vanta-accent-violet-hover;
+}
+
+.slider:focused .thumb {
+    -fx-background-color: -vanta-accent-violet-hover;
+    -fx-effect: dropshadow(gaussian, #9B82FF88, 10, 0.5, 0, 0);
+}
+
+.slider .axis {
+    -fx-tick-label-fill: -vanta-text-muted;
+    -fx-tick-label-font-size: 10px;
+}
+
+/* combo box */
+
+.combo-box {
+    -fx-background-color: -vanta-surface-2;
+    -fx-background-insets: 0;
+    -fx-background-radius: 9;
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-radius: 9;
+    -fx-border-width: 1;
+    -fx-padding: 1 4 1 4;
+    -fx-font-size: 13.5px;
+}
+
+.combo-box:hover {
+    -fx-border-color: -vanta-border-strong;
+}
+
+.combo-box:focused {
+    -fx-border-color: -vanta-border-focus;
+}
+
+.combo-box > .list-cell {
+    -fx-text-fill: -vanta-text-primary;
+    -fx-background-color: transparent;
+    -fx-padding: 6 8 6 8;
+}
+
+.combo-box .arrow-button {
+    -fx-background-color: transparent;
+}
+
+.combo-box .arrow {
+    -fx-background-color: -vanta-text-secondary;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: -vanta-surface-2;
+    -fx-background-insets: 0;
+    -fx-background-radius: 9;
+    -fx-border-color: -vanta-border-strong;
+    -fx-border-radius: 9;
+    -fx-padding: 4;
+    -fx-effect: dropshadow(gaussian, #00000099, 24, 0.2, 0, 8);
+}
+
+.combo-box-popup .list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-background-radius: 6;
+    -fx-text-fill: -vanta-text-secondary;
+    -fx-padding: 7 10 7 10;
+}
+
+.combo-box-popup .list-view .list-cell:hover,
+.combo-box-popup .list-view .list-cell:filled:selected {
+    -fx-background-color: -vanta-surface-4;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+/* progress bar */
+
+.progress-bar {
+    -fx-pref-height: 8;
+    -fx-min-height: 8;
+    -fx-max-height: 8;
+    -fx-indeterminate-bar-length: 90;
+    -fx-indeterminate-bar-escape: false;
+    -fx-indeterminate-bar-flip: false;
+    -fx-indeterminate-bar-animation-time: 1.4;
+}
+
+.progress-bar > .track {
+    -fx-background-color: -vanta-surface-3;
+    -fx-background-insets: 0;
+    -fx-background-radius: 4;
+}
+
+.progress-bar > .bar {
+    -fx-background-color: linear-gradient(to right, -vanta-accent-violet, -vanta-accent-blue);
+    -fx-background-insets: 0;
+    -fx-background-radius: 4;
+    -fx-padding: 4;
+}
+
+.progress-bar:indeterminate > .bar {
+    -fx-background-color: linear-gradient(to right, transparent, -vanta-accent-violet-hover, transparent);
+}
+
+/* ------------------------------------------------------------------ lists & scrolling */
+
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane > .corner {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.scroll-bar:vertical {
+    -fx-pref-width: 10;
+}
+
+.scroll-bar:horizontal {
+    -fx-pref-height: 10;
+}
+
+.scroll-bar .track {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: -vanta-border-strong;
+    -fx-background-insets: 2;
+    -fx-background-radius: 999;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #3A3A4C;
+}
+
+.scroll-bar .increment-button, .scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+    -fx-pref-height: 0;
+    -fx-pref-width: 0;
+}
+
+.scroll-bar .increment-arrow, .scroll-bar .decrement-arrow {
+    -fx-shape: null;
+    -fx-padding: 0;
+}
+
+.list-view {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-border-color: transparent;
+}
+
+.list-view:focused {
+    -fx-background-insets: 0;
+}
+
+.list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -vanta-text-secondary;
+    -fx-padding: 3 14 3 14;
+}
+
+.list-view .list-cell:filled:hover {
+    -fx-background-color: -vanta-surface-2;
+}
+
+.list-view .list-cell:filled:selected {
+    -fx-background-color: -vanta-surface-3;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.list-view .list-cell:filled:selected:focused {
+    -fx-background-color: -vanta-surface-4;
+}
+
+.log-view {
+    -fx-background-color: -vanta-bg-void;
+    -fx-background-radius: 12;
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-radius: 12;
+    -fx-padding: 8 0 8 0;
+}
+
+.log-view .scroll-bar .thumb {
+    -fx-background-color: #262632;
+}
+
+.log-view .list-cell {
+    -fx-font-family: "monospace";
+    -fx-font-size: 12px;
+    -fx-text-fill: -vanta-text-secondary;
+    -fx-padding: 1.5 16 1.5 16;
+}
+
+.log-view .list-cell.log-info {
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.log-view .list-cell.log-debug {
+    -fx-text-fill: -vanta-text-muted;
+}
+
+.log-view .list-cell.log-warn {
+    -fx-text-fill: -vanta-warning;
+}
+
+.log-view .list-cell.log-error {
+    -fx-text-fill: -vanta-danger;
+}
+
+.log-view .list-cell.log-launcher {
+    -fx-text-fill: #B9B2E6;
+}
+
+.log-snippet {
+    -fx-background-color: -vanta-bg-void;
+    -fx-background-radius: 10;
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-radius: 10;
+    -fx-padding: 10 12 10 12;
+    -fx-spacing: 2;
+}
+
+.log-snippet-line {
+    -fx-font-family: "monospace";
+    -fx-font-size: 11.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.log-snippet-line.log-warn {
+    -fx-text-fill: -vanta-warning;
+}
+
+.log-snippet-line.log-error {
+    -fx-text-fill: -vanta-danger;
+}
+
+/* ------------------------------------------------------------------ data table */
+
+.data-table {
+    -fx-background-color: -vanta-surface-1;
+    -fx-background-radius: 14;
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-radius: 14;
+    -fx-padding: 4 0 4 0;
+}
+
+.table-header-cell {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 11px;
+    -fx-text-fill: -vanta-text-muted;
+    -fx-padding: 12 20 10 20;
+}
+
+.table-row {
+    -fx-border-color: -vanta-border-subtle transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.table-cell {
+    -fx-padding: 13 20 13 20;
+    -fx-font-size: 13.5px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.table-cell.secondary {
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.table-cell.mono {
+    -fx-font-family: "monospace";
+    -fx-font-size: 12px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+/* ------------------------------------------------------------------ banner */
+
+.banner {
+    -fx-background-color: linear-gradient(to right, #1C1930, #15151F);
+    -fx-background-radius: 12;
+    -fx-border-color: #7C5CFF55;
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-padding: 12 16 12 16;
+    -fx-spacing: 14;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.banner .banner-icon {
+    -fx-stroke: -vanta-accent-violet-hover;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.banner-title {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 13.5px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.banner-text {
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+/* ------------------------------------------------------------------ toasts */
+
+.toast-layer {
+    -fx-padding: 0 24 24 0;
+    -fx-spacing: 10;
+    -fx-alignment: BOTTOM_RIGHT;
+}
+
+.toast {
+    -fx-background-color: -vanta-surface-2;
+    -fx-background-radius: 12;
+    -fx-border-color: -vanta-border-strong;
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-padding: 12 14 12 14;
+    -fx-spacing: 12;
+    -fx-alignment: TOP_LEFT;
+    -fx-max-width: 360;
+    -fx-pref-width: 360;
+    -fx-effect: dropshadow(gaussian, #00000099, 28, 0.25, 0, 10);
+}
+
+.toast-accent {
+    -fx-background-radius: 2;
+    -fx-min-width: 3;
+    -fx-pref-width: 3;
+    -fx-max-width: 3;
+    -fx-background-color: -vanta-accent-blue;
+}
+
+.toast.success .toast-accent {
+    -fx-background-color: -vanta-success;
+}
+
+.toast.warning .toast-accent {
+    -fx-background-color: -vanta-warning;
+}
+
+.toast.error .toast-accent {
+    -fx-background-color: -vanta-danger;
+}
+
+.toast-title {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 13px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.toast-message {
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+/* ------------------------------------------------------------------ dialogs (in-window overlays) */
+
+.dialog-backdrop {
+    -fx-background-color: #07070AB8;
+}
+
+.dialog {
+    -fx-background-color: -vanta-surface-1;
+    -fx-background-radius: 18;
+    -fx-border-color: -vanta-border-strong;
+    -fx-border-radius: 18;
+    -fx-border-width: 1;
+    -fx-padding: 28 30 26 30;
+    -fx-spacing: 16;
+    -fx-max-width: 520;
+    -fx-pref-width: 520;
+    -fx-effect: dropshadow(gaussian, #000000B3, 48, 0.3, 0, 20);
+}
+
+.dialog.wide {
+    -fx-max-width: 640;
+    -fx-pref-width: 640;
+}
+
+.dialog-title {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-weight: bold;
+    -fx-font-size: 22px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.dialog-text {
+    -fx-font-size: 13.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.code-display {
+    -fx-background-color: -vanta-bg-void;
+    -fx-background-radius: 14;
+    -fx-border-color: -vanta-border-strong;
+    -fx-border-radius: 14;
+    -fx-padding: 22 28 22 28;
+    -fx-alignment: CENTER;
+}
+
+.code-text {
+    -fx-font-family: "monospace";
+    -fx-font-size: 34px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.markdown-h1 {
+    -fx-font-family: "Space Grotesk";
+    -fx-font-weight: bold;
+    -fx-font-size: 20px;
+    -fx-text-fill: -vanta-text-primary;
+    -fx-padding: 8 0 2 0;
+}
+
+.markdown-h2 {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 15px;
+    -fx-text-fill: -vanta-text-primary;
+    -fx-padding: 10 0 2 0;
+}
+
+.markdown-h3 {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 13.5px;
+    -fx-text-fill: -vanta-text-primary;
+    -fx-padding: 8 0 0 0;
+}
+
+.markdown-paragraph {
+    -fx-font-size: 13.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.markdown-bullet {
+    -fx-font-size: 13.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.markdown-bullet-dot {
+    -fx-text-fill: -vanta-accent-violet-hover;
+    -fx-font-size: 13.5px;
+}
+
+.markdown-code {
+    -fx-font-family: "monospace";
+    -fx-font-size: 12px;
+    -fx-text-fill: -vanta-text-primary;
+    -fx-background-color: -vanta-surface-3;
+    -fx-background-radius: 6;
+    -fx-padding: 8 10 8 10;
+}
+
+/* ------------------------------------------------------------------ misc */
+
+.tooltip {
+    -fx-background-color: -vanta-surface-4;
+    -fx-background-radius: 8;
+    -fx-border-color: -vanta-border-strong;
+    -fx-border-radius: 8;
+    -fx-text-fill: -vanta-text-primary;
+    -fx-font-size: 12px;
+    -fx-padding: 6 10 6 10;
+    -fx-effect: dropshadow(gaussian, #00000080, 12, 0.2, 0, 4);
+}
+
+.separator *.line {
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-width: 1 0 0 0;
+}
+
+.separator:vertical *.line {
+    -fx-border-width: 0 0 0 1;
+}
+
+.callout {
+    -fx-background-color: -vanta-surface-2;
+    -fx-background-radius: 12;
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-radius: 12;
+    -fx-padding: 14 16 14 16;
+    -fx-spacing: 6;
+}
+
+.callout.warning {
+    -fx-border-color: #F5B94255;
+    -fx-background-color: #F5B9420F;
+}
+
+.callout.danger {
+    -fx-border-color: #FF5C7A55;
+    -fx-background-color: #FF5C7A0F;
+}
+
+.callout.accent {
+    -fx-border-color: #7C5CFF55;
+    -fx-background-color: #7C5CFF14;
+}
+
+.callout-title {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 13px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.callout-text {
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.empty-state {
+    -fx-alignment: CENTER;
+    -fx-spacing: 6;
+    -fx-padding: 28 20 28 20;
+}
+
+.empty-state-title {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 14px;
+    -fx-text-fill: -vanta-text-primary;
+}
+
+.empty-state-text {
+    -fx-font-size: 12.5px;
+    -fx-text-fill: -vanta-text-muted;
+    -fx-text-alignment: center;
+}
+
+.empty-state .empty-icon {
+    -fx-stroke: -vanta-text-muted;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.5;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.icon-secondary {
+    -fx-stroke: -vanta-text-secondary;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.icon-accent {
+    -fx-stroke: -vanta-accent-violet-hover;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.icon-success {
+    -fx-stroke: -vanta-success;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.icon-danger {
+    -fx-stroke: -vanta-danger;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.icon-muted {
+    -fx-stroke: -vanta-text-muted;
+    -fx-fill: transparent;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}

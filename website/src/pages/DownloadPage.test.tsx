@@ -48,9 +48,16 @@ describe('DownloadPage', () => {
       screen.getByText(/certutil -hashfile "VANTA-Launcher-1\.0\.0\.msi" SHA256/),
     ).toBeInTheDocument();
     expect(screen.getByText(/shasum -a 256 vanta-client-1\.0\.0\.jar/)).toBeInTheDocument();
-    // Documentation is not ready yet → plain text, no dead link.
-    expect(screen.queryByRole('link', { name: 'Read the documentation' })).toBeNull();
-    expect(screen.getByText('Read the documentation')).toBeInTheDocument();
+    // Next steps link into the documentation and the changelog.
+    expect(screen.getByRole('link', { name: 'Installation guide' })).toHaveAttribute(
+      'href',
+      '/documentation/installation',
+    );
+    expect(screen.getAllByRole('link', { name: 'Full release notes' })[0]).toHaveAttribute(
+      'href',
+      '/changelog#launcher-1.0.0',
+    );
+    expect(screen.getByRole('link', { name: 'support page' })).toHaveAttribute('href', '/support');
     expect(document.title).toBe('Download — VANTA Client');
   });
 

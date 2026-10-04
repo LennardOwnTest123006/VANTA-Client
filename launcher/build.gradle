@@ -78,11 +78,25 @@ dependencies {
     testImplementation platform("org.junit:junit-bom:${junit_version}")
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // Monocle: headless Glass platform so the JavaFX UI smoke test runs without a display (CI, Windows runners).
+    testImplementation("org.testfx:openjfx-monocle:${monocle_version}") {
+        transitive = false
+    }
 }
 
 application {
     mainClass = 'dev.vanta.launcher.Main'
     applicationDefaultJvmArgs = ['-Dfile.encoding=UTF-8']
+}
+
+// `./gradlew run` puts JavaFX on the module path (like the jlink runtime image does) instead of the class path,
+// which avoids the "Unsupported JavaFX configuration" warning and matches how the packaged launcher runs.
+tasks.named('run', JavaExec) {
+    def fxJars = configurations.javafxRuntime
+    inputs.files(fxJars)
+    doFirst {
+        jvmArgs = jvmArgs + ['--module-path', fxJars.asPath, '--add-modules', 'javafx.controls']
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -104,6 +118,24 @@ tasks.named('test', Test) {
     testLogging {
         events 'failed'
         exceptionFormat 'full'
+    }
+}
+
+// Renders every launcher screen with fake services to build/screenshots. Needs a display: run under `xvfb-run -a`
+// on Linux, or pass -Pheadless to use the Monocle headless platform.
+tasks.register('screenshots', JavaExec) {
+    group = 'verification'
+    description = 'Renders the launcher UI (fake services) to build/screenshots/*.png.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.vanta.launcher.ui.screenshots.ScreenshotMain'
+    args = [layout.buildDirectory.dir('screenshots').get().asFile.absolutePath]
+    systemProperty 'prism.order', 'sw'
+    systemProperty 'java.awt.headless', 'true'
+    systemProperty 'file.encoding', 'UTF-8'
+    if (project.hasProperty('headless')) {
+        systemProperty 'glass.platform', 'Monocle'
+        systemProperty 'monocle.platform', 'Headless'
     }
 }
 

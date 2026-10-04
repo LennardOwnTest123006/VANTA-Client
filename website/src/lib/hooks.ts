@@ -61,13 +61,16 @@ export function focusableElements(root: HTMLElement): HTMLElement[] {
 
 /**
  * Keeps keyboard focus inside `ref` while `active` is true: Tab/Shift+Tab wrap around, the first
- * focusable element receives focus when the trap activates, and focus returns to the previously
- * focused element when it deactivates. `onEscape` is called for the Escape key.
+ * focusable element receives focus when the trap activates (unless focus is already inside), and
+ * focus returns to the previously focused element when it deactivates. `onEscape` is called for
+ * the Escape key.
  */
 export function useFocusTrap(
   ref: RefObject<HTMLElement | null>,
   active: boolean,
   onEscape?: () => void,
+  /** Picks the element to focus when the trap activates; defaults to the first focusable one. */
+  initialFocus?: (root: HTMLElement) => HTMLElement | null,
 ): void {
   useEffect(() => {
     if (!active) return undefined;
@@ -75,8 +78,11 @@ export function useFocusTrap(
     if (!root) return undefined;
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
-    const focusables = focusableElements(root);
-    (focusables[0] ?? root).focus({ preventScroll: true });
+    // A child may already have focused itself (e.g. an auto-focused search box); keep that.
+    if (!root.contains(document.activeElement)) {
+      const focusables = focusableElements(root);
+      (initialFocus?.(root) ?? focusables[0] ?? root).focus({ preventScroll: true });
+    }
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -107,7 +113,7 @@ export function useFocusTrap(
       document.removeEventListener('keydown', onKeyDown);
       previouslyFocused?.focus({ preventScroll: true });
     };
-  }, [ref, active, onEscape]);
+  }, [ref, active, onEscape, initialFocus]);
 }
 
 /** Locks body scrolling while `locked` is true (restores the previous inline style afterwards). */

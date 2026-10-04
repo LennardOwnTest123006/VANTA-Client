@@ -11,6 +11,7 @@ interface ImportMetaEnv {
   readonly VITE_SUPPORT_EMAIL?: string;
   readonly VITE_DISCORD_URL?: string;
   readonly VITE_GITHUB_URL?: string;
+  readonly VITE_SITE_URL?: string;
 }
 
 interface ImportMeta {

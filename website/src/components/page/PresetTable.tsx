@@ -12,8 +12,9 @@ export interface PresetTableProps {
 export function PresetTable({ className, showKeys = false, caption }: PresetTableProps) {
   return (
     <div
+      tabIndex={0}
       className={cn(
-        'overflow-x-auto rounded-xl border border-border-subtle bg-surface-1',
+        'overflow-x-auto rounded-xl border border-border-subtle bg-surface-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus',
         className,
       )}
     >

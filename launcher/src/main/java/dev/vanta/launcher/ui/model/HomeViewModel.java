@@ -1,0 +1,581 @@
+package dev.vanta.launcher.ui.model;
+
+import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.core.auth.Account;
+import dev.vanta.launcher.core.auth.AccountType;
+import dev.vanta.launcher.core.install.InstallListener;
+import dev.vanta.launcher.core.install.InstallProgress;
+import dev.vanta.launcher.core.install.InstallRequest;
+import dev.vanta.launcher.core.java.JavaInstall;
+import dev.vanta.launcher.core.launch.LaunchRequest;
+import dev.vanta.launcher.core.model.InstanceInfo;
+import dev.vanta.launcher.core.net.CancellationToken;
+import dev.vanta.launcher.core.net.DownloadProgressListener;
+import dev.vanta.launcher.core.net.DownloadRequest;
+import dev.vanta.launcher.ui.Messages;
+import dev.vanta.launcher.ui.backend.LauncherBackend;
+import dev.vanta.launcher.ui.backend.RunningGame;
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.binding.StringBinding;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.ReadOnlyBooleanProperty;
+import javafx.beans.property.ReadOnlyDoubleProperty;
+import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.ReadOnlyStringProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+
+/**
+ * State machine behind the Home screen.
+ *
+ * <pre>
+ *            sign in / Java found            PLAY
+ *  NOT_READY ──────────────────► READY ──────────► INSTALLING|VERIFYING ──► (launch) ──► RUNNING ──► READY
+ *      ▲                           ▲                    │ failure                             │ exit
+ *      └── account/Java lost ──────┘◄───── retry ───── ERROR ◄──────────────────────────────────┘ non-zero
+ * </pre>
+ *
+ * <p>The launch flow is: ensure Java → ensure installed/verified → refresh the account token → start the game →
+ * stream its output into the game log → {@code RUNNING} → exit code notification. Every blocking step runs on the
+ * background executor; properties change only on the UI thread.</p>
+ */
+public final class HomeViewModel {
+
+    /** Screen state. */
+    public enum State {
+        /** Missing account or Java. */
+        NOT_READY,
+        /** PLAY available. */
+        READY,
+        /** Downloading missing files. */
+        INSTALLING,
+        /** Re-checking existing files (no or few downloads). */
+        VERIFYING,
+        /** The game process is alive. */
+        RUNNING,
+        /** The last operation failed; PLAY retries. */
+        ERROR
+    }
+
+    private final SessionModel session;
+    private final LauncherBackend backend;
+    private final UiExecutors executors;
+    private final Messages messages;
+    private final Formats formats;
+    private final ErrorMessages errors;
+    private final ToastModel toasts;
+    private final LogBuffer launcherLog;
+    private final LogBuffer gameLog;
+
+    private final ReadOnlyObjectWrapper<State> state = new ReadOnlyObjectWrapper<>(State.NOT_READY);
+    private final StringProperty errorText = new SimpleStringProperty("");
+    private final DoubleProperty progress = new SimpleDoubleProperty(0);
+    private final BooleanProperty progressVisible = new SimpleBooleanProperty(false);
+    private final StringProperty stepText = new SimpleStringProperty("");
+    private final StringProperty detailText = new SimpleStringProperty("");
+    private final StringProperty bytesText = new SimpleStringProperty("");
+    private final StringProperty phaseText = new SimpleStringProperty("");
+    private final ReadOnlyObjectWrapper<RunningGame> game = new ReadOnlyObjectWrapper<>();
+    private final BooleanProperty javaInstalling = new SimpleBooleanProperty(false);
+    private final BooleanBinding playEnabled;
+    private final StringBinding blockReason;
+    private final StringBinding idleBlockReason;
+    private final StringBinding statusText;
+    private final StringBinding titleText;
+    private final StringBinding leadText;
+    private final StringBinding factsText;
+
+    private final AtomicReference<CancellationToken> cancellation = new AtomicReference<>();
+    private Future<?> running;
+    private Consumer<RunningGame> gameStartedHook = g -> { };
+    private Consumer<Integer> gameExitedHook = code -> { };
+
+    /**
+     * @param session     shared session state
+     * @param backend     backend
+     * @param executors   executors
+     * @param messages    messages
+     * @param formats     formats
+     * @param toasts      notifications
+     * @param launcherLog launcher log buffer (install messages are appended here)
+     * @param gameLog     game log buffer (process output is appended here)
+     */
+    public HomeViewModel(final SessionModel session, final LauncherBackend backend, final UiExecutors executors, final Messages messages,
+                         final Formats formats, final ToastModel toasts, final LogBuffer launcherLog, final LogBuffer gameLog) {
+        this.session = Objects.requireNonNull(session, "session");
+        this.backend = Objects.requireNonNull(backend, "backend");
+        this.executors = Objects.requireNonNull(executors, "executors");
+        this.messages = Objects.requireNonNull(messages, "messages");
+        this.formats = Objects.requireNonNull(formats, "formats");
+        this.errors = new ErrorMessages(messages, formats);
+        this.toasts = Objects.requireNonNull(toasts, "toasts");
+        this.launcherLog = Objects.requireNonNull(launcherLog, "launcherLog");
+        this.gameLog = Objects.requireNonNull(gameLog, "gameLog");
+
+        playEnabled = Bindings.createBooleanBinding(() -> (state.get() == State.READY || state.get() == State.ERROR)
+            && session.account().isPresent() && session.java().isPresent(), state, session.accountProperty(), session.javaProperty());
+        blockReason = Bindings.createStringBinding(this::computeBlockReason, state, session.accountProperty(), session.javaProperty(),
+            session.detectingJavaProperty());
+        idleBlockReason = Bindings.createStringBinding(() -> isBusy() ? "" : idleBlockReason(), state, session.accountProperty(),
+            session.javaProperty(), session.detectingJavaProperty());
+        statusText = Bindings.createStringBinding(this::computeStatusText, state, phaseText);
+        titleText = Bindings.createStringBinding(this::computeTitle, state, session.accountProperty(), session.javaProperty());
+        leadText = Bindings.createStringBinding(this::computeLead, state, session.accountProperty(), session.javaProperty(),
+            session.instanceProperty());
+        factsText = Bindings.createStringBinding(this::computeFacts, session.javaProperty());
+
+        session.accountProperty().addListener((obs, old, now) -> recomputeIdleState());
+        session.javaProperty().addListener((obs, old, now) -> recomputeIdleState());
+        recomputeIdleState();
+    }
+
+    // ---------------------------------------------------------------- properties
+
+    /** @return state */
+    public ReadOnlyObjectProperty<State> stateProperty() {
+        return state.getReadOnlyProperty();
+    }
+
+    /** @return state */
+    public State state() {
+        return state.get();
+    }
+
+    /** @return whether PLAY is enabled */
+    public BooleanBinding playEnabledProperty() {
+        return playEnabled;
+    }
+
+    /** @return localised reason PLAY is disabled, or empty */
+    public StringBinding blockReasonProperty() {
+        return blockReason;
+    }
+
+    /** @return localised status ("Ready", "Installing…") */
+    public StringBinding statusTextProperty() {
+        return statusText;
+    }
+
+    /** @return hero title */
+    public StringBinding titleTextProperty() {
+        return titleText;
+    }
+
+    /** @return hero lead paragraph */
+    public StringBinding leadTextProperty() {
+        return leadText;
+    }
+
+    /** @return the facts line */
+    public StringBinding factsTextProperty() {
+        return factsText;
+    }
+
+    /** @return last error text */
+    public ReadOnlyStringProperty errorTextProperty() {
+        return errorText;
+    }
+
+    /** @return progress fraction (negative = indeterminate) */
+    public ReadOnlyDoubleProperty progressProperty() {
+        return progress;
+    }
+
+    /** @return whether the progress block is shown */
+    public ReadOnlyBooleanProperty progressVisibleProperty() {
+        return progressVisible;
+    }
+
+    /** @return current step ("Step 3 of 9 · Downloading libraries") */
+    public ReadOnlyStringProperty stepTextProperty() {
+        return stepText;
+    }
+
+    /** @return current file / message */
+    public ReadOnlyStringProperty detailTextProperty() {
+        return detailText;
+    }
+
+    /** @return bytes downloaded so far */
+    public ReadOnlyStringProperty bytesTextProperty() {
+        return bytesText;
+    }
+
+    /** @return the running game, or null */
+    public ReadOnlyObjectProperty<RunningGame> gameProperty() {
+        return game.getReadOnlyProperty();
+    }
+
+    /** @return whether a Temurin install is running */
+    public ReadOnlyBooleanProperty javaInstallingProperty() {
+        return javaInstalling;
+    }
+
+    /** @return whether an install/verify is cancellable right now */
+    public boolean canCancel() {
+        return state.get() == State.INSTALLING || state.get() == State.VERIFYING;
+    }
+
+    /**
+     * @param hook runs on the UI thread when the game process started
+     */
+    public void onGameStarted(final Consumer<RunningGame> hook) {
+        this.gameStartedHook = Objects.requireNonNull(hook, "hook");
+    }
+
+    /**
+     * @param hook runs on the UI thread when the game exited (receives the exit code)
+     */
+    public void onGameExited(final Consumer<Integer> hook) {
+        this.gameExitedHook = Objects.requireNonNull(hook, "hook");
+    }
+
+    // ---------------------------------------------------------------- actions
+
+    /** PLAY: ensure Java → install/verify → refresh account → launch. */
+    public void play() {
+        if (!playEnabled.get() || isBusy()) {
+            return;
+        }
+        final Account account = session.account().orElseThrow();
+        final JavaInstall java = session.java().orElseThrow();
+        final InstallRequest request = InstallRequest.standard();
+        final CancellationToken token = new CancellationToken();
+        cancellation.set(token);
+        errorText.set("");
+        beginProgress(session.instance().isPresent() ? State.VERIFYING : State.INSTALLING);
+        running = Async.run(executors, () -> {
+            final InstanceInfo installed = backend.install(request, installListener(), token);
+            token.throwIfCancelled();
+            executors.onUi(() -> {
+                session.setInstance(installed);
+                phaseText.set(messages.get("home.status.refreshingAccount"));
+                stepText.set(messages.get("home.status.refreshingAccount"));
+                detailText.set("");
+                progress.set(-1);
+            });
+            final Account fresh = backend.refreshIfExpired(account);
+            executors.onUi(() -> {
+                phaseText.set(messages.get("home.status.launching"));
+                stepText.set(messages.get("home.status.launching"));
+            });
+            final LaunchRequest launch = LaunchRequest.of(installed, fresh, java.executable(), backend.settings());
+            final RunningGame started = backend.launch(launch, line -> gameLog.append(line.text()));
+            return new Launched(installed, fresh, started);
+        }, launched -> {
+            if (!launched.account().equals(account)) {
+                session.setAccount(launched.account());
+            }
+            endProgress();
+            game.set(launched.game());
+            state.set(State.RUNNING);
+            launcherLog.append(LogLevel.INFO, "Game started (pid " + launched.game().pid() + "), log " + launched.game().logFile());
+            toasts.info(messages.get("home.toast.gameStarted.title"), messages.format("home.toast.gameStarted.message",
+                Long.toString(launched.game().pid())));
+            gameStartedHook.accept(launched.game());
+            launched.game().exitCode().whenComplete((code, failure) -> executors.onUi(() -> onExit(code == null ? -1 : code)));
+        }, this::fail);
+    }
+
+    /** Verify files: install/verify without launching. */
+    public void verify() {
+        if (isBusy()) {
+            return;
+        }
+        final CancellationToken token = new CancellationToken();
+        cancellation.set(token);
+        errorText.set("");
+        beginProgress(session.instance().isPresent() ? State.VERIFYING : State.INSTALLING);
+        final boolean hadInstance = session.instance().isPresent();
+        running = Async.run(executors, () -> backend.install(InstallRequest.standard(), installListener(), token), installed -> {
+            session.setInstance(installed);
+            endProgress();
+            settle();
+            if (hadInstance) {
+                toasts.success(messages.get("home.toast.verified.title"), messages.get("home.toast.verified.message"));
+            } else {
+                toasts.success(messages.get("home.toast.installed.title"), messages.format("home.toast.installed.message",
+                    installed.minecraftVersion(), installed.fabricLoaderVersion()));
+            }
+        }, this::fail);
+    }
+
+    /** Cancels a running install/verify. */
+    public void cancel() {
+        final CancellationToken token = cancellation.get();
+        if (token != null) {
+            token.cancel();
+        }
+        if (running != null) {
+            running.cancel(true);
+        }
+    }
+
+    /** Installs Eclipse Temurin 21 through the backend and selects it. */
+    public void installJava() {
+        if (javaInstalling.get()) {
+            return;
+        }
+        javaInstalling.set(true);
+        final CancellationToken token = new CancellationToken();
+        final DownloadProgressListener listener = new DownloadProgressListener() {
+            @Override
+            public void onProgress(final DownloadRequest request, final long done, final long total) {
+                executors.onUi(() -> {
+                    if (state.get() == State.NOT_READY || state.get() == State.READY) {
+                        progressVisible.set(true);
+                        progress.set(total > 0 ? done / (double) total : -1);
+                        stepText.set(messages.format("java.card.installing", Integer.toString(LauncherVersion.JAVA_MAJOR)));
+                        detailText.set(request.description());
+                        bytesText.set(total > 0 ? formats.bytes(done) + " / " + formats.bytes(total) : formats.bytes(done));
+                    }
+                });
+            }
+        };
+        Async.run(executors, () -> backend.installJava(listener, token), installed -> {
+            javaInstalling.set(false);
+            endProgress();
+            session.setJava(installed);
+            session.selectJava(installed, () -> { });
+            launcherLog.append(LogLevel.INFO, "Installed " + installed.describe());
+            toasts.success(messages.format("java.toast.installed.title", Integer.toString(installed.major())),
+                messages.format("java.toast.installed.message", installed.version()));
+        }, error -> {
+            javaInstalling.set(false);
+            endProgress();
+            if (!Async.isCancellation(error)) {
+                final String text = errors.describe(error);
+                launcherLog.append(LogLevel.ERROR, "Java installation failed: " + text);
+                toasts.error(messages.get("java.toast.installFailed.title"), text);
+            }
+        });
+    }
+
+    /** Starts an offline session when the core policy allows it. */
+    public void startOfflineSession() {
+        Async.run(executors, backend::createOfflineSession, account -> {
+            session.setAccount(account);
+            toasts.info(messages.format("account.offline.started", account.name()), messages.get("home.block.offline"));
+        }, error -> toasts.error(messages.get("home.toast.error.title"), errors.describe(error)));
+    }
+
+    /** Asks the running game to exit. */
+    public void stopGame() {
+        final RunningGame g = game.get();
+        if (g != null) {
+            g.stop();
+        }
+    }
+
+    // ---------------------------------------------------------------- internals
+
+    private record Launched(InstanceInfo instance, Account account, RunningGame game) {
+    }
+
+    private boolean isBusy() {
+        final State s = state.get();
+        return s == State.INSTALLING || s == State.VERIFYING || s == State.RUNNING;
+    }
+
+    private void beginProgress(final State busyState) {
+        state.set(busyState);
+        progressVisible.set(true);
+        progress.set(-1);
+        stepText.set(messages.get("home.progress.preparing"));
+        detailText.set("");
+        bytesText.set("");
+        phaseText.set("");
+    }
+
+    private void endProgress() {
+        progressVisible.set(false);
+        progress.set(0);
+        stepText.set("");
+        detailText.set("");
+        bytesText.set("");
+        phaseText.set("");
+        cancellation.set(null);
+        running = null;
+    }
+
+    private InstallListener installListener() {
+        return new InstallListener() {
+            @Override
+            public void onProgress(final InstallProgress p) {
+                executors.onUi(() -> {
+                    if (!progressVisible.get()) {
+                        return;
+                    }
+                    progress.set(p.fraction());
+                    stepText.set(messages.format("home.progress.step", Integer.toString(p.stepIndex() + 1),
+                        Integer.toString(p.stepCount()), p.step().label()));
+                    final String files = p.total() > 1 ? messages.format("home.progress.files", Long.toString(p.done()), Long.toString(p.total())) : "";
+                    final String message = p.message() == null || p.message().equals(p.step().label()) ? "" : p.message();
+                    detailText.set(files.isEmpty() ? message : message.isEmpty() ? files : files + " · " + message);
+                    bytesText.set(p.bytes() > 0 ? messages.format("home.progress.bytes", formats.bytes(p.bytes())) : "");
+                });
+            }
+
+            @Override
+            public void onLog(final String message) {
+                launcherLog.append(LogLevel.INFO, message);
+            }
+        };
+    }
+
+    private void fail(final Throwable error) {
+        endProgress();
+        if (Async.isCancellation(error)) {
+            settle();
+            launcherLog.append(LogLevel.INFO, "Cancelled by the user");
+            toasts.info(messages.get("home.toast.cancelled.title"), messages.get("home.toast.cancelled.message"));
+            return;
+        }
+        final String text = errors.describe(error);
+        errorText.set(text);
+        state.set(State.ERROR);
+        launcherLog.append(LogLevel.ERROR, text);
+        toasts.error(messages.get("home.toast.error.title"), text);
+    }
+
+    private void onExit(final int code) {
+        game.set(null);
+        if (code == 0) {
+            launcherLog.append(LogLevel.INFO, "Game exited normally");
+            toasts.success(messages.get("home.toast.gameExited.title"), messages.get("home.toast.gameExited.message"));
+        } else {
+            launcherLog.append(LogLevel.WARN, "Game exited with code " + code);
+            toasts.warning(messages.format("home.toast.gameCrashed.title", Integer.toString(code)), messages.get("home.toast.gameCrashed.message"));
+        }
+        if (state.get() == State.RUNNING) {
+            settle();
+        }
+        gameExitedHook.accept(code);
+    }
+
+    /** Leaves a busy state: READY when account and Java are present, otherwise NOT_READY. */
+    private void settle() {
+        state.set(session.account().isPresent() && session.java().isPresent() ? State.READY : State.NOT_READY);
+    }
+
+    private void recomputeIdleState() {
+        final State s = state.get();
+        if (s == State.INSTALLING || s == State.VERIFYING || s == State.RUNNING) {
+            return;
+        }
+        if (s == State.ERROR && !errorText.get().isEmpty() && session.account().isPresent() && session.java().isPresent()) {
+            return;
+        }
+        state.set(session.account().isPresent() && session.java().isPresent() ? State.READY : State.NOT_READY);
+    }
+
+    private String computeBlockReason() {
+        return switch (state.get()) {
+            case INSTALLING -> messages.get("home.block.installing");
+            case VERIFYING -> messages.get("home.block.verifying");
+            case RUNNING -> messages.get("home.block.running");
+            default -> idleBlockReason();
+        };
+    }
+
+    /** @return why PLAY is disabled in an idle state ("" when it is enabled); shown under the button */
+    public String idleBlockReason() {
+        if (session.account().isEmpty()) {
+            return messages.get("home.block.noAccount");
+        }
+        if (session.java().isEmpty()) {
+            return session.detectingJavaProperty().get() ? messages.get("java.card.detecting")
+                : messages.format("home.block.noJava", Integer.toString(LauncherVersion.JAVA_MAJOR));
+        }
+        return "";
+    }
+
+    /** @return the idle block reason, or empty while busy (the status line already explains busy states) */
+    public StringBinding idleBlockReasonProperty() {
+        return idleBlockReason;
+    }
+
+    private String computeStatusText() {
+        if (!phaseText.get().isEmpty()) {
+            return phaseText.get();
+        }
+        return switch (state.get()) {
+            case NOT_READY -> messages.get("home.status.notReady");
+            case READY -> messages.get("home.status.ready");
+            case INSTALLING -> messages.get("home.status.installing");
+            case VERIFYING -> messages.get("home.status.verifying");
+            case RUNNING -> messages.get("home.status.running");
+            case ERROR -> messages.get("home.status.error");
+        };
+    }
+
+    private String computeTitle() {
+        return switch (state.get()) {
+            case NOT_READY -> messages.get("home.title.notReady");
+            case READY -> messages.get("home.title.ready");
+            case INSTALLING -> messages.get("home.title.installing");
+            case VERIFYING -> messages.get("home.title.verifying");
+            case RUNNING -> messages.get("home.title.running");
+            case ERROR -> messages.get("home.title.error");
+        };
+    }
+
+    private String computeLead() {
+        return switch (state.get()) {
+            case NOT_READY -> session.account().isEmpty() ? messages.get("home.lead.noAccount")
+                : messages.format("home.lead.noJava", LauncherVersion.MINECRAFT, Integer.toString(LauncherVersion.JAVA_MAJOR));
+            case READY -> session.instance().isPresent() ? messages.get("home.lead.ready")
+                : messages.format("home.lead.readyNotInstalled", LauncherVersion.MINECRAFT);
+            case INSTALLING -> messages.get("home.lead.installing");
+            case VERIFYING -> messages.get("home.lead.verifying");
+            case RUNNING -> messages.get("home.lead.running");
+            case ERROR -> messages.get("home.lead.error");
+        };
+    }
+
+    private String computeFacts() {
+        final Optional<JavaInstall> java = session.java();
+        final String detected = java.map(JavaInstall::version).filter(v -> !v.isBlank()).orElse(messages.get("home.facts.javaNotFound"));
+        return messages.format("home.facts", LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER,
+            Integer.toString(LauncherVersion.JAVA_MAJOR), detected);
+    }
+
+    /**
+     * @param account account
+     * @return short account type label for narrow places (sidebar chip)
+     */
+    public String accountChipLabel(final Account account) {
+        if (account.type() == AccountType.OFFLINE) {
+            return messages.get("account.chip.offline");
+        }
+        if (account.type() == AccountType.DEVELOPMENT) {
+            return messages.get("account.chip.development");
+        }
+        return messages.get("account.chip.microsoft");
+    }
+
+    /**
+     * @param account account
+     * @return localised account type label
+     */
+    public String accountTypeLabel(final Account account) {
+        if (account.type() == AccountType.OFFLINE) {
+            return messages.get("account.type.offline");
+        }
+        if (account.type() == AccountType.DEVELOPMENT) {
+            return messages.get("account.type.development");
+        }
+        return messages.get("account.type.microsoft");
+    }
+}

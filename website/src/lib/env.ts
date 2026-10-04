@@ -18,6 +18,8 @@ export interface SiteEnv {
   readonly discordUrl: string | undefined;
   /** Source repository URL. Defaults to the public GitHub repository. */
   readonly githubUrl: string | undefined;
+  /** Public origin of the deployed website (for canonical URLs, Open Graph and the sitemap). */
+  readonly siteUrl: string | undefined;
 }
 
 /** The default source repository used when `VITE_GITHUB_URL` is not set. */
@@ -61,6 +63,7 @@ export function readEnv(source: RawEnv): SiteEnv {
       source.VITE_GITHUB_URL === undefined
         ? DEFAULT_GITHUB_URL
         : sanitizeHttpUrl(source.VITE_GITHUB_URL),
+    siteUrl: sanitizeHttpUrl(source.VITE_SITE_URL)?.replace(/\/+$/, ''),
   };
 }
 

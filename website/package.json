@@ -2,7 +2,7 @@
   "name": "vanta-website",
   "private": true,
   "version": "1.0.0",
-  "description": "Official website of VANTA Client — a Fabric client for Minecraft 1.21.11.",
+  "description": "Official website of VANTA Client \u2014 a Fabric client for Minecraft 1.21.11.",
   "type": "module",
   "engines": {
     "node": ">=22.12.0",
@@ -18,18 +18,20 @@
     "lint": "eslint . && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "tokens": "node scripts/generate-tokens.mjs"
+    "tokens": "node scripts/generate-tokens.mjs",
+    "check": "npm run lint && npm test && npm run build && npm run test:e2e"
   },
   "dependencies": {
     "lucide-react": "^1.52.0",
+    "minisearch": "^7.2.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-markdown": "^10.1.0",
     "react-router": "7.18.4",
-    "remark-gfm": "^4.0.1",
-    "minisearch": "^7.2.0"
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^10.0.0",
     "@playwright/test": "1.56.1",
     "@tailwindcss/vite": "4.3.3",

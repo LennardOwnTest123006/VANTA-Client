@@ -15,6 +15,7 @@ export default function NotFoundPage() {
       <PageMeta
         title="Page not found"
         description="The page you requested does not exist on the VANTA Client website."
+        noindex
       />
       <section aria-labelledby="nf-title" className="relative overflow-hidden">
         <div className="hero-ambience" aria-hidden="true" />

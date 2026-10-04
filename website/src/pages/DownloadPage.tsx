@@ -1,11 +1,14 @@
 import {
+  BookOpen,
   ExternalLink,
+  History,
   Monitor,
   Package,
   ShieldCheck,
   Terminal,
   UserRound,
   Coffee,
+  Wrench,
 } from 'lucide-react';
 import { DownloadCard } from '../components/download/DownloadCard';
 import { PageMeta } from '../components/layout/PageMeta';
@@ -210,7 +213,10 @@ export default function DownloadPage() {
               <p className="flex items-center gap-2 text-[11px] font-semibold tracking-label text-text-muted uppercase">
                 <Terminal className="size-3.5" aria-hidden="true" /> {item.os}
               </p>
-              <pre className="mt-3 overflow-x-auto rounded-lg border border-border-subtle bg-bg-void p-4 text-[13px] leading-relaxed text-text-primary">
+              <pre
+                tabIndex={0}
+                className="mt-3 overflow-x-auto rounded-lg border border-border-subtle bg-bg-void p-4 text-[13px] leading-relaxed text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+              >
                 <code>
                   {item.command.replace(
                     '{version}',
@@ -233,30 +239,50 @@ export default function DownloadPage() {
             source before it is used. Files that fail verification are deleted, never executed.
           </p>
         </Callout>
-        <p className="mt-6 text-sm text-text-secondary">
-          Need help installing?{' '}
-          <RouteLink
-            to="/documentation"
-            pendingHint="(documentation is published with the first release)"
+        <div className="mt-10 grid gap-4 lg:grid-cols-3" aria-label="After downloading">
+          <Card
+            icon={<BookOpen />}
+            title="Installation guide"
+            to="/documentation/installation"
+            padding="sm"
           >
-            Read the documentation
-          </RouteLink>
-          {githubLinks ? (
-            <>
-              {' '}
-              or{' '}
-              <a
-                href={githubLinks.issues}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent-violet-hover underline decoration-accent-violet/40 underline-offset-4 hover:text-text-primary"
-              >
-                open an issue on GitHub
-              </a>
-            </>
-          ) : null}
-          .
-        </p>
+            <p>
+              Verify the checksum, install the launcher, sign in and press PLAY — step by step, with
+              the folders where everything ends up.
+            </p>
+          </Card>
+          <Card icon={<History />} title="Release notes" to="/changelog" padding="sm">
+            <p>
+              What each version of the client and the launcher added, improved and fixed, with the
+              Minecraft version it targets.
+            </p>
+          </Card>
+          <Card
+            icon={<Wrench />}
+            title="Troubleshooting"
+            to="/documentation/troubleshooting"
+            padding="sm"
+          >
+            <p>
+              Java not found, checksum mismatch, Microsoft sign-in errors, crashes on start and
+              where the logs are.
+            </p>
+          </Card>
+        </div>
+        {githubLinks ? (
+          <p className="mt-6 text-sm text-text-secondary">
+            Still stuck? Read the{' '}
+            <a
+              href={githubLinks.issues}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent-violet-hover underline decoration-accent-violet/40 underline-offset-4 hover:text-text-primary"
+            >
+              open issues on GitHub
+            </a>{' '}
+            or visit the <RouteLink to="/support">support page</RouteLink>.
+          </p>
+        ) : null}
       </Section>
     </>
   );

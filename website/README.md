@@ -17,13 +17,19 @@ TypeScript 5.9 and Tailwind CSS 4, deployed to Netlify (configuration in the rep
 | `npm run lint`                    | ESLint (type-aware) + `tsc --noEmit` for the app and tooling projects.                                                                                           |
 | `npm run format` / `format:check` | Prettier.                                                                                                                                                        |
 | `npm run tokens`                  | Regenerates `src/styles/tokens.css` from `shared/design/tokens.json`. The output is committed.                                                                   |
+| `npm run check`                   | The full acceptance run: `lint`, `test`, `build`, `test:e2e`.                                                                                                    |
 
 Acceptance locally:
 
 ```bash
-npm install && npm run lint && npm test && npm run build && \
-PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium npm run test:e2e
+npm install && PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium npm run check
 ```
+
+The end-to-end run starts two servers: `vite preview` on port 4173 serving `dist/`, and a second
+build in `dist-e2e-support/` (port 4174) made with `VITE_SUPPORT_EMAIL` and `VITE_DISCORD_URL` set,
+so the support page is tested with and without configured channels. Every route is checked for
+status, title, h1, a clean console, canonical/Open Graph tags and an `@axe-core/playwright` scan
+with zero serious or critical violations; a crawler follows every internal link.
 
 ## Environment variables
 
@@ -37,6 +43,7 @@ All optional; see `.env.example`. Read through the typed, validated accessor in 
 | `VITE_SUPPORT_EMAIL`         | Support address shown in the footer (hidden when empty).                                                                                 |
 | `VITE_DISCORD_URL`           | Community Discord link (hidden when empty).                                                                                              |
 | `VITE_GITHUB_URL`            | Source repository. Defaults to `https://github.com/LennardOwnTest123006/VANTA-Client`; set to an empty string to hide every GitHub link. |
+| `VITE_SITE_URL`              | Public origin of the deployment (no trailing slash). Used for canonical URLs, Open Graph tags and absolute sitemap URLs; Netlify's `URL` is used when unset. |
 
 Download URLs are never hardcoded. A release manifest in `shared/releases/` with an empty
 `downloadUrl` (or a missing environment override) renders the download page in its honest
@@ -47,37 +54,67 @@ Download URLs are never hardcoded. A release manifest in `shared/releases/` with
 ```
 website/
 ├── content/                 Markdown content loaded at build time (changelog/, news/)
-├── e2e/                     Playwright tests (home, navigation, link crawler, screenshots)
+├── e2e/                     Playwright tests (every route + axe, docs search, FAQ, changelog/news,
+│                            support states, SEO files, link crawler, screenshots for review)
+├── plugins/                 sitemap.ts — Vite plugin emitting sitemap.xml and robots.txt
 ├── public/                  Static files: favicons, brand SVGs, self-hosted woff2 fonts (+ OFL licenses)
 ├── scripts/                 generate-tokens.mjs, check-bundle-size.mjs
 └── src/
     ├── components/
     │   ├── ui/              Button, Card, Container, Section, Badge, Pill/Tag, Stat, Callout, Logo,
-    │   │                    SkipLink, ThemeMeta, RouteLink, CopyButton
+    │   │                    SkipLink, ThemeMeta, RouteLink, CopyButton, CopyLinkButton, Drawer,
+    │   │                    EmptyState, Kbd
     │   ├── layout/          Header (sticky, mobile sheet with focus trap), Footer, Layout, PageMeta, Reveal
-    │   ├── page/            PageHero, PresetTable, TocNav, IsoCube
+    │   ├── page/            PageHero, PresetTable, TocNav, PrevNext, IsoCube
     │   ├── home/            Hero, TrustSection, FeatureGrid, InterfacePreview, HowItWorks, FinalCta
-    │   └── download/        DownloadCard
+    │   ├── download/        DownloadCard
+    │   ├── docs/            DocsSidebar, DocsSearch (MiniSearch combobox), DocToc (scroll spy)
+    │   ├── changelog/       ChangelogEntryCard
+    │   ├── news/            NewsCard
+    │   ├── faq/             FaqAccordion
+    │   └── screenshots/     ScreenshotGrid, Lightbox
     ├── config/              site.ts (product facts), siteNav.ts (routes + readiness), footer.ts,
-    │                        features.ts (feature catalogue), presets.ts (Performance Center presets)
-    ├── lib/                 env.ts, releases.ts, downloads.ts, content.ts, format.ts, markdown.tsx
-    │                        (lazy renderer), hooks.ts, cn.ts, meta.ts
-    ├── pages/               HomePage, DownloadPage, FeaturesPage, PerformancePage, NotFoundPage
+    │                        features.ts, presets.ts, support.ts (support topics → docs anchors)
+    ├── lib/                 env.ts, releases.ts, downloads.ts, front-matter.ts, content.ts (changelog),
+    │                        docs.ts, news.ts, faq.ts, search.ts, screenshots.ts, slug.ts,
+    │                        markdown*.tsx (lazy renderer + remark plugins), sitemap.ts, prefetch.ts,
+    │                        use-content.ts, thenable.ts, format.ts, hooks.ts, cn.ts, meta.ts
+    ├── pages/               Home, Download, Features, Performance, Screenshots, Changelog, News,
+    │                        NewsArticle, Documentation, Support, Faq, About, Legal, NotFound
     ├── styles/              index.css (Tailwind @theme, fonts, base, primitives), tokens.css (generated)
     ├── routes.tsx           Route table (lazy pages, `*` → NotFoundPage)
     └── main.tsx
 ```
 
+## Content pipeline
+
+All content is markdown with a flat front matter block, parsed by the dependency-free subset parser
+in `src/lib/front-matter.ts` (strings, integers, booleans, inline arrays). Unit tests load every
+real file and fail the build when a required field is missing.
+
+| Source                              | Loader                 | Loading                                        | Rendered at                                   |
+| ----------------------------------- | ---------------------- | ---------------------------------------------- | --------------------------------------------- |
+| `../docs/*.md` (repository root)    | `src/lib/docs.ts`      | lazy, one `docs-content` chunk                 | `/documentation`, `/documentation/:slug`, `/faq` (from `faq.md`), `/privacy`, `/terms` |
+| `content/news/<date>-<slug>.md`     | `src/lib/news.ts`      | lazy, one `news-content` chunk, drafts skipped | `/news`, `/news/:slug`                        |
+| `content/changelog/<product>-<v>.md`| `src/lib/content.ts`   | eager (the download page shows excerpts)       | `/changelog`, Download page                   |
+| `../shared/releases/*.json`         | `src/lib/releases.ts`  | eager                                          | Download page, footer, site facts             |
+| `../assets/screenshots/*.png` (+ `captions.json`) | `src/lib/screenshots.ts` | eager asset URLs                  | `/screenshots` (honest empty state when none) |
+
+Markdown is rendered by react-markdown + remark-gfm in a lazy chunk with raw HTML skipped and
+links/images sanitised. Two small remark plugins (`src/lib/markdown-plugins.ts`) add GitHub-style
+heading ids (same algorithm as `scripts/release/check-links.mjs`) and rewrite documentation
+cross-links such as `installation.md#2-verify-the-checksum` to `/documentation/installation#…`.
+Documentation search indexes every page section with MiniSearch (loaded on first use) and links
+straight to the matching anchor.
+
 ## Adding a page
 
 1. Create `src/pages/<Name>Page.tsx` with a default export and a `<PageMeta>`.
-2. Register a lazy `<Route>` in `src/routes.tsx` (before the `*` route).
-3. Flip `ready: true` for the entry in `src/config/siteNav.ts`. The header, the footer columns and
-   every `RouteLink` pick the page up automatically; until then they render the label as plain text.
-4. Markdown content: put files in `content/<collection>/` with front matter and load them with
-   `import.meta.glob(..., { query: '?raw', import: 'default', eager: true })` through the helpers in
-   `src/lib/content.ts`. Render with `<MarkdownBlock source={...} />` (react-markdown + remark-gfm in
-   a lazy chunk, raw HTML skipped, links and images sanitised).
+2. Register a lazy `<Route>` in `src/routes.tsx` (before the `*` route) and a loader in
+   `src/lib/prefetch.ts` so header/footer links prefetch the chunk on hover.
+3. Flip `ready: true` for the entry in `src/config/siteNav.ts`. The header, the footer columns,
+   every `RouteLink` and the sitemap pick the page up automatically.
+4. Add the route to `e2e/routes.ts` so the route, accessibility and screenshot suites cover it.
 
 ## Design system
 
@@ -91,6 +128,10 @@ licenses and are preloaded in `index.html`.
 ## Accessibility and performance
 
 Landmarks and a skip link on every page, visible violet focus rings, keyboard-operable mobile menu
-(focus trap, Escape, focus restore), `prefers-reduced-motion` disables reveal animations and
-transitions, 4.5:1 text contrast on all surfaces. Routes are code-split; React is in its own vendor
-chunk; no animation or UI libraries, no analytics, no third-party requests at runtime.
+and documentation drawer (focus trap, Escape, focus restore), an accessible FAQ accordion and
+search combobox, a lightbox with arrow-key navigation, and `prefers-reduced-motion` support. Every
+route is scanned with axe-core in the e2e suite. Routes are code-split with hover prefetching;
+React, the markdown renderer, MiniSearch and each content collection are separate chunks; the
+initial JavaScript stays well under the 180 kB gzip budget. Per-route `<title>`, description,
+canonical URL, Open Graph/Twitter tags and `robots` directives are set by `PageMeta`;
+`sitemap.xml` and `robots.txt` are generated at build time.

@@ -25,7 +25,13 @@
   --color-border-focus: var(--vanta-color-border-focus);
   --color-text-primary: var(--vanta-color-text-primary);
   --color-text-secondary: var(--vanta-color-text-secondary);
-  --color-text-muted: var(--vanta-color-text-muted);
+  /*
+   * text.muted from the shared tokens (#6B6B78) is tuned for the in-game UI and the launcher, where
+   * it is used on large type. On the web it sits at 3.7:1 on bg.base, below WCAG AA. The website
+   * uses a lifted shade that keeps at least 4.5:1 on every surface up to surface.3 (axe-core checks
+   * this on every route in the e2e suite). Everything else maps 1:1 to the generated tokens.
+   */
+  --color-text-muted: #8a8a96;
   --color-text-inverse: var(--vanta-color-text-inverse);
   --color-accent-violet: var(--vanta-color-accent-violet);
   --color-accent-violet-hover: var(--vanta-color-accent-violet-hover);
@@ -389,5 +395,40 @@
     border: 1px solid color-mix(in srgb, var(--color-border-strong) 70%, transparent);
     border-radius: 2px;
     transform: rotate(45deg) skew(-15deg, -15deg);
+  }
+}
+
+/* --- Drawer and documentation additions ----------------------------------------------------- */
+@keyframes drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer components {
+  /* Search snippets: matched terms. */
+  .markdown mark,
+  .search-snippet mark {
+    background: color-mix(in srgb, var(--color-accent-violet) 28%, transparent);
+    color: var(--color-text-primary);
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+
+  /* Long documentation pages: keep tables and code from forcing horizontal page scroll. */
+  .markdown {
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+  .markdown th {
+    white-space: nowrap;
+  }
+  .markdown pre code {
+    overflow-wrap: normal;
   }
 }

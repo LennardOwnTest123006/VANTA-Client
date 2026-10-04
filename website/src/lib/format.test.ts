@@ -57,3 +57,15 @@ describe('formatVersion', () => {
     expect(formatVersion('v1.0.0')).toBe('v1.0.0');
   });
 });
+
+describe('readingTime', () => {
+  it('estimates whole minutes with a floor of one', async () => {
+    const { readingTime, wordCount } = await import('./format');
+    expect(readingTime('')).toBe(1);
+    expect(readingTime('one two three')).toBe(1);
+    expect(
+      wordCount('# Title\n\n- **bold** item `code` | cell\n```\nignored words here\n```'),
+    ).toBe(5);
+    expect(readingTime(Array.from({ length: 660 }, () => 'word').join(' '))).toBe(3);
+  });
+});

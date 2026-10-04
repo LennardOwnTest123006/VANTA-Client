@@ -1,7 +1,7 @@
 /**
  * Single source of truth for site navigation.
  *
- * Every page of the website is listed here. `ready: false` marks routes that are not registered
+ * Every page of the website is listed here. `ready: true` marks routes that are not registered
  * yet; the header, footer and `RouteLink` hide or de-link them automatically, so a page becomes
  * reachable by registering its route in `src/routes.tsx` and flipping `ready` to `true`.
  */
@@ -51,7 +51,7 @@ export const siteNav: readonly NavItem[] = [
   {
     label: 'Screenshots',
     to: '/screenshots',
-    ready: false,
+    ready: true,
     group: 'product',
     inHeader: true,
     description: 'Real screenshots captured by the automated game tests.',
@@ -59,7 +59,7 @@ export const siteNav: readonly NavItem[] = [
   {
     label: 'Changelog',
     to: '/changelog',
-    ready: false,
+    ready: true,
     group: 'product',
     inHeader: true,
     description: 'Release notes for every client and launcher version.',
@@ -67,15 +67,15 @@ export const siteNav: readonly NavItem[] = [
   {
     label: 'News',
     to: '/news',
-    ready: false,
+    ready: true,
     group: 'resources',
     inHeader: false,
-    description: 'Project updates.',
+    description: 'Project updates and release announcements.',
   },
   {
     label: 'Documentation',
     to: '/documentation',
-    ready: false,
+    ready: true,
     group: 'resources',
     inHeader: true,
     description: 'Installation, launcher, settings, HUD, profiles and troubleshooting guides.',
@@ -83,7 +83,7 @@ export const siteNav: readonly NavItem[] = [
   {
     label: 'Support',
     to: '/support',
-    ready: false,
+    ready: true,
     group: 'resources',
     inHeader: false,
     description: 'Get help and report problems.',
@@ -91,7 +91,7 @@ export const siteNav: readonly NavItem[] = [
   {
     label: 'FAQ',
     to: '/faq',
-    ready: false,
+    ready: true,
     group: 'resources',
     inHeader: false,
     description: 'Frequently asked questions.',
@@ -99,7 +99,7 @@ export const siteNav: readonly NavItem[] = [
   {
     label: 'About',
     to: '/about',
-    ready: false,
+    ready: true,
     group: 'resources',
     inHeader: false,
     description: 'Who builds VANTA and why.',
@@ -107,7 +107,7 @@ export const siteNav: readonly NavItem[] = [
   {
     label: 'Privacy',
     to: '/privacy',
-    ready: false,
+    ready: true,
     group: 'legal',
     inHeader: false,
     description: 'What data the client, the launcher and the website process.',
@@ -115,10 +115,10 @@ export const siteNav: readonly NavItem[] = [
   {
     label: 'Terms',
     to: '/terms',
-    ready: false,
+    ready: true,
     group: 'legal',
     inHeader: false,
-    description: 'Terms of use.',
+    description: 'Plain terms for a free, open-source client.',
   },
 ];
 

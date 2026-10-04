@@ -63,3 +63,18 @@ export function groupHash(hash: string, groupSize = 8): string {
 export function formatVersion(version: string): string {
   return version.startsWith('v') ? version : `v${version}`;
 }
+
+/** Words in a markdown body, ignoring front matter markup noise. */
+export function wordCount(text: string): number {
+  const words = text
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[#*_`>|-]+/g, ' ')
+    .split(/\s+/)
+    .filter((word) => /[\p{L}\p{N}]/u.test(word));
+  return words.length;
+}
+
+/** Estimated reading time in whole minutes at ~220 words per minute, never less than 1. */
+export function readingTime(text: string, wordsPerMinute = 220): number {
+  return Math.max(1, Math.round(wordCount(text) / wordsPerMinute));
+}

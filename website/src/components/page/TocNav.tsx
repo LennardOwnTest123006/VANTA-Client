@@ -9,7 +9,10 @@ export interface TocItem {
 export function TocNav({ items, className }: { items: readonly TocItem[]; className?: string }) {
   return (
     <nav aria-label="On this page" className={cn('relative', className)}>
-      <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:thin] sm:mx-0 sm:flex-wrap sm:px-0">
+      <ul
+        tabIndex={0}
+        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:thin] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus sm:mx-0 sm:flex-wrap sm:px-0"
+      >
         {items.map((item) => (
           <li key={item.id} className="shrink-0">
             <a

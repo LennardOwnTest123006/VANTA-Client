@@ -1,5 +1,6 @@
-import { Download, ExternalLink, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Download, ExternalLink, type LucideIcon } from 'lucide-react';
 import { type ReactNode } from 'react';
+import { Link } from 'react-router';
 import { findChangelog, markdownExcerpt } from '../../lib/content';
 import { type DownloadResolution } from '../../lib/downloads';
 import { formatBytes, formatDate, groupHash } from '../../lib/format';
@@ -159,6 +160,14 @@ export function DownloadCard({
               </li>
             ))}
           </ul>
+          {notes ? (
+            <Link
+              to={`/changelog#${notes.id}`}
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-accent-violet-hover transition-colors hover:text-text-primary"
+            >
+              Full release notes <ArrowRight className="size-3.5" aria-hidden="true" />
+            </Link>
+          ) : null}
         </div>
       ) : null}
 

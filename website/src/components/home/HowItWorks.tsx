@@ -42,7 +42,7 @@ export function HowItWorks() {
                 >
                   {step.icon}
                 </span>
-                <span className="font-display text-3xl font-semibold text-text-muted/70 tabular-nums">
+                <span className="font-display text-3xl font-semibold text-text-muted tabular-nums">
                   0{index + 1}
                 </span>
               </div>

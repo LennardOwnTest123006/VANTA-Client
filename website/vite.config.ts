@@ -3,18 +3,32 @@ import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { sitemapPlugin } from './plugins/sitemap';
+import { siteNav } from './src/config/siteNav';
 
 /**
  * Vite configuration for the VANTA website (static SPA).
  *
- * - React + Tailwind 4 plugins.
- * - `shared/` at the repository root is read at build time (release manifests), so the dev server
- *   is allowed to serve files from the monorepo root.
- * - React is split into its own long-lived vendor chunk; everything else is code-split per route.
+ * - React + Tailwind 4 plugins, plus the sitemap/robots generator.
+ * - `shared/`, `docs/` and `assets/` at the repository root are read at build time (release
+ *   manifests, documentation, screenshots), so the dev server is allowed to serve the monorepo root.
+ * - React is split into its own long-lived vendor chunk; every other page is code-split per route.
+ *   Lazily loaded markdown collections are grouped into one chunk each (`docs-content`,
+ *   `news-content`) so the sidebar, search and prev/next links cost a single request.
  * - A build manifest is emitted so `scripts/check-bundle-size.mjs` can enforce the gzip budget.
  */
+const root = fileURLToPath(new URL('..', import.meta.url));
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    sitemapPlugin({
+      staticRoutes: siteNav.filter((item) => item.ready).map((item) => item.to),
+      docsDir: fileURLToPath(new URL('../docs', import.meta.url)),
+      newsDir: fileURLToPath(new URL('./content/news', import.meta.url)),
+    }),
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -22,8 +36,7 @@ export default defineConfig({
   },
   server: {
     fs: {
-      // The website imports release manifests from ../shared at build time.
-      allow: [fileURLToPath(new URL('..', import.meta.url))],
+      allow: [root],
     },
   },
   build: {
@@ -41,6 +54,8 @@ export default defineConfig({
           ) {
             return 'react-vendor';
           }
+          if (/\/docs\/[^/]+\.md\?raw$/.test(id)) return 'docs-content';
+          if (/\/content\/news\/[^/]+\.md\?raw$/.test(id)) return 'news-content';
           return undefined;
         },
       },
@@ -50,7 +65,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'plugins/**/*.test.ts'],
     css: false,
     restoreMocks: true,
     clearMocks: true,

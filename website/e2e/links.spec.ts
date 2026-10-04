@@ -8,7 +8,7 @@ import { trackConsoleErrors, waitForApp } from './helpers';
  */
 test('every internal link on the public pages resolves', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium', 'crawl once, on desktop');
-  test.setTimeout(120_000);
+  test.setTimeout(300_000);
 
   const errors = trackConsoleErrors(page);
   const queue = ['/'];
@@ -42,7 +42,8 @@ test('every internal link on the public pages resolves', async ({ page }, testIn
     }
   }
 
-  expect(visited.size).toBeGreaterThanOrEqual(4);
+  // Home, product pages, documentation pages, news posts and legal pages.
+  expect(visited.size).toBeGreaterThanOrEqual(30);
   expect(broken).toEqual([]);
   expect(errors()).toEqual([]);
 });
