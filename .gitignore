@@ -49,3 +49,6 @@ desktop.ini
 *.pem
 *.p12
 *.jks
+
+# --- Claude Code worktrees / session files ---
+.claude/worktrees/
