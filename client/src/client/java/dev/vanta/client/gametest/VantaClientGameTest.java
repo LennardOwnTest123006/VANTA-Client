@@ -69,6 +69,10 @@ public final class VantaClientGameTest implements FabricClientGameTest {
             ScreenId.PERFORMANCE, ScreenId.PROFILES, ScreenId.KEYBINDS, ScreenId.CROSSHAIR, ScreenId.COSMETICS,
             ScreenId.STATISTICS, ScreenId.RESOURCE_PACKS, ScreenId.ACCESSIBILITY, ScreenId.SEARCH, ScreenId.ABOUT);
 
+    private static final int CAPTURE_WIDTH = 1920;
+    private static final int CAPTURE_HEIGHT = 1080;
+    private static final int CAPTURE_GUI_SCALE = 2;
+
     private static final List<HudWidgetType> INGAME_WIDGETS = List.of(HudWidgetType.FPS, HudWidgetType.COORDINATES,
             HudWidgetType.BIOME, HudWidgetType.CLOCK, HudWidgetType.MEMORY, HudWidgetType.KEYSTROKES,
             HudWidgetType.ARMOR, HudWidgetType.PING);
@@ -80,6 +84,18 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         VantaServices services = runtime.services();
         check(services.isLoaded(), "VANTA services are not loaded");
         step("start: config root " + services.paths().root());
+
+        // Capture at 1920x1080 with GUI scale 2 (960x540 logical pixels): the desktop layout of every screen, which is
+        // what the published screenshots show. The framework restores the window size when the test ends.
+        context.getInput().resizeWindow(CAPTURE_WIDTH, CAPTURE_HEIGHT);
+        context.runOnClient(client -> {
+            client.options.guiScale().set(CAPTURE_GUI_SCALE);
+            client.resizeDisplay();
+        });
+        context.waitTicks(2);
+        int guiWidth = context.computeOnClient(client -> client.getWindow().getGuiScaledWidth());
+        step("window " + CAPTURE_WIDTH + "x" + CAPTURE_HEIGHT + " at GUI scale " + CAPTURE_GUI_SCALE
+                + " → " + guiWidth + " logical px wide");
 
         mainMenu(context);
         for (ScreenId id : SCREEN_ORDER) {
