@@ -178,6 +178,40 @@ public final class LauncherPaths {
         return instanceDir().resolve("config");
     }
 
+    /** @return {@code <instance>/shaderpacks} (Iris shader packs) */
+    public Path shaderpacksDir() {
+        return instanceDir().resolve("shaderpacks");
+    }
+
+    /** @return {@code <instance>/resourcepacks} */
+    public Path resourcepacksDir() {
+        return instanceDir().resolve("resourcepacks");
+    }
+
+    /** @return {@code <instance>/config/vanta}: files shared between the launcher and the VANTA Client */
+    public Path vantaConfigDir() {
+        return configDir().resolve("vanta");
+    }
+
+    /**
+     * Modrinth content installed into the instance (mods, shader packs, resource packs). The VANTA Client's in-game
+     * browser reads and writes the same file.
+     *
+     * @return {@code <instance>/config/vanta/modrinth.json}
+     */
+    public Path modrinthIndexFile() {
+        return vantaConfigDir().resolve("modrinth.json");
+    }
+
+    /**
+     * Written by the in-game "Restart game" button of the VANTA Client; the launcher deletes it and starts the game again.
+     *
+     * @return {@code <instance>/config/vanta/restart.request}
+     */
+    public Path restartRequestFile() {
+        return vantaConfigDir().resolve("restart.request");
+    }
+
     /** @return {@code <instance>/saves} */
     public Path savesDir() {
         return instanceDir().resolve("saves");
@@ -255,6 +289,11 @@ public final class LauncherPaths {
     /** @return {@code logs/} */
     public Path logsDir() {
         return dataDir.resolve("logs");
+    }
+
+    /** @return {@code logs/startup-error.txt}: written when the user interface cannot start */
+    public Path startupErrorFile() {
+        return logsDir().resolve("startup-error.txt");
     }
 
     /** @return {@code cache/} */

@@ -1,0 +1,53 @@
+{
+  "hits": [
+    {
+      "project_id": "AANobbMI",
+      "project_type": "mod",
+      "all_project_types": [
+        "mod"
+      ],
+      "slug": "sodium",
+      "author": "jellysquid3",
+      "title": "Sodium",
+      "description": "A high-performance rendering engine replacement for Minecraft, which greatly improves frame rates and reduces micro-stutter.",
+      "categories": [
+        "fabric",
+        "neoforge",
+        "optimization",
+        "quilt"
+      ],
+      "downloads": 236787190,
+      "follows": 41416,
+      "latest_version": "RB7CDjTS",
+      "client_side": "required",
+      "server_side": "unsupported"
+    },
+    {
+      "project_id": "PtjYWJkn",
+      "project_type": "mod",
+      "all_project_types": [
+        "mod"
+      ],
+      "slug": "sodium-extra",
+      "author": "FlashyReese",
+      "title": "Sodium Extra",
+      "description": "A Sodium addon that adds features that shouldn't be in Sodium.",
+      "categories": [
+        "cursed",
+        "fabric",
+        "neoforge",
+        "optimization",
+        "quilt",
+        "utility"
+      ],
+      "downloads": 99675777,
+      "follows": 13611,
+      "latest_version": "oqoegXMw",
+      "client_side": "required",
+      "server_side": "unsupported"
+    }
+  ],
+  "offset": 0,
+  "limit": 2,
+  "total_hits": 44
+}

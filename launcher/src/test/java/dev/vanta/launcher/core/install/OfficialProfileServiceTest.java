@@ -288,6 +288,86 @@ class OfficialProfileServiceTest {
         assertTrue(service.plan(request()).profileExists());
     }
 
+    private OfficialProfileService withPack() {
+        final FakeWorld.Wired wired = world.wire(paths, LINUX, Optional.empty(), CLOCK);
+        return new OfficialProfileService(paths, wired.downloader(), wired.fabric(), wired.fabricApi(), wired.vanta(), CLOCK, () -> ICON.clone(),
+            wired.pack());
+    }
+
+    @Test
+    void thePerformancePackIsPlannedAfterTheClientJarAndInstalledBeforeTheProfile() throws Exception {
+        officialLauncherStartedOnce();
+        final OfficialProfileService packed = withPack();
+        final OfficialProfileService.Request request = OfficialProfileService.Request.standard(mc, null, 4096, true);
+        final OfficialProfileService.Plan plan = packed.plan(request);
+        final List<OfficialProfileService.Kind> kinds = kinds(plan);
+        assertEquals(OfficialProfileService.Kind.VANTA_CLIENT, kinds.get(1));
+        assertEquals(List.of(OfficialProfileService.Kind.PERFORMANCE_MOD, OfficialProfileService.Kind.PERFORMANCE_MOD,
+            OfficialProfileService.Kind.PERFORMANCE_MOD, OfficialProfileService.Kind.PERFORMANCE_MOD, OfficialProfileService.Kind.PERFORMANCE_MOD,
+            OfficialProfileService.Kind.PERFORMANCE_MOD), kinds.subList(2, 8));
+        assertEquals(paths.modsDir().resolve("sodium-fabric-0.8.14+mc1.21.11.jar").toString(), plan.files().get(2).location());
+        assertEquals("Sodium mc1.21.11-0.8.14-fabric", plan.files().get(2).detail());
+        assertTrue(plan.notes().isEmpty(), plan.notes().toString());
+        assertFalse(Files.exists(paths.modsDir()), "planning writes nothing");
+
+        final List<String> steps = new ArrayList<>();
+        final List<String> messages = new ArrayList<>();
+        final OfficialProfileService.Result result = packed.install(request, new InstallListener() {
+            @Override
+            public void onProgress(final InstallProgress progress) {
+                if (steps.isEmpty() || !steps.get(steps.size() - 1).equals(progress.step().name())) {
+                    steps.add(progress.step().name());
+                }
+                messages.add(progress.message());
+            }
+        }, new CancellationToken());
+        assertEquals(List.of("FABRIC_PROFILE", "FABRIC_API", "VANTA_CLIENT", "PERFORMANCE_PACK", "FINALIZE"), steps);
+        assertTrue(messages.contains("Downloaded fabric-api-" + LauncherVersion.FABRIC_API + ".jar"), "each step names the file: " + messages);
+        assertTrue(messages.stream().anyMatch(m -> m.startsWith("Downloaded Sodium mc1.21.11-0.8.14-fabric")), messages.toString());
+        assertTrue(result.written().contains(paths.modsDir().resolve("iris-fabric-1.10.8+mc1.21.11.jar")));
+        final java.util.Set<String> planned = locations(plan.written());
+        for (Path written : result.written()) {
+            assertTrue(planned.contains(written.toAbsolutePath().toString()) || written.toString().endsWith(".vanta-backup"),
+                written + " was listed in the plan");
+        }
+        assertTrue(Files.isRegularFile(paths.modsDir().resolve("lithium-fabric-0.21.4+mc1.21.11.jar")));
+
+        // Updating again downloads nothing new: every pack file is verified with its SHA-512.
+        final int before = world.server().totalHits();
+        final List<String> second = new ArrayList<>();
+        packed.install(request, new InstallListener() {
+            @Override
+            public void onProgress(final InstallProgress progress) {
+                second.add(progress.message());
+            }
+        }, new CancellationToken());
+        assertTrue(second.stream().anyMatch(m -> m.startsWith("Verified Sodium")), second.toString());
+        assertTrue(world.server().requests().subList(before, world.server().totalHits()).stream().noneMatch(r -> r.contains("/modrinth/cdn/")),
+            "no pack file is downloaded twice");
+    }
+
+    @Test
+    void modrinthBeingDownOnlyAddsANoteAndTheProfileIsStillWritten() throws Exception {
+        officialLauncherStartedOnce();
+        for (String slug : dev.vanta.launcher.core.modrinth.PerformancePack.SLUGS) {
+            world.server().addStatus("modrinth/v2/project/" + slug + "/version", 503, "{}");
+        }
+        final OfficialProfileService packed = withPack();
+        final OfficialProfileService.Request request = OfficialProfileService.Request.standard(mc, null, 4096, true);
+        final OfficialProfileService.Plan plan = packed.plan(request);
+        assertFalse(plan.notes().isEmpty());
+        assertFalse(kinds(plan).contains(OfficialProfileService.Kind.PERFORMANCE_MOD));
+        final OfficialProfileService.Result result = packed.install(request, InstallListener.NONE, new CancellationToken());
+        assertFalse(result.notes().isEmpty());
+        assertTrue(JsonParser.parseString(Files.readString(mc.resolve(OfficialProfileService.PROFILES_FILE))).getAsJsonObject()
+            .getAsJsonObject("profiles").has("vanta-1.21.11"), "the profile does not depend on the pack");
+    }
+
+    @Test
+    void restartHintExplainsTheTray() {
+        assertTrue(OfficialProfileService.restartHint().contains("system tray"));
+    }
+
     @Test
     void clientJarIsPickedExactlyEvenWhenFabricApiIsListedFirst() throws Exception {
         officialLauncherStartedOnce();

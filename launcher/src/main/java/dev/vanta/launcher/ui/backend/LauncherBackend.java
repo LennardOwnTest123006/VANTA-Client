@@ -7,12 +7,16 @@ import dev.vanta.launcher.core.install.InstallException;
 import dev.vanta.launcher.core.install.InstallListener;
 import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.InstallRequest;
+import dev.vanta.launcher.core.install.OfficialLauncher;
 import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.launch.GameProcess;
 import dev.vanta.launcher.core.launch.LaunchRequest;
 import dev.vanta.launcher.core.model.InstanceInfo;
+import dev.vanta.launcher.core.modrinth.ContentType;
+import dev.vanta.launcher.core.modrinth.ModrinthModels;
+import dev.vanta.launcher.core.modrinth.ModrinthService;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
 import dev.vanta.launcher.core.paths.LauncherPaths;
@@ -349,6 +353,87 @@ public interface LauncherBackend extends AutoCloseable {
      * @throws InterruptedException when interrupted
      */
     OfficialProfileService.Result installOfficialProfile(InstallListener listener, CancellationToken token) throws IOException, InterruptedException;
+
+    /**
+     * @return the official Minecraft Launcher processes that run now, described as "MinecraftLauncher.exe (process 1234)"
+     *     (empty when none runs); the official launcher reads its profiles only when it starts
+     */
+    List<String> runningOfficialLaunchers();
+
+    /**
+     * Starts the official Minecraft Launcher (never stops one) and waits briefly until it runs.
+     *
+     * @return outcome
+     * @throws InterruptedException when interrupted
+     */
+    OfficialLauncher.OpenResult openOfficialLauncher() throws InterruptedException;
+
+    // ---------------------------------------------------------------- Modrinth content (Mods page)
+
+    /**
+     * @param type   content type
+     * @param query  search text (blank: most downloaded)
+     * @param offset offset
+     * @return one page of Modrinth results for Minecraft 1.21.11
+     * @throws IOException          on failure
+     * @throws InterruptedException when interrupted
+     */
+    ModrinthModels.SearchPage searchModrinth(ContentType type, String query, int offset) throws IOException, InterruptedException;
+
+    /**
+     * Installs a Modrinth project and its required dependencies into the VANTA instance.
+     *
+     * @param type      content type
+     * @param projectId project id or slug
+     * @param downloads byte progress
+     * @param log       log lines
+     * @param token     cancellation
+     * @return what was installed
+     * @throws IOException          on failure
+     * @throws InterruptedException when interrupted
+     */
+    ModrinthService.ApplyResult installFromModrinth(ContentType type, String projectId, DownloadProgressListener downloads,
+                                                    Consumer<String> log, CancellationToken token) throws IOException, InterruptedException;
+
+    /**
+     * @return mods, shader packs and resource packs in the VANTA instance
+     * @throws IOException on failure
+     */
+    List<ModrinthService.InstalledContent> installedContent() throws IOException;
+
+    /**
+     * @param item    content
+     * @param enabled new state
+     * @throws IOException on failure or when refused
+     */
+    void setContentEnabled(ModrinthService.InstalledContent item, boolean enabled) throws IOException;
+
+    /**
+     * @param item content
+     * @throws IOException on failure or when refused
+     */
+    void removeContent(ModrinthService.InstalledContent item) throws IOException;
+
+    /**
+     * Updates every Modrinth project in the instance to its newest compatible version.
+     *
+     * @param downloads byte progress
+     * @param log       log lines
+     * @param token     cancellation
+     * @return outcome
+     * @throws IOException          when Modrinth cannot be reached
+     * @throws InterruptedException when interrupted
+     */
+    ModrinthService.ApplyResult updateAllContent(DownloadProgressListener downloads, Consumer<String> log, CancellationToken token)
+        throws IOException, InterruptedException;
+
+    /**
+     * Deletes {@code <instance>/config/vanta/restart.request} when the game wrote it ("Restart game" in VANTA).
+     *
+     * @return whether the game asked to be started again
+     * @throws IOException when the marker cannot be deleted
+     */
+    boolean consumeRestartRequest() throws IOException;
 
     // ---------------------------------------------------------------- misc
 

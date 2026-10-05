@@ -22,6 +22,8 @@ public enum InstallStep {
     FABRIC_API("Downloading Fabric API"),
     /** Download the VANTA client mod. */
     VANTA_CLIENT("Installing VANTA Client"),
+    /** Install the performance pack from Modrinth (Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Iris). */
+    PERFORMANCE_PACK("Installing the performance pack"),
     /** Write instance metadata. */
     FINALIZE("Finishing installation");
 

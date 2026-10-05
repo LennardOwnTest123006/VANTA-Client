@@ -6,6 +6,9 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import dev.vanta.launcher.LauncherVersion;
 import dev.vanta.launcher.core.model.ReleaseManifest;
+import dev.vanta.launcher.core.modrinth.ModrinthIndex;
+import dev.vanta.launcher.core.modrinth.ModrinthService;
+import dev.vanta.launcher.core.modrinth.PerformancePack;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
 import dev.vanta.launcher.core.net.DownloadRequest;
@@ -75,6 +78,8 @@ public final class OfficialProfileService {
         .withZone(ZoneOffset.UTC);
     private static final List<InstallStep> STEPS = List.of(InstallStep.FABRIC_PROFILE, InstallStep.FABRIC_API,
         InstallStep.VANTA_CLIENT, InstallStep.FINALIZE);
+    private static final List<InstallStep> STEPS_WITH_PACK = List.of(InstallStep.FABRIC_PROFILE, InstallStep.FABRIC_API,
+        InstallStep.VANTA_CLIENT, InstallStep.PERFORMANCE_PACK, InstallStep.FINALIZE);
 
     private final LauncherPaths paths;
     private final Downloader downloader;
@@ -83,6 +88,7 @@ public final class OfficialProfileService {
     private final VantaClientService vantaClient;
     private final Clock clock;
     private final Supplier<byte[]> icon;
+    private final PerformancePack performancePack;
 
     /**
      * Service with the bundled VANTA icon.
@@ -96,7 +102,24 @@ public final class OfficialProfileService {
      */
     public OfficialProfileService(final LauncherPaths paths, final Downloader downloader, final FabricService fabric,
                                   final FabricApiService fabricApi, final VantaClientService vantaClient, final Clock clock) {
-        this(paths, downloader, fabric, fabricApi, vantaClient, clock, OfficialProfileService::bundledIcon);
+        this(paths, downloader, fabric, fabricApi, vantaClient, clock, OfficialProfileService::bundledIcon, null);
+    }
+
+    /**
+     * Service with the bundled VANTA icon and the performance pack.
+     *
+     * @param paths           launcher paths (the instance the profile points at)
+     * @param downloader      downloader
+     * @param fabric          Fabric meta service
+     * @param fabricApi       Fabric API service
+     * @param vantaClient     VANTA client service
+     * @param clock           clock for {@code created}/{@code lastUsed}
+     * @param performancePack the performance pack (null: never installed)
+     */
+    public OfficialProfileService(final LauncherPaths paths, final Downloader downloader, final FabricService fabric,
+                                  final FabricApiService fabricApi, final VantaClientService vantaClient, final Clock clock,
+                                  final PerformancePack performancePack) {
+        this(paths, downloader, fabric, fabricApi, vantaClient, clock, OfficialProfileService::bundledIcon, performancePack);
     }
 
     /**
@@ -111,6 +134,23 @@ public final class OfficialProfileService {
     public OfficialProfileService(final LauncherPaths paths, final Downloader downloader, final FabricService fabric,
                                   final FabricApiService fabricApi, final VantaClientService vantaClient, final Clock clock,
                                   final Supplier<byte[]> icon) {
+        this(paths, downloader, fabric, fabricApi, vantaClient, clock, icon, null);
+    }
+
+    /**
+     * @param paths           launcher paths
+     * @param downloader      downloader
+     * @param fabric          Fabric meta service
+     * @param fabricApi       Fabric API service
+     * @param vantaClient     VANTA client service
+     * @param clock           clock
+     * @param icon            PNG bytes of the profile icon
+     * @param performancePack the performance pack (null: never installed)
+     */
+    public OfficialProfileService(final LauncherPaths paths, final Downloader downloader, final FabricService fabric,
+                                  final FabricApiService fabricApi, final VantaClientService vantaClient, final Clock clock,
+                                  final Supplier<byte[]> icon, final PerformancePack performancePack) {
+        this.performancePack = performancePack;
         this.paths = Objects.requireNonNull(paths, "paths");
         this.downloader = Objects.requireNonNull(downloader, "downloader");
         this.fabric = Objects.requireNonNull(fabric, "fabric");
@@ -146,6 +186,14 @@ public final class OfficialProfileService {
         return "Open the Minecraft Launcher, choose the profile '" + profileName + "' and press Play.";
     }
 
+    /**
+     * @return why a running Minecraft Launcher does not show the profile yet, and what to do
+     */
+    public static String restartHint() {
+        return "The Minecraft Launcher reads its profiles only when it starts. Close it completely (also from the system tray"
+            + " next to the clock, if it stays there) and start it again, otherwise the new profile does not appear.";
+    }
+
     /** @return the bundled 128 px VANTA icon */
     public static byte[] bundledIcon() {
         try (InputStream in = OfficialProfileService.class.getResourceAsStream(ICON_RESOURCE)) {
@@ -169,9 +217,10 @@ public final class OfficialProfileService {
      * @param minecraftVersion    Minecraft version
      * @param fabricLoaderVersion Fabric Loader version
      * @param fabricApiVersion    Fabric API version
+     * @param includePerformancePack whether the performance pack (Modrinth) is installed into the instance as well
      */
     public record Request(Path minecraftDir, Path localClientJar, int memoryMb, String minecraftVersion, String fabricLoaderVersion,
-                          String fabricApiVersion) {
+                          String fabricApiVersion, boolean includePerformancePack) {
 
         public Request {
             Objects.requireNonNull(minecraftDir, "minecraftDir");
@@ -186,7 +235,22 @@ public final class OfficialProfileService {
         }
 
         /**
-         * The pinned VANTA versions.
+         * A request without the performance pack.
+         *
+         * @param minecraftDir        official Minecraft directory
+         * @param localClientJar      local client jar (may be null)
+         * @param memoryMb            heap in MiB
+         * @param minecraftVersion    Minecraft version
+         * @param fabricLoaderVersion Fabric Loader version
+         * @param fabricApiVersion    Fabric API version
+         */
+        public Request(final Path minecraftDir, final Path localClientJar, final int memoryMb, final String minecraftVersion,
+                       final String fabricLoaderVersion, final String fabricApiVersion) {
+            this(minecraftDir, localClientJar, memoryMb, minecraftVersion, fabricLoaderVersion, fabricApiVersion, false);
+        }
+
+        /**
+         * The pinned VANTA versions, without the performance pack.
          *
          * @param minecraftDir   official Minecraft directory
          * @param localClientJar local client jar (may be null)
@@ -194,8 +258,21 @@ public final class OfficialProfileService {
          * @return request
          */
         public static Request standard(final Path minecraftDir, final Path localClientJar, final int memoryMb) {
+            return standard(minecraftDir, localClientJar, memoryMb, false);
+        }
+
+        /**
+         * The pinned VANTA versions.
+         *
+         * @param minecraftDir    official Minecraft directory
+         * @param localClientJar  local client jar (may be null)
+         * @param memoryMb        heap in MiB
+         * @param performancePack whether to install the performance pack
+         * @return request
+         */
+        public static Request standard(final Path minecraftDir, final Path localClientJar, final int memoryMb, final boolean performancePack) {
             return new Request(minecraftDir, localClientJar, memoryMb, LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER,
-                LauncherVersion.FABRIC_API);
+                LauncherVersion.FABRIC_API, performancePack);
         }
 
         /** @return the local client jar when set */
@@ -217,6 +294,8 @@ public final class OfficialProfileService {
         VANTA_CLIENT("VANTA Client release jar (SHA-256 verified against the release manifest)", false),
         /** VANTA client jar copied from a local {@code --client-jar}. */
         VANTA_CLIENT_LOCAL("VANTA Client copied from the local --client-jar (not verified)", false),
+        /** A performance pack mod from Modrinth in the instance's {@code mods/}. */
+        PERFORMANCE_MOD("performance pack: newest version for this Minecraft version from Modrinth (SHA-512 verified)", false),
         /** Rollback copy of the release jar, or its manifest, in VANTA's data directory. */
         CLIENT_ROLLBACK_COPY("copy kept in VANTA's data folder for rolling back", false),
         /** The VANTA instance's {@code instance.json}. */
@@ -262,8 +341,22 @@ public final class OfficialProfileService {
      *
      * @param kind     kind
      * @param location absolute path
+     * @param detail   what it is, when the kind alone does not say (for example {@code Sodium mc1.21.11-0.8.14-fabric}); may
+     *                 be empty
      */
-    public record PlannedFile(Kind kind, String location) {
+    public record PlannedFile(Kind kind, String location, String detail) {
+
+        public PlannedFile {
+            detail = detail == null ? "" : detail;
+        }
+
+        /**
+         * @param kind     kind
+         * @param location absolute path
+         */
+        public PlannedFile(final Kind kind, final String location) {
+            this(kind, location, "");
+        }
 
         /** @return whether the file (or directory) is removed rather than written */
         public boolean removal() {
@@ -282,12 +375,31 @@ public final class OfficialProfileService {
      * @param vantaClientVersion the VANTA client version that is installed ({@code dev} for a local jar)
      * @param files              files written or removed, in order
      * @param profileExists      whether the profile already exists (it is updated in place)
+     * @param notes              remarks about the performance pack (projects that will be skipped, Modrinth unreachable)
      */
     public record Plan(Path minecraftDir, Path gameDir, String profileKey, String profileName, String versionId, String vantaClientVersion,
-                       List<PlannedFile> files, boolean profileExists) {
+                       List<PlannedFile> files, boolean profileExists, List<String> notes) {
 
         public Plan {
             files = List.copyOf(files);
+            notes = List.copyOf(notes);
+        }
+
+        /**
+         * A plan without notes.
+         *
+         * @param minecraftDir       official Minecraft directory
+         * @param gameDir            the VANTA instance directory
+         * @param profileKey         profile key
+         * @param profileName        profile name
+         * @param versionId          Fabric version id
+         * @param vantaClientVersion VANTA client version
+         * @param files              files
+         * @param profileExists      whether the profile exists
+         */
+        public Plan(final Path minecraftDir, final Path gameDir, final String profileKey, final String profileName, final String versionId,
+                    final String vantaClientVersion, final List<PlannedFile> files, final boolean profileExists) {
+            this(minecraftDir, gameDir, profileKey, profileName, versionId, vantaClientVersion, files, profileExists, List.of());
         }
 
         /** @return the files that are written */
@@ -314,13 +426,36 @@ public final class OfficialProfileService {
      * @param backups            backups created by this run (empty when they already existed)
      * @param vantaClientVersion installed VANTA client version ({@code dev} for a local jar)
      * @param vantaClientJar     the active VANTA client jar
+     * @param notes              remarks about the performance pack (what was skipped and why)
      */
     public record Result(Path minecraftDir, Path gameDir, String profileKey, String profileName, String versionId, boolean created,
-                         List<Path> written, List<Path> backups, String vantaClientVersion, Path vantaClientJar) {
+                         List<Path> written, List<Path> backups, String vantaClientVersion, Path vantaClientJar, List<String> notes) {
 
         public Result {
             written = List.copyOf(written);
             backups = List.copyOf(backups);
+            notes = List.copyOf(notes);
+        }
+
+        /**
+         * A result without notes.
+         *
+         * @param minecraftDir       official Minecraft directory
+         * @param gameDir            VANTA instance directory
+         * @param profileKey         profile key
+         * @param profileName        profile name
+         * @param versionId          Fabric version id
+         * @param created            whether the profile was new
+         * @param written            files written
+         * @param backups            backups created
+         * @param vantaClientVersion VANTA client version
+         * @param vantaClientJar     active client jar
+         */
+        public Result(final Path minecraftDir, final Path gameDir, final String profileKey, final String profileName, final String versionId,
+                      final boolean created, final List<Path> written, final List<Path> backups, final String vantaClientVersion,
+                      final Path vantaClientJar) {
+            this(minecraftDir, gameDir, profileKey, profileName, versionId, created, written, backups, vantaClientVersion, vantaClientJar,
+                List.of());
         }
 
         /** @return what the player does next */
@@ -355,8 +490,45 @@ public final class OfficialProfileService {
             exists |= profilesObject(readProfiles(file), file).has(key);
         }
         final ClientSource client = resolveClient(request);
+        final List<PlannedFile> files = files(request, client.changes(), profileFiles);
+        final List<String> notes = new ArrayList<>();
+        if (request.includePerformancePack() && performancePack != null) {
+            // Listed right after the VANTA Client jar: the pack goes into the same mods/ folder.
+            final List<PlannedFile> pack = packFiles(notes);
+            int insertAt = 0;
+            for (int i = 0; i < files.size(); i++) {
+                final Kind k = files.get(i).kind();
+                if (k == Kind.FABRIC_API || k == Kind.VANTA_CLIENT || k == Kind.VANTA_CLIENT_LOCAL || k == Kind.REPLACED_JAR) {
+                    insertAt = i + 1;
+                }
+            }
+            files.addAll(insertAt, pack);
+        }
         return new Plan(mc, paths.instanceDir(), key, profileName(request.minecraftVersion()), request.versionId(), client.version(),
-            files(request, client.changes(), profileFiles), exists);
+            files, exists, notes);
+    }
+
+    /**
+     * The performance pack files (and older versions of them that are replaced), resolved from Modrinth.
+     *
+     * @param notes receives what will be skipped
+     * @return planned files
+     */
+    private List<PlannedFile> packFiles(final List<String> notes) throws InterruptedException {
+        final ModrinthService.Resolution resolution = performancePack.resolve(CancellationToken.NONE);
+        notes.addAll(resolution.warnings());
+        final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
+        final List<PlannedFile> out = new ArrayList<>();
+        for (ModrinthService.ResolvedItem item : resolution.items()) {
+            final java.util.Optional<ModrinthIndex.Entry> existing = index.byProjectId(item.projectId());
+            final boolean enabled = existing.map(ModrinthIndex.Entry::enabled).orElse(true);
+            final Path target = paths.instanceDir().resolve(item.relativeFile() + (enabled ? "" : ModrinthIndex.DISABLED_SUFFIX));
+            out.add(new PlannedFile(Kind.PERFORMANCE_MOD, target.toString(), item.label()));
+            if (existing.isPresent() && !existing.get().file().equals(item.relativeFile())) {
+                out.add(new PlannedFile(Kind.REPLACED_JAR, existing.get().path(paths.instanceDir()).toString(), existing.get().title()));
+            }
+        }
+        return out;
     }
 
     /**
@@ -376,6 +548,8 @@ public final class OfficialProfileService {
         throws IOException, InterruptedException {
         final InstallListener l = listener == null ? InstallListener.NONE : listener;
         final CancellationToken t = token == null ? CancellationToken.NONE : token;
+        final boolean withPack = request.includePerformancePack() && performancePack != null;
+        final List<InstallStep> steps = withPack ? STEPS_WITH_PACK : STEPS;
         final Path mc = request.minecraftDir();
         final Map<Path, JsonObject> profileRoots = new LinkedHashMap<>();
         for (Path file : existingProfileFiles(mc)) {
@@ -390,7 +564,7 @@ public final class OfficialProfileService {
         final List<Path> backups = new ArrayList<>();
 
         // 1. Fabric Loader version JSON (downloaded first, written at the end)
-        progress(l, InstallStep.FABRIC_PROFILE, 0, null);
+        progress(l, steps, InstallStep.FABRIC_PROFILE, 0, 1, null);
         t.throwIfCancelled();
         final URI profileUrl = fabric.profileUrl(request.minecraftVersion(), request.fabricLoaderVersion());
         final JsonObject fabricProfile;
@@ -399,26 +573,26 @@ public final class OfficialProfileService {
         } catch (IOException e) {
             throw failed(InstallStep.FABRIC_PROFILE, profileUrl, e);
         }
-        progress(l, InstallStep.FABRIC_PROFILE, 1, versionId);
+        progress(l, steps, InstallStep.FABRIC_PROFILE, 1, 1, versionId);
 
         // 2. Fabric API into the instance's mods/
-        progress(l, InstallStep.FABRIC_API, 0, null);
+        progress(l, steps, InstallStep.FABRIC_API, 0, 1, null);
         t.throwIfCancelled();
         final Path apiJar;
         try {
             Files.createDirectories(paths.modsDir());
             final DownloadRequest apiRequest = fabricApi.request(request.fabricApiVersion());
-            downloader.download(apiRequest, DownloadProgressListener.NONE, t);
+            downloader.download(apiRequest, fileProgress(l, steps, InstallStep.FABRIC_API), t);
             fabricApi.pruneOtherVersions(request.fabricApiVersion()).forEach(p -> l.onLog("Removed old " + p.getFileName()));
             apiJar = apiRequest.target();
         } catch (IOException e) {
             throw failed(InstallStep.FABRIC_API, fabricApi.url(request.fabricApiVersion()), e);
         }
         written.add(apiJar);
-        progress(l, InstallStep.FABRIC_API, 1, apiJar.getFileName().toString());
+        progress(l, steps, InstallStep.FABRIC_API, 1, 1, apiJar.getFileName().toString());
 
         // 3. VANTA client into the instance's mods/
-        progress(l, InstallStep.VANTA_CLIENT, 0, null);
+        progress(l, steps, InstallStep.VANTA_CLIENT, 0, 1, null);
         t.throwIfCancelled();
         final ClientSource client = resolveClient(request);
         final Path clientJar;
@@ -427,7 +601,7 @@ public final class OfficialProfileService {
                 clientJar = vantaClient.installLocalJar(request.localClientJar());
                 l.onLog("Installed local client jar " + request.localClientJar());
             } else {
-                clientJar = vantaClient.installFromManifest(client.manifest(), DownloadProgressListener.NONE, t);
+                clientJar = vantaClient.installFromManifest(client.manifest(), fileProgress(l, steps, InstallStep.VANTA_CLIENT), t);
             }
         } catch (IOException e) {
             throw failed(InstallStep.VANTA_CLIENT, null, e);
@@ -435,10 +609,39 @@ public final class OfficialProfileService {
         written.add(clientJar);
         written.addAll(client.changes().keptFiles());
         client.changes().instanceFile().ifPresent(written::add);
-        progress(l, InstallStep.VANTA_CLIENT, 1, clientJar.getFileName().toString());
+        progress(l, steps, InstallStep.VANTA_CLIENT, 1, 1, clientJar.getFileName().toString());
 
-        // 4. Version files and profiles in the official directory
-        progress(l, InstallStep.FINALIZE, 0, null);
+        // 4. Performance pack from Modrinth into the same mods/ (never fails the setup)
+        final List<String> notes = new ArrayList<>();
+        if (withPack) {
+            progress(l, steps, InstallStep.PERFORMANCE_PACK, 0, 0, "Asking Modrinth for the newest versions for Minecraft "
+                + request.minecraftVersion());
+            final int[] total = {0};
+            final int[] done = {0};
+            final PerformancePack.Outcome pack = performancePack.install(new DownloadProgressListener() {
+                @Override
+                public void onProgress(final DownloadRequest r, final long bytesDone, final long bytesTotal) {
+                    if (bytesDone == bytesTotal || bytesDone == 0) {
+                        progress(l, steps, InstallStep.PERFORMANCE_PACK, done[0], total[0], "Downloading " + r.description());
+                    }
+                }
+
+                @Override
+                public void onComplete(final DownloadRequest r, final boolean skipped, final long bytes) {
+                    done[0]++;
+                    progress(l, steps, InstallStep.PERFORMANCE_PACK, done[0], total[0], (skipped ? "Verified " : "Downloaded ") + r.description());
+                }
+            }, l::onLog, count -> {
+                total[0] = count;
+                progress(l, steps, InstallStep.PERFORMANCE_PACK, 0, count, null);
+            }, t);
+            notes.addAll(pack.warnings());
+            written.addAll(pack.files());
+            progress(l, steps, InstallStep.PERFORMANCE_PACK, total[0], total[0], pack.applied().size() + " mods in place");
+        }
+
+        // 5. Version files and profiles in the official directory
+        progress(l, steps, InstallStep.FINALIZE, 0, 1, null);
         t.throwIfCancelled();
         final boolean created;
         try {
@@ -469,11 +672,11 @@ public final class OfficialProfileService {
             throw failed(InstallStep.FINALIZE, null, e);
         }
         final List<Path> profileFiles = List.copyOf(profileRoots.keySet());
-        progress(l, InstallStep.FINALIZE, 1, profileFiles.get(0).getFileName().toString());
+        progress(l, steps, InstallStep.FINALIZE, 1, 1, profileFiles.get(0).getFileName().toString());
         for (Path file : profileFiles) {
             l.onLog((created ? "Added" : "Updated") + " the profile '" + name + "' in " + file);
         }
-        return new Result(mc, paths.instanceDir(), key, name, versionId, created, written, backups, client.version(), clientJar);
+        return new Result(mc, paths.instanceDir(), key, name, versionId, created, written, backups, client.version(), clientJar, notes);
     }
 
     // ---------------------------------------------------------------- profiles file
@@ -672,8 +875,31 @@ public final class OfficialProfileService {
 
     // ---------------------------------------------------------------- helpers
 
-    private static void progress(final InstallListener listener, final InstallStep step, final int done, final String message) {
-        listener.onProgress(new InstallProgress(step, STEPS.indexOf(step), STEPS.size(), done, 1, 0L, message));
+    private static void progress(final InstallListener listener, final List<InstallStep> steps, final InstallStep step, final long done,
+                                 final long total, final String message) {
+        listener.onProgress(new InstallProgress(step, steps.indexOf(step), steps.size(), done, total, 0L, message));
+    }
+
+    /**
+     * @return a listener that names the file being downloaded or verified in the step's progress message
+     */
+    private static DownloadProgressListener fileProgress(final InstallListener listener, final List<InstallStep> steps, final InstallStep step) {
+        return new DownloadProgressListener() {
+            private boolean announced;
+
+            @Override
+            public void onProgress(final DownloadRequest r, final long bytesDone, final long bytesTotal) {
+                if (!announced) {
+                    announced = true;
+                    progress(listener, steps, step, 0, 1, "Downloading " + r.description());
+                }
+            }
+
+            @Override
+            public void onComplete(final DownloadRequest r, final boolean skipped, final long bytes) {
+                progress(listener, steps, step, 0, 1, (skipped ? "Verified " : "Downloaded ") + r.description());
+            }
+        };
     }
 
     private static InstallException failed(final InstallStep step, final URI url, final IOException e) {

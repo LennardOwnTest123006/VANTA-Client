@@ -14,6 +14,7 @@ import dev.vanta.launcher.core.install.InstallProgress;
 import dev.vanta.launcher.core.install.InstallRequest;
 import dev.vanta.launcher.core.install.InsufficientDiskSpaceException;
 import dev.vanta.launcher.core.install.NotPublishedException;
+import dev.vanta.launcher.core.install.OfficialLauncher;
 import dev.vanta.launcher.core.install.OfficialLauncherNotFoundException;
 import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.ReleasesNotConfiguredException;
@@ -22,6 +23,7 @@ import dev.vanta.launcher.core.java.UnsafeArchiveException;
 import dev.vanta.launcher.core.launch.GameProcess;
 import dev.vanta.launcher.core.launch.LaunchCommand;
 import dev.vanta.launcher.core.launch.LaunchRequest;
+import dev.vanta.launcher.core.launch.RestartRequest;
 import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
@@ -59,6 +61,7 @@ import java.util.function.Function;
  * <pre>
  * vanta-launcher --install [--client-jar path] [--without-client] [--no-assets]
  * vanta-launcher --install-official-profile [--minecraft-dir path] [--client-jar path]
+ * vanta-launcher --open-official-launcher [--minecraft-dir path]
  * vanta-launcher --launch [--dev-offline --username X] [--world name | --server host] [--exit-after seconds]
  * vanta-launcher --check-java [--java path]
  * vanta-launcher --install-java
@@ -160,6 +163,7 @@ public final class LauncherCli {
             return switch (args.command()) {
                 case INSTALL -> install(services, args, out);
                 case INSTALL_OFFICIAL_PROFILE -> installOfficialProfile(services, args, out);
+                case OPEN_OFFICIAL_LAUNCHER -> openOfficialLauncher(services, args, out, err);
                 case LAUNCH -> launch(services, args, out, err);
                 case CHECK_JAVA -> checkJava(services, args, out);
                 case INSTALL_JAVA -> installJava(services, out);
@@ -201,15 +205,20 @@ public final class LauncherCli {
         if (args.has("dev-offline")) {
             s = s.withDeveloperMode(true);
         }
+        if (args.has("without-performance-pack")) {
+            s = s.withInstallPerformancePack(false);
+        }
         services.overrideSettings(s);
     }
 
     private ExitCode install(final LauncherServices services, final CliArgs args, final PrintStream out) throws Exception {
         final Optional<Path> localJar = args.option("client-jar").map(Path::of).map(Path::toAbsolutePath);
         final InstallRequest request = new InstallRequest(LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER,
-            LauncherVersion.FABRIC_API, localJar.orElse(null), !args.has("without-client"), !args.has("no-assets"));
+            LauncherVersion.FABRIC_API, localJar.orElse(null), !args.has("without-client"), !args.has("no-assets"),
+            services.settings().performancePack());
         out.println("Installing into " + services.paths().dataDir());
         out.println(LauncherVersion.statusLine() + " · Fabric API " + LauncherVersion.FABRIC_API);
+        out.println(performancePackLine(request.includePerformancePack()));
         if (localJar.isEmpty() && !args.has("without-client")) {
             out.println("VANTA Client release manifests: " + describe(services.releasesBaseUrl()));
         }
@@ -243,14 +252,22 @@ public final class LauncherCli {
         };
     }
 
+    private static String performancePackLine(final boolean on) {
+        return on ? "Performance pack: " + String.join(", ", dev.vanta.launcher.core.modrinth.PerformancePack.SLUGS)
+            + " from Modrinth (newest versions for Minecraft " + LauncherVersion.MINECRAFT + ", SHA-512 verified; --without-performance-pack skips it)"
+            : "Performance pack: off";
+    }
+
     private ExitCode installOfficialProfile(final LauncherServices services, final CliArgs args, final PrintStream out) throws Exception {
         final Path minecraftDir = args.option("minecraft-dir").map(Path::of).map(Path::toAbsolutePath)
             .orElseGet(() -> LauncherPaths.officialMinecraftDirCandidate(os, env, userHome));
+        printRunningLauncherWarning(services, out);
         final Path localJar = args.option("client-jar").map(Path::of).map(Path::toAbsolutePath).orElse(null);
         final OfficialProfileService.Request request = services.officialProfileRequest(minecraftDir, localJar);
         out.println("Setting up '" + OfficialProfileService.profileName(request.minecraftVersion()) + "' for the official Minecraft Launcher in "
             + request.minecraftDir());
         out.println(LauncherVersion.statusLine() + " · Fabric API " + LauncherVersion.FABRIC_API);
+        out.println(performancePackLine(request.includePerformancePack()));
         if (localJar == null) {
             out.println("VANTA Client release manifests: " + describe(services.releasesBaseUrl()));
         }
@@ -258,6 +275,9 @@ public final class LauncherCli {
         out.println("VANTA Client " + plan.vantaClientVersion() + (localJar == null ? " (published release)" : " (local jar " + localJar + ")"));
         printPlannedFiles(out, "Files that will be written (a file that is already identical is left as it is):", plan.written());
         printPlannedFiles(out, "Files that will be removed:", plan.removed());
+        for (String note : plan.notes()) {
+            out.println("Performance pack note: " + note);
+        }
         final OfficialProfileService.Result result = services.officialProfiles().install(request, progressPrinter(out), new CancellationToken());
         out.println((result.created() ? "Added" : "Updated") + " the profile '" + result.profileName() + "' (" + result.profileKey()
             + ", version " + result.versionId() + ", VANTA Client " + result.vantaClientVersion() + ", -Xmx"
@@ -269,7 +289,54 @@ public final class LauncherCli {
         out.println(result.nextStep());
         out.println("The Minecraft Launcher downloads Minecraft " + LauncherVersion.MINECRAFT + ", its libraries, assets and Java itself and"
             + " signs you in with Microsoft. If it is open right now, restart it so it reads the new profile.");
+        if (!services.officialLauncher().running().isEmpty()) {
+            out.println("WARNING: the Minecraft Launcher is still running. " + OfficialProfileService.restartHint());
+        }
+        out.println("Start it with: --open-official-launcher");
         return ExitCode.OK;
+    }
+
+    /**
+     * Prints a warning when the official Minecraft Launcher runs: it reads {@code launcher_profiles.json} only when it starts.
+     */
+    private static void printRunningLauncherWarning(final LauncherServices services, final PrintStream out) {
+        final List<OfficialLauncher.Running> running = services.officialLauncher().running();
+        if (running.isEmpty()) {
+            return;
+        }
+        out.println("WARNING: the Minecraft Launcher is running ("
+            + String.join(", ", running.stream().map(OfficialLauncher.Running::describe).toList()) + ").");
+        out.println("         " + OfficialProfileService.restartHint());
+        out.println("         VANTA never closes it for you; the setup continues.");
+    }
+
+    private ExitCode openOfficialLauncher(final LauncherServices services, final CliArgs args, final PrintStream out, final PrintStream err)
+        throws InterruptedException {
+        final Path minecraftDir = args.option("minecraft-dir").map(Path::of).map(Path::toAbsolutePath)
+            .orElseGet(() -> LauncherPaths.officialMinecraftDirCandidate(os, env, userHome));
+        final List<OfficialLauncher.Running> before = services.officialLauncher().running();
+        if (!before.isEmpty()) {
+            out.println("The Minecraft Launcher is already running (" + before.get(0).describe() + "). "
+                + "If it does not show the profile '" + OfficialProfileService.profileName(LauncherVersion.MINECRAFT) + "', close it completely "
+                + "(also from the system tray) and run this command again.");
+            return ExitCode.OK;
+        }
+        final OfficialLauncher.OpenResult result = services.officialLauncher().open(minecraftDir);
+        switch (result.outcome()) {
+            case OPENED, STARTED_UNCONFIRMED -> {
+                out.println(result.detail());
+                out.println(OfficialProfileService.nextStep(OfficialProfileService.profileName(LauncherVersion.MINECRAFT)));
+                return ExitCode.OK;
+            }
+            case NOT_FOUND -> {
+                err.println(result.detail());
+                return ExitCode.NOT_CONFIGURED;
+            }
+            default -> {
+                err.println(result.detail());
+                return ExitCode.FAILURE;
+            }
+        }
     }
 
     private static void printPlannedFiles(final PrintStream out, final String header, final List<OfficialProfileService.PlannedFile> files) {
@@ -300,7 +367,7 @@ public final class LauncherCli {
         final LaunchCommand command = services.launch().buildCommand(request);
         out.println("Launching as " + account.name() + " (" + account.type().name().toLowerCase(Locale.ROOT) + ") with "
             + runtime.get().describe());
-        final GameProcess process = services.launch().start(command, List.of(line -> out.println(line.text())));
+        GameProcess process = services.launch().start(command, List.of(line -> out.println(line.text())));
         out.println("Game log: " + process.logFile());
         final Optional<Integer> exitAfter = args.option("exit-after").map(Integer::parseInt);
         if (exitAfter.isPresent()) {
@@ -316,9 +383,22 @@ public final class LauncherCli {
                 return ExitCode.OK;
             }
         }
-        final int code = waitForExit(process);
+        int code = waitForExit(process);
+        // "Restart game" inside VANTA: the game wrote config/vanta/restart.request and closed itself.
+        for (int restarts = 0; restarts < MAX_RESTARTS && RestartRequest.consume(services.paths().instanceDir()); restarts++) {
+            out.println("The game asked for a restart; starting it again.");
+            process = services.launch().start(services.launch().buildCommand(new LaunchRequest(instance.get(),
+                    resolveAccount(services, args, false), runtime.get().executable(), services.settings(),
+                    args.option("world").orElse(null), args.option("server").orElse(null))),
+                List.of(line -> out.println(line.text())));
+            out.println("Game log: " + process.logFile());
+            code = waitForExit(process);
+        }
         return code == 0 ? ExitCode.OK : gameFailed(code, err);
     }
+
+    /** Restarts in a row the command line performs before it stops (a client asking on every start would loop). */
+    static final int MAX_RESTARTS = 5;
 
     private ExitCode printCommand(final LauncherServices services, final CliArgs args, final PrintStream out) throws Exception {
         final Optional<InstanceInfo> instance = services.installer().loadInstance();
@@ -581,9 +661,11 @@ public final class LauncherCli {
         out.println("Options:");
         out.printf("  %-28s %s%n", "--data-dir <path>", "Launcher data directory (default: platform data dir or $" + LauncherPaths.HOME_ENV + ")");
         out.printf("  %-28s %s%n", "--client-jar <path>", "--install / --install-official-profile: install a local VANTA client jar instead of the published release");
-        out.printf("  %-28s %s%n", "--minecraft-dir <path>", "--install-official-profile: the official Minecraft directory (default: the platform .minecraft)");
+        out.printf("  %-28s %s%n", "--minecraft-dir <path>", "--install-official-profile / --open-official-launcher: the official Minecraft directory (default: the platform .minecraft)");
         out.printf("  %-28s %s%n", "--without-client", "--install: skip the VANTA client (plain Fabric instance)");
         out.printf("  %-28s %s%n", "--no-assets", "--install: skip game assets (development only; the game will lack sounds and languages)");
+        out.printf("  %-28s %s%n", "--without-performance-pack", "--install / --install-official-profile: skip the performance pack (Sodium, Lithium,");
+        out.printf("  %-28s %s%n", "", "FerriteCore, ImmediatelyFast, Entity Culling, Iris from Modrinth); default: Settings, on");
         out.printf("  %-28s %s%n", "--dev-offline", "--launch/--print-command: development offline account (requires " + OfflineAccountPolicy.DEV_OFFLINE_ENV + "=1)");
         out.printf("  %-28s %s%n", "--username <name>", "Player name for --dev-offline (default Dev)");
         out.printf("  %-28s %s%n", "--world <name>", "--launch: open this singleplayer world directly");

@@ -119,12 +119,14 @@ class LauncherCliTest {
         final Run invalid = run("--check-update", "--releases-url", "ftp://releases.example/vanta", "--data-dir", tmp.resolve("upd-data").toString());
         assertEquals(ExitCode.NOT_CONFIGURED, invalid.code());
         assertTrue(invalid.out().contains("is not a valid http(s) URL"), invalid.out());
-        world.server().addJson("releases/launcher-latest.json", dev.vanta.launcher.testutil.Fixtures.read("release/launcher-latest.json"));
+        // The fixture describes launcher 1.1.0; served as a newer release so an update is offered whatever this build is.
+        world.server().addJson("releases/launcher-latest.json", dev.vanta.launcher.testutil.Fixtures.read("release/launcher-latest.json")
+            .replace("1.1.0", "1.2.0"));
         // No --releases-url and nothing in settings.json: the built-in default (this test's fake releases/) is used.
         final Run configured = run("--check-update", "--data-dir", tmp.resolve("upd-data").toString());
         assertEquals(ExitCode.OK, configured.code(), configured.err());
         assertTrue(configured.out().contains("Release manifests: " + world.releasesBase() + " (built-in default)"), configured.out());
-        assertTrue(configured.out().contains("Launcher " + LauncherVersion.VERSION + ": update available: 1.1.0"));
+        assertTrue(configured.out().contains("Launcher " + LauncherVersion.VERSION + ": update available: 1.2.0"), configured.out());
         // A fresh data directory has no client: no update is offered, only the latest release and how to install it.
         assertTrue(configured.out().contains("Client: not installed (install it with --install or --install-official-profile); latest release 1.0.0"),
             configured.out());
@@ -188,8 +190,17 @@ class LauncherCliTest {
         final Path data = tmp.resolve("e2e-data");
         final Run install = run("--install", "--no-assets", "--releases-url", world.releasesBase(), "--data-dir", data.toString());
         assertEquals(ExitCode.OK, install.code(), install.out() + install.err());
-        assertTrue(install.out().contains("[1/9] Fetching version manifest"));
+        assertTrue(install.out().contains("[1/10] Fetching version manifest"), install.out());
         assertTrue(install.out().contains("Installing VANTA Client"));
+        assertTrue(install.out().contains("Performance pack: sodium, lithium, ferrite-core, immediatelyfast, entityculling, iris from Modrinth"));
+        assertTrue(install.out().contains("[9/10] Installing the performance pack"), install.out());
+        assertTrue(install.out().contains("Performance pack: 6 mods in place"), install.out());
+        final Path mods = data.resolve("instances/vanta-1.21.11/mods");
+        for (String jar : new String[] {"sodium-fabric-0.8.14+mc1.21.11.jar", "lithium-fabric-0.21.4+mc1.21.11.jar", "ferritecore-8.2.0-fabric.jar",
+            "ImmediatelyFast-Fabric-1.14.3+1.21.11.jar", "entityculling-fabric-1.11.2-mc1.21.11.jar", "iris-fabric-1.10.8+mc1.21.11.jar"}) {
+            assertTrue(Files.isRegularFile(mods.resolve(jar)), jar + " (newest release, Iris' pinned Sodium)");
+        }
+        assertTrue(Files.isRegularFile(data.resolve("instances/vanta-1.21.11/config/vanta/modrinth.json")));
         assertTrue(install.out().contains("Installed instance 'vanta-1.21.11': Minecraft 1.21.11, Fabric Loader 0.19.5, Fabric API "
             + LauncherVersion.FABRIC_API + ", VANTA Client 1.0.0"));
         assertTrue(Files.isRegularFile(data.resolve("instances/vanta-1.21.11/instance.json")));
@@ -214,6 +225,7 @@ class LauncherCliTest {
         assertTrue(launch.out().contains("FAKE_GAME_START"));
         assertTrue(launch.out().contains("ARG CIPlayer"));
         assertTrue(launch.out().contains("PROP vanta.launcher=" + LauncherVersion.VERSION));
+        assertTrue(launch.out().contains("PROP vanta.launcher.restartable=true"), "the game may offer 'Restart game'");
         assertTrue(launch.out().contains("Game log: "));
         try (var logs = Files.list(data.resolve("logs"))) {
             assertTrue(logs.anyMatch(p -> p.getFileName().toString().startsWith("game-")));
@@ -223,6 +235,50 @@ class LauncherCliTest {
         final Run timed = run("--launch", "--dev-offline", "--data-dir", data.toString(), "--exit-after", "60");
         assertEquals(ExitCode.OK, timed.code(), timed.err());
         assertTrue(timed.out().contains("Launching as Dev (development)"));
+    }
+
+    @Test
+    void restartRequestedByTheGameStartsItOnceMore() throws IOException {
+        final Path data = tmp.resolve("restart-data");
+        final Run install = run("--install", "--no-assets", "--without-performance-pack", "--releases-url", world.releasesBase(),
+            "--data-dir", data.toString());
+        assertEquals(ExitCode.OK, install.code(), install.out() + install.err());
+        assertTrue(install.out().contains("Performance pack: off"), install.out());
+        assertFalse(install.out().contains("Installing the performance pack"));
+        try (var files = Files.list(data.resolve("instances/vanta-1.21.11/mods"))) {
+            assertEquals(2, files.count(), "only Fabric API and the VANTA Client");
+        }
+        // The fake game writes config/vanta/restart.request when this file exists, like the in-game "Restart game" button.
+        final Path vantaConfig = data.resolve("instances/vanta-1.21.11/config/vanta");
+        Files.createDirectories(vantaConfig);
+        Files.writeString(vantaConfig.resolve("restart-once.test"), "x");
+        final Run launch = run("--launch", "--dev-offline", "--data-dir", data.toString(), "--memory", "1024");
+        assertEquals(ExitCode.OK, launch.code(), launch.out() + launch.err());
+        assertTrue(launch.out().contains("FAKE_GAME_RESTART_REQUESTED"), launch.out());
+        assertTrue(launch.out().contains("The game asked for a restart; starting it again."), launch.out());
+        assertEquals(2, launch.out().split("FAKE_GAME_START", -1).length - 1, "started exactly twice");
+        assertFalse(Files.exists(vantaConfig.resolve("restart.request")), "the marker is consumed");
+    }
+
+    @Test
+    void openOfficialLauncherReportsAMissingLauncher() throws IOException {
+        // No minecraft-launcher on the PATH, no Windows install folders, no macOS app: nothing can be started.
+        final Map<String, String> bare = new HashMap<>(env);
+        final Path emptyBin = Files.createDirectories(tmp.resolve("empty-bin"));
+        bare.put("PATH", emptyBin.toString());
+        bare.remove("ProgramFiles(x86)");
+        bare.put("LOCALAPPDATA", tmp.resolve("no-local-app-data").toString());
+        final OsInfo os = OsInfo.detect();
+        final LauncherCli target = new LauncherCli(paths -> new LauncherServices(paths, os, bare, new JdkHttpTransport("VANTA-Launcher/test"),
+            new ProcessJavaProbe(), Clock.systemUTC(), Sleeper.NONE, world.endpoints()), os, bare, tmp.resolve("home"));
+        org.junit.jupiter.api.Assumptions.assumeFalse(os.isMac(), "open -a Minecraft would start a real launcher on a Mac");
+        final Run r = run(target, "--open-official-launcher", "--minecraft-dir", tmp.resolve("nowhere").toString(),
+            "--data-dir", tmp.resolve("open-data").toString());
+        if (r.out().contains("already running")) {
+            return; // a real Minecraft Launcher runs on this machine: nothing to assert
+        }
+        assertEquals(ExitCode.NOT_CONFIGURED, r.code(), r.out() + r.err());
+        assertTrue(r.err().contains("minecraft.net"), r.err());
     }
 
     @Test

@@ -14,6 +14,7 @@ import dev.vanta.launcher.core.install.InstallRequest;
 import dev.vanta.launcher.core.install.InstallStep;
 import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.NotPublishedException;
+import dev.vanta.launcher.core.install.OfficialLauncher;
 import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
@@ -21,6 +22,10 @@ import dev.vanta.launcher.core.launch.GameProcess;
 import dev.vanta.launcher.core.launch.LaunchRequest;
 import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.core.model.ReleaseManifest;
+import dev.vanta.launcher.core.modrinth.ContentChangeRefusedException;
+import dev.vanta.launcher.core.modrinth.ContentType;
+import dev.vanta.launcher.core.modrinth.ModrinthModels;
+import dev.vanta.launcher.core.modrinth.ModrinthService;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
 import dev.vanta.launcher.core.net.DownloadRequest;
@@ -145,6 +150,10 @@ public final class FakeBackend implements LauncherBackend {
     public Exception installFailure;
     /** When set, {@link #install} blocks until released (screenshots of the installing state). */
     public CountDownLatch installGate;
+    /** When set, {@link #installOfficialProfile} blocks in the performance pack step until released (screenshots). */
+    public CountDownLatch officialGate;
+    /** Results per page of {@link #searchModrinth} (small by default so tests page). */
+    public int searchPageSize = 2;
     /** Called while an install runs (lets tests observe the INSTALLING state synchronously). */
     public Runnable installHook = () -> { };
     /** Number of fake files reported during an install. */
@@ -202,6 +211,21 @@ public final class FakeBackend implements LauncherBackend {
     public boolean officialProfileExists;
     /** Release notes by URL. */
     public final Map<URI, String> documents = new HashMap<>();
+    /** Running official Minecraft Launcher processes ("MinecraftLauncher.exe (process 1234)"). */
+    public final List<String> runningLaunchers = new ArrayList<>();
+    /** Outcome of {@link #openOfficialLauncher()}. */
+    public OfficialLauncher.OpenResult openResult = new OfficialLauncher.OpenResult(OfficialLauncher.Outcome.OPENED,
+        "MinecraftLauncher.exe", "The Minecraft Launcher is running: MinecraftLauncher.exe (process 4242)");
+    /** Modrinth search results by content type. */
+    public final Map<ContentType, List<ModrinthModels.SearchHit>> modrinthHits = new HashMap<>();
+    /** Failure of {@link #searchModrinth}. */
+    public IOException searchFailure;
+    /** Content in the instance. */
+    public final List<ModrinthService.InstalledContent> content = new ArrayList<>();
+    /** Failure of {@link #installFromModrinth}. */
+    public IOException modrinthInstallFailure;
+    /** How many game exits find the restart marker ("Restart game" in VANTA); each one is consumed. */
+    public int restartRequests;
     /** Memory in MiB. */
     public OptionalLong totalMemory = OptionalLong.of(16384);
     /** Records calls for assertions. */
@@ -555,24 +579,53 @@ public final class FakeBackend implements LauncherBackend {
         }
         final String id = "fabric-loader-" + LauncherVersion.FABRIC_LOADER + "-" + LauncherVersion.MINECRAFT;
         final Path versionDir = officialMinecraftDir.resolve("versions").resolve(id);
+        final List<OfficialProfileService.PlannedFile> files = new ArrayList<>(List.of(
+            new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.FABRIC_API,
+                paths.modsDir().resolve("fabric-api-" + LauncherVersion.FABRIC_API + ".jar").toString()),
+            new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.VANTA_CLIENT, paths.modsDir().resolve("vanta-client-1.0.0.jar").toString())));
+        if (settings.performancePack()) {
+            // Names as Modrinth publishes them (recorded in the test fixtures); only shown, nothing is downloaded.
+            files.add(new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.PERFORMANCE_MOD,
+                paths.modsDir().resolve("sodium-fabric-0.8.14+mc1.21.11.jar").toString(), "Sodium mc1.21.11-0.8.14-fabric"));
+            files.add(new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.PERFORMANCE_MOD,
+                paths.modsDir().resolve("ImmediatelyFast-Fabric-1.14.3+1.21.11.jar").toString(), "ImmediatelyFast 1.14.3+1.21.11-fabric"));
+            files.add(new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.PERFORMANCE_MOD,
+                paths.modsDir().resolve("entityculling-fabric-1.11.2-mc1.21.11.jar").toString(), "Entity Culling 1.11.2"));
+            files.add(new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.PERFORMANCE_MOD,
+                paths.modsDir().resolve("iris-fabric-1.10.8+mc1.21.11.jar").toString(), "Iris Shaders 1.10.8+1.21.11-fabric"));
+        }
+        files.add(new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.VERSION_JSON, versionDir.resolve(id + ".json").toString()));
+        files.add(new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.VERSION_JAR, versionDir.resolve(id + ".jar").toString()));
+        files.add(new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.PROFILES,
+            officialMinecraftDir.resolve(OfficialProfileService.PROFILES_FILE).toString()));
         return new OfficialProfileService.Plan(officialMinecraftDir, paths.instanceDir(), OfficialProfileService.profileKey(LauncherVersion.MINECRAFT),
-            OfficialProfileService.profileName(LauncherVersion.MINECRAFT), id, "1.0.0", List.of(
-                new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.FABRIC_API,
-                    paths.modsDir().resolve("fabric-api-" + LauncherVersion.FABRIC_API + ".jar").toString()),
-                new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.VANTA_CLIENT, paths.modsDir().resolve("vanta-client-1.0.0.jar").toString()),
-                new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.VERSION_JSON, versionDir.resolve(id + ".json").toString()),
-                new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.VERSION_JAR, versionDir.resolve(id + ".jar").toString()),
-                new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.PROFILES,
-                    officialMinecraftDir.resolve(OfficialProfileService.PROFILES_FILE).toString())), officialProfileExists);
+            OfficialProfileService.profileName(LauncherVersion.MINECRAFT), id, "1.0.0", files, officialProfileExists);
     }
 
     @Override
     public OfficialProfileService.Result installOfficialProfile(final InstallListener listener, final CancellationToken token) throws IOException {
         calls.add("installOfficialProfile");
         final OfficialProfileService.Plan plan = officialProfilePlan();
-        final List<InstallStep> steps = List.of(InstallStep.FABRIC_PROFILE, InstallStep.FABRIC_API, InstallStep.VANTA_CLIENT, InstallStep.FINALIZE);
+        final List<InstallStep> steps = settings.performancePack()
+            ? List.of(InstallStep.FABRIC_PROFILE, InstallStep.FABRIC_API, InstallStep.VANTA_CLIENT, InstallStep.PERFORMANCE_PACK, InstallStep.FINALIZE)
+            : List.of(InstallStep.FABRIC_PROFILE, InstallStep.FABRIC_API, InstallStep.VANTA_CLIENT, InstallStep.FINALIZE);
         for (int i = 0; i < steps.size(); i++) {
             token.throwIfCancelled();
+            if (steps.get(i) == InstallStep.PERFORMANCE_PACK) {
+                // As the core reports it: one line per file, named by Modrinth's title, version and file name.
+                listener.onProgress(new InstallProgress(steps.get(i), i, steps.size(), 3, 6, 0,
+                    "Downloading Iris Shaders 1.10.8+1.21.11-fabric (iris-fabric-1.10.8+mc1.21.11.jar)"));
+                if (officialGate != null) {
+                    try {
+                        while (!officialGate.await(20, TimeUnit.MILLISECONDS)) {
+                            token.throwIfCancelled();
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("interrupted", e);
+                    }
+                }
+            }
             listener.onProgress(new InstallProgress(steps.get(i), i, steps.size(), 1, 1, 0, null));
         }
         if (officialInstallFailure != null) {
@@ -588,6 +641,108 @@ public final class FakeBackend implements LauncherBackend {
         }
         return new OfficialProfileService.Result(plan.minecraftDir(), plan.gameDir(), plan.profileKey(), plan.profileName(), plan.versionId(),
             created, plan.files().stream().map(f -> Path.of(f.location())).toList(), List.of(), "1.0.0", clientJar);
+    }
+
+    @Override
+    public List<String> runningOfficialLaunchers() {
+        calls.add("runningOfficialLaunchers");
+        return List.copyOf(runningLaunchers);
+    }
+
+    @Override
+    public OfficialLauncher.OpenResult openOfficialLauncher() {
+        calls.add("openOfficialLauncher");
+        return openResult;
+    }
+
+    @Override
+    public ModrinthModels.SearchPage searchModrinth(final ContentType type, final String query, final int offset) throws IOException {
+        calls.add("searchModrinth:" + type.id() + ":" + query + ":" + offset);
+        if (searchFailure != null) {
+            throw searchFailure;
+        }
+        final String q = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
+        final List<ModrinthModels.SearchHit> all = modrinthHits.getOrDefault(type, List.of()).stream()
+            .filter(h -> q.isEmpty() || h.title().toLowerCase(java.util.Locale.ROOT).contains(q)).toList();
+        final List<ModrinthModels.SearchHit> page = all.stream().skip(offset).limit(searchPageSize).toList();
+        return new ModrinthModels.SearchPage(page, offset, searchPageSize, all.size());
+    }
+
+    @Override
+    public ModrinthService.ApplyResult installFromModrinth(final ContentType type, final String projectId, final DownloadProgressListener downloads,
+                                                           final Consumer<String> log, final CancellationToken token) throws IOException {
+        calls.add("installFromModrinth:" + projectId);
+        if (modrinthInstallFailure != null) {
+            throw modrinthInstallFailure;
+        }
+        final ModrinthModels.SearchHit hit = modrinthHits.values().stream().flatMap(List::stream).filter(h -> h.projectId().equals(projectId))
+            .findFirst().orElseThrow(() -> new IOException(projectId + " was not found on Modrinth"));
+        final Path file = paths.instanceDir().resolve(type.folder()).resolve(hit.slug() + "-1.0.0" + (type == ContentType.MOD ? ".jar" : ".zip"));
+        content.add(new ModrinthService.InstalledContent(type, hit.title(), "1.0.0", file, true, true, false, projectId, List.of(), false));
+        log.accept("Downloaded " + hit.title());
+        return new ModrinthService.ApplyResult(List.of(), List.of());
+    }
+
+    @Override
+    public List<ModrinthService.InstalledContent> installedContent() {
+        calls.add("installedContent");
+        return List.copyOf(content);
+    }
+
+    @Override
+    public void setContentEnabled(final ModrinthService.InstalledContent item, final boolean enabled) throws IOException {
+        calls.add("setContentEnabled:" + item.title() + ":" + enabled);
+        if (item.managed()) {
+            throw new ContentChangeRefusedException(ContentChangeRefusedException.Reason.MANAGED, item.title(), List.of());
+        }
+        final int i = content.indexOf(item);
+        if (i >= 0) {
+            final Path plain = item.path().resolveSibling(item.fileName());
+            content.set(i, new ModrinthService.InstalledContent(item.type(), item.title(), item.version(),
+                enabled ? plain : plain.resolveSibling(plain.getFileName() + ".disabled"), enabled, item.tracked(), item.managed(),
+                item.projectId(), item.requiredBy(), item.missing()));
+        }
+    }
+
+    @Override
+    public void removeContent(final ModrinthService.InstalledContent item) throws IOException {
+        calls.add("removeContent:" + item.title());
+        if (!item.requiredBy().isEmpty()) {
+            throw new ContentChangeRefusedException(ContentChangeRefusedException.Reason.REQUIRED_BY, item.title(), item.requiredBy());
+        }
+        content.remove(item);
+    }
+
+    @Override
+    public ModrinthService.ApplyResult updateAllContent(final DownloadProgressListener downloads, final Consumer<String> log,
+                                                        final CancellationToken token) {
+        calls.add("updateAllContent");
+        return new ModrinthService.ApplyResult(List.of(), List.of());
+    }
+
+    @Override
+    public boolean consumeRestartRequest() {
+        calls.add("consumeRestartRequest");
+        if (restartRequests > 0) {
+            restartRequests--;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @param projectId   project id
+     * @param slug        slug
+     * @param title       title
+     * @param author      author
+     * @param type        content type
+     * @param downloads   downloads
+     * @param description description
+     * @return a search hit
+     */
+    public static ModrinthModels.SearchHit hit(final String projectId, final String slug, final String title, final String author,
+                                               final ContentType type, final long downloads, final String description) {
+        return new ModrinthModels.SearchHit(projectId, slug, title, description, author, type.id(), downloads, List.of(), "");
     }
 
     @Override

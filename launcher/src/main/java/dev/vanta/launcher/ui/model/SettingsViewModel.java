@@ -71,6 +71,7 @@ public final class SettingsViewModel {
     private final StringProperty resolutionWidth = new SimpleStringProperty("");
     private final StringProperty resolutionHeight = new SimpleStringProperty("");
     private final BooleanProperty keepLauncherOpen = new SimpleBooleanProperty(false);
+    private final BooleanProperty performancePack = new SimpleBooleanProperty(true);
     private final StringProperty msClientId = new SimpleStringProperty("");
     private final StringProperty releasesBaseUrl = new SimpleStringProperty("");
     private final BooleanProperty autoUpdateCheck = new SimpleBooleanProperty(true);
@@ -105,8 +106,8 @@ public final class SettingsViewModel {
         effectiveReleasesUrl = Bindings.createStringBinding(() -> effectiveReleasesBaseUrl().url(), releasesBaseUrl);
         effectiveReleasesSource = Bindings.createStringBinding(() -> sourceText(effectiveReleasesBaseUrl()), releasesBaseUrl);
         for (javafx.beans.Observable o : new javafx.beans.Observable[] {memoryMb, javaAuto, javaPath, jvmArgs, resolutionEnabled,
-            resolutionWidth, resolutionHeight, keepLauncherOpen, msClientId, releasesBaseUrl, autoUpdateCheck, shareOfficialFiles,
-            developerMode, highContrast, reducedMotion}) {
+            resolutionWidth, resolutionHeight, keepLauncherOpen, performancePack, msClientId, releasesBaseUrl, autoUpdateCheck,
+            shareOfficialFiles, developerMode, highContrast, reducedMotion}) {
             o.addListener(obs -> markDirty());
         }
         javaAuto.addListener((obs, old, now) -> {
@@ -168,6 +169,11 @@ public final class SettingsViewModel {
     /** @return keep launcher open */
     public BooleanProperty keepLauncherOpenProperty() {
         return keepLauncherOpen;
+    }
+
+    /** @return whether installs add the performance pack (Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Iris) */
+    public BooleanProperty performancePackProperty() {
+        return performancePack;
     }
 
     /** @return Microsoft client id */
@@ -303,6 +309,7 @@ public final class SettingsViewModel {
             resolutionWidth.set(res.map(r -> Integer.toString(r.width())).orElse(""));
             resolutionHeight.set(res.map(r -> Integer.toString(r.height())).orElse(""));
             keepLauncherOpen.set(settings.keepLauncherOpen());
+            performancePack.set(settings.performancePack());
             msClientId.set(settings.msClientId());
             releasesBaseUrl.set(settings.releasesBaseUrl());
             autoUpdateCheck.set(settings.autoUpdateCheck());
@@ -364,7 +371,7 @@ public final class SettingsViewModel {
         return new LauncherSettings(base.schemaVersion(), memoryMb.get(), javaAuto.get() ? "" : javaPath.get().trim(),
             parseJvmArgs(jvmArgs.get()), resolutionEnabled.get() ? parseResolution().orElse(null) : null, keepLauncherOpen.get(),
             msClientId.get().trim(), releasesBaseUrl.get().trim(), autoUpdateCheck.get(), developerMode.get(), shareOfficialFiles.get(),
-            highContrast.get() ? THEME_HIGH_CONTRAST : LauncherSettings.DEFAULT_THEME);
+            highContrast.get() ? THEME_HIGH_CONTRAST : LauncherSettings.DEFAULT_THEME, performancePack.get());
     }
 
     /** @return UI preferences from the editor */

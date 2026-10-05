@@ -12,7 +12,8 @@ import java.util.OptionalLong;
 
 /**
  * {@link HttpTransport} backed by {@link java.net.http.HttpClient}: HTTP/2 where available, 30 second connect
- * timeout, redirects followed, {@code User-Agent: VANTA-Launcher/<version>}.
+ * timeout, redirects followed, {@code User-Agent: VANTA-Launcher/<version>} unless the request sets its own
+ * {@code User-Agent}.
  */
 public final class JdkHttpTransport implements HttpTransport {
 
@@ -47,7 +48,8 @@ public final class JdkHttpTransport implements HttpTransport {
             .timeout(spec.readTimeout())
             .header("User-Agent", userAgent);
         for (Map.Entry<String, String> h : spec.headers().entrySet()) {
-            builder.header(h.getKey(), h.getValue());
+            // setHeader: a request header (for example the User-Agent Modrinth asks for) replaces the default one.
+            builder.setHeader(h.getKey(), h.getValue());
         }
         final byte[] body = spec.body();
         final HttpRequest.BodyPublisher publisher = body.length == 0

@@ -10,6 +10,7 @@ import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -28,7 +29,11 @@ import java.util.OptionalInt;
  *       compared with the running OS and architecture ({@link PlatformCheck}). On a mismatch the launcher prints which
  *       file to download instead, also shows it in a Swing dialog when a display is available (a double-clicked jar has
  *       no console), and exits with code 1.</li>
- *   <li>Every other failed UI start (JavaFX missing, toolkit error) also explains itself and exits with code 1, never 0.</li>
+ *   <li>Every other failed UI start (JavaFX missing, toolkit error, any exception on the way) also explains itself and
+ *       exits with code 1, never 0.</li>
+ *   <li>Before the UI starts, {@link StartupDiagnostics} opens {@code <data>/logs/launcher-0.log} (the Windows program has
+ *       no console); a failed start is also written to {@code <data>/logs/startup-error.txt}, whose path the error
+ *       window names.</li>
  * </ul>
  */
 public final class Main {
@@ -72,6 +77,17 @@ public final class Main {
         void showError(String title, String message) throws Throwable;
 
         /**
+         * Records a failed UI start in the launcher log and in {@code startup-error.txt}.
+         *
+         * @param message what failed
+         * @param cause   the cause (may be null)
+         * @return the report file, empty when none could be written
+         */
+        default Optional<Path> recordFailure(final String message, final Throwable cause) {
+            return Optional.empty();
+        }
+
+        /**
          * Runs the command line interface.
          *
          * @param args command line
@@ -88,7 +104,14 @@ public final class Main {
      * @param args command line arguments; any argument starting with {@code -} other than {@code --ui} selects the CLI
      */
     public static void main(final String[] args) {
-        final OptionalInt code = start(args, System.out, System.err, LauncherVersion.JAVAFX_PLATFORM, new SystemHost());
+        StartupDiagnostics diagnostics = null;
+        if (!LauncherCli.wantsCli(args)) {
+            // The first thing the UI start does: a log file, because the Windows program has no console.
+            diagnostics = StartupDiagnostics.forDefaultDataDir();
+            diagnostics.begin();
+            StartupDiagnostics.installUncaughtHandler();
+        }
+        final OptionalInt code = start(args, System.out, System.err, LauncherVersion.JAVAFX_PLATFORM, new SystemHost(diagnostics));
         if (code.isPresent()) {
             System.exit(code.getAsInt());
         }
@@ -109,30 +132,40 @@ public final class Main {
         if (LauncherCli.wantsCli(args)) {
             return OptionalInt.of(host.runCli(args, out, err));
         }
-        final Optional<String> mismatch = PlatformCheck.mismatch(builtFor, host.os(), LauncherVersion.VERSION, releasesPage());
-        if (mismatch.isPresent()) {
-            return OptionalInt.of(fail("VANTA Launcher " + LauncherVersion.VERSION + " cannot start here.\n\n" + mismatch.get(), err, host));
-        }
-        if (!host.uiAvailable()) {
-            return OptionalInt.of(fail("VANTA Launcher " + LauncherVersion.VERSION + " could not start its user interface: JavaFX is not"
-                + " available in this Java runtime (this jar was built for " + PlatformCheck.describePlatform(builtFor) + ").\n"
-                + "Use the release file for your system, or run with --help for the command line.", err, host));
-        }
         try {
+            final Optional<String> mismatch = PlatformCheck.mismatch(builtFor, host.os(), LauncherVersion.VERSION, releasesPage());
+            if (mismatch.isPresent()) {
+                return OptionalInt.of(fail("VANTA Launcher " + LauncherVersion.VERSION + " cannot start here.\n\n" + mismatch.get(), null, err, host));
+            }
+            if (!host.uiAvailable()) {
+                return OptionalInt.of(fail("VANTA Launcher " + LauncherVersion.VERSION + " could not start its user interface: JavaFX is not"
+                    + " available in this Java runtime (this jar was built for " + PlatformCheck.describePlatform(builtFor) + ").\n"
+                    + "Use the release file for your system, or run with --help for the command line.", null, err, host));
+            }
             host.launchUi(args);
             return OptionalInt.empty();
         } catch (Throwable t) {
             final Throwable cause = t instanceof InvocationTargetException ite && ite.getCause() != null ? ite.getCause() : t;
             return OptionalInt.of(fail("VANTA Launcher " + LauncherVersion.VERSION + " could not start its user interface: " + cause
-                + "\nRun with --help for the command line, which works without a user interface.", err, host));
+                + "\nRun with --help for the command line, which works without a user interface.", cause, err, host));
         }
     }
 
-    private static int fail(final String message, final PrintStream err, final Host host) {
-        err.println(message);
+    private static int fail(final String message, final Throwable cause, final PrintStream err, final Host host) {
+        Optional<Path> report = Optional.empty();
+        try {
+            report = host.recordFailure(message, cause);
+        } catch (RuntimeException e) {
+            err.println("(The error report could not be written: " + e + ")");
+        }
+        final String shown = report.map(p -> message + "\n\nDetails were saved to " + p).orElse(message);
+        err.println(shown);
+        if (cause != null) {
+            cause.printStackTrace(err);
+        }
         if (!host.headless()) {
             try {
-                host.showError(DIALOG_TITLE, message);
+                host.showError(DIALOG_TITLE, shown);
             } catch (Throwable dialogFailure) {
                 err.println("(The message could not be shown in a window either: " + dialogFailure + ")");
             }
@@ -160,6 +193,17 @@ public final class Main {
 
     /** The real environment: system properties, AWT, JavaFX through reflection. */
     private static final class SystemHost implements Host {
+
+        private final StartupDiagnostics diagnostics;
+
+        SystemHost(final StartupDiagnostics diagnostics) {
+            this.diagnostics = diagnostics;
+        }
+
+        @Override
+        public Optional<Path> recordFailure(final String message, final Throwable cause) {
+            return (diagnostics == null ? StartupDiagnostics.forDefaultDataDir() : diagnostics).writeError(message, cause);
+        }
 
         @Override
         public OsInfo os() {

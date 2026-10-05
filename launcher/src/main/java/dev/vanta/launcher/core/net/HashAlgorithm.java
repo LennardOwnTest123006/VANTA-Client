@@ -11,7 +11,9 @@ public enum HashAlgorithm {
     /** SHA-1 (Mojang and Maven metadata). */
     SHA1("SHA-1", 40),
     /** SHA-256 (VANTA manifests, Adoptium, Fabric Maven sidecars). */
-    SHA256("SHA-256", 64);
+    SHA256("SHA-256", 64),
+    /** SHA-512 (Modrinth version files). */
+    SHA512("SHA-512", 128);
 
     private final String jcaName;
     private final int hexLength;

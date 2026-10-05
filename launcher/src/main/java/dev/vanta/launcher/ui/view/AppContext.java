@@ -7,6 +7,7 @@ import dev.vanta.launcher.ui.model.Formats;
 import dev.vanta.launcher.ui.model.HomeViewModel;
 import dev.vanta.launcher.ui.model.LogBuffer;
 import dev.vanta.launcher.ui.model.LogsViewModel;
+import dev.vanta.launcher.ui.model.ModsViewModel;
 import dev.vanta.launcher.ui.model.NavigationModel;
 import dev.vanta.launcher.ui.model.SessionModel;
 import dev.vanta.launcher.ui.model.SettingsViewModel;
@@ -44,6 +45,7 @@ public final class AppContext {
     private final VersionsViewModel versions;
     private final LogsViewModel logs;
     private final UpdateViewModel updates;
+    private final ModsViewModel mods;
     private final UiPreferencesStore prefsStore;
     private final SystemOpener opener;
     private UiPreferences prefs;
@@ -83,6 +85,7 @@ public final class AppContext {
         this.versions = new VersionsViewModel(session, backend, executors, messages, formats, toasts);
         this.logs = new LogsViewModel(executors, launcherLog, gameLog);
         this.updates = new UpdateViewModel(session, backend, executors, messages, formats, toasts, links);
+        this.mods = new ModsViewModel(backend, executors, messages, formats, toasts, launcherLog);
     }
 
     /** @return backend */
@@ -163,6 +166,11 @@ public final class AppContext {
     /** @return update view model */
     public UpdateViewModel updates() {
         return updates;
+    }
+
+    /** @return Mods page view model */
+    public ModsViewModel mods() {
+        return mods;
     }
 
     /** @return system opener */

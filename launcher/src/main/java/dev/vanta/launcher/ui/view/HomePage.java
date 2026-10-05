@@ -29,8 +29,9 @@ import java.util.Optional;
 
 /**
  * Home: hero card with PLAY, status and progress; side column with account, Java, client version and recent logs.
- * "Use with Minecraft Launcher" sets VANTA up as a profile of the official Minecraft Launcher; while Microsoft
- * sign-in is not configured a callout in the hero offers it as the way to play.
+ * "Use with Minecraft Launcher" sets VANTA up as a profile of the official Minecraft Launcher; while PLAY cannot sign
+ * in here (no Microsoft client id and no stored account) the primary button is "PLAY via Minecraft Launcher", which
+ * sets the profile up (or updates it) and opens the official launcher.
  */
 public final class HomePage extends VBox {
 
@@ -41,6 +42,7 @@ public final class HomePage extends VBox {
     private final Runnable openSignIn;
     private final Runnable openUpdateDialog;
     private final Runnable openOfficialProfile;
+    private final Runnable playViaOfficial;
     private final Circle statusDot = new Circle(4.5);
     private Animation pulse;
 
@@ -49,13 +51,16 @@ public final class HomePage extends VBox {
      * @param openSignIn          opens the sign-in dialog
      * @param openUpdateDialog    opens the client update dialog
      * @param openOfficialProfile starts "Use with the Minecraft Launcher" (confirmation dialog first)
+     * @param playViaOfficial     "PLAY via Minecraft Launcher": set up or update the profile, then open the official launcher
      */
-    public HomePage(final AppContext ctx, final Runnable openSignIn, final Runnable openUpdateDialog, final Runnable openOfficialProfile) {
+    public HomePage(final AppContext ctx, final Runnable openSignIn, final Runnable openUpdateDialog, final Runnable openOfficialProfile,
+                    final Runnable playViaOfficial) {
         this.ctx = ctx;
         this.vm = ctx.home();
         this.openSignIn = openSignIn;
         this.openUpdateDialog = openUpdateDialog;
         this.openOfficialProfile = openOfficialProfile;
+        this.playViaOfficial = playViaOfficial;
         getStyleClass().add("page");
         setSpacing(20);
 
@@ -86,10 +91,22 @@ public final class HomePage extends VBox {
         lead.setMaxWidth(560);
 
         final Button play = Ui.button(ctx.t("home.play"), Icons.Icon.PLAY, "play-button");
-        play.setAccessibleText(ctx.t("home.play.accessible"));
-        play.disableProperty().bind(vm.playEnabledProperty().not());
-        play.setOnAction(e -> vm.play());
+        // Without Microsoft sign-in the same button plays through the official Minecraft Launcher.
+        play.textProperty().bind(Bindings.when(vm.officialPlayModeProperty()).then(ctx.t("home.play.official")).otherwise(ctx.t("home.play")));
+        play.accessibleTextProperty().bind(Bindings.when(vm.officialPlayModeProperty()).then(ctx.t("home.play.official.accessible"))
+            .otherwise(ctx.t("home.play.accessible")));
+        play.disableProperty().bind(Bindings.createBooleanBinding(() -> vm.officialPlayModeProperty().get() ? vm.busy()
+            : !vm.playEnabledProperty().get(), vm.officialPlayModeProperty(), vm.playEnabledProperty(), vm.stateProperty()));
+        play.setOnAction(e -> {
+            if (vm.officialPlayModeProperty().get()) {
+                playViaOfficial.run();
+            } else {
+                vm.play();
+            }
+        });
         play.setDefaultButton(true);
+        vm.officialPlayModeProperty().addListener((obs, old, now) -> togglePlayStyle(play, now));
+        togglePlayStyle(play, vm.officialPlayModeProperty().get());
         final Button cancel = Ui.button(ctx.t("home.cancel"), Icons.Icon.STOP, "secondary");
         cancel.setMinHeight(44);
         cancel.setOnAction(e -> vm.cancel());
@@ -115,6 +132,7 @@ public final class HomePage extends VBox {
         final HBox statusLine = new HBox(statusDot, statusText);
         statusLine.getStyleClass().add("status-line");
         vm.stateProperty().addListener((obs, old, now) -> applyState(now));
+        vm.officialPlayModeProperty().addListener((obs, old, now) -> applyState(vm.state()));
         applyState(vm.state());
 
         final ProgressBar bar = new ProgressBar(-1);
@@ -158,7 +176,7 @@ public final class HomePage extends VBox {
 
         // Microsoft sign-in needs an application id approved by Mojang; without it the official launcher is the way to play.
         final VBox noSignIn = Ui.callout("accent", ctx.t("home.official.callout.title"),
-            ctx.t("home.official.callout.text", LauncherVersion.MINECRAFT), officialButton("primary", "small"));
+            ctx.t("home.official.callout.text", LauncherVersion.MINECRAFT), null);
         noSignIn.getStyleClass().add("official-callout");
         final javafx.beans.binding.BooleanBinding calloutShown = Bindings.createBooleanBinding(() -> !ctx.session().signInConfiguredProperty().get()
                 && ctx.session().loadedProperty().get() && ctx.session().account().isEmpty() && !vm.busy()
@@ -166,9 +184,12 @@ public final class HomePage extends VBox {
             ctx.session().signInConfiguredProperty(), ctx.session().loadedProperty(), ctx.session().accountProperty(), vm.stateProperty(),
             vm.officialDoneTextProperty());
         Ui.bindVisible(noSignIn, calloutShown);
-        // The callout carries the same action; the secondary button returns when the callout is gone.
-        Ui.bindVisible(official, calloutShown.not());
-        final VBox officialDone = Ui.callout("accent", ctx.t("official.done.title"), "", null);
+        final Button openOfficial = Ui.button(ctx.t("official.open.button"), Icons.Icon.EXTERNAL, "secondary", "small");
+        openOfficial.getStyleClass().add("official-open");
+        openOfficial.setTooltip(Ui.tooltip(ctx.t("official.open.tooltip")));
+        openOfficial.setOnAction(e -> vm.openOfficialLauncher());
+        openOfficial.disableProperty().bind(Bindings.createBooleanBinding(vm::busy, vm.stateProperty()));
+        final VBox officialDone = Ui.callout("accent", ctx.t("official.done.title"), "", openOfficial);
         final Label officialDoneText = (Label) officialDone.getChildren().get(1);
         officialDoneText.textProperty().bind(vm.officialDoneTextProperty());
         Ui.bindVisible(officialDone, Bindings.createBooleanBinding(() -> !vm.officialDoneTextProperty().get().isEmpty() && !vm.busy(),
@@ -202,6 +223,13 @@ public final class HomePage extends VBox {
         return hero;
     }
 
+    private static void togglePlayStyle(final Button play, final boolean official) {
+        play.getStyleClass().remove("official-play");
+        if (official) {
+            play.getStyleClass().add("official-play");
+        }
+    }
+
     private Button officialButton(final String... styleClasses) {
         final Button button = Ui.button(ctx.t("home.official.button"), Icons.Icon.LAYERS, styleClasses);
         button.setTooltip(Ui.tooltip(ctx.t("home.official.tooltip")));
@@ -217,7 +245,8 @@ public final class HomePage extends VBox {
             case INSTALLING, VERIFYING -> "busy";
             case RUNNING -> "running";
             case ERROR -> "error";
-            default -> "idle";
+            // Without sign-in PLAY works through the Minecraft Launcher: ready, not "not ready".
+            default -> vm.officialPlayModeProperty().get() ? "ready" : "idle";
         });
         if (pulse != null) {
             pulse.stop();

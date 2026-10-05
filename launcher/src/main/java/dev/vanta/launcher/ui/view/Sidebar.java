@@ -58,6 +58,7 @@ public final class Sidebar extends VBox {
 
         getChildren().add(brand);
         getChildren().add(navItem(NavigationModel.Page.HOME, Icons.Icon.HOME));
+        getChildren().add(navItem(NavigationModel.Page.MODS, Icons.Icon.PACKAGE));
         getChildren().add(navItem(NavigationModel.Page.VERSIONS, Icons.Icon.LAYERS));
         getChildren().add(navItem(NavigationModel.Page.LOGS, Icons.Icon.TERMINAL));
         getChildren().add(navItem(NavigationModel.Page.SETTINGS, Icons.Icon.SLIDERS));

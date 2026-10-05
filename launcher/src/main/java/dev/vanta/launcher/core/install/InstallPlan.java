@@ -44,6 +44,9 @@ public record InstallPlan(List<InstallStep> steps, long remainingBytes) {
         if (request.includeVantaClient()) {
             steps.add(InstallStep.VANTA_CLIENT);
         }
+        if (request.includePerformancePack()) {
+            steps.add(InstallStep.PERFORMANCE_PACK);
+        }
         steps.add(InstallStep.FINALIZE);
         return steps;
     }

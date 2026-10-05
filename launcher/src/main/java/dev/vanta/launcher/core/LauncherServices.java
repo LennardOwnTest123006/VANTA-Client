@@ -7,6 +7,7 @@ import dev.vanta.launcher.core.install.FabricApiService;
 import dev.vanta.launcher.core.install.FabricService;
 import dev.vanta.launcher.core.install.Installer;
 import dev.vanta.launcher.core.install.MojangService;
+import dev.vanta.launcher.core.install.OfficialLauncher;
 import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.SharedFileSource;
 import dev.vanta.launcher.core.install.VantaClientService;
@@ -16,7 +17,12 @@ import dev.vanta.launcher.core.java.JavaProbe;
 import dev.vanta.launcher.core.java.ProcessJavaProbe;
 import dev.vanta.launcher.core.launch.LaunchService;
 import dev.vanta.launcher.core.log.LauncherLog;
+import dev.vanta.launcher.core.modrinth.ModrinthApi;
+import dev.vanta.launcher.core.modrinth.ModrinthService;
+import dev.vanta.launcher.core.modrinth.PerformancePack;
 import dev.vanta.launcher.core.net.Downloader;
+import dev.vanta.launcher.core.net.HttpRequestSpec;
+import dev.vanta.launcher.core.net.HttpResult;
 import dev.vanta.launcher.core.net.HttpTransport;
 import dev.vanta.launcher.core.net.JdkHttpTransport;
 import dev.vanta.launcher.core.paths.LauncherPaths;
@@ -72,6 +78,9 @@ public final class LauncherServices implements AutoCloseable {
     private final LaunchService launch;
     private final UpdateService updates;
     private final OfficialProfileService officialProfiles;
+    private final OfficialLauncher officialLauncher;
+    private final ModrinthService modrinth;
+    private final PerformancePack performancePack;
     private final Optional<Path> officialMinecraftDir;
     private final Path userHome;
     private final ServiceEndpoints endpoints;
@@ -132,8 +141,15 @@ public final class LauncherServices implements AutoCloseable {
         this.launch = new LaunchService(paths, os, clock);
         this.updates = new UpdateService(downloader, paths, () -> releasesBaseUrl().url(),
             SemVer.tryParse(LauncherVersion.VERSION).orElse(SemVer.of(1, 0, 0)), os, LauncherPackaging.detect(), vantaClient);
-        this.officialProfiles = new OfficialProfileService(paths, downloader, fabric, fabricApi, vantaClient, clock);
+        // Modrinth asks for a descriptive User-Agent on API calls and downloads alike.
+        final String modrinthAgent = ModrinthApi.userAgent(LauncherVersion.VERSION);
+        final HttpTransport modrinthTransport = new UserAgentTransport(transport, modrinthAgent);
+        this.modrinth = new ModrinthService(new ModrinthApi(modrinthTransport, endpoints.modrinthApi(), sleeper, modrinthAgent),
+            new Downloader(modrinthTransport, sleeper, Downloader.DEFAULT_ATTEMPTS, 3), paths, clock, LauncherVersion.MINECRAFT);
+        this.performancePack = new PerformancePack(modrinth, clock);
+        this.officialProfiles = new OfficialProfileService(paths, downloader, fabric, fabricApi, vantaClient, clock, performancePack);
         this.userHome = Path.of(System.getProperty("user.home", "."));
+        this.officialLauncher = OfficialLauncher.system(os, env, userHome);
         this.officialMinecraftDir = LauncherPaths.officialMinecraftDir(os, env, userHome);
     }
 
@@ -251,7 +267,7 @@ public final class LauncherServices implements AutoCloseable {
     public Installer installer() {
         final Optional<SharedFileSource> shared = settings().shareOfficialMinecraftFiles()
             ? officialMinecraftDir.map(SharedFileSource::new) : Optional.empty();
-        return new Installer(paths, os, downloader, mojang, fabric, fabricApi, vantaClient, shared, clock);
+        return new Installer(paths, os, downloader, mojang, fabric, fabricApi, vantaClient, shared, clock, Optional.of(performancePack));
     }
 
     /** @return Java probe */
@@ -304,6 +320,21 @@ public final class LauncherServices implements AutoCloseable {
         return officialProfiles;
     }
 
+    /** @return the official Minecraft Launcher as a program (running? start it) */
+    public OfficialLauncher officialLauncher() {
+        return officialLauncher;
+    }
+
+    /** @return Modrinth content of the VANTA instance (Mods page, performance pack) */
+    public ModrinthService modrinth() {
+        return modrinth;
+    }
+
+    /** @return the performance pack */
+    public PerformancePack performancePack() {
+        return performancePack;
+    }
+
     /**
      * A request for the official launcher profile with the current settings (heap).
      *
@@ -312,7 +343,7 @@ public final class LauncherServices implements AutoCloseable {
      * @return request
      */
     public OfficialProfileService.Request officialProfileRequest(final Path minecraftDir, final Path localClientJar) {
-        return OfficialProfileService.Request.standard(minecraftDir, localClientJar, settings().memoryMb());
+        return OfficialProfileService.Request.standard(minecraftDir, localClientJar, settings().memoryMb(), settings().performancePack());
     }
 
     /** @return remote endpoints in use */
@@ -324,5 +355,30 @@ public final class LauncherServices implements AutoCloseable {
     public void close() {
         downloader.close();
         LauncherLog.close();
+    }
+
+    /**
+     * Sends a fixed {@code User-Agent} with every request over a shared transport. Closing it leaves the shared
+     * transport open (the composition root closes that one).
+     */
+    static final class UserAgentTransport implements HttpTransport {
+
+        private final HttpTransport delegate;
+        private final String userAgent;
+
+        UserAgentTransport(final HttpTransport delegate, final String userAgent) {
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+            this.userAgent = Objects.requireNonNull(userAgent, "userAgent");
+        }
+
+        @Override
+        public HttpResult execute(final HttpRequestSpec request) throws IOException, InterruptedException {
+            return delegate.execute(request.headers().containsKey("User-Agent") ? request : request.withHeader("User-Agent", userAgent));
+        }
+
+        @Override
+        public void close() {
+            // the shared transport is closed by its owner
+        }
     }
 }

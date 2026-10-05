@@ -14,6 +14,8 @@ public final class NavigationModel {
     public enum Page {
         /** Play, status, account, Java, client cards. */
         HOME("nav.home"),
+        /** Mods, shader packs and resource packs from Modrinth. */
+        MODS("nav.mods"),
         /** Installed components and rollback. */
         VERSIONS("nav.versions"),
         /** Launcher and game logs. */

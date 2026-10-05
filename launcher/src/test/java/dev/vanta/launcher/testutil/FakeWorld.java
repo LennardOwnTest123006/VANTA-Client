@@ -12,6 +12,9 @@ import dev.vanta.launcher.core.install.Installer;
 import dev.vanta.launcher.core.install.MojangService;
 import dev.vanta.launcher.core.install.SharedFileSource;
 import dev.vanta.launcher.core.install.VantaClientService;
+import dev.vanta.launcher.core.modrinth.ModrinthApi;
+import dev.vanta.launcher.core.modrinth.ModrinthService;
+import dev.vanta.launcher.core.modrinth.PerformancePack;
 import dev.vanta.launcher.core.net.Checksums;
 import dev.vanta.launcher.core.net.Downloader;
 import dev.vanta.launcher.core.net.HashAlgorithm;
@@ -21,6 +24,7 @@ import dev.vanta.launcher.core.util.Json;
 import dev.vanta.launcher.core.util.OsInfo;
 import dev.vanta.launcher.core.util.Sleeper;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -30,12 +34,16 @@ import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * A complete fake download world built from the fixtures and served by a {@link FakeHttpServer}: Mojang manifest,
  * version JSON, client jar, libraries, asset index and objects, Fabric meta and Maven (with checksum sidecars),
- * Fabric API and the VANTA release manifest + client jar. All URLs and digests in the served JSON are rewritten to
- * point at the fake server and to match the served bytes, so every download verifies.
+ * Fabric API, the VANTA release manifest + client jar and the Modrinth API for the performance pack (recorded version
+ * lists under {@code fixtures/modrinth/}, each file replaced by a small jar with a {@code fabric.mod.json}). All URLs
+ * and digests in the served JSON are rewritten to point at the fake server and to match the served bytes, so every
+ * download verifies.
  */
 public final class FakeWorld implements AutoCloseable {
 
@@ -48,6 +56,7 @@ public final class FakeWorld implements AutoCloseable {
     private final JsonObject assetIndex;
     private final JsonObject fabricProfile;
     private final JsonObject clientManifest;
+    private final Map<String, JsonArray> modrinthVersions = new LinkedHashMap<>();
     private long totalBytes;
 
     /**
@@ -164,6 +173,62 @@ public final class FakeWorld implements AutoCloseable {
         file.addProperty("sha256", Checksums.hex(vantaJar, HashAlgorithm.SHA256));
         server.addJson("releases/client-latest.json", Json.GSON.toJson(clientManifest));
         server.addJson("releases/client-unpublished.json", Fixtures.read("release/client-unpublished.json"));
+
+        // ---- Modrinth: the performance pack ----
+        final JsonArray projects = Fixtures.json("modrinth/projects.json").getAsJsonArray();
+        for (JsonElement p : projects) {
+            final JsonObject project = p.getAsJsonObject();
+            final String slug = project.get("slug").getAsString();
+            final String id = project.get("id").getAsString();
+            final JsonArray versions = Fixtures.json("modrinth/versions-" + slug + ".json").getAsJsonArray();
+            for (JsonElement v : versions) {
+                final JsonObject version = v.getAsJsonObject();
+                final JsonObject modFile = version.getAsJsonArray("files").get(0).getAsJsonObject();
+                final String fileName = modFile.get("filename").getAsString();
+                final byte[] jar = modJar(fabricModId(slug), version.get("version_number").getAsString());
+                serve("modrinth/cdn/" + fileName, jar);
+                modFile.addProperty("url", server.url("modrinth/cdn/" + fileName).toString());
+                modFile.addProperty("size", jar.length);
+                modFile.getAsJsonObject("hashes").addProperty("sha1", Checksums.hex(jar, HashAlgorithm.SHA1));
+                modFile.getAsJsonObject("hashes").addProperty("sha512", Checksums.hex(jar, HashAlgorithm.SHA512));
+                server.addJson("modrinth/v2/version/" + version.get("id").getAsString(), Json.GSON.toJson(version));
+            }
+            modrinthVersions.put(slug, versions);
+            server.addJson("modrinth/v2/project/" + slug + "/version", Json.GSON.toJson(versions));
+            server.addJson("modrinth/v2/project/" + id + "/version", Json.GSON.toJson(versions));
+            server.addJson("modrinth/v2/project/" + slug, Json.GSON.toJson(project));
+            server.addJson("modrinth/v2/project/" + id, Json.GSON.toJson(project));
+        }
+        server.addJson("modrinth/v2/projects", Json.GSON.toJson(projects));
+        server.addJson("modrinth/v2/search", Fixtures.read("modrinth/search-mods-sodium.json"));
+    }
+
+    /**
+     * @param slug Modrinth slug of a pack project
+     * @return the Fabric mod id its jar declares
+     */
+    public static String fabricModId(final String slug) {
+        return "ferrite-core".equals(slug) ? "ferritecore" : slug;
+    }
+
+    /**
+     * A small mod jar: {@code fabric.mod.json} with id and version (fixed timestamps, so the bytes are stable).
+     *
+     * @param modId   Fabric mod id
+     * @param version version
+     * @return jar bytes
+     * @throws IOException on failure
+     */
+    public static byte[] modJar(final String modId, final String version) throws IOException {
+        final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+            final ZipEntry entry = new ZipEntry("fabric.mod.json");
+            entry.setTime(0L);
+            zip.putNextEntry(entry);
+            zip.write(("{\"schemaVersion\":1,\"id\":\"" + modId + "\",\"version\":\"" + version + "\"}").getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return bytes.toByteArray();
     }
 
     /** @return the underlying server */
@@ -201,6 +266,19 @@ public final class FakeWorld implements AutoCloseable {
         return totalBytes;
     }
 
+    /**
+     * @param slug pack project slug
+     * @return its rewritten version list (newest first, as Modrinth returns it)
+     */
+    public JsonArray modrinthVersions(final String slug) {
+        return modrinthVersions.get(slug);
+    }
+
+    /** @return the fake Modrinth API base */
+    public URI modrinthBase() {
+        return server.url("modrinth/v2/");
+    }
+
     /** @return Mojang manifest URL */
     public URI manifestUrl() {
         return server.url("mojang/version_manifest_v2.json");
@@ -232,7 +310,7 @@ public final class FakeWorld implements AutoCloseable {
      */
     public ServiceEndpoints endpoints() {
         return new ServiceEndpoints(manifestUrl(), resourcesBase(), fabricMetaBase(), fabricMavenBase(), server.url("adoptium/v3/"),
-            MicrosoftAuthService.Endpoints.relativeTo(server.url("auth/")), releasesBase());
+            MicrosoftAuthService.Endpoints.relativeTo(server.url("auth/")), releasesBase(), modrinthBase());
     }
 
     /**
@@ -258,8 +336,21 @@ public final class FakeWorld implements AutoCloseable {
         final FabricService fabric = new FabricService(downloader, paths, fabricMetaBase());
         final FabricApiService fabricApi = new FabricApiService(fabric, paths, fabricMavenBase());
         final VantaClientService vanta = new VantaClientService(downloader, paths, this::releasesBase);
-        final Installer installer = new Installer(paths, os, downloader, mojang, fabric, fabricApi, vanta, shared, clock);
-        return new Wired(downloader, mojang, fabric, fabricApi, vanta, installer);
+        final ModrinthService modrinth = modrinth(paths, clock);
+        final PerformancePack pack = new PerformancePack(modrinth, clock);
+        final Installer installer = new Installer(paths, os, downloader, mojang, fabric, fabricApi, vanta, shared, clock, Optional.of(pack));
+        return new Wired(downloader, mojang, fabric, fabricApi, vanta, installer, modrinth, pack);
+    }
+
+    /**
+     * @param paths launcher paths
+     * @param clock clock
+     * @return a Modrinth service against this world
+     */
+    public ModrinthService modrinth(final LauncherPaths paths, final Clock clock) {
+        final JdkHttpTransport transport = new JdkHttpTransport("VANTA-Launcher/test");
+        return new ModrinthService(new ModrinthApi(transport, modrinthBase(), Sleeper.NONE, ModrinthApi.userAgent(LauncherVersion.VERSION)),
+            new Downloader(transport, Sleeper.NONE, 3, 4), paths, clock, LauncherVersion.MINECRAFT);
     }
 
     /**
@@ -270,10 +361,12 @@ public final class FakeWorld implements AutoCloseable {
      * @param fabric     Fabric service
      * @param fabricApi  Fabric API service
      * @param vanta      VANTA client service
-     * @param installer  installer
+     * @param installer  installer (with the performance pack)
+     * @param modrinth   Modrinth service
+     * @param pack       performance pack
      */
     public record Wired(Downloader downloader, MojangService mojang, FabricService fabric, FabricApiService fabricApi,
-                        VantaClientService vanta, Installer installer) {
+                        VantaClientService vanta, Installer installer, ModrinthService modrinth, PerformancePack pack) {
     }
 
     private void rewriteDownload(final JsonObject download, final String path, final String seed, final int size) {

@@ -6,6 +6,7 @@ import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.model.VersionJson;
 import dev.vanta.launcher.core.model.VersionManifest;
+import dev.vanta.launcher.core.modrinth.PerformancePack;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
 import dev.vanta.launcher.core.net.DownloadRequest;
@@ -32,7 +33,8 @@ import java.util.logging.Logger;
 
 /**
  * Runs an installation end to end: manifest → version JSON → client jar → libraries → assets → Fabric profile →
- * Fabric libraries → Fabric API → VANTA client → {@code instance.json}.
+ * Fabric libraries → Fabric API → VANTA client → performance pack (Modrinth, optional, never fatal) →
+ * {@code instance.json}.
  *
  * <p>The installer is idempotent and resumable: every file that already exists with the expected size and digest
  * is skipped, so re-running after a failure or a cancellation only fetches what is missing. Free disk space is
@@ -51,6 +53,7 @@ public final class Installer {
     private final VantaClientService vantaClient;
     private final Optional<SharedFileSource> shared;
     private final Clock clock;
+    private final Optional<PerformancePack> performancePack;
 
     /**
      * @param paths       paths
@@ -66,6 +69,25 @@ public final class Installer {
     public Installer(final LauncherPaths paths, final OsInfo os, final Downloader downloader, final MojangService mojang,
                      final FabricService fabric, final FabricApiService fabricApi, final VantaClientService vantaClient,
                      final Optional<SharedFileSource> shared, final Clock clock) {
+        this(paths, os, downloader, mojang, fabric, fabricApi, vantaClient, shared, clock, Optional.empty());
+    }
+
+    /**
+     * @param paths           paths
+     * @param os              target platform
+     * @param downloader      downloader
+     * @param mojang          Mojang service
+     * @param fabric          Fabric service
+     * @param fabricApi       Fabric API service
+     * @param vantaClient     VANTA client service
+     * @param shared          optional read-only source of already downloaded official files
+     * @param clock           clock for {@code installedAt}
+     * @param performancePack the performance pack, installed when the request asks for it
+     */
+    public Installer(final LauncherPaths paths, final OsInfo os, final Downloader downloader, final MojangService mojang,
+                     final FabricService fabric, final FabricApiService fabricApi, final VantaClientService vantaClient,
+                     final Optional<SharedFileSource> shared, final Clock clock, final Optional<PerformancePack> performancePack) {
+        this.performancePack = Objects.requireNonNull(performancePack, "performancePack");
         this.paths = Objects.requireNonNull(paths, "paths");
         this.os = Objects.requireNonNull(os, "os");
         this.downloader = Objects.requireNonNull(downloader, "downloader");
@@ -231,7 +253,22 @@ public final class Installer {
                 progress.advance(1, clientJarName);
             }
 
-            // 10. Finalize
+            // 10. Performance pack (Modrinth). Never fails the install: problems are logged as warnings.
+            if (request.includePerformancePack()) {
+                current = InstallStep.PERFORMANCE_PACK;
+                progress.begin(InstallStep.PERFORMANCE_PACK, 0);
+                progress.advance(0, "Asking Modrinth for the newest versions for Minecraft " + request.minecraftVersion());
+                if (performancePack.isEmpty()) {
+                    l.onLog("Performance pack skipped: no Modrinth service is configured");
+                } else {
+                    final PerformancePack.Outcome pack = performancePack.get().install(progress.downloadListener(), l::onLog,
+                        count -> progress.begin(InstallStep.PERFORMANCE_PACK, count), t);
+                    l.onLog("Performance pack: " + pack.applied().size() + " mods in place"
+                        + (pack.warnings().isEmpty() ? "" : ", " + pack.warnings().size() + " skipped (see the warnings above)"));
+                }
+            }
+
+            // 11. Finalize
             current = InstallStep.FINALIZE;
             progress.begin(InstallStep.FINALIZE, 1);
             final InstanceInfo info = new InstanceInfo(InstanceInfo.SCHEMA_VERSION, paths.instanceId(), version.id(),

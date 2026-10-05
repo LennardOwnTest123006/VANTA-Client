@@ -1,0 +1,44 @@
+[
+  {
+    "id": "AANobbMI",
+    "slug": "sodium",
+    "project_type": "mod",
+    "title": "Sodium",
+    "description": "A high-performance rendering engine replacement for Minecraft, which greatly improves frame rates and reduces micro-stutter."
+  },
+  {
+    "id": "gvQqBUqZ",
+    "slug": "lithium",
+    "project_type": "mod",
+    "title": "Lithium",
+    "description": "No-compromises game logic optimization mod, useful for both single-player games and multi-player servers."
+  },
+  {
+    "id": "uXXizFIs",
+    "slug": "ferrite-core",
+    "project_type": "mod",
+    "title": "FerriteCore",
+    "description": "Memory usage optimizations"
+  },
+  {
+    "id": "5ZwdcRci",
+    "slug": "immediatelyfast",
+    "project_type": "mod",
+    "title": "ImmediatelyFast",
+    "description": "Speed up immediate mode rendering in Minecraft"
+  },
+  {
+    "id": "NNAgCjsB",
+    "slug": "entityculling",
+    "project_type": "mod",
+    "title": "Entity Culling",
+    "description": "Using async path-tracing to hide Block-/Entities that are not visible"
+  },
+  {
+    "id": "YL57xq9U",
+    "slug": "iris",
+    "project_type": "mod",
+    "title": "Iris Shaders",
+    "description": "A modern shader pack loader for Minecraft intended to be compatible with existing OptiFine shader packs"
+  }
+]
