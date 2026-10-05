@@ -10,16 +10,12 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 No changes yet.
 
-<!-- After the release workflow has run, add the date to this heading as "## [1.0.0] - YYYY-MM-DD", using the
-     releaseDate it wrote into shared/releases/client-1.0.0.json and launcher-1.0.0.json (RELEASE.md, step 8). -->
-## [1.0.0]
+## [1.0.0] - 2026-10-05
 
-First public release. VANTA Client 1.0.0 and VANTA Launcher 1.0.0 are released on
+First public release. VANTA Client 1.0.0 and VANTA Launcher 1.0.0 are published on
 [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases) as `client-v1.0.0` and
-`launcher-v1.0.0` by the release workflow; a release that is not listed there has not been published yet. The
-workflow sets the release date (the `releaseDate` in `shared/releases/client-1.0.0.json` and
-`shared/releases/launcher-1.0.0.json`); this heading gets that date once both releases are published, as Keep a
-Changelog requires. If the two products are released on different days, each product heading below gets its own date.
+`launcher-v1.0.0` by the release workflow. The date is the `releaseDate` the workflow wrote into
+`shared/releases/client-1.0.0.json` and `shared/releases/launcher-1.0.0.json`.
 
 ### VANTA Client 1.0.0 — Minecraft 1.21.11 · Fabric Loader 0.19.5 · Fabric API 0.141.6+1.21.11 · Java 21
 

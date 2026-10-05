@@ -1,7 +1,7 @@
 ---
 product: client
 version: 1.0.0
-date: 2026-10-04
+date: 2026-10-05
 title: VANTA Client 1.0.0
 minecraftVersion: 1.21.11
 ---

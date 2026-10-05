@@ -39,6 +39,9 @@ server rules.
 
 ## How releases will work
 
+**Update, 2026-10-05:** VANTA Client 1.0.0 and VANTA Launcher 1.0.0 are published. The
+[Download page](/download) lists every file with its size, SHA-256 and a direct link.
+
 Every release is built by the public release workflow in the repository: the client jar on Linux, the launcher
 installers on Windows and the Linux and Apple Silicon macOS launcher builds on their own systems. The workflow
 computes SHA-256 checksums, publishes the files as a GitHub Release and updates the release manifests that the

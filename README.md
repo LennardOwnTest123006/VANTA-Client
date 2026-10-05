@@ -53,17 +53,17 @@ This is a monorepo. Each product is an independent build with its own README.
 
 ## Status
 
-**VANTA Client 1.0.0** and **VANTA Launcher 1.0.0** are distributed only through GitHub Releases, as the releases
+**VANTA Client 1.0.0** and **VANTA Launcher 1.0.0** were released on 2026-10-05 as the GitHub Releases
 [`client-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.0) and
-[`launcher-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.0) that the release
-workflow ([`release.yml`](.github/workflows/release.yml)) creates; every published release is listed at
-**[github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases)**.
-The workflow uploads the files, computes their SHA-256 checksums and fills in the release manifests that are committed
-to [`shared/releases/`](shared/releases/), which the website's Download page and the launcher read. Download URLs,
-sizes and checksums are never typed by hand ([RELEASE.md](RELEASE.md)). A release that is not listed on GitHub
-Releases has not been published yet: its manifest still has an empty `downloadUrl`, and the Download page and the
-launcher say "not published yet" instead of offering a link. What each version contains is in
-[CHANGELOG.md](CHANGELOG.md).
+[`launcher-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.0); every release is
+listed at **[github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases)**.
+They are distributed only there. The release workflow ([`release.yml`](.github/workflows/release.yml)) builds the
+files, uploads them, computes their SHA-256 checksums, downloads every public link again to check it, and fills in the
+release manifests committed to [`shared/releases/`](shared/releases/), which the website's Download page and the
+launcher read. Download URLs, sizes and checksums are never typed by hand ([RELEASE.md](RELEASE.md)). A future
+release that is not listed on GitHub Releases has not been published yet: its manifest has an empty `downloadUrl`,
+and the Download page and the launcher say "not published yet" instead of offering a link. What each version contains
+is in [CHANGELOG.md](CHANGELOG.md).
 
 ### Downloads
 
