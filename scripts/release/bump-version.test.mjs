@@ -6,7 +6,17 @@ import { join } from 'node:path';
 import { planBump, applyChanges, replaceOnce, newestManifest, nextManifest, main } from './bump-version.mjs';
 import { REPO_ROOT } from './lib/repo.mjs';
 
-/** Builds a miniature repository with the files the bump touches. */
+/** Replaces the one match of `pattern` (which must exist) with `value`. */
+function pin(text, pattern, value) {
+  assert.match(text, pattern);
+  return text.replace(pattern, value);
+}
+
+/**
+ * Builds a miniature repository with the files the bump touches, pinned to the 1.0.0 baseline (the real files with
+ * every product version set back to 1.0.0 and only the 1.0.0 manifests), so these tests keep passing after the
+ * repository itself has been bumped.
+ */
 function makeRepo() {
   const root = mkdtempSync(join(tmpdir(), 'vanta-bump-'));
   mkdirSync(join(root, 'client'), { recursive: true });
@@ -14,12 +24,16 @@ function makeRepo() {
   mkdirSync(join(root, 'website'), { recursive: true });
   mkdirSync(join(root, 'core/src/main/java/dev/vanta/core'), { recursive: true });
   mkdirSync(join(root, 'shared/releases'), { recursive: true });
-  writeFileSync(join(root, 'client/gradle.properties'), readFileSync(join(REPO_ROOT, 'client/gradle.properties')));
-  writeFileSync(join(root, 'launcher/gradle.properties'), readFileSync(join(REPO_ROOT, 'launcher/gradle.properties')));
-  writeFileSync(join(root, 'core/src/main/java/dev/vanta/core/VantaVersion.java'), readFileSync(join(REPO_ROOT, 'core/src/main/java/dev/vanta/core/VantaVersion.java')));
+  const real = (path) => readFileSync(join(REPO_ROOT, path), 'utf8');
+  writeFileSync(join(root, 'client/gradle.properties'), pin(real('client/gradle.properties'), /^mod_version=.*$/m, 'mod_version=1.0.0'));
+  writeFileSync(join(root, 'launcher/gradle.properties'), pin(real('launcher/gradle.properties'), /^launcher_version=.*$/m, 'launcher_version=1.0.0'));
+  writeFileSync(join(root, 'core/src/main/java/dev/vanta/core/VantaVersion.java'),
+    pin(real('core/src/main/java/dev/vanta/core/VantaVersion.java'), /CLIENT = "[^"]*";/, 'CLIENT = "1.0.0";'));
   writeFileSync(join(root, 'website/package.json'), JSON.stringify({ name: 'vanta-website', version: '1.0.0', private: true }, null, 2) + '\n');
   writeFileSync(join(root, 'website/package-lock.json'), JSON.stringify({ name: 'vanta-website', version: '1.0.0', lockfileVersion: 3, packages: { '': { name: 'vanta-website', version: '1.0.0' } } }, null, 2) + '\n');
-  cpSync(join(REPO_ROOT, 'shared/releases'), join(root, 'shared/releases'), { recursive: true });
+  for (const name of ['client-1.0.0.json', 'launcher-1.0.0.json']) {
+    cpSync(join(REPO_ROOT, 'shared/releases', name), join(root, 'shared/releases', name));
+  }
   return root;
 }
 

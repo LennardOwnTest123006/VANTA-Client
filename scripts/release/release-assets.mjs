@@ -162,10 +162,41 @@ export function checkManifest(manifest, { toolchain, published = false, repo, ta
   return { ok: problems.length === 0, problems, expected };
 }
 
-/** Human-readable size (MB with one decimal, or KB below 1 MB). */
+const SIZE_UNITS = Object.freeze(['B', 'kB', 'MB', 'GB', 'TB']);
+
+/**
+ * `bytes` in tenths of SIZE_UNITS[unit], rounded half up in exact integer arithmetic (no binary floating point
+ * rounding, so 1,450,000 bytes is 15 tenths of a MB, not 14).
+ * @param {number} bytes non-negative safe integer
+ * @param {number} unit index into SIZE_UNITS, at least 1
+ */
+function roundedTenths(bytes, unit) {
+  const divisor = 10 ** (3 * unit - 1); // one tenth of the unit in bytes
+  const remainder = bytes % divisor;
+  const tenths = (bytes - remainder) / divisor; // exact: the dividend is a multiple of the divisor
+  return remainder * 2 >= divisor ? tenths + 1 : tenths;
+}
+
+/**
+ * Human-readable size in decimal units (1 kB = 1,000 bytes, 1 MB = 1,000,000 bytes) with one decimal place above
+ * plain bytes, e.g. "999 B", "1.4 MB" or "66.9 MB". The rule, shared with formatBytes() in website/src/lib/format.ts
+ * and ByteSizes in the launcher so the release notes, the download page and the launcher show the same numbers:
+ * pick the largest unit not above the byte count, round half up to tenths of that unit with integer arithmetic, and
+ * if that gives 1000.0 move up one unit ("1.0 MB" for 999,950 bytes, never "1000.0 kB").
+ * @param {number} bytes non-negative integer byte count
+ */
 export function formatSize(bytes) {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  if (!Number.isSafeInteger(bytes) || bytes < 0) throw new Error(`'${bytes}' is not a byte count`);
+  if (bytes < 1000) return `${bytes} ${SIZE_UNITS[0]}`;
+  const last = SIZE_UNITS.length - 1;
+  let unit = 1;
+  while (unit < last && bytes >= 1000 ** (unit + 1)) unit += 1;
+  let tenths = roundedTenths(bytes, unit);
+  if (tenths >= 10_000 && unit < last) {
+    unit += 1;
+    tenths = roundedTenths(bytes, unit);
+  }
+  return `${Math.floor(tenths / 10)}.${tenths % 10} ${SIZE_UNITS[unit]}`;
 }
 
 /**

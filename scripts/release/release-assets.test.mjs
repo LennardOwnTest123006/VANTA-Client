@@ -207,9 +207,50 @@ describe('notes', () => {
     writeFileSync(join(dir, CLIENT_FILES[2]), Buffer.alloc(2426039));
     const sized = assetsMarkdown(assets, dir);
     assert.match(sized, /\| `vanta-client-1\.0\.0\.jar` \| 1\.4 MB \|/);
-    assert.match(sized, /\| `vanta-client-1\.0\.0-mods\.zip` \| 3\.6 MB \|/);
-    assert.equal(formatSize(1000), '1 KB');
-    assert.equal(formatSize(10), '1 KB');
+    assert.match(sized, /\| `vanta-client-1\.0\.0-mods\.zip` \| 3\.8 MB \|/, 'decimal MB: 3,794,024 bytes');
+    assert.match(sized, new RegExp(`\\| \`${CLIENT_FILES[2].replace(/[.+]/g, '\\$&')}\` \\| 2\\.4 MB \\|`));
+  });
+
+  test('formatSize uses decimal units with one decimal place, like the website', () => {
+    assert.equal(formatSize(0), '0 B');
+    assert.equal(formatSize(10), '10 B');
+    assert.equal(formatSize(999), '999 B');
+    assert.equal(formatSize(1000), '1.0 kB');
+    assert.equal(formatSize(1024), '1.0 kB');
+    assert.equal(formatSize(512_400), '512.4 kB');
+    assert.equal(formatSize(1_000_000), '1.0 MB');
+    assert.equal(formatSize(1_048_576), '1.0 MB');
+    assert.equal(formatSize(1_437_322), '1.4 MB');
+    assert.equal(formatSize(66_900_000), '66.9 MB');
+    assert.equal(formatSize(70_160_000), '70.2 MB', 'decimal, not 66.9 MiB');
+    assert.equal(formatSize(2_500_000_000), '2.5 GB');
+    assert.throws(() => formatSize(-1), /not a byte count/);
+    assert.throws(() => formatSize(Number.NaN), /not a byte count/);
+    assert.throws(() => formatSize(1.5), /not a byte count/);
+  });
+
+  // The same vectors belong in website/src/lib/format.test.ts (formatBytes) and the launcher's ByteSizesTest, so a size
+  // reads the same in the release notes, on the download page and in the launcher.
+  test('formatSize rounds half up in integer arithmetic and never prints 1000.0 of a unit', () => {
+    const vectors = [
+      [1_049, '1.0 kB'],
+      [1_050, '1.1 kB'],
+      [1_150, '1.2 kB'], // 1.15 is 1.149999... as a double; toFixed(1) would print 1.1
+      [1_450_000, '1.5 MB'], // 1.45 is 1.4499999... as a double; toFixed(1) would print 1.4
+      [2_450_000, '2.5 MB'],
+      [999_949, '999.9 kB'],
+      [999_950, '1.0 MB'], // not "1000.0 kB"
+      [999_999, '1.0 MB'],
+      [1_000_000, '1.0 MB'],
+      [1_437_322, '1.4 MB'],
+      [66_900_000, '66.9 MB'],
+      [999_949_999, '999.9 MB'],
+      [999_950_000, '1.0 GB'],
+      [999_950_000_000, '1.0 TB'],
+      [1_000_000_000_000_000, '1000.0 TB'], // largest unit: no unit to move up to
+      [Number.MAX_SAFE_INTEGER, '9007.2 TB'],
+    ];
+    for (const [bytes, expected] of vectors) assert.equal(formatSize(bytes), expected, `${bytes} bytes`);
   });
 });
 

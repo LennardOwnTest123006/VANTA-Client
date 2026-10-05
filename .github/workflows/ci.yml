@@ -217,8 +217,14 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
+          set -euo pipefail
+          V=$(sed -n 's/^launcher_version=//p' launcher/gradle.properties)
+          test -n "$V" || { echo "::error::no launcher_version in launcher/gradle.properties"; exit 1; }
           mkdir -p "$RUNNER_TEMP/launcher-windows"
-          (cd launcher/build/jpackage && 7z a -tzip -mx=9 "$RUNNER_TEMP/launcher-windows/VANTA-Launcher-1.0.0-windows-portable.zip" "VANTA Launcher" >/dev/null)
+          # Same marker as the release portable zip (release.yml): the launcher looks for
+          # <folder of the .exe>/app/vanta-portable.marker and then offers the portable zip as its update.
+          printf 'portable\n' > "launcher/build/jpackage/VANTA Launcher/app/vanta-portable.marker"
+          (cd launcher/build/jpackage && 7z a -tzip -mx=9 "$RUNNER_TEMP/launcher-windows/VANTA-Launcher-$V-windows-portable.zip" "VANTA Launcher" >/dev/null)
           ls -la "$RUNNER_TEMP/launcher-windows"
       - name: Windows installer (msi, WiX on the runner)
         if: matrix.os == 'windows-latest'
@@ -239,10 +245,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+          V=$(sed -n 's/^launcher_version=//p' launcher/gradle.properties)
+          test -n "$V" || { echo "::error::no launcher_version in launcher/gradle.properties"; exit 1; }
           OUT="$RUNNER_TEMP/launcher-linux"
           mkdir -p "$OUT"
           cp launcher/build/libs/*-all.jar "$OUT/"
-          (cd launcher/build/jpackage && tar -czf "$OUT/VANTA-Launcher-1.0.0-linux-x64.tar.gz" "VANTA Launcher")
+          (cd launcher/build/jpackage && tar -czf "$OUT/VANTA-Launcher-$V-linux-x64.tar.gz" "VANTA Launcher")
           (cd "$OUT" && sha256sum * > SHA256SUMS && cat SHA256SUMS && ls -la)
           bash scripts/ci/publish-screenshots.sh "$OUT" launcher-linux
       - name: Publish the Windows build to the ci-artifacts branch (with SHA-256)

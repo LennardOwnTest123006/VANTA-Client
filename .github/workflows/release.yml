@@ -280,7 +280,7 @@ jobs:
           java -jar "$JAR" --version
           mkdir -p dist
           cp "$JAR" "dist/vanta-launcher-${VERSION}-windows-all.jar"
-      - name: App image with the jlink runtime, zipped as the portable build (before an installer build replaces it)
+      - name: App image with the jlink runtime and the portable marker, zipped as the portable build (before an installer build replaces it)
         run: |
           set -euo pipefail
           (cd launcher && ./gradlew jlinkImage jpackage "-PjavafxPlatform=$JAVAFX_PLATFORM" -PjpackageType=app-image --stacktrace)
@@ -290,15 +290,30 @@ jobs:
           done
           # The bundled runtime runs the bundled jar (the .exe itself is a GUI program without a console).
           "$APP/runtime/bin/java.exe" -jar "$APP/app/vanta-launcher-${VERSION}-all.jar" --version
+          # Only the portable zip carries this marker: the launcher looks for <folder of the .exe>/app/vanta-portable.marker
+          # and then offers the portable zip as its update. The MSI and EXE below come from fresh jpackage runs (the
+          # jpackage task deletes build/jpackage first and its input folder holds only the fat jar), so they never have it.
+          printf 'portable\n' > "$APP/app/vanta-portable.marker"
           ZIP="VANTA-Launcher-${VERSION}-windows-portable.zip"
           (cd launcher/build/jpackage && 7z a -tzip -mx=9 "../../../dist/$ZIP" "VANTA Launcher" > /dev/null)
           node scripts/release/check-zip.mjs "dist/$ZIP" "VANTA Launcher/VANTA Launcher.exe" \
-            "VANTA Launcher/app/vanta-launcher-${VERSION}-all.jar" "VANTA Launcher/runtime/bin/java.exe"
+            "VANTA Launcher/app/vanta-launcher-${VERSION}-all.jar" "VANTA Launcher/runtime/bin/java.exe" \
+            "VANTA Launcher/app/vanta-portable.marker"
+          node --input-type=module -e '
+            import { openZip } from "./scripts/release/lib/zip.mjs";
+            const text = openZip(process.argv[1]).read("VANTA Launcher/app/vanta-portable.marker").toString("utf8");
+            if (text !== "portable\n") {
+              console.error(`::error::the portable marker holds ${JSON.stringify(text)}, expected "portable\\n"`);
+              process.exit(1);
+            }
+          ' "dist/$ZIP"
       - name: MSI installer (per-user, WiX on the runner)
         run: |
           set -euo pipefail
           (cd launcher && ./gradlew jpackage "-PjavafxPlatform=$JAVAFX_PLATFORM" -PjpackageType=msi --stacktrace)
           shopt -s nullglob
+          markers=$(find launcher/build/jpackage launcher/build/jpackage-input -name vanta-portable.marker)
+          [ -z "$markers" ] || { echo "::error::the installer build saw the portable marker: $markers"; exit 1; }
           files=(launcher/build/jpackage/*.msi)
           [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one .msi, found ${#files[@]}"; ls -la launcher/build/jpackage; exit 1; }
           cp "${files[0]}" "dist/VANTA-Launcher-${VERSION}.msi"
@@ -307,6 +322,8 @@ jobs:
           set -euo pipefail
           (cd launcher && ./gradlew jpackage "-PjavafxPlatform=$JAVAFX_PLATFORM" -PjpackageType=exe --stacktrace)
           shopt -s nullglob
+          markers=$(find launcher/build/jpackage launcher/build/jpackage-input -name vanta-portable.marker)
+          [ -z "$markers" ] || { echo "::error::the installer build saw the portable marker: $markers"; exit 1; }
           files=(launcher/build/jpackage/*.exe)
           [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one .exe, found ${#files[@]}"; ls -la launcher/build/jpackage; exit 1; }
           cp "${files[0]}" "dist/VANTA-Launcher-${VERSION}.exe"
