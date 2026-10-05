@@ -1,14 +1,15 @@
 package dev.vanta.launcher.ui.model;
 
 import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.NotPublishedException;
-import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
 import dev.vanta.launcher.core.net.DownloadRequest;
-import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateInfo;
+import dev.vanta.launcher.core.update.UpdateService;
+import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.ui.LauncherLinks;
 import dev.vanta.launcher.ui.Messages;
 import dev.vanta.launcher.ui.backend.LauncherBackend;
@@ -48,6 +49,11 @@ public final class UpdateViewModel {
         UNKNOWN,
         /** No releases URL configured. */
         NOT_CONFIGURED,
+        /**
+         * No VANTA client is installed: the latest release is known ({@link #latestClientVersionProperty()}), but there is
+         * nothing to update. The regular install (PLAY) or "Use with Minecraft Launcher" installs it.
+         */
+        NOT_INSTALLED,
         /** Manifest found, nothing newer. */
         UP_TO_DATE,
         /** A newer version with a download. */
@@ -73,6 +79,7 @@ public final class UpdateViewModel {
     private final ObjectProperty<UpdateInfo> clientUpdate = new SimpleObjectProperty<>();
     private final ObjectProperty<ClientAvailability> clientAvailability = new SimpleObjectProperty<>(ClientAvailability.UNKNOWN);
     private final StringProperty latestClientVersion = new SimpleStringProperty("");
+    private final BooleanProperty latestClientDownloadable = new SimpleBooleanProperty(false);
     private final BooleanProperty checking = new SimpleBooleanProperty(false);
     private final BooleanProperty dismissed = new SimpleBooleanProperty(false);
     private final BooleanProperty busy = new SimpleBooleanProperty(false);
@@ -82,6 +89,8 @@ public final class UpdateViewModel {
     private final BooleanBinding bannerVisible;
     private final StringBinding bannerText;
     private boolean checkedOnce;
+    private boolean publishingInstalled;
+    private boolean installedChangedDuringCheck;
 
     /**
      * @param session   session
@@ -105,6 +114,19 @@ public final class UpdateViewModel {
         bannerVisible = Bindings.createBooleanBinding(() -> !dismissed.get() && (launcherUpdate.get() != null || clientUpdate.get() != null),
             dismissed, launcherUpdate, clientUpdate);
         bannerText = Bindings.createStringBinding(this::computeBannerText, launcherUpdate, clientUpdate);
+        // PLAY, "Use with Minecraft Launcher", a client update or a rollback changed what is installed: compare again so
+        // the card never shows a stale state (for example "Not installed" next to an installed client).
+        session.installedClientProperty().addListener((obs, old, now) -> {
+            if (publishingInstalled) {
+                return;
+            }
+            if (checking.get()) {
+                // The running check read the installed state before this change: its result is outdated.
+                installedChangedDuringCheck = true;
+            } else if (checkedOnce && backend.updatesConfigured()) {
+                check(false);
+            }
+        });
     }
 
     // ---------------------------------------------------------------- properties
@@ -127,6 +149,11 @@ public final class UpdateViewModel {
     /** @return latest client version from the manifest (empty when unknown) */
     public ReadOnlyStringProperty latestClientVersionProperty() {
         return latestClientVersion;
+    }
+
+    /** @return whether the latest client release has a download (false: announced only, or unknown) */
+    public ReadOnlyBooleanProperty latestClientDownloadableProperty() {
+        return latestClientDownloadable;
     }
 
     /** @return whether a check runs */
@@ -182,6 +209,11 @@ public final class UpdateViewModel {
      * <p>"Up to date" is only claimed when both release manifests were found. When a manifest is missing (HTTP 404)
      * or lists no download, an interactive check says that no release is published instead.</p>
      *
+     * <p>The client is compared with the installed state read from disk in the same background step
+     * ({@link LauncherBackend#installedClient()}); that state is published to the session, so the Home card shows
+     * exactly what the check used. Without an installed client no update is offered anywhere (card, banner, dialog):
+     * the availability is {@link ClientAvailability#NOT_INSTALLED} and the latest release is only shown.</p>
+     *
      * @param interactive whether the user asked (shows an "up to date" or "not published" toast and errors)
      */
     public void check(final boolean interactive) {
@@ -197,7 +229,6 @@ public final class UpdateViewModel {
         }
         checking.set(true);
         checkError.set("");
-        final Optional<SemVer> installed = session.instance().map(InstanceInfo::vantaClientVersion).flatMap(SemVer::tryParse);
         Async.run(executors, () -> {
             Optional<UpdateInfo> launcher = Optional.empty();
             NotPublishedException launcherNotPublished = null;
@@ -206,42 +237,59 @@ public final class UpdateViewModel {
             } catch (NotPublishedException e) {
                 launcherNotPublished = e;
             }
-            Optional<UpdateInfo> client;
+            final Optional<InstalledClient> installed = backend.installedClient();
+            Optional<UpdateInfo> client = Optional.empty();
             ClientAvailability availability;
             String latest = "";
+            boolean downloadable = false;
             NotPublishedException clientNotPublished = null;
             try {
-                client = backend.checkClientUpdate(installed);
-                if (client.isPresent()) {
-                    latest = client.get().latestVersion().toString();
+                final UpdateService.ClientCheck result = backend.checkClient(installed);
+                latest = result.latest().toString();
+                downloadable = result.downloadable();
+                if (installed.isEmpty()) {
+                    availability = ClientAvailability.NOT_INSTALLED;
+                } else if (result.update().isPresent()) {
+                    client = result.update();
                     availability = client.get().isDownloadable() ? ClientAvailability.UPDATE_AVAILABLE : ClientAvailability.ANNOUNCED;
                 } else {
-                    latest = installed.map(SemVer::toString).orElse("");
                     availability = ClientAvailability.UP_TO_DATE;
                 }
             } catch (NotPublishedException e) {
-                client = Optional.empty();
                 availability = ClientAvailability.NOT_PUBLISHED;
                 clientNotPublished = e;
             }
-            return new Result(launcher, client, availability, latest, launcherNotPublished, clientNotPublished);
+            return new Result(launcher, installed, client, availability, latest, downloadable, launcherNotPublished, clientNotPublished);
         }, result -> {
             checking.set(false);
             checkedOnce = true;
-            launcherUpdate.set(result.launcher().orElse(null));
-            clientUpdate.set(result.client().filter(u -> u.isDownloadable() || !interactive).orElse(null));
-            if (result.client().isPresent() && !result.client().get().isDownloadable()) {
-                clientUpdate.set(result.client().get());
+            if (installedChangedDuringCheck) {
+                // Never publish an installed state older than the session's: compare again with the current one.
+                installedChangedDuringCheck = false;
+                check(interactive);
+                return;
             }
+            publishingInstalled = true;
+            try {
+                session.setInstalledClient(result.installed());
+            } finally {
+                publishingInstalled = false;
+            }
+            launcherUpdate.set(result.launcher().orElse(null));
+            // An update only exists for an installed client (also when it is announced without a download yet).
+            clientUpdate.set(result.installed().isPresent() ? result.client().orElse(null) : null);
             clientAvailability.set(result.availability());
             latestClientVersion.set(result.latest());
-            if (result.launcher().isPresent() || result.client().isPresent()) {
+            latestClientDownloadable.set(result.downloadable());
+            if (result.launcher().isPresent() || clientUpdate.get() != null) {
                 dismissed.set(false);
             }
             if (interactive && result.launcher().isEmpty() && result.client().isEmpty()) {
                 final List<NotPublishedException> notPublished = result.notPublished();
                 if (notPublished.isEmpty()) {
-                    toasts.success(messages.get("update.upToDate.title"), messages.format("update.upToDate.message", LauncherVersion.VERSION));
+                    toasts.success(messages.get("update.upToDate.title"), result.installed().isPresent()
+                        ? messages.format("update.upToDate.message", LauncherVersion.VERSION)
+                        : messages.format("update.upToDate.notInstalled.message", LauncherVersion.VERSION, result.latest()));
                 } else {
                     // Without a manifest there is nothing to compare with: never claim "up to date" then.
                     toasts.info(messages.get("update.notPublished.title"),
@@ -251,6 +299,7 @@ public final class UpdateViewModel {
         }, error -> {
             checking.set(false);
             checkedOnce = true;
+            installedChangedDuringCheck = false;
             clientAvailability.set(ClientAvailability.FAILED);
             final String text = errors.describe(error);
             checkError.set(text);
@@ -272,7 +321,7 @@ public final class UpdateViewModel {
      */
     public void installClientUpdate(final Runnable onDone) {
         final UpdateInfo update = clientUpdate.get();
-        if (update == null || busy.get() || !update.isDownloadable()) {
+        if (update == null || busy.get() || !update.isDownloadable() || session.installedClient().isEmpty()) {
             return;
         }
         startBusy(update);
@@ -358,6 +407,27 @@ public final class UpdateViewModel {
     }
 
     /**
+     * What to do with a verified Windows portable zip. Its top level is a {@value LauncherPackaging#PORTABLE_FOLDER}
+     * folder, so it is extracted into the folder that <em>contains</em> the portable folder: extracting it into the
+     * portable folder itself would nest a second {@value LauncherPackaging#PORTABLE_FOLDER} folder inside it and leave
+     * the old launcher unchanged. A renamed portable folder (or an unknown location) cannot be replaced that way, so
+     * the user copies the contents of the zip's folder into it instead. The launcher never unpacks or runs the zip.
+     *
+     * @param zipName file name of the verified zip
+     * @return localised instructions
+     */
+    public String portableUpdateInstructions(final String zipName) {
+        final Path appDirectory = backend.packaging().appDirectory().orElse(null);
+        final Path parent = appDirectory == null ? null : appDirectory.getParent();
+        final Path folderName = appDirectory == null ? null : appDirectory.getFileName();
+        if (parent != null && folderName != null && LauncherPackaging.PORTABLE_FOLDER.equalsIgnoreCase(folderName.toString())) {
+            return messages.format("update.confirm.portable.text", zipName, appDirectory.toString(), parent.toString());
+        }
+        final String folder = appDirectory == null ? messages.get("update.confirm.portable.folderUnknown") : appDirectory.toString();
+        return messages.format("update.confirm.portable.copy.text", zipName, folder);
+    }
+
+    /**
      * @param update update
      * @return localised "file · size" line
      */
@@ -370,13 +440,16 @@ public final class UpdateViewModel {
 
     /**
      * @param launcher             launcher update
+     * @param installed            installed client the check compared with
      * @param client               client update
      * @param availability         client availability
      * @param latest               latest client version
+     * @param downloadable         whether the latest client release has a download
      * @param launcherNotPublished why the launcher manifest gave no answer (null when it did)
      * @param clientNotPublished   why the client manifest gave no answer (null when it did)
      */
-    private record Result(Optional<UpdateInfo> launcher, Optional<UpdateInfo> client, ClientAvailability availability, String latest,
+    private record Result(Optional<UpdateInfo> launcher, Optional<InstalledClient> installed, Optional<UpdateInfo> client,
+                          ClientAvailability availability, String latest, boolean downloadable,
                           NotPublishedException launcherNotPublished, NotPublishedException clientNotPublished) {
 
         /** @return the checks that found no published release, launcher first */
@@ -419,7 +492,7 @@ public final class UpdateViewModel {
         if (l != null) {
             return messages.format("update.banner.launcher", l.latestVersion().toString());
         }
-        if (c != null) {
+        if (c != null && session.installedClient().isPresent()) {
             return messages.format("update.banner.client", c.latestVersion().toString());
         }
         return "";

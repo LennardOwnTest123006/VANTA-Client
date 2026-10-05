@@ -27,6 +27,11 @@ public record UpdateInfo(String product, SemVer currentVersion, SemVer latestVer
     public enum AssetKind {
         /** Windows installer ({@code .msi}, {@code .exe}): handed to the operating system after confirmation. */
         INSTALLER,
+        /**
+         * Windows portable folder ({@code -windows-portable.zip}): verified and shown in its folder; the user closes the
+         * launcher and unzips it over the old folder. Nothing is run.
+         */
+        PORTABLE,
         /** Archive with an app image ({@code .tar.gz}, {@code .zip}): the user extracts it. */
         ARCHIVE,
         /** Runnable jar: started with an installed Java 21. */
@@ -96,6 +101,9 @@ public record UpdateInfo(String product, SemVer currentVersion, SemVer latestVer
         final String name = file.name().toLowerCase(Locale.ROOT);
         if (name.endsWith(".msi") || name.endsWith(".exe")) {
             return AssetKind.INSTALLER;
+        }
+        if (name.endsWith("-windows-portable.zip")) {
+            return AssetKind.PORTABLE;
         }
         if (name.endsWith(".tar.gz") || name.endsWith(".tgz") || name.endsWith(".zip")) {
             return AssetKind.ARCHIVE;

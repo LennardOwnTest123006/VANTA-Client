@@ -13,13 +13,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LauncherLinksTest {
 
     @Test
-    void bundledLinksAndNotConfiguredWebsite() {
+    void bundledLinksIncludingTheWebsite() {
         final LauncherLinks links = LauncherLinks.load(Map.of());
         assertEquals("https://github.com/LennardOwnTest123006/VANTA-Client", links.source().toString());
         assertTrue(links.clientIdDocs().toString().endsWith("#microsoft-client-id"));
         assertEquals(Optional.of(URI.create("https://github.com/LennardOwnTest123006/VANTA-Client/issues")), links.support());
-        assertTrue(links.website().isEmpty(), "no public website URL is configured yet");
+        assertEquals(Optional.of(URI.create("https://vanta-client.netlify.app")), links.website(),
+            "the deployed website: the sidebar and About 'Website' entries are active");
+        assertEquals(Optional.of(URI.create("https://github.com/LennardOwnTest123006/VANTA-Client/releases")), links.releases());
         assertEquals("https://www.microsoft.com/link", links.microsoftLink().toString());
+    }
+
+    @Test
+    void emptyWebsiteMeansNotConfigured() {
+        final Properties props = new Properties();
+        props.setProperty("website.url", "");
+        assertTrue(new LauncherLinks(props, Map.of()).website().isEmpty());
+        props.setProperty("website.url", "ftp://vanta.example");
+        assertTrue(new LauncherLinks(props, Map.of()).website().isEmpty(), "only http(s) links are opened");
     }
 
     @Test

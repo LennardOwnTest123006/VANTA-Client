@@ -374,6 +374,55 @@ public final class VantaClientService {
     }
 
     /**
+     * The client that is actually installed: the single source for "is a VANTA client installed, and which version"
+     * used by the UI and {@code --check-update}.
+     *
+     * <ol>
+     *   <li>A {@code vanta-client-*.jar} in {@code mods/}: its version is the one {@code instance.json} records for
+     *       that file name, else the version in the file name ({@code vanta-client-1.0.1.jar} is 1.0.1).</li>
+     *   <li>No jar, but {@code instance.json} records a client: that version (the jar is restored by the next
+     *       install or verify).</li>
+     *   <li>Otherwise nothing is installed; no client update is offered then, only the regular install.</li>
+     * </ol>
+     *
+     * @return installed client, or empty when none is installed
+     * @throws IOException when {@code instance.json} or {@code mods/} cannot be read
+     */
+    public Optional<InstalledClient> installedClient() throws IOException {
+        final Optional<InstanceInfo> instance = Files.isRegularFile(paths.instanceFile())
+            ? Optional.of(Json.read(paths.instanceFile(), InstanceInfo.class)) : Optional.empty();
+        final Optional<Path> jar = activeJar();
+        if (jar.isPresent()) {
+            final String name = jar.get().getFileName().toString();
+            final Optional<String> recorded = instance.filter(InstanceInfo::hasVantaClient)
+                .filter(i -> i.vantaClientJar().equals(name))
+                .map(InstanceInfo::vantaClientVersion)
+                .filter(v -> !v.isBlank());
+            if (recorded.isPresent()) {
+                return Optional.of(new InstalledClient(recorded.get(), jar, InstalledClient.Source.INSTANCE));
+            }
+            return Optional.of(new InstalledClient(versionFromJarName(name), jar, InstalledClient.Source.MODS_JAR));
+        }
+        return instance.filter(InstanceInfo::hasVantaClient)
+            .map(i -> new InstalledClient(i.vantaClientVersion(), Optional.empty(), InstalledClient.Source.INSTANCE));
+    }
+
+    /**
+     * @param jarName file name such as {@code vanta-client-1.0.1.jar}
+     * @return the version part ({@code 1.0.1}, {@code dev}); empty when the name has none
+     */
+    public static String versionFromJarName(final String jarName) {
+        String v = jarName;
+        if (v.startsWith(JAR_PREFIX)) {
+            v = v.substring(JAR_PREFIX.length());
+        }
+        if (v.endsWith(".jar")) {
+            v = v.substring(0, v.length() - ".jar".length());
+        }
+        return v;
+    }
+
+    /**
      * Records the client version in {@code instance.json} when the instance exists.
      *
      * @param version client version

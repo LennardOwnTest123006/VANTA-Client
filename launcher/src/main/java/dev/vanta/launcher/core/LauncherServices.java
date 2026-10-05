@@ -25,6 +25,7 @@ import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
 import dev.vanta.launcher.core.settings.SettingsStore;
 import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateService;
+import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.core.util.OsInfo;
 import dev.vanta.launcher.core.util.Sleeper;
 
@@ -130,7 +131,7 @@ public final class LauncherServices implements AutoCloseable {
         this.accounts = AccountStore.open(paths, os);
         this.launch = new LaunchService(paths, os, clock);
         this.updates = new UpdateService(downloader, paths, () -> releasesBaseUrl().url(),
-            SemVer.tryParse(LauncherVersion.VERSION).orElse(SemVer.of(1, 0, 0)), os, vantaClient);
+            SemVer.tryParse(LauncherVersion.VERSION).orElse(SemVer.of(1, 0, 0)), os, LauncherPackaging.detect(), vantaClient);
         this.officialProfiles = new OfficialProfileService(paths, downloader, fabric, fabricApi, vantaClient, clock);
         this.userHome = Path.of(System.getProperty("user.home", "."));
         this.officialMinecraftDir = LauncherPaths.officialMinecraftDir(os, env, userHome);

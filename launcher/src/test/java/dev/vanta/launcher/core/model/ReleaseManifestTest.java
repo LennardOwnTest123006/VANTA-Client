@@ -1,6 +1,7 @@
 package dev.vanta.launcher.core.model;
 
 import dev.vanta.launcher.core.util.Json;
+import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.core.util.OsInfo;
 import dev.vanta.launcher.testutil.Fixtures;
 import org.junit.jupiter.api.Test;
@@ -44,29 +45,56 @@ class ReleaseManifestTest {
     private static final OsInfo MAC_ARM = new OsInfo("osx", "arm64", "15.0");
     private static final OsInfo MAC_INTEL = new OsInfo("osx", "x64", "13.6");
 
-    @Test
-    void launcherAssetDependsOnPlatform() {
-        final ReleaseManifest m = Json.parse(Fixtures.read("release/launcher-latest.json"), ReleaseManifest.class);
-        assertEquals("VANTA-Launcher-1.1.0.msi", m.launcherAssetFor(WINDOWS).orElseThrow().name());
-        assertEquals("VANTA-Launcher-1.1.0-linux-x64.tar.gz", m.launcherAssetFor(LINUX).orElseThrow().name());
-        assertEquals("vanta-launcher-1.1.0-macos-aarch64-all.jar", m.launcherAssetFor(MAC_ARM).orElseThrow().name());
-        assertTrue(m.launcherAssetFor(MAC_INTEL).isEmpty(), "Intel macOS has no asset: the release page is offered instead");
-        assertTrue(m.launcherAssetFor(LINUX_ARM).isEmpty(), "the Linux app image bundles an x64 runtime");
-        assertEquals(m.launcherAssetFor(WINDOWS), m.preferredFile(WINDOWS));
-        assertEquals(List.of("VANTA-Launcher-2.0.0.msi", "VANTA-Launcher-2.0.0.exe"), ReleaseManifest.launcherAssetNames("2.0.0", WINDOWS));
+    private static final LauncherPackaging INSTALLED = LauncherPackaging.packaged(java.nio.file.Path.of("C:/Users/p/AppData/Local/VANTA Launcher"));
+    private static final LauncherPackaging PORTABLE = LauncherPackaging.portable(java.nio.file.Path.of("D:/Games/VANTA Launcher"));
+    private static final LauncherPackaging APP_IMAGE = LauncherPackaging.packaged(java.nio.file.Path.of("/opt/VANTA Launcher/bin"));
+    private static final LauncherPackaging JAR = LauncherPackaging.PLAIN_JAR;
+    private static final OsInfo WINDOWS_ARM = new OsInfo("windows", "arm64", "10.0");
 
-        // Without an msi the Windows exe installer is used; the portable zip and fat jars are never picked.
+    @Test
+    void launcherAssetDependsOnPlatformAndPackaging() {
+        final ReleaseManifest m = Json.parse(Fixtures.read("release/launcher-latest.json"), ReleaseManifest.class);
+        // Windows x64: MSI/EXE install -> .msi, portable folder -> portable zip, plain jar -> Windows fat jar.
+        assertEquals("VANTA-Launcher-1.1.0.msi", m.launcherAssetFor(WINDOWS, INSTALLED).orElseThrow().name());
+        assertEquals("VANTA-Launcher-1.1.0-windows-portable.zip", m.launcherAssetFor(WINDOWS, PORTABLE).orElseThrow().name());
+        assertEquals("vanta-launcher-1.1.0-windows-all.jar", m.launcherAssetFor(WINDOWS, JAR).orElseThrow().name());
+        // Linux x64: app image -> tar.gz, plain jar -> Linux fat jar.
+        assertEquals("VANTA-Launcher-1.1.0-linux-x64.tar.gz", m.launcherAssetFor(LINUX, APP_IMAGE).orElseThrow().name());
+        assertEquals("vanta-launcher-1.1.0-linux-all.jar", m.launcherAssetFor(LINUX, JAR).orElseThrow().name());
+        // macOS on Apple Silicon: the aarch64 jar however it was started.
+        assertEquals("vanta-launcher-1.1.0-macos-aarch64-all.jar", m.launcherAssetFor(MAC_ARM, JAR).orElseThrow().name());
+        assertEquals("vanta-launcher-1.1.0-macos-aarch64-all.jar", m.launcherAssetFor(MAC_ARM, INSTALLED).orElseThrow().name());
+        // No asset: Intel macOS, Linux and Windows on ARM (every file bundles x64 JavaFX/runtime).
+        for (LauncherPackaging p : List.of(JAR, INSTALLED, PORTABLE)) {
+            assertTrue(m.launcherAssetFor(MAC_INTEL, p).isEmpty(), "Intel macOS has no asset: the release page is offered instead");
+            assertTrue(m.launcherAssetFor(LINUX_ARM, p).isEmpty(), "the Linux files are x64 only");
+            assertTrue(m.launcherAssetFor(WINDOWS_ARM, p).isEmpty(), "the Windows files are x64 only");
+        }
+        assertEquals(m.launcherAssetFor(WINDOWS, INSTALLED), m.preferredFile(WINDOWS, INSTALLED));
+        assertEquals(List.of("VANTA-Launcher-2.0.0.msi", "VANTA-Launcher-2.0.0.exe"), ReleaseManifest.launcherAssetNames("2.0.0", WINDOWS, INSTALLED));
+        assertEquals(List.of("VANTA-Launcher-2.0.0-windows-portable.zip"), ReleaseManifest.launcherAssetNames("2.0.0", WINDOWS, PORTABLE));
+        assertEquals(List.of("vanta-launcher-2.0.0-windows-all.jar"), ReleaseManifest.launcherAssetNames("2.0.0", WINDOWS, JAR));
+        assertEquals(List.of("VANTA-Launcher-2.0.0-linux-x64.tar.gz"), ReleaseManifest.launcherAssetNames("2.0.0", LINUX, APP_IMAGE));
+        assertEquals(List.of("vanta-launcher-2.0.0-linux-all.jar"), ReleaseManifest.launcherAssetNames("2.0.0", LINUX, JAR));
+
+        // Without an msi an installed launcher uses the exe; the portable zip and fat jars are never picked for it.
         final ReleaseManifest exeOnly = new ReleaseManifest(1, "launcher", "1.1.0", "1.21.11", "0.19.5", "0.141.6+1.21.11", 21, "", "stable",
             List.of(file("vanta-launcher-1.1.0-windows-all.jar"), file("VANTA-Launcher-1.1.0-windows-portable.zip"), file("VANTA-Launcher-1.1.0.exe")), "");
-        assertEquals("VANTA-Launcher-1.1.0.exe", exeOnly.launcherAssetFor(WINDOWS).orElseThrow().name());
-        assertTrue(exeOnly.launcherAssetFor(LINUX).isEmpty(), "the Windows fat jar does not run on Linux");
+        assertEquals("VANTA-Launcher-1.1.0.exe", exeOnly.launcherAssetFor(WINDOWS, INSTALLED).orElseThrow().name());
+        assertTrue(exeOnly.launcherAssetFor(LINUX, JAR).isEmpty(), "the Windows fat jar does not run on Linux");
+        assertTrue(exeOnly.launcherAssetFor(LINUX, APP_IMAGE).isEmpty());
+        // A portable folder is never "updated" with an installer, nor an installed launcher with the portable zip.
+        final ReleaseManifest installersOnly = new ReleaseManifest(1, "launcher", "1.1.0", "1.21.11", "0.19.5", "0.141.6+1.21.11", 21, "", "stable",
+            List.of(file("VANTA-Launcher-1.1.0.msi"), file("VANTA-Launcher-1.1.0.exe")), "");
+        assertTrue(installersOnly.launcherAssetFor(WINDOWS, PORTABLE).isEmpty());
+        assertTrue(installersOnly.launcherAssetFor(WINDOWS, JAR).isEmpty());
     }
 
     @Test
     void clientJarIsExactlyTheModJar() {
         final ReleaseManifest published = Json.parse(Fixtures.read("release/client-latest.json"), ReleaseManifest.class);
         assertEquals("vanta-client-1.0.0.jar", published.clientJar().orElseThrow().name());
-        assertEquals("vanta-client-1.0.0.jar", published.preferredFile(WINDOWS).orElseThrow().name());
+        assertEquals("vanta-client-1.0.0.jar", published.preferredFile(WINDOWS, INSTALLED).orElseThrow().name());
 
         // Fabric API listed first, the mods bundle and a sources jar: still exactly vanta-client-<version>.jar.
         final ReleaseManifest tricky = new ReleaseManifest(1, "client", "1.0.0", "1.21.11", "0.19.5", "0.141.6+1.21.11", 21, "", "stable",

@@ -8,6 +8,7 @@ import dev.vanta.launcher.core.auth.AuthException;
 import dev.vanta.launcher.core.auth.AuthNotConfiguredException;
 import dev.vanta.launcher.core.auth.OfflineAccountPolicy;
 import dev.vanta.launcher.core.install.InstallException;
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.InstallListener;
 import dev.vanta.launcher.core.install.InstallProgress;
 import dev.vanta.launcher.core.install.InstallRequest;
@@ -32,8 +33,9 @@ import dev.vanta.launcher.core.paths.LauncherPaths;
 import dev.vanta.launcher.core.settings.LauncherSettings;
 import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
 import dev.vanta.launcher.core.settings.Resolution;
-import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateInfo;
+import dev.vanta.launcher.core.update.UpdateService;
+import dev.vanta.launcher.core.util.ByteSizes;
 import dev.vanta.launcher.core.util.OsInfo;
 
 import java.io.IOException;
@@ -374,10 +376,11 @@ public final class LauncherCli {
 
             @Override
             public void onProgress(final DownloadRequest request, final long bytesDone, final long bytesTotal) {
-                final long mb = bytesDone / (1024L * 1024L);
-                if (mb != lastReported && mb % 10 == 0) {
-                    lastReported = mb;
-                    out.println("  " + mb + " MB" + (bytesTotal > 0 ? " / " + (bytesTotal / (1024L * 1024L)) + " MB" : ""));
+                // One line per 10 MB (decimal units, like every size the launcher shows).
+                final long step = bytesDone / 10_000_000L;
+                if (step != lastReported) {
+                    lastReported = step;
+                    out.println("  " + ByteSizes.format(bytesDone) + (bytesTotal > 0 ? " / " + ByteSizes.format(bytesTotal) : ""));
                 }
             }
         }, new CancellationToken());
@@ -400,15 +403,32 @@ public final class LauncherCli {
             unpublished++;
             out.println("Launcher " + LauncherVersion.VERSION + ": no published release found. " + e.getMessage());
         }
-        final Optional<SemVer> client = services.installer().loadInstance().map(InstanceInfo::vantaClientVersion).flatMap(SemVer::tryParse);
-        final String clientLabel = "Client " + client.map(SemVer::toString).orElse("(not installed)") + ": ";
+        // The same installed state the launcher UI shows: instance.json / the vanta-client jar actually in mods/.
+        final Optional<InstalledClient> installed = services.vantaClient().installedClient();
         try {
-            out.println(clientLabel + describe(services.updates().checkClient(client)));
+            out.println(describeClient(services.updates().checkClient(installed)));
         } catch (NotPublishedException e) {
             unpublished++;
-            out.println(clientLabel + "no published release found. " + e.getMessage());
+            out.println(clientLabel(installed) + ": no published release found. " + e.getMessage());
         }
         return unpublished == 2 ? ExitCode.NOT_PUBLISHED : ExitCode.OK;
+    }
+
+    /**
+     * @param check client check
+     * @return e.g. {@code Client 1.0.0: update available: 1.0.1 (vanta-client-1.0.1.jar)} or
+     *         {@code Client: not installed (install it with --install or --install-official-profile); latest release 1.0.1}
+     */
+    static String describeClient(final UpdateService.ClientCheck check) {
+        if (!check.isInstalled()) {
+            return "Client: not installed (install it with " + CliCommand.INSTALL.flag() + " or " + CliCommand.INSTALL_OFFICIAL_PROFILE.flag()
+                + "); latest release " + check.latest() + (check.downloadable() ? "" : " (announced, not downloadable yet)");
+        }
+        return clientLabel(check.installed()) + ": " + describe(check.update());
+    }
+
+    private static String clientLabel(final Optional<InstalledClient> installed) {
+        return installed.map(c -> "Client " + (c.version().isEmpty() ? "(unknown version)" : c.version())).orElse("Client");
     }
 
     // --------------------------------------------------------------------------------------------------

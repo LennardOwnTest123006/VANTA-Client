@@ -1,5 +1,7 @@
 package dev.vanta.launcher.core.install;
 
+import dev.vanta.launcher.core.util.ByteSizes;
+
 /**
  * Not enough free disk space for the installation.
  */
@@ -15,14 +17,10 @@ public final class InsufficientDiskSpaceException extends InstallException {
      * @param availableBytes bytes available
      */
     public InsufficientDiskSpaceException(final long requiredBytes, final long availableBytes) {
-        super(InstallStep.VERSION_JSON, "Not enough disk space: " + mb(requiredBytes) + " MB required but only "
-            + mb(availableBytes) + " MB available");
+        super(InstallStep.VERSION_JSON, "Not enough disk space: " + ByteSizes.format(requiredBytes) + " required but only "
+            + ByteSizes.format(availableBytes) + " available");
         this.requiredBytes = requiredBytes;
         this.availableBytes = availableBytes;
-    }
-
-    private static long mb(final long bytes) {
-        return (bytes + (1024L * 1024L) - 1) / (1024L * 1024L);
     }
 
     /** @return bytes needed */

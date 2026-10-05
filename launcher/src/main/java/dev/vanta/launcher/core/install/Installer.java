@@ -12,6 +12,7 @@ import dev.vanta.launcher.core.net.DownloadRequest;
 import dev.vanta.launcher.core.net.Downloader;
 import dev.vanta.launcher.core.net.IntegrityException;
 import dev.vanta.launcher.core.paths.LauncherPaths;
+import dev.vanta.launcher.core.util.ByteSizes;
 import dev.vanta.launcher.core.util.Json;
 import dev.vanta.launcher.core.util.OsInfo;
 
@@ -156,7 +157,7 @@ public final class Installer {
                 + (request.includeAssets() && version.assetIndex() != null ? version.assetIndex().totalSize() : 0L);
             final InstallPlan plan = new InstallPlan(steps, remaining);
             plan.checkDiskSpace(paths.dataDir());
-            l.onLog("Install plan: " + steps.size() + " steps, up to " + (plan.remainingBytes() / (1024L * 1024L)) + " MB to download");
+            l.onLog("Install plan: " + steps.size() + " steps, up to " + ByteSizes.format(plan.remainingBytes()) + " to download");
 
             // 3. Client jar
             current = InstallStep.CLIENT_JAR;
@@ -239,7 +240,7 @@ public final class Installer {
                 Instant.now(clock).toString());
             Json.write(paths.instanceFile(), info);
             progress.advance(1, "instance.json");
-            l.onLog("Installation complete: " + progress.bytes() / 1024L + " KB downloaded");
+            l.onLog("Installation complete: " + ByteSizes.format(progress.bytes()) + " downloaded");
             return info;
         } catch (InstallException e) {
             throw e;

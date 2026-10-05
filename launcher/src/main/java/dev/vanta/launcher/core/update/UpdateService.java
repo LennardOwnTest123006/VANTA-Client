@@ -1,5 +1,6 @@
 package dev.vanta.launcher.core.update;
 
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.NotPublishedException;
 import dev.vanta.launcher.core.install.ReleasesNotConfiguredException;
 import dev.vanta.launcher.core.install.VantaClientService;
@@ -13,6 +14,7 @@ import dev.vanta.launcher.core.net.IntegrityException;
 import dev.vanta.launcher.core.net.JsonHttp;
 import dev.vanta.launcher.core.paths.LauncherPaths;
 import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
+import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.core.util.OsInfo;
 
 import java.io.IOException;
@@ -29,12 +31,15 @@ import java.util.function.Supplier;
  * {@code <releasesBaseUrl>/launcher-latest.json} and {@code <releasesBaseUrl>/client-latest.json}.
  *
  * <ul>
- *   <li>{@link #checkLauncher()} / {@link #checkClient(Optional)} compare SemVer and return an {@link UpdateInfo}
- *       only when the manifest is newer.</li>
- *   <li>The launcher asset is chosen per platform ({@link ReleaseManifest#launcherAssetFor}): the Windows
- *       {@code .msi}, the Linux x64 {@code .tar.gz} app image or the Apple Silicon macOS jar. Other platforms get an
- *       update without a file and the release page instead; the client update is exactly
- *       {@code vanta-client-<version>.jar}.</li>
+ *   <li>{@link #checkLauncher()} compares SemVer and returns an {@link UpdateInfo} only when the manifest is
+ *       newer. {@link #checkClient(Optional)} does the same for the installed client ({@link InstalledClient}); when no
+ *       client is installed it reports the latest release but never an update: the regular install (PLAY,
+ *       {@code --install}) or "Use with Minecraft Launcher" installs it.</li>
+ *   <li>The launcher asset is chosen per platform and packaging ({@link ReleaseManifest#launcherAssetFor}): the
+ *       Windows {@code .msi} for an installed launcher, the {@code -windows-portable.zip} for the portable folder, the
+ *       Linux x64 {@code .tar.gz} for the app image, the platform fat jar for {@code java -jar}, the Apple Silicon
+ *       macOS jar. Other platforms get an update without a file and the release page instead; the client update is
+ *       exactly {@code vanta-client-<version>.jar}.</li>
  *   <li>{@link #downloadUpdate} fetches the file to {@code cache/updates/} with SHA-256 verification.</li>
  *   <li>{@link #prepareInstaller} re-verifies the downloaded installer and returns its path; the UI asks the user
  *       before opening it. The launcher never runs the installer itself.</li>
@@ -52,6 +57,7 @@ public final class UpdateService {
     private final Supplier<String> releasesBaseUrl;
     private final SemVer currentLauncher;
     private final OsInfo os;
+    private final LauncherPackaging packaging;
     private final VantaClientService clientService;
 
     /**
@@ -60,16 +66,19 @@ public final class UpdateService {
      * @param releasesBaseUrl supplier of the base URL in effect (an empty or non-http(s) value means "not configured")
      * @param currentLauncher installed launcher version
      * @param os              host platform (selects installer type)
+     * @param packaging       how the running launcher was installed (selects installer, portable zip or jar)
      * @param clientService   client service for client updates/rollback
      */
     public UpdateService(final Downloader downloader, final LauncherPaths paths, final Supplier<String> releasesBaseUrl,
-                         final SemVer currentLauncher, final OsInfo os, final VantaClientService clientService) {
+                         final SemVer currentLauncher, final OsInfo os, final LauncherPackaging packaging,
+                         final VantaClientService clientService) {
         this.downloader = Objects.requireNonNull(downloader, "downloader");
         this.json = new JsonHttp(downloader);
         this.paths = Objects.requireNonNull(paths, "paths");
         this.releasesBaseUrl = Objects.requireNonNull(releasesBaseUrl, "releasesBaseUrl");
         this.currentLauncher = Objects.requireNonNull(currentLauncher, "currentLauncher");
         this.os = Objects.requireNonNull(os, "os");
+        this.packaging = Objects.requireNonNull(packaging, "packaging");
         this.clientService = Objects.requireNonNull(clientService, "clientService");
     }
 
@@ -113,16 +122,59 @@ public final class UpdateService {
     }
 
     /**
-     * Checks for a client update.
+     * Checks the client release against the installed client ({@link VantaClientService#installedClient()}).
      *
-     * @param currentClient installed client version (empty when none installed)
-     * @return update when the manifest is newer
+     * @return latest release and, only when a client is installed and the release is newer, the update
      * @throws IOException          on failure
      * @throws InterruptedException when interrupted
      */
-    public Optional<UpdateInfo> checkClient(final Optional<SemVer> currentClient) throws IOException, InterruptedException {
+    public ClientCheck checkClient() throws IOException, InterruptedException {
+        return checkClient(clientService.installedClient());
+    }
+
+    /**
+     * Checks the client release against a given installed state. Without an installed client there is nothing to
+     * update: the result names the latest release and carries no {@link UpdateInfo}.
+     *
+     * @param installed installed client (empty when none is installed)
+     * @return latest release and the update, if any
+     * @throws IOException          on failure (including {@link NotPublishedException} for a missing manifest)
+     * @throws InterruptedException when interrupted
+     */
+    public ClientCheck checkClient(final Optional<InstalledClient> installed) throws IOException, InterruptedException {
         final ReleaseManifest manifest = fetchManifest(VantaClientService.CLIENT_MANIFEST);
-        return compare(ReleaseManifest.PRODUCT_CLIENT, currentClient.orElse(SemVer.of(0, 0, 0)), manifest);
+        final SemVer latest = validate(ReleaseManifest.PRODUCT_CLIENT, manifest);
+        final boolean downloadable = manifest.clientJar().map(ReleaseManifest.ReleaseFile::isPublished).orElse(false);
+        if (installed.isEmpty()) {
+            return new ClientCheck(installed, latest, downloadable, Optional.empty());
+        }
+        return new ClientCheck(installed, latest, downloadable,
+            compare(ReleaseManifest.PRODUCT_CLIENT, installed.get().comparisonVersion(), manifest));
+    }
+
+    /**
+     * Result of a client check.
+     *
+     * @param installed    the installed client the check compared with (empty: none installed)
+     * @param latest       version of the latest client release
+     * @param downloadable whether the latest release has a download for {@code vanta-client-<version>.jar}
+     * @param update       the update; always empty when no client is installed
+     */
+    public record ClientCheck(Optional<InstalledClient> installed, SemVer latest, boolean downloadable, Optional<UpdateInfo> update) {
+
+        public ClientCheck {
+            Objects.requireNonNull(installed, "installed");
+            Objects.requireNonNull(latest, "latest");
+            Objects.requireNonNull(update, "update");
+            if (installed.isEmpty() && update.isPresent()) {
+                throw new IllegalArgumentException("no client is installed: there is nothing to update");
+            }
+        }
+
+        /** @return whether a VANTA client is installed */
+        public boolean isInstalled() {
+            return installed.isPresent();
+        }
     }
 
     /**
@@ -136,11 +188,7 @@ public final class UpdateService {
      * @throws IOException when the manifest is for a different product or has an invalid version
      */
     public Optional<UpdateInfo> compare(final String product, final SemVer current, final ReleaseManifest manifest) throws IOException {
-        if (!product.equals(manifest.product())) {
-            throw new IOException("Manifest describes product '" + manifest.product() + "', expected '" + product + "'");
-        }
-        final SemVer latest = SemVer.tryParse(manifest.version())
-            .orElseThrow(() -> new IOException("Manifest has an invalid version '" + manifest.version() + "'"));
+        final SemVer latest = validate(product, manifest);
         if (!latest.isNewerThan(current)) {
             return Optional.empty();
         }
@@ -153,10 +201,18 @@ public final class UpdateService {
             file = manifest.clientJar().orElse(new ReleaseManifest.ReleaseFile(manifest.clientJarName(), "", 0, ""));
         } else {
             // No asset for this platform: an empty name; the UI points at the release page instead.
-            file = manifest.launcherAssetFor(os).orElse(new ReleaseManifest.ReleaseFile("", "", 0, ""));
+            file = manifest.launcherAssetFor(os, packaging).orElse(new ReleaseManifest.ReleaseFile("", "", 0, ""));
         }
         return Optional.of(new UpdateInfo(product, current, latest, manifest.changelog(), file, file.sha256(), manifest,
             manifest.releasePageUrl().orElse("")));
+    }
+
+    private static SemVer validate(final String product, final ReleaseManifest manifest) throws IOException {
+        if (!product.equals(manifest.product())) {
+            throw new IOException("Manifest describes product '" + manifest.product() + "', expected '" + product + "'");
+        }
+        return SemVer.tryParse(manifest.version())
+            .orElseThrow(() -> new IOException("Manifest has an invalid version '" + manifest.version() + "'"));
     }
 
     /**
@@ -213,19 +269,26 @@ public final class UpdateService {
     }
 
     /**
-     * Installs a client update (download, verify, keep for rollback, activate in {@code mods/}).
+     * Installs a client update (download, verify, keep for rollback, activate in {@code mods/}). Only an installed
+     * client is updated ({@link VantaClientService#installedClient()}).
      *
      * @param update   client update
      * @param listener progress
      * @param token    cancellation
      * @return active jar
-     * @throws IOException          on failure
+     * @throws IOException          on failure, or when no client is installed
      * @throws InterruptedException when interrupted
      */
     public Path installClientUpdate(final UpdateInfo update, final DownloadProgressListener listener, final CancellationToken token)
         throws IOException, InterruptedException {
         if (!ReleaseManifest.PRODUCT_CLIENT.equals(update.product())) {
             throw new IOException("Not a client update");
+        }
+        if (clientService.installedClient().isEmpty()) {
+            // An update replaces an installed client; a first install goes through the regular install, which also
+            // writes instance.json (or through "Use with Minecraft Launcher").
+            throw new IOException("No VANTA Client is installed, so there is nothing to update. Install it with PLAY (--install) "
+                + "or \"Use with Minecraft Launcher\" (--install-official-profile).");
         }
         return clientService.installFromManifest(update.manifest(), listener, token);
     }
@@ -252,6 +315,11 @@ public final class UpdateService {
     /** @return the running launcher version */
     public SemVer currentLauncher() {
         return currentLauncher;
+    }
+
+    /** @return how the running launcher was installed */
+    public LauncherPackaging packaging() {
+        return packaging;
     }
 
     /**

@@ -220,6 +220,35 @@ public final class ScreenshotMain {
                 // Scroll the settings list to the "Releases and sign-in" section.
                 window.page(NavigationModel.Page.SETTINGS).lookupAll(".scroll-pane").forEach(n -> ((javafx.scene.control.ScrollPane) n).setVvalue(0.5));
             }, 700);
+            // A fresh launcher: no instance.json and no client jar, release 1.0.1 published. No update is offered for a
+            // client that is not installed; the card offers the regular install and the official launcher instead.
+            step("21-home-fresh-not-installed", () -> {
+                backend.instance = null;
+                backend.activeJar = null;
+                backend.signInConfigured = true;
+                backend.accounts.clear();
+                backend.accounts.add(FakeBackend.microsoftAccount("NovaPlayer"));
+                backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.0.1", true));
+                ctx.navigation().navigate(NavigationModel.Page.HOME);
+                ctx.session().refreshAll();
+                ctx.updates().check(false);
+            }, 900);
+            step("22-home-fresh-no-sign-in", () -> {
+                backend.signInConfigured = false;
+                backend.accounts.clear();
+                ctx.session().refreshAll();
+            }, 900);
+            step("23-home-fresh-no-sign-in-min-size", () -> {
+                app.stage().setWidth(LauncherApp.MIN_WIDTH);
+                app.stage().setHeight(LauncherApp.MIN_HEIGHT);
+            }, 900);
+            // Portable folder: the verified zip is shown in its folder with instructions; nothing is run.
+            step("24-portable-update-verified", () -> {
+                app.stage().setWidth(LauncherApp.DEFAULT_WIDTH);
+                app.stage().setHeight(LauncherApp.DEFAULT_HEIGHT);
+                backend.packaging = dev.vanta.launcher.core.util.LauncherPackaging.portable(Path.of("D:/Games/VANTA Launcher"));
+                window.confirmInstaller(backend.paths().updatesCacheDir().resolve("1.0.1-VANTA-Launcher-1.0.1-windows-portable.zip"));
+            }, 900);
             next();
         }
 

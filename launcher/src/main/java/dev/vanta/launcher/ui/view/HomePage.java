@@ -2,9 +2,8 @@ package dev.vanta.launcher.ui.view;
 
 import dev.vanta.launcher.LauncherVersion;
 import dev.vanta.launcher.core.auth.Account;
-import dev.vanta.launcher.core.install.VantaClientService;
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.java.JavaInstall;
-import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.ui.model.HomeViewModel;
 import dev.vanta.launcher.ui.model.LogLine;
 import dev.vanta.launcher.ui.model.NavigationModel;
@@ -270,10 +269,12 @@ public final class HomePage extends VBox {
                 card.getChildren().add(signIn);
             } else {
                 final Button how = Ui.button(ctx.t("account.card.howToConfigure"), Icons.Icon.EXTERNAL, "secondary", "small");
+                how.setTooltip(Ui.tooltip(ctx.t("account.card.howToConfigure.tooltip")));
                 how.setOnAction(e -> ctx.opener().browse(ctx.links().clientIdDocs()));
-                final Button settings = Ui.button(ctx.t("nav.settings"), Icons.Icon.SLIDERS, "ghost", "small");
+                final Button settings = Ui.button(ctx.t("nav.settings"), Icons.Icon.SLIDERS, "secondary", "small");
+                settings.setTooltip(Ui.tooltip(ctx.t("account.card.settings.tooltip")));
                 settings.setOnAction(e -> ctx.navigation().navigate(NavigationModel.Page.SETTINGS));
-                card.getChildren().add(Ui.callout("warning", null, ctx.t("account.card.notConfigured"), new HBox(8, how, settings)));
+                card.getChildren().add(Ui.callout("warning", null, ctx.t("account.card.notConfigured"), stackedActions(how, settings)));
             }
         }
         if (ctx.session().settings().developerMode() && ctx.session().offlineAllowedProperty().get()
@@ -370,27 +371,33 @@ public final class HomePage extends VBox {
 
     private VBox clientCard() {
         final VBox card = Ui.card();
+        card.getStyleClass().add("client-card");
         final Runnable render = () -> renderClient(card);
         ctx.session().instanceProperty().addListener((obs, old, now) -> render.run());
+        ctx.session().installedClientProperty().addListener((obs, old, now) -> render.run());
+        ctx.session().accountProperty().addListener((obs, old, now) -> render.run());
+        ctx.session().signInConfiguredProperty().addListener((obs, old, now) -> render.run());
         ctx.updates().clientAvailabilityProperty().addListener((obs, old, now) -> render.run());
         ctx.updates().checkingProperty().addListener((obs, old, now) -> render.run());
         ctx.updates().latestClientVersionProperty().addListener((obs, old, now) -> render.run());
+        ctx.updates().latestClientDownloadableProperty().addListener((obs, old, now) -> render.run());
         render.run();
         return card;
     }
 
     private void renderClient(final VBox card) {
         card.getChildren().clear();
-        final Optional<InstanceInfo> instance = ctx.session().instance();
-        final String installed = instance.map(InstanceInfo::vantaClientVersion).filter(v -> !v.isEmpty()).orElse("");
+        // The one installed-state source shared with the update check: instance.json / the jar actually in mods/.
+        final Optional<InstalledClient> installed = ctx.session().installedClient();
         final UpdateViewModel updates = ctx.updates();
         final UpdateViewModel.ClientAvailability availability = updates.clientAvailabilityProperty().get();
+        final String latestVersion = updates.latestClientVersionProperty().get();
 
         final Node badge;
         if (installed.isEmpty()) {
             badge = Ui.badge(ctx.t("versions.status.notInstalled"), "warning");
         } else if (availability == UpdateViewModel.ClientAvailability.UPDATE_AVAILABLE) {
-            badge = Ui.badge(ctx.t("client.card.updateAvailable", updates.latestClientVersionProperty().get()), "accent");
+            badge = Ui.badge(ctx.t("client.card.updateAvailable", latestVersion), "accent");
         } else if (availability == UpdateViewModel.ClientAvailability.UP_TO_DATE) {
             badge = Ui.badge(ctx.t("client.card.upToDate"), "success");
         } else {
@@ -398,9 +405,11 @@ public final class HomePage extends VBox {
         }
         card.getChildren().add(Ui.cardHeader(ctx.t("client.card.title"), badge));
 
-        final String installedText = installed.isEmpty() ? ctx.t("client.card.notInstalled")
-            : VantaClientService.DEV_VERSION.equals(installed) ? ctx.t("client.card.dev") : installed;
-        card.getChildren().add(Ui.keyValue(ctx.t("client.card.installed"), Ui.label(installedText, "kv-value")));
+        final String installedText = installed.map(c -> c.isDevelopmentBuild() ? ctx.t("client.card.dev")
+            : c.version().isEmpty() ? ctx.t("common.unknown") : c.version()).orElse(ctx.t("client.card.notInstalled"));
+        final Label installedLabel = Ui.label(installedText, "kv-value");
+        installedLabel.getStyleClass().add("client-installed");
+        card.getChildren().add(Ui.keyValue(ctx.t("client.card.installed"), installedLabel));
 
         final String latest;
         if (updates.checkingProperty().get()) {
@@ -408,9 +417,10 @@ public final class HomePage extends VBox {
         } else {
             latest = switch (availability) {
                 case NOT_CONFIGURED -> ctx.t("client.card.unknownLatest");
-                case UP_TO_DATE, UPDATE_AVAILABLE -> updates.latestClientVersionProperty().get().isEmpty() ? ctx.t("common.unknown")
-                    : updates.latestClientVersionProperty().get();
-                case ANNOUNCED -> ctx.t("client.card.announced", updates.latestClientVersionProperty().get());
+                case UP_TO_DATE, UPDATE_AVAILABLE -> latestVersion.isEmpty() ? ctx.t("common.unknown") : latestVersion;
+                case NOT_INSTALLED -> latestVersion.isEmpty() ? ctx.t("common.unknown")
+                    : updates.latestClientDownloadableProperty().get() ? latestVersion : ctx.t("client.card.announced", latestVersion);
+                case ANNOUNCED -> ctx.t("client.card.announced", latestVersion);
                 case NOT_PUBLISHED -> ctx.t("client.card.notPublished");
                 case FAILED -> ctx.t("common.notAvailable");
                 default -> ctx.t("common.unknown");
@@ -422,18 +432,60 @@ public final class HomePage extends VBox {
         latestLabel.setAlignment(Pos.CENTER_RIGHT);
         card.getChildren().add(Ui.keyValue(ctx.t("client.card.latest"), latestLabel));
 
-        if (availability == UpdateViewModel.ClientAvailability.UPDATE_AVAILABLE) {
-            final Button update = Ui.button(ctx.t("client.card.update"), Icons.Icon.ARROW_UP_CIRCLE, "primary", "small");
-            update.setMaxWidth(Double.MAX_VALUE);
-            update.setOnAction(e -> openUpdateDialog.run());
-            card.getChildren().add(update);
-        } else if (availability == UpdateViewModel.ClientAvailability.NOT_CONFIGURED) {
+        if (availability == UpdateViewModel.ClientAvailability.NOT_CONFIGURED) {
             final Button settings = Ui.button(ctx.t("nav.settings"), Icons.Icon.SLIDERS, "ghost", "small");
             settings.setOnAction(e -> ctx.navigation().navigate(NavigationModel.Page.SETTINGS));
             card.getChildren().add(settings);
+        } else if (installed.isEmpty()) {
+            // Nothing to update: offer the regular install (what PLAY installs) or the official Minecraft Launcher.
+            final boolean canPlayHere = ctx.session().account().isPresent() || ctx.session().signInConfiguredProperty().get();
+            card.getChildren().add(Ui.paragraph(canPlayHere ? ctx.t("client.card.notInstalled.hint.play", LauncherVersion.MINECRAFT)
+                : ctx.t("client.card.notInstalled.hint.official", LauncherVersion.MINECRAFT), "card-caption"));
+            final VBox actions = new VBox(8);
+            if (canPlayHere) {
+                final Button install = Ui.button(ctx.t("client.card.install"), Icons.Icon.DOWNLOAD, "primary", "small");
+                install.getStyleClass().add("client-install");
+                install.setTooltip(Ui.tooltip(ctx.t("client.card.install.tooltip", LauncherVersion.MINECRAFT)));
+                install.setMaxWidth(Double.MAX_VALUE);
+                install.setOnAction(e -> vm.install());
+                install.disableProperty().bind(Bindings.createBooleanBinding(vm::busy, vm.stateProperty()));
+                actions.getChildren().add(install);
+            }
+            final Button official = officialButton(canPlayHere ? "secondary" : "primary", "small");
+            official.getStyleClass().add("client-official");
+            official.setMaxWidth(Double.MAX_VALUE);
+            actions.getChildren().add(official);
+            card.getChildren().add(actions);
+            if (availability == UpdateViewModel.ClientAvailability.FAILED && !updates.checkErrorProperty().get().isEmpty()) {
+                card.getChildren().add(Ui.paragraph(updates.checkErrorProperty().get(), "field-error"));
+            }
+        } else if (availability == UpdateViewModel.ClientAvailability.UPDATE_AVAILABLE) {
+            final Button update = Ui.button(ctx.t("client.card.update"), Icons.Icon.ARROW_UP_CIRCLE, "primary", "small");
+            update.getStyleClass().add("client-update");
+            update.setMaxWidth(Double.MAX_VALUE);
+            update.setOnAction(e -> openUpdateDialog.run());
+            card.getChildren().add(update);
         } else if (availability == UpdateViewModel.ClientAvailability.FAILED && !updates.checkErrorProperty().get().isEmpty()) {
             card.getChildren().add(Ui.paragraph(updates.checkErrorProperty().get(), "field-error"));
         }
+    }
+
+    /**
+     * Small action buttons stacked at the full card width, so each keeps its full label ("How to co…" and "S…" at
+     * 1120×720 in 1.0.0) at every window size; the tooltip says what the button does.
+     *
+     * @param buttons buttons
+     * @return column of buttons
+     */
+    private static VBox stackedActions(final Button... buttons) {
+        final VBox column = new VBox(6);
+        column.getStyleClass().add("stacked-actions");
+        for (Button b : buttons) {
+            b.setMaxWidth(Double.MAX_VALUE);
+            b.setMinWidth(Region.USE_PREF_SIZE);
+            column.getChildren().add(b);
+        }
+        return column;
     }
 
     // ---------------------------------------------------------------- recent logs

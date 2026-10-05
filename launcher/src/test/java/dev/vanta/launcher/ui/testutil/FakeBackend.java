@@ -12,6 +12,7 @@ import dev.vanta.launcher.core.install.InstallPlan;
 import dev.vanta.launcher.core.install.InstallProgress;
 import dev.vanta.launcher.core.install.InstallRequest;
 import dev.vanta.launcher.core.install.InstallStep;
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.NotPublishedException;
 import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
@@ -28,6 +29,9 @@ import dev.vanta.launcher.core.settings.LauncherSettings;
 import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
 import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateInfo;
+import dev.vanta.launcher.core.update.UpdateService;
+import dev.vanta.launcher.core.util.ByteSizes;
+import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.core.util.OsInfo;
 import dev.vanta.launcher.ui.backend.LauncherBackend;
 import dev.vanta.launcher.ui.backend.RunningGame;
@@ -166,10 +170,16 @@ public final class FakeBackend implements LauncherBackend {
     public boolean updatesConfigured = true;
     /** Launcher update. */
     public Optional<UpdateInfo> launcherUpdate = Optional.empty();
-    /** Client update. */
+    /** Client update (its version is the latest client release). */
     public Optional<UpdateInfo> clientUpdate = Optional.empty();
+    /** Latest client release when {@link #clientUpdate} is empty. */
+    public String latestClientVersion = "1.0.0";
+    /** How the fake launcher was installed. */
+    public LauncherPackaging packaging = LauncherPackaging.PLAIN_JAR;
     /** Failure thrown by the client check. */
     public IOException clientCheckFailure;
+    /** Runs inside the client check, after the installed state was read (lets tests change it mid-check). */
+    public Runnable clientCheckHook = () -> { };
     /** Failure thrown by the launcher check. */
     public IOException launcherCheckFailure;
     /** Official Minecraft directory used by the fake "Use with the Minecraft Launcher". */
@@ -473,7 +483,7 @@ public final class FakeBackend implements LauncherBackend {
             instance = installedInstance("1.0.0");
             activeJar = paths.modsDir().resolve(instance.vantaClientJar());
         }
-        listener.onLog("Installation complete: " + bytes / 1024L + " KB downloaded");
+        listener.onLog("Installation complete: " + ByteSizes.format(bytes) + " downloaded");
         return instance;
     }
 
@@ -507,6 +517,9 @@ public final class FakeBackend implements LauncherBackend {
             .orElseThrow(() -> new IOException("VANTA Client " + version + " is not available locally for rollback"));
         if (instance != null) {
             instance = instance.withVantaClient(version, "vanta-client-" + version + ".jar");
+        }
+        if (activeJar != null) {
+            activeJar = paths.modsDir().resolve("vanta-client-" + version + ".jar");
         }
         return k.jar();
     }
@@ -555,6 +568,11 @@ public final class FakeBackend implements LauncherBackend {
         final boolean created = !officialProfileExists;
         officialProfileExists = true;
         final Path clientJar = paths.modsDir().resolve("vanta-client-1.0.0.jar");
+        // Like the core: the jar lands in the instance's mods/, instance.json is only updated when it exists.
+        activeJar = clientJar;
+        if (instance != null) {
+            instance = instance.withVantaClient("1.0.0", clientJar.getFileName().toString());
+        }
         return new OfficialProfileService.Result(plan.minecraftDir(), plan.gameDir(), plan.profileKey(), plan.profileName(), plan.versionId(),
             created, plan.files().stream().map(f -> Path.of(f.location())).toList(), List.of(), "1.0.0", clientJar);
     }
@@ -572,15 +590,48 @@ public final class FakeBackend implements LauncherBackend {
     }
 
     @Override
-    public Optional<UpdateInfo> checkClientUpdate(final Optional<SemVer> installed) throws IOException {
-        calls.add("checkClientUpdate");
+    public Optional<InstalledClient> installedClient() {
+        if (activeJar != null) {
+            final String name = activeJar.getFileName().toString();
+            if (instance != null && instance.hasVantaClient() && instance.vantaClientJar().equals(name)) {
+                return Optional.of(new InstalledClient(instance.vantaClientVersion(), Optional.of(activeJar), InstalledClient.Source.INSTANCE));
+            }
+            return Optional.of(new InstalledClient(VantaClientService.versionFromJarName(name), Optional.of(activeJar),
+                InstalledClient.Source.MODS_JAR));
+        }
+        if (instance != null && instance.hasVantaClient()) {
+            return Optional.of(new InstalledClient(instance.vantaClientVersion(), Optional.empty(), InstalledClient.Source.INSTANCE));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Like the core: the latest release is {@link #clientUpdate} (or {@link #latestClientVersion}); an update exists only
+     * for an installed client that is older.
+     */
+    @Override
+    public UpdateService.ClientCheck checkClient(final Optional<InstalledClient> installed) throws IOException {
+        calls.add("checkClient");
+        clientCheckHook.run();
         if (!updatesConfigured) {
             throw new NotPublishedException("client", "", "No releases URL is configured");
         }
         if (clientCheckFailure != null) {
             throw clientCheckFailure;
         }
-        return clientUpdate;
+        final SemVer latest = clientUpdate.map(UpdateInfo::latestVersion).orElse(SemVer.parse(latestClientVersion));
+        final boolean downloadable = clientUpdate.map(UpdateInfo::isDownloadable).orElse(true);
+        if (installed.isEmpty()) {
+            return new UpdateService.ClientCheck(installed, latest, downloadable, Optional.empty());
+        }
+        final SemVer current = installed.get().comparisonVersion();
+        return new UpdateService.ClientCheck(installed, latest, downloadable,
+            clientUpdate.filter(u -> u.latestVersion().isNewerThan(current)));
+    }
+
+    @Override
+    public LauncherPackaging packaging() {
+        return packaging;
     }
 
     @Override
@@ -606,6 +657,9 @@ public final class FakeBackend implements LauncherBackend {
     @Override
     public Path installClientUpdate(final UpdateInfo update, final DownloadProgressListener listener, final CancellationToken token) throws IOException {
         calls.add("installClientUpdate");
+        if (installedClient().isEmpty()) {
+            throw new IOException("No VANTA Client is installed, so there is nothing to update.");
+        }
         downloadUpdate(update, listener, token);
         final String version = update.latestVersion().toString();
         if (instance != null) {

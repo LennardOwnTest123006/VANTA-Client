@@ -83,6 +83,7 @@ public final class UpdateDialog implements DialogLayer.Dialog {
 
         final String actionText = !launcher ? ctx.t("update.dialog.installClient") : switch (update.assetKind()) {
             case INSTALLER -> ctx.t("update.dialog.downloadInstaller");
+            case PORTABLE -> ctx.t("update.dialog.downloadPortable");
             case ARCHIVE -> ctx.t("update.dialog.downloadArchive");
             case JAR -> ctx.t("update.dialog.downloadJar");
             case NONE -> ctx.t("update.dialog.openReleasePage");

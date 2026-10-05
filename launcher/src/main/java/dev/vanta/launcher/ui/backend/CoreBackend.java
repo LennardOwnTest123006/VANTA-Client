@@ -8,6 +8,7 @@ import dev.vanta.launcher.core.auth.DeviceCode;
 import dev.vanta.launcher.core.auth.OfflineAccountPolicy;
 import dev.vanta.launcher.core.install.InstallException;
 import dev.vanta.launcher.core.install.InstallListener;
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.InstallRequest;
 import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
@@ -26,8 +27,9 @@ import dev.vanta.launcher.core.net.HttpStatusException;
 import dev.vanta.launcher.core.paths.LauncherPaths;
 import dev.vanta.launcher.core.settings.LauncherSettings;
 import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
-import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateInfo;
+import dev.vanta.launcher.core.update.UpdateService;
+import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.core.util.OsInfo;
 import dev.vanta.launcher.core.util.SystemMemory;
 
@@ -261,8 +263,18 @@ public final class CoreBackend implements LauncherBackend {
     }
 
     @Override
-    public Optional<UpdateInfo> checkClientUpdate(final Optional<SemVer> installed) throws IOException, InterruptedException {
+    public Optional<InstalledClient> installedClient() throws IOException {
+        return services.vantaClient().installedClient();
+    }
+
+    @Override
+    public UpdateService.ClientCheck checkClient(final Optional<InstalledClient> installed) throws IOException, InterruptedException {
         return services.updates().checkClient(installed);
+    }
+
+    @Override
+    public LauncherPackaging packaging() {
+        return services.updates().packaging();
     }
 
     @Override

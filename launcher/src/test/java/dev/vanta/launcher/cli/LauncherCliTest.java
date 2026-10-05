@@ -125,7 +125,28 @@ class LauncherCliTest {
         assertEquals(ExitCode.OK, configured.code(), configured.err());
         assertTrue(configured.out().contains("Release manifests: " + world.releasesBase() + " (built-in default)"), configured.out());
         assertTrue(configured.out().contains("Launcher " + LauncherVersion.VERSION + ": update available: 1.1.0"));
-        assertTrue(configured.out().contains("Client (not installed): update available: 1.0.0"));
+        // A fresh data directory has no client: no update is offered, only the latest release and how to install it.
+        assertTrue(configured.out().contains("Client: not installed (install it with --install or --install-official-profile); latest release 1.0.0"),
+            configured.out());
+        assertFalse(configured.out().contains("update available: 1.0.0"), "no client update without an installed client: " + configured.out());
+    }
+
+    @Test
+    void checkUpdateReadsTheInstalledClientFromTheModsFolder() throws IOException {
+        world.server().addJson("releases/launcher-latest.json", dev.vanta.launcher.testutil.Fixtures.read("release/launcher-latest.json"));
+        final Path data = tmp.resolve("mods-only-data");
+        final Path mods = data.resolve("instances/vanta-1.21.11/mods");
+        Files.createDirectories(mods);
+        // "Use with Minecraft Launcher" without a full install: only the jar in mods/, no instance.json.
+        Files.write(mods.resolve("vanta-client-0.9.0.jar"), FakeWorld.synthetic("old client", 100));
+        final Run older = run("--check-update", "--data-dir", data.toString());
+        assertEquals(ExitCode.OK, older.code(), older.err());
+        assertTrue(older.out().contains("Client 0.9.0: update available: 1.0.0 (vanta-client-1.0.0.jar)"), older.out());
+
+        Files.delete(mods.resolve("vanta-client-0.9.0.jar"));
+        Files.write(mods.resolve("vanta-client-1.0.0.jar"), FakeWorld.synthetic("current client", 100));
+        final Run current = run("--check-update", "--data-dir", data.toString());
+        assertTrue(current.out().contains("Client 1.0.0: up to date"), current.out());
     }
 
     @Test
@@ -177,7 +198,7 @@ class LauncherCliTest {
         // Re-install is a no-op download-wise
         final Run again = run("--install", "--no-assets", "--releases-url", world.releasesBase(), "--data-dir", data.toString());
         assertEquals(ExitCode.OK, again.code());
-        assertTrue(again.out().contains("Installation complete: 0 KB downloaded"));
+        assertTrue(again.out().contains("Installation complete: 0 B downloaded"), again.out());
 
         final Run print = run("--print-command", "--dev-offline", "--username", "CIPlayer", "--data-dir", data.toString(), "--memory", "2048", "--resolution", "1280x720");
         assertEquals(ExitCode.OK, print.code(), print.err());

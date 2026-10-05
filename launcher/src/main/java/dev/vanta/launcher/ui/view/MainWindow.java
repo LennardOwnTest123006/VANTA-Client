@@ -145,10 +145,10 @@ public final class MainWindow extends StackPane {
         }
     }
 
-    /** Opens the update dialog for the client update. */
+    /** Opens the update dialog for the client update (only ever for an installed client). */
     public void showClientUpdate() {
         final UpdateInfo client = ctx.updates().clientUpdateProperty().get();
-        if (client != null) {
+        if (client != null && ctx.session().installedClient().isPresent()) {
             showUpdate(client);
         }
     }
@@ -163,8 +163,11 @@ public final class MainWindow extends StackPane {
     }
 
     /**
-     * Asks before handing a verified installer to the operating system. A Linux app image archive or a macOS jar is
-     * not an installer: the launcher shows it in its folder with instructions instead and keeps running.
+     * Asks before handing a verified installer to the operating system. A Linux app image archive, a Windows portable
+     * zip or a jar is not an installer: the launcher shows it in its folder with instructions instead (for the portable
+     * zip: close the launcher, then extract it into the folder that contains the portable folder, see
+     * {@link dev.vanta.launcher.ui.model.UpdateViewModel#portableUpdateInstructions(String)}) and keeps running. Nothing but a Windows installer is
+     * ever opened, and only after confirmation.
      *
      * @param installer verified installer path
      */
@@ -180,7 +183,13 @@ public final class MainWindow extends StackPane {
                 }), () -> { }, dialogs::close));
             return;
         }
-        final String text = lower.endsWith(".jar") ? ctx.t("update.confirm.jar.text", name) : ctx.t("update.confirm.archive.text", name);
+        final String text;
+        if (lower.endsWith("-windows-portable.zip")) {
+            // Portable folder: never unpacked or started by the launcher; the user replaces the folder after closing it.
+            text = ctx.updates().portableUpdateInstructions(name);
+        } else {
+            text = lower.endsWith(".jar") ? ctx.t("update.confirm.jar.text", name) : ctx.t("update.confirm.archive.text", name);
+        }
         dialogs.show(new ConfirmDialog(ctx.t("update.confirm.manual.title"), text, ctx.t("update.confirm.showFolder"),
             ctx.t("update.confirm.cancel"), () -> ctx.opener().openFolder(installer.getParent()), () -> { }, dialogs::close));
     }

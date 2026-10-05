@@ -1,6 +1,7 @@
 package dev.vanta.launcher.ui.model;
 
 import dev.vanta.launcher.core.model.ReleaseManifest;
+import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.ui.LauncherLinks;
 import dev.vanta.launcher.ui.testutil.FakeBackend;
 import dev.vanta.launcher.ui.testutil.TestContext;
@@ -52,6 +53,8 @@ class UpdateViewModelTest {
 
     @Test
     void bannerShowsBothUpdatesAndDismisses() {
+        ctx.backend.instance = FakeBackend.installedInstance("1.0.0");
+        ctx.session.refreshInstance();
         ctx.backend.launcherUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_LAUNCHER, "1.0.0", "1.1.0", true));
         ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true));
         vm.check(false);
@@ -78,7 +81,9 @@ class UpdateViewModelTest {
 
     @Test
     void announcedButNotDownloadableIsHonest() {
-        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "0.0.0", "1.0.0", false));
+        ctx.backend.instance = FakeBackend.installedInstance("0.9.0");
+        ctx.session.refreshInstance();
+        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "0.9.0", "1.0.0", false));
         vm.check(false);
         assertEquals(UpdateViewModel.ClientAvailability.ANNOUNCED, vm.clientAvailabilityProperty().get());
         assertNotNull(vm.clientUpdateProperty().get());
@@ -151,6 +156,95 @@ class UpdateViewModelTest {
     }
 
     @Test
+    void freshLauncherNeverOffersAClientUpdate() {
+        // Nothing installed: no instance.json, no jar in mods/. The release 1.0.1 exists.
+        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.0.1", true));
+        vm.check(false);
+        assertEquals(UpdateViewModel.ClientAvailability.NOT_INSTALLED, vm.clientAvailabilityProperty().get());
+        assertEquals("1.0.1", vm.latestClientVersionProperty().get(), "the latest release is still shown");
+        assertTrue(vm.latestClientDownloadableProperty().get());
+        assertNull(vm.clientUpdateProperty().get(), "no update without an installed client");
+        assertFalse(vm.bannerVisibleProperty().get(), "no banner for a client that is not installed");
+        assertEquals("", vm.bannerTextProperty().get());
+        assertTrue(ctx.session.installedClient().isEmpty(), "the check published the installed state it used");
+
+        vm.installClientUpdate(() -> { });
+        assertFalse(ctx.backend.calls.contains("installClientUpdate"), "nothing is downloaded into mods/ of a missing instance");
+
+        // Interactive: honest about the client instead of claiming "the installed client matches".
+        vm.check(true);
+        assertEquals(1, ctx.toasts.toasts().size(), String.valueOf(ctx.toasts.toasts()));
+        assertEquals(ctx.messages.format("update.upToDate.notInstalled.message", dev.vanta.launcher.LauncherVersion.VERSION, "1.0.1"),
+            ctx.toasts.toasts().get(0).message());
+    }
+
+    @Test
+    void announcedReleaseWithoutClientIsNotOfferedEither() {
+        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.0.1", false));
+        vm.check(false);
+        assertEquals(UpdateViewModel.ClientAvailability.NOT_INSTALLED, vm.clientAvailabilityProperty().get());
+        assertFalse(vm.latestClientDownloadableProperty().get(), "the card says 'announced' instead of offering it");
+        assertNull(vm.clientUpdateProperty().get());
+    }
+
+    @Test
+    void launcherUpdateStillShowsWhenNoClientIsInstalled() {
+        ctx.backend.launcherUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_LAUNCHER, "1.0.0", "1.0.1", true));
+        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.0.1", true));
+        vm.check(false);
+        assertTrue(vm.bannerVisibleProperty().get());
+        assertEquals(ctx.messages.format("update.banner.launcher", "1.0.1"), vm.bannerTextProperty().get(),
+            "only the launcher is announced, never 'VANTA Client 1.0.1 is available' for a client that is not installed");
+        assertNull(vm.clientUpdateProperty().get());
+    }
+
+    @Test
+    void clientJarInModsWithoutInstanceJsonCountsAsInstalled() {
+        // "Use with Minecraft Launcher" on a fresh launcher: the jar is in mods/, no instance.json.
+        ctx.backend.activeJar = ctx.backend.paths().modsDir().resolve("vanta-client-1.0.0.jar");
+        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.0.1", true));
+        vm.check(false);
+        assertEquals("1.0.0", ctx.session.installedClient().orElseThrow().version());
+        assertEquals(UpdateViewModel.ClientAvailability.UPDATE_AVAILABLE, vm.clientAvailabilityProperty().get());
+        assertTrue(vm.bannerVisibleProperty().get());
+        vm.installClientUpdate(() -> { });
+        assertTrue(ctx.backend.calls.contains("installClientUpdate"));
+        assertEquals("1.0.1", ctx.session.installedClient().orElseThrow().version(), "the card reads the jar that is now in mods/");
+        assertEquals(UpdateViewModel.ClientAvailability.UP_TO_DATE, vm.clientAvailabilityProperty().get());
+        assertNull(vm.clientUpdateProperty().get(), "after the update nothing is offered again");
+    }
+
+    @Test
+    void installingTheClientRechecksSoTheCardIsNeverStale() {
+        ctx.backend.latestClientVersion = "1.0.0";
+        vm.check(false);
+        assertEquals(UpdateViewModel.ClientAvailability.NOT_INSTALLED, vm.clientAvailabilityProperty().get());
+        // PLAY installed the instance with the client.
+        ctx.backend.instance = FakeBackend.installedInstance("1.0.0");
+        ctx.session.setInstance(ctx.backend.instance);
+        assertEquals("1.0.0", ctx.session.installedClient().orElseThrow().version());
+        assertEquals(UpdateViewModel.ClientAvailability.UP_TO_DATE, vm.clientAvailabilityProperty().get());
+        assertEquals(2, ctx.backend.calls.stream().filter("checkClient"::equals).count());
+    }
+
+    @Test
+    void installedStateChangingDuringACheckIsNeverOverwritten() {
+        final boolean[] first = {true};
+        ctx.backend.clientCheckHook = () -> {
+            if (first[0]) {
+                first[0] = false;
+                // PLAY finishes its install while the check (which read "not installed") is still running.
+                ctx.backend.instance = FakeBackend.installedInstance("1.0.0");
+                ctx.session.setInstance(ctx.backend.instance);
+            }
+        };
+        vm.check(false);
+        assertEquals("1.0.0", ctx.session.installedClient().orElseThrow().version(), "the check's older 'not installed' never wins");
+        assertEquals(UpdateViewModel.ClientAvailability.UP_TO_DATE, vm.clientAvailabilityProperty().get());
+        assertEquals(2, ctx.backend.calls.stream().filter("checkClient"::equals).count(), "compared again with the new state");
+    }
+
+    @Test
     void checkFailureIsReported() {
         ctx.backend.launcherCheckFailure = new java.net.UnknownHostException("releases.example");
         vm.check(true);
@@ -184,7 +278,7 @@ class UpdateViewModelTest {
         vm.downloadLauncherUpdate(installer::set);
         assertNotNull(installer.get());
         assertTrue(installer.get().getFileName().toString().endsWith("VANTA-Launcher-1.1.0.msi"));
-        assertEquals(java.util.List.of("checkLauncherUpdate", "checkClientUpdate", "downloadUpdate", "prepareInstaller"), ctx.backend.calls);
+        assertEquals(java.util.List.of("checkLauncherUpdate", "checkClient", "downloadUpdate", "prepareInstaller"), ctx.backend.calls);
     }
 
     @Test
@@ -196,7 +290,7 @@ class UpdateViewModelTest {
         assertEquals("# Notes\n- fixed", text.get());
         assertEquals(Optional.of(URI.create("https://github.com/example/vanta/blob/main/website/content/changelog/client-1.1.0.md")),
             vm.changelogPage(update));
-        assertEquals("vanta-client-1.1.0.jar · 4 MB", vm.describeFile(update));
+        assertEquals("vanta-client-1.1.0.jar · 4.2 MB", vm.describeFile(update), "4,194,304 bytes in decimal units");
 
         ctx.backend.documents.clear();
         vm.loadChangelog(update, text::set, error -> text.set("ERR"));
@@ -218,5 +312,40 @@ class UpdateViewModelTest {
         assertEquals(Optional.of(URI.create("https://github.com/example/vanta/releases")), withReleases.releasePage(base),
             "without a release page in the manifest the project's releases page is used");
         assertTrue(vm.releasePage(base).isEmpty(), "nothing configured, nothing shown");
+    }
+
+    @Test
+    void portableZipIsExtractedIntoTheFolderThatContainsThePortableFolder() {
+        // The zip's top level is "VANTA Launcher/": extracting it into the portable folder itself would nest a second
+        // "VANTA Launcher" folder inside it and leave the old launcher in place.
+        final String zip = "VANTA-Launcher-1.1.0-windows-portable.zip";
+        final Path portable = Path.of("D:/Games/VANTA Launcher");
+        ctx.backend.packaging = LauncherPackaging.portable(portable);
+        final String text = vm.portableUpdateInstructions(zip);
+        assertEquals(ctx.messages.format("update.confirm.portable.text", zip, portable.toString(), portable.getParent().toString()), text);
+        assertTrue(text.contains("extract the zip into " + portable.getParent() + ", the folder that contains your portable folder"), text);
+        assertTrue(text.contains("the \"VANTA Launcher\" folder in the zip replaces " + portable + "."), text);
+        assertTrue(text.contains("Do not extract it into " + portable + " itself"), text);
+        assertTrue(text.startsWith(zip + " was downloaded and its SHA-256 matches"), text);
+
+        // Windows paths are case-insensitive: a "vanta launcher" folder is still replaced by the zip's folder.
+        ctx.backend.packaging = LauncherPackaging.portable(Path.of("E:/vanta launcher"));
+        assertTrue(vm.portableUpdateInstructions(zip).contains("extract the zip into E:"), vm.portableUpdateInstructions(zip));
+    }
+
+    @Test
+    void renamedOrUnknownPortableFolderGetsItsFilesCopiedIn() {
+        final String zip = "VANTA-Launcher-1.1.0-windows-portable.zip";
+        final Path renamed = Path.of("D:/Games/VANTA");
+        ctx.backend.packaging = LauncherPackaging.portable(renamed);
+        final String text = vm.portableUpdateInstructions(zip);
+        assertEquals(ctx.messages.format("update.confirm.portable.copy.text", zip, renamed.toString()), text);
+        assertTrue(text.contains("copy everything inside its \"VANTA Launcher\" folder into your portable folder " + renamed), text);
+        assertFalse(text.contains("{"), "every placeholder is filled: " + text);
+
+        ctx.backend.packaging = new LauncherPackaging(LauncherPackaging.Kind.PORTABLE, Optional.empty());
+        final String unknown = vm.portableUpdateInstructions(zip);
+        assertEquals(ctx.messages.format("update.confirm.portable.copy.text", zip, ctx.messages.get("update.confirm.portable.folderUnknown")), unknown);
+        assertTrue(unknown.contains("into your portable folder (the folder that contains \"VANTA Launcher.exe\")"), unknown);
     }
 }

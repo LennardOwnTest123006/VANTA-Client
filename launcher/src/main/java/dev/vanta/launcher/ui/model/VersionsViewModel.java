@@ -1,6 +1,7 @@
 package dev.vanta.launcher.ui.model;
 
 import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.model.InstanceInfo;
@@ -95,6 +96,7 @@ public final class VersionsViewModel {
         this.errors = new ErrorMessages(messages, formats);
         this.toasts = Objects.requireNonNull(toasts, "toasts");
         session.instanceProperty().addListener((obs, old, now) -> refresh());
+        session.installedClientProperty().addListener((obs, old, now) -> refresh());
         session.javaProperty().addListener((obs, old, now) -> rebuildRows());
         rebuildRows();
     }
@@ -147,7 +149,7 @@ public final class VersionsViewModel {
             computingSha.set(false);
             jarName.set(loaded.jarName());
             sha256.set(loaded.sha256());
-            final String active = session.instance().map(InstanceInfo::vantaClientVersion).orElse("");
+            final String active = session.installedClient().map(InstalledClient::version).orElse("");
             final List<Kept> list = new ArrayList<>();
             for (VantaClientService.KeptVersion k : loaded.kept()) {
                 list.add(new Kept(k.version(), k.installedAt(), k.isAvailable(), k.version().equals(active),
@@ -195,11 +197,13 @@ public final class VersionsViewModel {
             instance.isPresent(), instance.map(InstanceInfo::fabricProfileId).orElse("")));
         list.add(component("versions.component.fabricApi", instance.map(InstanceInfo::fabricApiVersion).orElse(LauncherVersion.FABRIC_API),
             instance.isPresent(), ""));
-        final boolean clientInstalled = instance.map(InstanceInfo::hasVantaClient).orElse(false);
-        final String clientVersion = instance.map(InstanceInfo::vantaClientVersion).filter(v -> !v.isEmpty()).orElse("—");
+        // The same installed-client source as the Home card and the update check (instance.json / the jar in mods/).
+        final Optional<InstalledClient> client = session.installedClient();
+        final String clientVersion = client.map(InstalledClient::version).filter(v -> !v.isEmpty()).orElse("—");
         list.add(new Row(messages.get("versions.component.client"), VantaClientService.DEV_VERSION.equals(clientVersion)
-            ? messages.get("client.card.dev") : clientVersion, clientInstalled ? RowStatus.INSTALLED : RowStatus.NOT_INSTALLED,
-            instance.map(InstanceInfo::vantaClientJar).orElse("")));
+            ? messages.get("client.card.dev") : clientVersion, client.isPresent() ? RowStatus.INSTALLED : RowStatus.NOT_INSTALLED,
+            client.flatMap(InstalledClient::jar).map(p -> p.getFileName().toString())
+                .orElse(instance.map(InstanceInfo::vantaClientJar).orElse(""))));
         list.add(new Row(messages.get("versions.component.java"), java.map(JavaInstall::version).orElse(Integer.toString(LauncherVersion.JAVA_MAJOR)),
             java.isPresent() ? RowStatus.DETECTED : RowStatus.MISSING,
             java.map(j -> messages.format("versions.detail.javaPath", j.home().toString()))

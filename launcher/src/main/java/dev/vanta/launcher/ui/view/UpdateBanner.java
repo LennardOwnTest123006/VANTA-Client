@@ -1,7 +1,7 @@
 package dev.vanta.launcher.ui.view;
 
 import dev.vanta.launcher.LauncherVersion;
-import dev.vanta.launcher.core.model.InstanceInfo;
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.update.UpdateInfo;
 import javafx.beans.binding.Bindings;
 import javafx.geometry.Pos;
@@ -10,6 +10,8 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+
+import java.util.Optional;
 
 /**
  * Slim bar above the pages announcing a newer launcher or client. "What's new" opens the {@link UpdateDialog}.
@@ -36,15 +38,18 @@ public final class UpdateBanner extends HBox {
                 if (sb.length() > 0) {
                     sb.append(" · ");
                 }
-                final String installed = ctx.session().instance().map(InstanceInfo::vantaClientVersion).filter(v -> !v.isEmpty())
-                    .map(v -> "VANTA Client " + v).orElse(ctx.t("client.card.notInstalled"));
-                sb.append(ctx.t("update.banner.current", installed));
+                // The same installed state the client card and the update check use. A client update is never offered
+                // without an installed client; should one slip through, the text still reads as a sentence.
+                final Optional<InstalledClient> installed = ctx.session().installedClient();
+                sb.append(installed.isEmpty() ? ctx.t("update.banner.clientNotInstalled")
+                    : ctx.t("update.banner.current", installed.get().isDevelopmentBuild() ? ctx.t("client.card.dev")
+                        : "VANTA Client " + installed.get().version()));
                 if (!c.isDownloadable()) {
                     sb.append(" · ").append(ctx.t("update.banner.notDownloadable"));
                 }
             }
             return sb.toString();
-        }, ctx.updates().launcherUpdateProperty(), ctx.updates().clientUpdateProperty(), ctx.session().instanceProperty()));
+        }, ctx.updates().launcherUpdateProperty(), ctx.updates().clientUpdateProperty(), ctx.session().installedClientProperty()));
         final VBox text = new VBox(2, title, sub);
         HBox.setHgrow(text, Priority.ALWAYS);
         final Button whatsNew = Ui.button(ctx.t("update.banner.whatsNew"), "secondary", "small");

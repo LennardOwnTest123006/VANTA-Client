@@ -31,6 +31,7 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -267,6 +268,77 @@ class LauncherAppSmokeTest {
                 return null;
             });
             waitUntil(() -> app.context().session().account().isPresent());
+        }
+        assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+    }
+
+    @Test
+    void websiteLinksAreActive() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        fx(() -> {
+            final String website = app.context().t("nav.website");
+            final Button sidebarLink = app.window().sidebar().lookupAll(".nav-item").stream()
+                .filter(n -> n instanceof Button b && website.equals(b.getAccessibleText())).map(n -> (Button) n).findFirst().orElseThrow();
+            assertFalse(sidebarLink.isDisabled(), "sidebar 'Website' opens https://vanta-client.netlify.app");
+            app.context().navigation().navigate(NavigationModel.Page.ABOUT);
+            return null;
+        });
+        waitUntil(() -> app.window().page(NavigationModel.Page.ABOUT).lookupAll(".button").stream()
+            .anyMatch(n -> n instanceof Button b && app.context().t("about.links.website").equals(b.getText())));
+        fx(() -> {
+            final Button about = app.window().page(NavigationModel.Page.ABOUT).lookupAll(".button").stream()
+                .filter(n -> n instanceof Button b && app.context().t("about.links.website").equals(b.getText())).map(n -> (Button) n)
+                .findFirst().orElseThrow();
+            assertFalse(about.isDisabled(), "About 'Website' is active (no 'Not configured' suffix)");
+            app.context().navigation().navigate(NavigationModel.Page.HOME);
+            return null;
+        });
+    }
+
+    @Test
+    void freshLauncherClientCardOffersTheInstallNotAnUpdate() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        final var instance = backend.instance;
+        try {
+            backend.instance = null;
+            backend.activeJar = null;
+            fx(() -> {
+                app.context().navigation().navigate(NavigationModel.Page.HOME);
+                app.context().session().refreshAll();
+                return null;
+            });
+            waitUntil(() -> app.context().session().installedClient().isEmpty() && !app.context().updates().checkingProperty().get());
+            fx(() -> {
+                app.context().updates().check(false);
+                return null;
+            });
+            waitUntil(() -> app.context().updates().clientAvailabilityProperty().get()
+                == dev.vanta.launcher.ui.model.UpdateViewModel.ClientAvailability.NOT_INSTALLED);
+            fx(() -> {
+                final Node card = app.window().lookup(".client-card");
+                assertNotNull(card);
+                assertNull(card.lookup(".client-update"), "no 'Update' for a client that is not installed");
+                assertNotNull(card.lookup(".client-install"), "the regular install is offered");
+                assertNotNull(card.lookup(".client-official"), "and 'Use with Minecraft Launcher'");
+                assertEquals(app.context().t("client.card.notInstalled"), ((Label) card.lookup(".client-installed")).getText());
+                assertNull(app.context().updates().clientUpdateProperty().get());
+                assertFalse(app.context().updates().bannerVisibleProperty().get(), "no client update banner");
+                app.window().showClientUpdate();
+                assertFalse(app.window().dialogs().isOpen(), "no update dialog either");
+                return null;
+            });
+        } finally {
+            backend.instance = instance;
+            fx(() -> {
+                app.context().session().refreshAll();
+                return null;
+            });
+            waitUntil(() -> app.context().session().installedClient().isPresent() && !app.context().updates().checkingProperty().get());
+            fx(() -> {
+                app.context().updates().check(false);
+                return null;
+            });
+            waitUntil(() -> app.context().updates().clientUpdateProperty().get() != null);
         }
         assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
     }

@@ -49,7 +49,7 @@ class ErrorMessagesTest {
 
     @Test
     void installAndNetworkErrors() {
-        assertEquals("Not enough free disk space: 2.5 GB needed, 900 MB available.",
+        assertEquals("Not enough free disk space: 2.7 GB needed, 943.7 MB available.",
             errors.describe(new InsufficientDiskSpaceException(2_684_354_560L, 943_718_400L)));
         assertEquals(m.get("error.integrity"), errors.describe(new IntegrityException(null, "mismatch")));
         assertEquals(m.get("error.unsafeArchive"), errors.describe(new UnsafeArchiveException("../evil")));
@@ -72,10 +72,17 @@ class ErrorMessagesTest {
 
     @Test
     void formats() {
-        assertEquals("1.4 GB", f.bytes(1_503_238_553L));
-        assertEquals("231 MB", f.bytes(242_221_056L));
-        assertEquals("12 KB", f.bytes(12_288));
+        // Decimal units, one decimal place, like the website and the release notes (1 MB = 1,000,000 bytes).
+        assertEquals("1.4 MB", f.bytes(1_400_000L));
+        assertEquals("66.9 MB", f.bytes(66_912_345L));
+        assertEquals("1.5 GB", f.bytes(1_503_238_553L));
+        assertEquals("242.2 MB", f.bytes(242_221_056L));
+        assertEquals("4.2 MB", f.bytes(4_194_304L));
+        assertEquals("12.3 kB", f.bytes(12_288));
+        assertEquals("1.0 kB", f.bytes(1_000));
+        assertEquals("999 B", f.bytes(999));
         assertEquals("512 B", f.bytes(512));
+        assertEquals("0 B", f.bytes(0));
         assertEquals(m.get("common.unknown"), f.bytes(-1));
         assertEquals("16 GB", f.memory(16384));
         assertEquals("6 GB", f.memory(6144));

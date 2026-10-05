@@ -312,6 +312,15 @@ public final class HomeViewModel {
         }, this::fail);
     }
 
+    /**
+     * The regular install offered by the client card while no VANTA client is installed: exactly what PLAY installs
+     * (Minecraft, Fabric Loader, Fabric API, VANTA Client, {@code instance.json}), without launching. Needs neither an
+     * account nor Java.
+     */
+    public void install() {
+        verify();
+    }
+
     /** Verify files: install/verify without launching. */
     public void verify() {
         if (isBusy()) {
@@ -373,6 +382,8 @@ public final class HomeViewModel {
             officialBusy.set(false);
             endProgress();
             settle();
+            // The client jar is now in the instance's mods/: the client card and the update check must see it.
+            session.refreshInstance();
             final String done = messages.format("official.toast.done.message", result.profileName());
             officialDoneText.set(done);
             launcherLog.append(LogLevel.INFO, (result.created() ? "Added" : "Updated") + " the Minecraft Launcher profile '"

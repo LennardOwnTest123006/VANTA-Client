@@ -135,7 +135,7 @@ class InstallerTest {
         final List<String> newRequests = world.server().requests().subList(hitsBefore, world.server().totalHits());
         assertTrue(newRequests.stream().noneMatch(r -> r.contains("/mojang/libraries/") || r.contains("/assets/") || r.contains("/mojang/objects/")),
             "no library, asset or jar re-download: " + newRequests);
-        assertTrue(secondLogs.stream().anyMatch(l -> l.startsWith("Installation complete: 0 KB")));
+        assertTrue(secondLogs.stream().anyMatch(l -> l.equals("Installation complete: 0 B downloaded")), String.valueOf(secondLogs));
         assertTrue(wired.installer().findInstalled(InstallRequest.standard()).isPresent());
     }
 

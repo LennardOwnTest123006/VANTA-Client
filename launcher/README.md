@@ -28,15 +28,16 @@ There are no passwords: Microsoft sign-in happens in your browser.
 - Internet access to Maven Central for the build; Mojang/Fabric/Microsoft endpoints at run time
 - Windows 10/11 is the primary platform for installers; the launcher itself runs on Windows, macOS and Linux
 - A fat jar (`-all.jar`) contains the JavaFX native libraries of **one** platform only: a jar built on Windows does not
-  start its user interface on Linux or macOS, and vice versa. Releases therefore ship one fat jar per platform.
+  start its user interface on Linux or macOS, and vice versa. Releases therefore ship one fat jar per platform. Started
+  on the wrong system, a jar says which file to download instead (see [Wrong-platform jar](#wrong-platform-jar)).
 
 ## Build
 
 ```bash
 cd launcher
-./gradlew build            # compile, unit tests, build/libs/vanta-launcher-1.0.0.jar + -all.jar
-./gradlew fatJar           # build/libs/vanta-launcher-1.0.0-all.jar: every dependency incl. JavaFX for -PjavafxPlatform
-./gradlew run              # start the launcher with the host JDK (UI when present, otherwise CLI help)
+./gradlew build            # compile, unit tests, build/libs/vanta-launcher-<version>.jar + -all.jar
+./gradlew fatJar           # build/libs/vanta-launcher-<version>-all.jar: every dependency incl. JavaFX for -PjavafxPlatform
+./gradlew run              # start the launcher UI with the host JDK (exits with 1 and a message when no UI can start; CLI: --args='--help')
 ./gradlew jdeps            # print the JDK modules the fat jar needs (maintenance aid)
 ./gradlew jlinkImage       # build/runtime — trimmed Java 21 + JavaFX runtime for the target platform
 ./gradlew jpackage         # build/jpackage — app image (default) or installer, see below
@@ -52,12 +53,29 @@ Gradle properties:
 Only the JDK's own `jlink` and `jpackage` are used — no third-party packaging plugins. `jpackage` cannot cross-build,
 so each platform package is produced on that platform.
 
-`fatJar` runs with any Java 21 (`java -jar vanta-launcher-1.0.0-all.jar`); JavaFX then loads from the class path and
-prints the harmless warning "Unsupported JavaFX configuration: classes were loaded from 'unnamed module'". jpackage
-bundles the same jar; inside the app image the JavaFX modules of the jlink runtime take precedence. `--version`
-prints the JavaFX platform a jar was built for. The release workflow publishes renamed copies:
-`vanta-launcher-<v>-windows-all.jar`, `vanta-launcher-<v>-linux-all.jar` and `vanta-launcher-<v>-macos-aarch64-all.jar`
-(built and command-line tested on a macOS runner; its user interface is untested there and the jar is unsigned).
+`fatJar` runs with any Java 21 (`java -jar build/libs/vanta-launcher-<version>-all.jar`); JavaFX then loads from the
+class path and prints the harmless warning "Unsupported JavaFX configuration: classes were loaded from 'unnamed
+module'". jpackage bundles the same jar; inside the app image the JavaFX modules of the jlink runtime take precedence.
+`--version` prints the JavaFX platform a jar was built for (`javafx.platform` in `build-info.properties`, written by
+`generateBuildInfo`). The release workflow publishes renamed copies: `vanta-launcher-<v>-windows-all.jar`,
+`vanta-launcher-<v>-linux-all.jar` and `vanta-launcher-<v>-macos-aarch64-all.jar` (built and command-line tested on a
+macOS runner; its user interface is untested there and the jar is unsigned).
+
+### Wrong-platform jar
+
+Before JavaFX is loaded, `dev.vanta.launcher.Main` compares the jar's `javafx.platform` with the operating system and
+architecture of the running Java runtime (`os.name`/`os.arch`, which describe the Java runtime, not necessarily the
+computer). On a mismatch (for example the Windows jar on Linux) it prints which file to download instead, e.g.
+"This jar is for Windows x64, but it was started by a Java runtime for Linux x64. ... Download
+vanta-launcher-<v>-linux-all.jar for Linux x64, or the app image VANTA-Launcher-<v>-linux-x64.tar.gz", shows the same
+text in a Swing dialog when a display is available (a double-clicked jar has no console) and exits with code 1. An x64
+Java on a Mac (an Intel Mac, or an Apple Silicon Mac running that Java under Rosetta 2) is told to use an arm64
+(aarch64) Java 21 with `vanta-launcher-<v>-macos-aarch64-all.jar` on Apple Silicon, and that Intel Macs have no
+download yet. A 32-bit Java on Windows or Linux is told to use a 64-bit Java 21 with the platform jar, or the `.msi`,
+the portable app or the Linux app image, which bring their own Java runtime. Systems without a release file (Linux or
+Windows on ARM) are told so. Any other failed UI start (JavaFX missing, no display) also exits with 1. Command line
+flags (`--help`, `--version`, `--install`, `--check-update`, ...) need no JavaFX and work with every jar on every
+system.
 
 ### Windows installers
 
@@ -69,7 +87,7 @@ cd launcher
 .\gradlew.bat jpackage -PjpackageType=exe
 ```
 
-Output: `build\jpackage\VANTA Launcher-1.0.0.msi` / `.exe`. The installer is per-user, adds a Start menu entry and a
+Output: `build\jpackage\VANTA Launcher-<version>.msi` / `.exe`. The installer is per-user, adds a Start menu entry and a
 desktop shortcut, lets the user choose the directory and uses a fixed upgrade UUID so newer versions replace older
 ones. The icon comes from `packaging/icon.ico`.
 
@@ -114,11 +132,31 @@ release yet" (exit code 7) and is reported as such.
 From a client manifest the launcher installs exactly `vanta-client-<version>.jar`; the `-mods.zip` bundle and the
 Fabric API jar listed in the same release are never mistaken for it (Fabric API always comes from the Fabric Maven).
 
-Launcher self-update assets per platform: Windows `VANTA-Launcher-<v>.msi` (then `.exe`), Linux x64
-`VANTA-Launcher-<v>-linux-x64.tar.gz` (extract it and start `VANTA Launcher/bin/VANTA Launcher`), Apple Silicon macOS
-`vanta-launcher-<v>-macos-aarch64-all.jar` (start it with Java 21). Every other platform (for example an Intel Mac)
-gets no download; the update dialog opens the GitHub release page instead. Only the Windows installer is handed to the
-operating system after confirmation; the archive and the jar are shown in their folder.
+### Launcher self-update
+
+The launcher updates itself with the release file that replaces exactly the kind of installation that is running
+(`LauncherPackaging`, `ReleaseManifest.launcherAssetNames`):
+
+| Running launcher | How it is detected | Update file |
+| --- | --- | --- |
+| Windows x64, installed with the `.msi` or `.exe` | started by the jpackage launcher (`jpackage.app-path` set, `-Dvanta.launcher.packaged=true`), no portable marker | `VANTA-Launcher-<v>.msi` (then `.exe`) |
+| Windows x64, portable folder | `<directory of jpackage.app-path>/app/vanta-portable.marker` exists | `VANTA-Launcher-<v>-windows-portable.zip` |
+| Windows x64, `java -jar` | no jpackage launcher | `vanta-launcher-<v>-windows-all.jar` |
+| Linux x64 app image | started by the jpackage launcher | `VANTA-Launcher-<v>-linux-x64.tar.gz` |
+| Linux x64, `java -jar` | no jpackage launcher | `vanta-launcher-<v>-linux-all.jar` |
+| macOS on Apple Silicon | — | `vanta-launcher-<v>-macos-aarch64-all.jar` |
+| anything else (Intel Mac, Windows or Linux on ARM, 32-bit Java) | — | none: the update dialog opens the GitHub release page |
+
+The release workflow writes `vanta-portable.marker` (text `portable`) into `VANTA Launcher/app/` of the Windows portable
+zip only; the `.msi` and `.exe` are built from a fresh app image without it. Every file is downloaded to
+`cache/updates/` and its SHA-256 verified. Only the Windows installer is handed to the operating system, after
+confirmation. Everything else is never unpacked or run by the launcher; it is shown in its folder with instructions:
+the `.tar.gz` is extracted and `VANTA Launcher/bin/VANTA Launcher` started, a jar is started with Java 21, and the
+portable zip is extracted after closing the launcher. The portable zip's top level is a `VANTA Launcher` folder, so the
+instructions name the folder that *contains* the portable folder (for `D:\Games\VANTA Launcher`: extract into
+`D:\Games` and replace the existing files); extracting it into the portable folder itself would only nest a second
+`VANTA Launcher` folder inside it. For a portable folder with another name the instructions say to copy the contents of
+the zip's `VANTA Launcher` folder into it (`UpdateViewModel.portableUpdateInstructions`).
 
 ### settings.json
 
@@ -179,6 +217,24 @@ never been started there: the command stops with "Start the Minecraft Launcher o
 and changes nothing. Afterwards: open the Minecraft Launcher, choose the profile 'VANTA 1.21.11' and press Play (restart it first
 if it was open).
 
+## Installed client and update checks
+
+Whether a VANTA client is installed is read from one place, `VantaClientService.installedClient()`: the
+`vanta-client-<version>.jar` that is actually in `instances/vanta-1.21.11/mods/` (its version from `instance.json` when
+that records the same file, else from the file name), or, when the jar is missing, the client `instance.json` records.
+The Home card, the update banner, the update dialog, the Versions page and `--check-update` all use it.
+
+Without an installed client (a fresh launcher, or an instance installed `--without-client`) no client update is offered
+anywhere: the card shows "Not installed" with "Install now" (the regular install PLAY does, without starting the game)
+or "Use with Minecraft Launcher", and `--check-update` prints
+
+```
+Client: not installed (install it with --install or --install-official-profile); latest release 1.0.1
+```
+
+A client installed by "Use with Minecraft Launcher" (jar in `mods/`, no `instance.json`) counts as installed and is
+updated like any other; `UpdateService.installClientUpdate` refuses to put an "update" into an empty instance.
+
 ## Directory layout
 
 Data directory: Windows `%APPDATA%\VANTA Launcher`, macOS `~/Library/Application Support/VANTA Launcher`, Linux
@@ -202,10 +258,11 @@ Data directory: Windows `%APPDATA%\VANTA Launcher`, macOS `~/Library/Application
 
 ## Command line
 
-The fat jar and the packaged launcher accept the same flags; without flags the JavaFX UI starts.
+The fat jar and the packaged launcher accept the same flags; without flags the JavaFX UI starts. The release jars are
+named after the system whose JavaFX they contain; the command line itself runs with any of them on any system:
 
 ```
-java -jar vanta-launcher-1.0.0-all.jar <command> [options]
+java -jar vanta-launcher-<version>-<system>-all.jar <command> [options]      system = windows | linux | macos-aarch64
 
 Commands
   --install          install Minecraft, Fabric Loader, Fabric API and VANTA Client
@@ -245,12 +302,13 @@ connections, DNS, TLS, timeouts, HTTP errors and HTTPS proxy tunnels that answer
 names the step and the URL) · `6` no Java 21 found · `7` release not published · `8` cancelled · `9` authentication
 failed / no account · `10` game exited with an error · `11` insufficient disk space.
 
-CI uses the CLI to integration-test the real pipeline:
+CI uses the CLI of a local build (`build/libs/vanta-launcher-<version>-all.jar`, JavaFX of the build host) to
+integration-test the real pipeline:
 
 ```bash
-java -jar build/libs/vanta-launcher-1.0.0-all.jar --install --client-jar ../client/build/libs/vanta-client-1.0.0.jar --data-dir /tmp/vanta
-VANTA_DEV_OFFLINE=1 java -jar build/libs/vanta-launcher-1.0.0-all.jar --launch --dev-offline --username CI --exit-after 90 --data-dir /tmp/vanta
-java -jar build/libs/vanta-launcher-1.0.0-all.jar --install-official-profile --client-jar ../client/build/libs/vanta-client-1.0.0.jar \
+java -jar build/libs/vanta-launcher-<version>-all.jar --install --client-jar ../client/build/libs/vanta-client-<version>.jar --data-dir /tmp/vanta
+VANTA_DEV_OFFLINE=1 java -jar build/libs/vanta-launcher-<version>-all.jar --launch --dev-offline --username CI --exit-after 90 --data-dir /tmp/vanta
+java -jar build/libs/vanta-launcher-<version>-all.jar --install-official-profile --client-jar ../client/build/libs/vanta-client-<version>.jar \
   --minecraft-dir /tmp/dotminecraft --data-dir /tmp/vanta   # CI checks the result with jq
 ```
 
@@ -260,7 +318,8 @@ published jar through the built-in releases URL.
 ## Code map
 
 ```
-dev.vanta.launcher.Main                 bootstrap: starts the JavaFX UI reflectively or the CLI
+dev.vanta.launcher.Main                 bootstrap: CLI for any flag, else wrong-platform check (PlatformCheck), then the
+                                        JavaFX UI reflectively; a failed UI start exits with 1
 dev.vanta.launcher.LauncherVersion      pinned versions (generated from gradle.properties)
 dev.vanta.launcher.cli                  LauncherCli, CliArgs, CliCommand, ExitCode
 dev.vanta.launcher.core.LauncherServices  composition root used by UI and CLI
@@ -277,7 +336,8 @@ dev.vanta.launcher.core.install         MojangService, FabricService, FabricApiS
 dev.vanta.launcher.core.java            JavaDetector, ProcessJavaProbe, AdoptiumService, ArchiveExtractor
 dev.vanta.launcher.core.auth            MicrosoftAuthService, AccountStore (DPAPI / AES-GCM), OfflineAccountPolicy
 dev.vanta.launcher.core.settings        LauncherSettings, SettingsStore, ReleasesBaseUrl (URL in effect + source)
-dev.vanta.launcher.core.update          UpdateService, UpdateInfo, SemVer
+dev.vanta.launcher.core.update          UpdateService (+ClientCheck), UpdateInfo, SemVer
+dev.vanta.launcher.core.util            OsInfo, LauncherPackaging (jar / installed / portable), ByteSizes (decimal sizes), ...
 dev.vanta.launcher.core.log             LauncherLog (java.util.logging, rotating), Redactor
 dev.vanta.launcher.ui                   JavaFX user interface (loaded reflectively by Main), see below
 ```
@@ -299,6 +359,11 @@ dev.vanta.launcher.ui.prefs     ui-preferences.json (reduced motion, window size
 resources .../ui/               theme/vanta.css (design tokens), i18n/launcher_en.properties (every UI string),
                                 fonts/ (Inter, Space Grotesk, OFL), links.properties (external links), icon-*.png
 ```
+
+External links come from `links.properties`: the sidebar and About "Website" entries open `website.url`
+(https://vanta-client.netlify.app), "Support" opens the GitHub issues; `VANTA_WEBSITE_URL` / `VANTA_SUPPORT_URL` override
+them at run time, and an empty value disables the entry with "Not configured". File sizes are shown in decimal units with
+one decimal place (1 MB = 1,000,000 bytes, "66.9 MB"), in the UI and on the command line alike, like the website.
 
 View models run blocking core calls on a background executor and publish results on the JavaFX thread
 (`UiExecutors`, `Async`); the views only bind. The launch flow is: pick Java → `Installer.install` (verifies every

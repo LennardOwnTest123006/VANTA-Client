@@ -247,6 +247,25 @@ class HomeViewModelTest {
         assertTrue(ctx.launcherLog.snapshot().stream().anyMatch(l -> l.text().contains("Added the Minecraft Launcher profile 'VANTA 1.21.11'")));
         assertFalse(backend.calls.contains("install"), "the regular install is not used");
         assertFalse(backend.calls.contains("launch"));
+        assertEquals("1.0.0", ctx.session.installedClient().orElseThrow().version(),
+            "the client jar now in mods/ (no instance.json) counts as installed for the card and the update check");
+        assertTrue(ctx.session.instance().isEmpty());
+    }
+
+    @Test
+    void installFromTheClientCardIsTheRegularInstallWithoutLaunching() {
+        signedInWithJava();
+        final HomeViewModel vm = ctx.home();
+        assertTrue(ctx.session.installedClient().isEmpty(), "fresh launcher: nothing installed");
+        final List<HomeViewModel.State> seen = new ArrayList<>();
+        vm.stateProperty().addListener((obs, old, now) -> seen.add(now));
+        vm.install();
+        assertTrue(seen.contains(HomeViewModel.State.INSTALLING), String.valueOf(seen));
+        assertEquals(HomeViewModel.State.READY, vm.state());
+        assertTrue(backend.calls.contains("install"));
+        assertFalse(backend.calls.contains("launch"), "installing from the card does not start the game");
+        assertEquals("1.0.0", ctx.session.installedClient().orElseThrow().version(), "instance.json and the jar are now present");
+        assertEquals(ctx.messages.get("home.toast.installed.title"), ctx.toasts.toasts().get(0).title());
     }
 
     @Test

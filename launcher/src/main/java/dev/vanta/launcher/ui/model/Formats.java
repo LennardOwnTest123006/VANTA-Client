@@ -1,5 +1,6 @@
 package dev.vanta.launcher.ui.model;
 
+import dev.vanta.launcher.core.util.ByteSizes;
 import dev.vanta.launcher.ui.Messages;
 
 import java.time.Duration;
@@ -16,10 +17,6 @@ import java.util.Objects;
  */
 public final class Formats {
 
-    private static final long KB = 1024L;
-    private static final long MB = KB * 1024L;
-    private static final long GB = MB * 1024L;
-
     private final Messages messages;
     private final ZoneId zone;
 
@@ -33,23 +30,24 @@ public final class Formats {
     }
 
     /**
+     * File sizes in decimal units with one decimal place, like the website and the release notes
+     * ({@link ByteSizes}): {@code 512 B}, {@code 12.3 kB}, {@code 4.2 MB}, {@code 1.4 GB}.
+     *
      * @param bytes byte count
-     * @return e.g. {@code 1.4 GB}, {@code 231 MB}, {@code 12 KB}
+     * @return localised size, or "Unknown" for a negative count
      */
     public String bytes(final long bytes) {
         if (bytes < 0) {
             return messages.get("common.unknown");
         }
-        if (bytes >= GB) {
-            return messages.format("common.bytes.gb", oneDecimal((double) bytes / GB));
-        }
-        if (bytes >= MB) {
-            return messages.format("common.bytes.mb", Long.toString(Math.round((double) bytes / MB)));
-        }
-        if (bytes >= KB) {
-            return messages.format("common.bytes.kb", Long.toString(Math.round((double) bytes / KB)));
-        }
-        return messages.format("common.bytes.b", Long.toString(bytes));
+        final ByteSizes.Size size = ByteSizes.size(bytes);
+        return switch (size.unit()) {
+            case "B" -> messages.format("common.bytes.b", size.value());
+            case "kB" -> messages.format("common.bytes.kb", size.value());
+            case "MB" -> messages.format("common.bytes.mb", size.value());
+            case "GB" -> messages.format("common.bytes.gb", size.value());
+            default -> messages.format("common.bytes.tb", size.value());
+        };
     }
 
     /**

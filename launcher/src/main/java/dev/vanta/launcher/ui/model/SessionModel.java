@@ -1,6 +1,7 @@
 package dev.vanta.launcher.ui.model;
 
 import dev.vanta.launcher.core.auth.Account;
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.core.settings.LauncherSettings;
@@ -36,6 +37,7 @@ public final class SessionModel {
     private final ObservableList<JavaInstall> javaInstalls = FXCollections.observableArrayList();
     private final ObjectProperty<JavaInstall> java = new SimpleObjectProperty<>();
     private final ObjectProperty<InstanceInfo> instance = new SimpleObjectProperty<>();
+    private final ObjectProperty<InstalledClient> installedClient = new SimpleObjectProperty<>();
     private final BooleanProperty detectingJava = new SimpleBooleanProperty(false);
     private final BooleanProperty signInConfigured = new SimpleBooleanProperty(false);
     private final BooleanProperty offlineAllowed = new SimpleBooleanProperty(false);
@@ -100,6 +102,21 @@ public final class SessionModel {
         return Optional.ofNullable(instance.get());
     }
 
+    /**
+     * The VANTA client actually installed (instance.json / the jar in {@code mods/}), read through
+     * {@link LauncherBackend#installedClient()}. The Home card, the update banner and the update check all use it.
+     *
+     * @return installed client or null when none is installed
+     */
+    public ReadOnlyObjectProperty<InstalledClient> installedClientProperty() {
+        return installedClient;
+    }
+
+    /** @return installed client */
+    public Optional<InstalledClient> installedClient() {
+        return Optional.ofNullable(installedClient.get());
+    }
+
     /** @return whether Java detection is running */
     public ReadOnlyBooleanProperty detectingJavaProperty() {
         return detectingJava;
@@ -130,11 +147,21 @@ public final class SessionModel {
      * @param javaInstalls  detected runtimes
      * @param java          picked runtime
      * @param instance      installed instance
+     * @param client        installed VANTA client
      * @param signInEnabled whether a client id is configured
      * @param offline       whether offline sessions are allowed
      */
     record Snapshot(LauncherSettings settings, Optional<Account> account, List<JavaInstall> javaInstalls, Optional<JavaInstall> java,
-                    Optional<InstanceInfo> instance, boolean signInEnabled, boolean offline) {
+                    Optional<InstanceInfo> instance, Optional<InstalledClient> client, boolean signInEnabled, boolean offline) {
+    }
+
+    /**
+     * Installed state read together.
+     *
+     * @param instance instance metadata
+     * @param client   installed VANTA client
+     */
+    private record Installed(Optional<InstanceInfo> instance, Optional<InstalledClient> client) {
     }
 
     /** Reloads everything (settings, account, Java, instance) in the background. */
@@ -146,13 +173,15 @@ public final class SessionModel {
             final List<JavaInstall> detected = backend.detectJava();
             final Optional<JavaInstall> picked = backend.pickJava(detected);
             final Optional<InstanceInfo> i = backend.loadInstance();
-            return new Snapshot(s, a, detected, picked, i, backend.signInConfigured(), backend.offlineSessionAllowed());
+            final Optional<InstalledClient> c = backend.installedClient();
+            return new Snapshot(s, a, detected, picked, i, c, backend.signInConfigured(), backend.offlineSessionAllowed());
         }, snap -> {
             settings.set(snap.settings());
             account.set(snap.account().orElse(null));
             javaInstalls.setAll(snap.javaInstalls());
             java.set(snap.java().orElse(null));
             instance.set(snap.instance().orElse(null));
+            installedClient.set(snap.client().orElse(null));
             signInConfigured.set(snap.signInEnabled());
             offlineAllowed.set(snap.offline());
             detectingJava.set(false);
@@ -169,7 +198,8 @@ public final class SessionModel {
         detectingJava.set(true);
         Async.run(executors, () -> {
             final List<JavaInstall> detected = backend.detectJava();
-            return new Snapshot(backend.settings(), Optional.empty(), detected, backend.pickJava(detected), Optional.empty(), false, false);
+            return new Snapshot(backend.settings(), Optional.empty(), detected, backend.pickJava(detected), Optional.empty(), Optional.empty(),
+                false, false);
         }, snap -> {
             javaInstalls.setAll(snap.javaInstalls());
             java.set(snap.java().orElse(null));
@@ -180,15 +210,18 @@ public final class SessionModel {
         });
     }
 
-    /** Reloads the instance metadata in the background. */
+    /** Reloads the instance metadata and the installed client in the background. */
     public void refreshInstance() {
-        Async.run(executors, backend::loadInstance, i -> instance.set(i.orElse(null)), errorSink);
+        Async.run(executors, () -> new Installed(backend.loadInstance(), backend.installedClient()), installed -> {
+            instance.set(installed.instance().orElse(null));
+            installedClient.set(installed.client().orElse(null));
+        }, errorSink);
     }
 
     /** Reloads settings-derived flags after a settings change. */
     public void refreshSettings() {
         Async.run(executors, () -> new Snapshot(backend.settings(), backend.activeAccount(), List.of(), Optional.empty(),
-            Optional.empty(), backend.signInConfigured(), backend.offlineSessionAllowed()), snap -> {
+            Optional.empty(), Optional.empty(), backend.signInConfigured(), backend.offlineSessionAllowed()), snap -> {
             settings.set(snap.settings());
             account.set(snap.account().orElse(null));
             signInConfigured.set(snap.signInEnabled());
@@ -210,12 +243,22 @@ public final class SessionModel {
     }
 
     /**
-     * Publishes an instance written by an install.
+     * Publishes an instance written by an install and re-reads the installed client from disk.
      *
      * @param installed instance
      */
     public void setInstance(final InstanceInfo installed) {
         instance.set(installed);
+        Async.run(executors, backend::installedClient, c -> installedClient.set(c.orElse(null)), errorSink);
+    }
+
+    /**
+     * Publishes the installed client an update check has just read (UI thread), so the card and the check agree.
+     *
+     * @param client installed client (empty when none is installed)
+     */
+    public void setInstalledClient(final Optional<InstalledClient> client) {
+        installedClient.set(client.orElse(null));
     }
 
     /**

@@ -1,5 +1,6 @@
 package dev.vanta.launcher.core.model;
 
+import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.core.util.OsInfo;
 
 import java.util.List;
@@ -84,7 +85,7 @@ public record ReleaseManifest(int schemaVersion, String product, String version,
 
     /**
      * Finds the first file whose name ends with the given extension (case-insensitive). Prefer the exact lookups
-     * {@link #clientJar()} and {@link #launcherAssetFor(OsInfo)}: a manifest lists several jars.
+     * {@link #clientJar()} and {@link #launcherAssetFor(OsInfo, LauncherPackaging)}: a manifest lists several jars.
      *
      * @param extension e.g. {@code .jar}, {@code .msi}
      * @return file when present
@@ -120,25 +121,38 @@ public record ReleaseManifest(int schemaVersion, String product, String version,
     }
 
     /**
-     * Launcher self-update asset names for a platform, in order of preference.
+     * Launcher self-update asset names for a platform and the way the running launcher was installed, in order of
+     * preference. The file replaces exactly the kind of installation that is running:
      *
      * <ul>
-     *   <li>Windows: {@code VANTA-Launcher-<v>.msi}, then {@code VANTA-Launcher-<v>.exe}</li>
-     *   <li>Linux x64: {@code VANTA-Launcher-<v>-linux-x64.tar.gz}</li>
+     *   <li>Windows x64, installed with the MSI/EXE (packaged, no portable marker): {@code VANTA-Launcher-<v>.msi},
+     *       then {@code VANTA-Launcher-<v>.exe}</li>
+     *   <li>Windows x64, portable folder (marker present): {@code VANTA-Launcher-<v>-windows-portable.zip}</li>
+     *   <li>Windows x64, plain jar: {@code vanta-launcher-<v>-windows-all.jar}</li>
+     *   <li>Linux x64, app image (packaged): {@code VANTA-Launcher-<v>-linux-x64.tar.gz}</li>
+     *   <li>Linux x64, plain jar: {@code vanta-launcher-<v>-linux-all.jar}</li>
      *   <li>macOS on Apple Silicon: {@code vanta-launcher-<v>-macos-aarch64-all.jar}</li>
-     *   <li>anything else (Intel macOS, Linux on ARM, ...): none; the user downloads from the release page</li>
+     *   <li>anything else (Intel macOS, Linux or Windows on ARM, 32-bit Java, ...): none; the user downloads from the
+     *       release page</li>
      * </ul>
      *
      * @param launcherVersion launcher version
      * @param os              platform
+     * @param packaging       how the running launcher was installed
      * @return candidate file names (empty when the release has nothing for the platform)
      */
-    public static List<String> launcherAssetNames(final String launcherVersion, final OsInfo os) {
-        if (os.isWindows()) {
-            return List.of(LAUNCHER_INSTALLER_PREFIX + launcherVersion + ".msi", LAUNCHER_INSTALLER_PREFIX + launcherVersion + ".exe");
+    public static List<String> launcherAssetNames(final String launcherVersion, final OsInfo os, final LauncherPackaging packaging) {
+        final boolean x64 = "x64".equals(os.arch());
+        if (os.isWindows() && x64) {
+            return switch (packaging.kind()) {
+                case PORTABLE -> List.of(LAUNCHER_INSTALLER_PREFIX + launcherVersion + "-windows-portable.zip");
+                case PACKAGED -> List.of(LAUNCHER_INSTALLER_PREFIX + launcherVersion + ".msi", LAUNCHER_INSTALLER_PREFIX + launcherVersion + ".exe");
+                case PLAIN_JAR -> List.of(LAUNCHER_JAR_PREFIX + launcherVersion + "-windows-all.jar");
+            };
         }
-        if (os.isLinux() && "x64".equals(os.arch())) {
-            return List.of(LAUNCHER_INSTALLER_PREFIX + launcherVersion + "-linux-x64.tar.gz");
+        if (os.isLinux() && x64) {
+            return packaging.isPackaged() ? List.of(LAUNCHER_INSTALLER_PREFIX + launcherVersion + "-linux-x64.tar.gz")
+                : List.of(LAUNCHER_JAR_PREFIX + launcherVersion + "-linux-all.jar");
         }
         if (os.isMac() && "arm64".equals(os.arch())) {
             return List.of(LAUNCHER_JAR_PREFIX + launcherVersion + "-macos-aarch64-all.jar");
@@ -147,13 +161,14 @@ public record ReleaseManifest(int schemaVersion, String product, String version,
     }
 
     /**
-     * The launcher self-update asset of this manifest for a platform (see {@link #launcherAssetNames}).
+     * The launcher self-update asset of this manifest (see {@link #launcherAssetNames}).
      *
-     * @param os platform
+     * @param os        platform
+     * @param packaging how the running launcher was installed
      * @return the file, also when it is listed but not published yet; empty when the platform has no asset
      */
-    public Optional<ReleaseFile> launcherAssetFor(final OsInfo os) {
-        for (String name : launcherAssetNames(version, os)) {
+    public Optional<ReleaseFile> launcherAssetFor(final OsInfo os, final LauncherPackaging packaging) {
+        for (String name : launcherAssetNames(version, os, packaging)) {
             final Optional<ReleaseFile> file = fileNamed(name);
             if (file.isPresent()) {
                 return file;
@@ -164,13 +179,14 @@ public record ReleaseManifest(int schemaVersion, String product, String version,
 
     /**
      * The file a platform should install: for the client exactly {@link #clientJar()}, for the launcher
-     * {@link #launcherAssetFor(OsInfo)}.
+     * {@link #launcherAssetFor(OsInfo, LauncherPackaging)}.
      *
-     * @param os platform
+     * @param os        platform
+     * @param packaging how the running launcher was installed
      * @return the file when the manifest lists one for the platform
      */
-    public Optional<ReleaseFile> preferredFile(final OsInfo os) {
-        return PRODUCT_LAUNCHER.equals(product) ? launcherAssetFor(os) : clientJar();
+    public Optional<ReleaseFile> preferredFile(final OsInfo os, final LauncherPackaging packaging) {
+        return PRODUCT_LAUNCHER.equals(product) ? launcherAssetFor(os, packaging) : clientJar();
     }
 
     /**

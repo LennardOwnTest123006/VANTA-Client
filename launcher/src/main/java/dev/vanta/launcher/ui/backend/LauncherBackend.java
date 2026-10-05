@@ -5,6 +5,7 @@ import dev.vanta.launcher.core.auth.AuthException;
 import dev.vanta.launcher.core.auth.DeviceCode;
 import dev.vanta.launcher.core.install.InstallException;
 import dev.vanta.launcher.core.install.InstallListener;
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.InstallRequest;
 import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
@@ -17,8 +18,9 @@ import dev.vanta.launcher.core.net.DownloadProgressListener;
 import dev.vanta.launcher.core.paths.LauncherPaths;
 import dev.vanta.launcher.core.settings.LauncherSettings;
 import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
-import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateInfo;
+import dev.vanta.launcher.core.update.UpdateService;
+import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.core.util.OsInfo;
 
 import java.io.IOException;
@@ -256,12 +258,27 @@ public interface LauncherBackend extends AutoCloseable {
     Optional<UpdateInfo> checkLauncherUpdate() throws IOException, InterruptedException;
 
     /**
-     * @param installed installed client version
-     * @return client update when newer
+     * The VANTA client actually installed (instance.json / the jar in {@code mods/}); the one source the Home card, the
+     * update banner, the update dialog and {@code --check-update} use.
+     *
+     * @return installed client, empty when none is installed
+     * @throws IOException when unreadable
+     */
+    Optional<InstalledClient> installedClient() throws IOException;
+
+    /**
+     * Checks the client release against an installed state. When no client is installed the result names the latest
+     * release and never carries an update.
+     *
+     * @param installed installed client (from {@link #installedClient()})
+     * @return latest release and the update, if any
      * @throws IOException          on failure
      * @throws InterruptedException when interrupted
      */
-    Optional<UpdateInfo> checkClientUpdate(Optional<SemVer> installed) throws IOException, InterruptedException;
+    UpdateService.ClientCheck checkClient(Optional<InstalledClient> installed) throws IOException, InterruptedException;
+
+    /** @return how the running launcher was installed (selects the self-update file and its instructions) */
+    LauncherPackaging packaging();
 
     /**
      * Downloads and verifies an update file.

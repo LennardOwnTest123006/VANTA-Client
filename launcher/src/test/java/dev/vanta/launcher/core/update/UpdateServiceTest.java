@@ -1,5 +1,6 @@
 package dev.vanta.launcher.core.update;
 
+import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.NotPublishedException;
 import dev.vanta.launcher.core.install.ReleasesNotConfiguredException;
 import dev.vanta.launcher.core.install.VantaClientService;
@@ -13,6 +14,7 @@ import dev.vanta.launcher.core.net.IntegrityException;
 import dev.vanta.launcher.core.net.JdkHttpTransport;
 import dev.vanta.launcher.core.paths.LauncherPaths;
 import dev.vanta.launcher.core.util.Json;
+import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.core.util.OsInfo;
 import dev.vanta.launcher.core.util.Sleeper;
 import dev.vanta.launcher.testutil.FakeHttpServer;
@@ -68,15 +70,29 @@ class UpdateServiceTest {
         server.close();
     }
 
+    /** A packaged launcher (installer / app image): the classic self-update files. */
     private UpdateService service(final String current, final OsInfo os) {
-        return new UpdateService(downloader, paths, () -> server.url("rel/").toString(), SemVer.parse(current), os, clientService);
+        return service(current, os, LauncherPackaging.packaged(tmp.resolve("app")));
+    }
+
+    private UpdateService service(final String current, final OsInfo os, final LauncherPackaging packaging) {
+        return new UpdateService(downloader, paths, () -> server.url("rel/").toString(), SemVer.parse(current), os, packaging, clientService);
+    }
+
+    /** Puts {@code vanta-client-<version>.jar} into mods/ and returns the installed state the service reads. */
+    private Optional<InstalledClient> installed(final String version) throws IOException {
+        Files.createDirectories(paths.modsDir());
+        Files.write(paths.modsDir().resolve("vanta-client-" + version + ".jar"), FakeWorld.synthetic("client " + version, 100));
+        final Optional<InstalledClient> client = clientService.installedClient();
+        assertEquals(version, client.orElseThrow().version());
+        return client;
     }
 
     @Test
     void notConfiguredWithoutUsableBaseUrl() {
         for (String url : java.util.List.of("", "  ", "file:///tmp/releases", "releases.example/vanta")) {
             final UpdateService unconfigured = new UpdateService(downloader, paths, () -> url, SemVer.of(1, 0, 0), new OsInfo("linux", "x64", ""),
-                clientService);
+                LauncherPackaging.PLAIN_JAR, clientService);
             assertFalse(unconfigured.isConfigured(), url);
             assertThrows(ReleasesNotConfiguredException.class, unconfigured::checkLauncher, url);
         }
@@ -85,7 +101,7 @@ class UpdateServiceTest {
     @Test
     void missingManifestMeansNotPublished() throws Exception {
         final UpdateService s = new UpdateService(downloader, paths, () -> server.url("nothing-here/").toString(), SemVer.of(1, 0, 0),
-            new OsInfo("linux", "x64", ""), clientService);
+            new OsInfo("linux", "x64", ""), LauncherPackaging.PLAIN_JAR, clientService);
         assertTrue(s.isConfigured());
         final NotPublishedException e = assertThrows(NotPublishedException.class, s::checkLauncher);
         assertTrue(e.getMessage().contains("HTTP 404"), e.getMessage());
@@ -160,7 +176,7 @@ class UpdateServiceTest {
                     Checksums.hex(jar, HashAlgorithm.SHA256))), "notes");
         server.addJson("rel/client-latest.json", Json.toJson(manifest));
         final UpdateService s = service("1.0.0", new OsInfo("windows", "x64", "10.0"));
-        final UpdateInfo update = s.checkClient(Optional.of(SemVer.of(1, 0, 0))).orElseThrow();
+        final UpdateInfo update = s.checkClient(installed("1.0.0")).update().orElseThrow();
         assertEquals("vanta-client-1.2.0.jar", update.file().name());
         assertEquals(paths.modsDir().resolve("vanta-client-1.2.0.jar"), s.installClientUpdate(update, DownloadProgressListener.NONE, CancellationToken.NONE));
     }
@@ -172,7 +188,7 @@ class UpdateServiceTest {
                 server.url("rel/beta.jar").toString(), 5, "ab".repeat(32))), "notes");
         server.addJson("rel/client-latest.json", Json.toJson(beta));
         final UpdateService s = service("1.0.0", new OsInfo("windows", "x64", "10.0"));
-        assertEquals(Optional.empty(), s.checkClient(Optional.of(SemVer.of(1, 0, 0))));
+        assertEquals(Optional.empty(), s.checkClient(installed("1.0.0")).update());
     }
 
     @Test
@@ -205,13 +221,91 @@ class UpdateServiceTest {
     @Test
     void clientUpdateAnnouncedButNotDownloadable() throws Exception {
         final UpdateService s = service("1.0.0", new OsInfo("linux", "x64", ""));
-        final UpdateInfo update = s.checkClient(Optional.of(SemVer.of(1, 0, 0))).orElseThrow();
+        final UpdateService.ClientCheck check = s.checkClient(installed("1.0.0"));
+        assertFalse(check.downloadable());
+        final UpdateInfo update = check.update().orElseThrow();
         assertEquals(SemVer.parse("1.1.0"), update.latestVersion());
         assertFalse(update.isDownloadable());
         final NotPublishedException e = assertThrows(NotPublishedException.class, () -> s.downloadUpdate(update, DownloadProgressListener.NONE, CancellationToken.NONE));
         assertTrue(e.getMessage().contains("not downloadable yet"));
-        assertTrue(s.checkClient(Optional.of(SemVer.parse("1.1.0"))).isEmpty());
-        assertTrue(s.checkClient(Optional.empty()).isPresent(), "no client installed: any version is an update");
+        Files.delete(paths.modsDir().resolve("vanta-client-1.0.0.jar"));
+        assertTrue(s.checkClient(installed("1.1.0")).update().isEmpty());
+    }
+
+    @Test
+    void noInstalledClientMeansNoUpdateOnlyTheLatestRelease() throws Exception {
+        final byte[] jar = FakeWorld.synthetic("client 1.0.1", 900);
+        server.add("rel/vanta-client-1.0.1.jar", jar);
+        final ReleaseManifest manifest = new ReleaseManifest(1, "client", "1.0.1", "1.21.11", "0.19.5", "0.141.6+1.21.11", 21, "2026-10-05", "stable",
+            java.util.List.of(new ReleaseManifest.ReleaseFile("vanta-client-1.0.1.jar", server.url("rel/vanta-client-1.0.1.jar").toString(), jar.length,
+                Checksums.hex(jar, HashAlgorithm.SHA256))), "notes");
+        server.addJson("rel/client-latest.json", Json.toJson(manifest));
+        final UpdateService s = service("1.0.0", new OsInfo("linux", "x64", ""));
+
+        // Fresh launcher: no instance.json, nothing in mods/.
+        final UpdateService.ClientCheck fresh = s.checkClient();
+        assertFalse(fresh.isInstalled());
+        assertEquals(SemVer.parse("1.0.1"), fresh.latest());
+        assertTrue(fresh.downloadable());
+        assertTrue(fresh.update().isEmpty(), "nothing installed, nothing to update");
+        assertThrows(IllegalArgumentException.class, () -> new UpdateService.ClientCheck(Optional.empty(), SemVer.of(1, 0, 1), true,
+            Optional.of(s.compare("client", SemVer.of(0, 0, 0), manifest).orElseThrow())), "an update needs an installed client");
+
+        // An update cannot be forced into mods/ of a launcher that has no client (the 1.0.0 bug).
+        final UpdateInfo forced = s.compare("client", SemVer.of(0, 0, 0), manifest).orElseThrow();
+        final IOException refused = assertThrows(IOException.class,
+            () -> s.installClientUpdate(forced, DownloadProgressListener.NONE, CancellationToken.NONE));
+        assertTrue(refused.getMessage().contains("nothing to update"), refused.getMessage());
+        assertFalse(Files.exists(paths.modsDir().resolve("vanta-client-1.0.1.jar")));
+
+        // instance.json without a client (--without-client): still not installed.
+        Files.createDirectories(paths.instanceDir());
+        Json.write(paths.instanceFile(), new dev.vanta.launcher.core.model.InstanceInfo(1, "vanta-1.21.11", "1.21.11", "0.19.5",
+            "0.141.6+1.21.11", "", "", "1.21.11", "fabric-loader-0.19.5-1.21.11", "main", "26", 21, "2026-10-05T10:00:00Z"));
+        assertFalse(s.checkClient().isInstalled());
+
+        // instance.json records 1.0.0 (jar missing, the next PLAY restores it): installed, update offered.
+        Json.write(paths.instanceFile(), new dev.vanta.launcher.core.model.InstanceInfo(1, "vanta-1.21.11", "1.21.11", "0.19.5",
+            "0.141.6+1.21.11", "1.0.0", "vanta-client-1.0.0.jar", "1.21.11", "fabric-loader-0.19.5-1.21.11", "main", "26", 21,
+            "2026-10-05T10:00:00Z"));
+        final UpdateService.ClientCheck recorded = s.checkClient();
+        assertEquals(InstalledClient.Source.INSTANCE, recorded.installed().orElseThrow().source());
+        assertEquals("1.0.1", recorded.update().orElseThrow().latestVersion().toString());
+        assertEquals(paths.modsDir().resolve("vanta-client-1.0.1.jar"),
+            s.installClientUpdate(recorded.update().orElseThrow(), DownloadProgressListener.NONE, CancellationToken.NONE));
+        assertEquals("1.0.1", clientService.installedClient().orElseThrow().version(), "instance.json and mods/ agree after the update");
+        assertTrue(s.checkClient().update().isEmpty());
+    }
+
+    @Test
+    void developmentJarIsComparedAsZeroLikeBefore() throws Exception {
+        final UpdateService s = service("1.0.0", new OsInfo("linux", "x64", ""));
+        final Optional<InstalledClient> dev = installed("dev");
+        assertTrue(dev.orElseThrow().isDevelopmentBuild());
+        assertEquals(SemVer.parse("1.1.0"), s.checkClient(dev).update().orElseThrow().latestVersion());
+    }
+
+    @Test
+    void launcherAssetFollowsHowTheLauncherWasInstalled() throws Exception {
+        final OsInfo windows = new OsInfo("windows", "x64", "10.0");
+        final OsInfo linux = new OsInfo("linux", "x64", "6.8");
+        final Path portableDir = tmp.resolve("portable/VANTA Launcher");
+        final UpdateInfo portable = service("1.0.0", windows, LauncherPackaging.portable(portableDir)).checkLauncher().orElseThrow();
+        assertEquals("VANTA-Launcher-1.1.0-windows-portable.zip", portable.file().name());
+        assertEquals(UpdateInfo.AssetKind.PORTABLE, portable.assetKind());
+        final UpdateService portableService = service("1.0.0", windows, LauncherPackaging.portable(portableDir));
+        final Path zip = portableService.downloadUpdate(portable, DownloadProgressListener.NONE, CancellationToken.NONE);
+        assertEquals(paths.updatesCacheDir().resolve("1.1.0-VANTA-Launcher-1.1.0-windows-portable.zip"), zip, "downloaded and verified only");
+        assertEquals(zip, portableService.prepareInstaller(portable));
+        assertEquals(Optional.of(portableDir), portableService.packaging().appDirectory());
+
+        final UpdateInfo windowsJar = service("1.0.0", windows, LauncherPackaging.PLAIN_JAR).checkLauncher().orElseThrow();
+        assertEquals("vanta-launcher-1.1.0-windows-all.jar", windowsJar.file().name());
+        assertEquals(UpdateInfo.AssetKind.JAR, windowsJar.assetKind());
+        final UpdateInfo linuxJar = service("1.0.0", linux, LauncherPackaging.PLAIN_JAR).checkLauncher().orElseThrow();
+        assertEquals("vanta-launcher-1.1.0-linux-all.jar", linuxJar.file().name());
+        assertEquals("VANTA-Launcher-1.1.0-linux-x64.tar.gz", service("1.0.0", linux).checkLauncher().orElseThrow().file().name());
+        assertEquals("VANTA-Launcher-1.1.0.msi", service("1.0.0", windows).checkLauncher().orElseThrow().file().name());
     }
 
     @Test
@@ -233,7 +327,7 @@ class UpdateServiceTest {
                 Checksums.hex(jar, HashAlgorithm.SHA256))), "notes");
         server.addJson("rel/client-latest.json", Json.toJson(manifest));
         final UpdateService s = service("1.0.0", new OsInfo("linux", "x64", ""));
-        final UpdateInfo update = s.checkClient(Optional.of(SemVer.of(1, 0, 0))).orElseThrow();
+        final UpdateInfo update = s.checkClient(installed("1.0.0")).update().orElseThrow();
         final Path active = s.installClientUpdate(update, DownloadProgressListener.NONE, CancellationToken.NONE);
         assertEquals(paths.modsDir().resolve("vanta-client-1.1.0.jar"), active);
         assertEquals(1, s.listClientVersions().size());
