@@ -1,38 +1,52 @@
 ---
 title: VANTA Launcher
-description: The VANTA Launcher explained: Play, Use with Minecraft Launcher, Microsoft sign-in, Java, Versions, Logs, Settings, the releases URL, updates and the command line reference.
+description: The VANTA Launcher explained: PLAY, PLAY via Minecraft Launcher, the Mods page, the Performance pack, sign-in, Java, Versions, Logs, Settings, updates, start-up errors and the command line.
 order: 10
 category: Launcher
 ---
 
-The VANTA Launcher installs and starts Minecraft 1.21.11 with Fabric Loader 0.19.5, Fabric API and the VANTA Client.
-It is a JavaFX 21 desktop application. It is published as Windows x64 installers and a portable app, a Linux x64 app
-image, and one launcher jar each for Windows x64, Linux x64 and Apple Silicon macOS (each jar runs only on the system
-in its name; see [Installation → Download](installation.md#1-download)). It does three things and nothing more:
-download verified files, sign you in with Microsoft or hand the game over to the official Minecraft Launcher, and
-start the game.
+The VANTA Launcher installs and starts Minecraft 1.21.11 with Fabric Loader 0.19.5, Fabric API, the VANTA Client
+and, from launcher 1.1.0 on, the [Performance pack](#performance-pack) from Modrinth. It is a JavaFX 21 desktop
+application. It is published as Windows x64 installers and a portable app, a Linux x64 app image, and one launcher jar
+each for Windows x64, Linux x64 and Apple Silicon macOS (each jar runs only on the system in its name; see
+[Installation → Download](installation.md#1-download)). It does three things and nothing more: download verified
+files, sign you in with Microsoft or hand the game over to the official Minecraft Launcher, and start the game.
+
+This page describes launcher 1.1.0. Where earlier versions behave differently, the text says so.
 
 ## Home
 
-The Home screen has one big **PLAY** button and tells you why it is disabled when it is: *Sign in first*,
-*Sign-in unavailable: play through the Minecraft Launcher*, *No Java 21 found*, *Installing…*, *Verifying…* or
-*Running*. Under it the facts line reads `Minecraft 1.21.11 · Fabric 0.19.5 · Java 21 (<detected version>)`.
+The Home screen has one big main button. Which one depends on whether PLAY can sign you in here:
+
+- **PLAY via Minecraft Launcher** — when Microsoft sign-in is not configured and no account is stored, which is the
+  case in the published builds. The title says *Ready to play*, the status *Ready via the Minecraft Launcher*, and the
+  line under the button: *Opens the official Minecraft Launcher with the profile 'VANTA 1.21.11'. You sign in there.*
+  One click sets up or updates the profile *VANTA 1.21.11* in the official Minecraft Launcher and opens it; see
+  [PLAY via Minecraft Launcher](#play-via-minecraft-launcher). A box below, *Why the Minecraft Launcher?*, explains
+  in two sentences why the Minecraft Launcher signs you in. (Launcher 1.0.x showed a disabled PLAY here, with
+  *Sign-in unavailable: play through the Minecraft Launcher*.)
+- **PLAY** — when a Microsoft client id is configured or an account is stored. It tells you why it is disabled when
+  it is: *Sign in first*, *No Java 21 found*, *Installing…*, *Verifying…* or *Running*.
+
+Under it the facts line reads `Minecraft 1.21.11 · Fabric 0.19.5 · Java 21 (<detected version>)`.
 
 Pressing PLAY runs the launch flow:
 
 1. **Java** — pick the configured or best detected Java 21 (or stop with *No Java 21 found*).
 2. **Install / verify** — compare every required file (client jar, libraries, assets, Fabric libraries, Fabric API,
-   VANTA jar) with its checksum; download what is missing or wrong. A progress bar shows the current step and bytes.
+   VANTA jar) with its checksum; download what is missing or wrong. The [Performance pack](#performance-pack) is
+   installed or updated in the same step unless it is switched off. A progress bar shows the current step and bytes.
    Sizes are shown in decimal units with one decimal place (1 MB = 1,000,000 bytes, for example "66.9 MB"), the same
    numbers the website and the release notes show.
 3. **Account** — refresh the Microsoft/Minecraft token when it has expired.
 4. **Launch** — start `java` with the Fabric main class and stream the game output to the Logs screen. The status
-   turns to **Running**; a notification reports the exit code when the game closes.
+   turns to **Running**; a notification reports the exit code when the game closes. When the game asks for a
+   restart after you changed mods in it, the launcher starts it again ([Restart from the game](#restart-from-the-game)).
 
 The secondary button **Use with Minecraft Launcher** sets VANTA up as a profile of the official Minecraft Launcher
-(see [below](#use-with-the-minecraft-launcher)). When Microsoft sign-in is not configured — which is the case in the
-published builds — a callout *Play with the official Minecraft Launcher* on the Home screen explains why and offers
-that button as the way to play.
+without opening it (see [below](#use-with-the-minecraft-launcher)); it is there in both modes. After the profile was
+set up, a box *Ready in the Minecraft Launcher* says which profile to choose and offers **Open Minecraft Launcher**
+([Opening the Minecraft Launcher](#opening-the-minecraft-launcher)).
 
 Side cards:
 
@@ -61,9 +75,58 @@ is not shown then. **Open game folder** opens `instances/vanta-1.21.11`.
 ## Use with the Minecraft Launcher
 
 Microsoft sign-in inside VANTA needs an application id that Mojang has approved
-([Microsoft client id](#microsoft-client-id)); the project does not have one. *Use with Minecraft Launcher* makes
-VANTA playable through the **official Minecraft Launcher** instead, which downloads Minecraft, its libraries, assets
-and Java itself and signs you in with Microsoft.
+([Microsoft client id](#microsoft-client-id)); the project does not have one. *PLAY via Minecraft Launcher* and *Use
+with Minecraft Launcher* make VANTA playable through the **official Minecraft Launcher** instead, which downloads
+Minecraft, its libraries, assets and Java itself and signs you in with Microsoft. Both run the same setup; the
+differences are below.
+
+### PLAY via Minecraft Launcher
+
+The main button when PLAY cannot sign you in (see [Home](#home)). One click:
+
+1. checks whether the Minecraft Launcher is running ([below](#close-the-minecraft-launcher-first));
+2. the first time (while the profile does not exist yet), shows the confirmation with the list of files, with the
+   button **Add profile and open**; afterwards it updates the profile directly;
+3. installs or updates the files listed below. Files that are already in place and verified are not downloaded again,
+   and the progress on Home names the step and the file that is being downloaded;
+4. opens the Minecraft Launcher. Choose *VANTA 1.21.11* next to its Play button and press Play.
+
+*Use with Minecraft Launcher* does steps 1 to 3 with the confirmation every time (button **Add profile**) and does not
+open the Minecraft Launcher.
+
+### Close the Minecraft Launcher first
+
+The Minecraft Launcher reads its profiles files only when it starts. A profile written while it runs appears only
+after it was closed completely and started again; this is why, with launcher 1.0.x, the profile sometimes appeared
+only after a restart of the PC. Before anything is written, VANTA therefore looks for a running Minecraft Launcher:
+`MinecraftLauncher.exe` (from minecraft.net) and the Microsoft Store / Xbox app version on Windows, the Minecraft app
+on macOS and `minecraft-launcher` on Linux. If one runs, the dialog *Close the Minecraft Launcher first* names its
+process and explains how to close it completely:
+
+- **Windows**: it often keeps running in the system tray after you close its window. Click the arrow next to the
+  clock, right-click the Minecraft Launcher icon and choose *Exit*, or end "Minecraft Launcher" in the Task Manager.
+- **macOS**: quit it with Command-Q or *Quit* on its Dock icon; closing its window may leave it running.
+- **Linux**: close every window and check that no `minecraft-launcher` process is left.
+
+**Check again** looks again; **Continue anyway** writes the profile now (it then appears after the next start of the
+Minecraft Launcher). VANTA never closes the Minecraft Launcher for you. `--install-official-profile` prints the same as
+a warning and continues.
+
+### Opening the Minecraft Launcher
+
+**Open Minecraft Launcher** (Home, after the profile was set up) and `--open-official-launcher` start:
+
+| System | What is started |
+| --- | --- |
+| Windows | `MinecraftLauncher.exe` in `Program Files (x86)\Minecraft Launcher` when it exists, else the Minecraft Launcher app from the Microsoft Store / Xbox app |
+| macOS | the Minecraft app (`open -a Minecraft`) |
+| Linux | `minecraft-launcher` from the `PATH` |
+
+A Minecraft Launcher that is already running is left alone. When none is found, the launcher says *No Minecraft
+Launcher was found on this computer* (exit code 3 on the command line) and starts nothing; when it could not be
+started, it says why.
+
+### What is written
 
 **Before you use it**, start the official Minecraft Launcher once on this computer. VANTA only adds to the profiles
 files the Minecraft Launcher has created and never creates one: `launcher_profiles.json` (Minecraft Launcher from
@@ -71,20 +134,21 @@ minecraft.net) and `launcher_profiles_microsoft_store.json` (Minecraft Launcher 
 app on Windows). It writes its profile into every one of these files that exists. The official Fabric installer works
 differently: when both files exist, it asks which launcher to use and writes only that one.
 
-On the Home screen click **Use with Minecraft Launcher**. A confirmation lists exactly the files below that will be
-written or removed, with their full paths and the VANTA Client version resolved from the release manifest; **Add
-profile** carries it out. On the command line:
+The confirmation lists exactly the files below that will be written or removed, with their full paths, the VANTA
+Client version resolved from the release manifest and the Performance pack mods with their versions. On the command
+line:
 
 ```text
-vanta-launcher --install-official-profile [--minecraft-dir <path>] [--client-jar <path>] [--data-dir <path>] [--memory <mb>]
+vanta-launcher --install-official-profile [--minecraft-dir <path>] [--client-jar <path>] [--without-performance-pack] [--data-dir <path>] [--memory <mb>]
+vanta-launcher --open-official-launcher [--minecraft-dir <path>]
 ```
 
 `--minecraft-dir` defaults to the detected official Minecraft folder: `%APPDATA%\.minecraft` on Windows,
 `~/Library/Application Support/minecraft` on macOS and `~/.minecraft` on Linux. `--data-dir` selects the VANTA data
 directory (and therefore the instance), `--client-jar` installs a local VANTA jar instead of the published release,
-and `--memory` sets the heap written to the profile. The command prints the resolved VANTA Client version and the same
-list as the confirmation, under *Files that will be written* and *Files that will be removed*, before it changes
-anything.
+`--without-performance-pack` skips the Performance pack for this run, and `--memory` sets the heap written to the
+profile. The command prints the resolved VANTA Client version and the same list as the confirmation, under *Files that
+will be written* and *Files that will be removed*, before it changes anything.
 
 When the published release cannot be installed (no manifest at the [releases URL](#releases-url), or a manifest whose
 download is still empty), this check fails first: nothing is listed, downloaded or written. The launcher then shows
@@ -100,6 +164,7 @@ folder, `<version>` the VANTA Client version). A file that is already identical 
 | `<data>/instances/vanta-1.21.11/mods/vanta-client-<version>.jar` | the published VANTA Client, verified with the SHA-256 from the release manifest (or the `--client-jar` file) |
 | `<data>/versions/vanta-client/<version>/vanta-client-<version>.jar` and `manifest.json` next to it | the rollback copy of the published release (see [Versions](#versions)); not written with `--client-jar` |
 | `<data>/instances/vanta-1.21.11/instance.json` | the installed VANTA Client version is noted; only when this file already exists |
+| `<data>/instances/vanta-1.21.11/mods/<file>` and `config/vanta/modrinth.json` | the [Performance pack](#performance-pack) mods and their record, verified with the SHA-512 from Modrinth; only when the pack is switched on |
 | `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.json` | the Fabric Loader version JSON as `meta.fabricmc.net/v2/versions/loader/1.21.11/0.19.5/profile/json` serves it (the file the official Fabric installer writes) |
 | `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.jar` | an empty file, as the official Fabric installer writes it |
 | `<minecraft>/launcher_profiles.json.vanta-backup` | a one-time copy of the original `launcher_profiles.json`, only when that file exists and has no backup yet |
@@ -110,7 +175,7 @@ folder, `<version>` the VANTA Client version). A file that is already identical 
 **Removed**, exactly as the regular installation does it:
 
 - older `fabric-api-*.jar` and `vanta-client-*.jar` files in `<data>/instances/vanta-1.21.11/mods/`, so only one
-  version of each is loaded;
+  version of each is loaded, and the older file of a Performance pack mod when a newer version replaces it;
 - rollback copies in `<data>/versions/vanta-client/` beyond the three newest versions.
 
 Nothing outside these paths is changed.
@@ -154,7 +219,8 @@ How the profiles files are treated:
   [manual installation](installation.md#c-manual-installation).
 
 When it is done the launcher says: **"Open the Minecraft Launcher, choose the profile 'VANTA 1.21.11' and press
-Play."** Restart the Minecraft Launcher first if it was open, so it reads the new profile.
+Play."** (*PLAY via Minecraft Launcher* opens it for you.) If the Minecraft Launcher was running, close it completely
+and start it again so it reads the new profile.
 
 ## Account sign-in
 

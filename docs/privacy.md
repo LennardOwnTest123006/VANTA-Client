@@ -1,6 +1,6 @@
 ---
 title: Privacy
-description: What the VANTA Client, the VANTA Launcher and the website do and do not do with your data. No telemetry, local statistics only, encrypted account tokens, no cookies.
+description: What the VANTA Client, the VANTA Launcher and the website do and do not do with your data. No telemetry, local statistics, encrypted account tokens, Modrinth only on request, no cookies.
 order: 31
 category: Reference
 ---
@@ -14,6 +14,9 @@ This page describes what actually happens; it is kept in sync with the code and 
 - **Statistics are local** and optional. They stay in a JSON file on your computer.
 - **Account tokens** are stored encrypted on your computer by the launcher and sent only to Microsoft, Xbox Live and
   Mojang services as part of signing in — the same services the official launcher uses.
+- **Modrinth** is contacted only for mods, shader packs and resource packs: by the client while you use *Mods &
+  Shaders*, by the launcher for the Performance pack and the Mods page. No account data is sent
+  ([details](#modrinth-mods-shaders-and-the-performance-pack)).
 - **The website has no analytics, no cookies and no third-party scripts.**
 
 ## VANTA Client (the Fabric mod)
@@ -25,9 +28,11 @@ only**, never about other players. Each category can be switched off in *Setting
 exported or deleted, and the file never leaves your computer
 ([Statistics and privacy](statistics-and-privacy.md)).
 
-The client opens **no network connections of its own**. It does not phone home, check for updates, fetch cosmetics or
-load remote content. Minecraft's own connections (Mojang authentication, the servers you join, resource packs a server
-sends) are not changed by VANTA.
+The client opens **no network connections of its own**, with one exception: the *Mods & Shaders* screen (from
+client 1.1.0 on) talks to Modrinth while you use it, see
+[Modrinth](#modrinth-mods-shaders-and-the-performance-pack) below. The client does not phone home, check for updates,
+fetch cosmetics or load remote content. Minecraft's own connections (Mojang authentication, the servers you join,
+resource packs a server sends) are not changed by VANTA.
 
 HUD widgets show information the game already exposes about your own session (position, biome, effects, ping,
 server name). The *Server* widget has a "hide address" option for streaming.
@@ -43,10 +48,12 @@ To install and start the game the launcher connects to:
 | `api.adoptium.net` and its download host | Eclipse Temurin 21 when you ask the launcher to install Java |
 | `login.microsoftonline.com`, `user.auth.xboxlive.com`, `xsts.auth.xboxlive.com`, `api.minecraftservices.com` | Microsoft sign-in (device code flow), Xbox Live and Minecraft tokens, ownership and profile — only when a Microsoft client id is configured |
 | GitHub: `raw.githubusercontent.com` (the built-in releases URL), `github.com` and its release asset hosts | release manifests (`client-latest.json`, `launcher-latest.json`) and VANTA downloads; a releases URL you configure instead is contacted in place of the built-in one |
+| `api.modrinth.com`, `cdn.modrinth.com` | from launcher 1.1.0 on: the Performance pack (when *Install the performance pack* is on) and the Mods page, see [below](#modrinth-mods-shaders-and-the-performance-pack) |
 
-Every request identifies the launcher with the user agent `VANTA-Launcher/<version>`. The launcher sends nothing
-else and receives nothing it does not need to install or start the game. The privacy policies of Microsoft, Mojang,
-FabricMC, Adoptium and GitHub apply to those services.
+Requests identify the launcher with the user agent `VANTA-Launcher/<version>`; requests to Modrinth use the
+descriptive user agent Modrinth asks for (below). The launcher sends nothing else and receives nothing it does not
+need to install or start the game. The privacy policies of Microsoft, Mojang, FabricMC, Adoptium, GitHub and Modrinth
+apply to those services.
 
 **Microsoft account data.** The device code flow means you sign in on `microsoft.com/link`; the launcher never sees
 your password. It receives an access token and a refresh token, your Minecraft profile name and UUID and your Xbox
@@ -65,12 +72,46 @@ you play. They stay on your computer; you decide whether to attach them to a bug
 **Settings.** `settings.json` holds launcher preferences only, including the Microsoft client id and releases URL if
 you configured them.
 
-**Use with Minecraft Launcher.** This writes only local files: Fabric API and the VANTA Client into the VANTA game
-folder, the Fabric Loader version files into the official Minecraft folder and the profile *VANTA 1.21.11* into
+**Use with Minecraft Launcher** (and *PLAY via Minecraft Launcher*). This writes only local files: Fabric API, the
+VANTA Client and, when it is switched on, the Performance pack into the VANTA game folder, the Fabric Loader version
+files into the official Minecraft folder and the profile *VANTA 1.21.11* into
 each profiles file of the official Minecraft Launcher that exists there, `launcher_profiles.json` and/or
 `launcher_profiles_microsoft_store.json` (each with a one-time backup).
-VANTA reads these files only to keep your other profiles unchanged and sends nothing from them anywhere. Sign-in,
-downloads and play are then handled by the official Minecraft Launcher under Microsoft's and Mojang's terms.
+VANTA reads these files only to keep your other profiles unchanged and sends nothing from them anywhere. Before it
+writes them, it checks whether the Minecraft Launcher is running by looking at the list of running processes on your
+computer; nothing about them leaves your computer. Sign-in, downloads and play are then handled by the official
+Minecraft Launcher under Microsoft's and Mojang's terms.
+
+**Start-up errors.** When the launcher cannot start, it writes `logs/startup-error.txt` in its data directory with
+the error, the launcher and Java versions and the operating system. It stays on your computer; attach it to a bug
+report only if you want to.
+
+## Modrinth: mods, shaders and the Performance pack
+
+[Mods & Shaders](mods-and-shaders.md) in the game (from client 1.1.0 on) and the Performance pack and Mods page of the
+launcher (from launcher 1.1.0 on) download projects from Modrinth's public API, `api.modrinth.com`; the files come
+from the address Modrinth publishes for them, `cdn.modrinth.com`.
+
+When:
+
+- **client**: only while you use *Mods & Shaders*: when the screen opens and lists projects, when you search and when
+  you install. Nothing is sent at game start or in the background;
+- **launcher**: when the Performance pack is installed (PLAY, *PLAY via Minecraft Launcher*, *Use with Minecraft
+  Launcher*, `--install`, `--install-official-profile`, unless *Settings → Game → Install the performance pack* is
+  off or `--without-performance-pack` is given), when you open or use the Mods page and for *Update all*.
+
+What:
+
+- your search text, the content type (mods, shaders or resource packs) and the Minecraft version 1.21.11;
+- the ids of the projects and versions that are looked up or downloaded;
+- when you install in the game: the SHA-512 checksums of the mod files in `mods/` that VANTA did not install, so it
+  can recognise mods you added yourself (checksums only, not the files);
+- a User-Agent that names the project, its version and its repository, as Modrinth asks API clients to do:
+  `LennardOwnTest123006/VANTA-Client/<version> (https://github.com/LennardOwnTest123006/VANTA-Client)`.
+
+No Microsoft or Minecraft account data, no player name or UUID, no statistics and no settings are sent. Like any web
+server, Modrinth sees your IP address; its own privacy policy applies. What was installed is recorded only locally,
+in `config/vanta/modrinth.json` in the game folder.
 
 ## Website
 

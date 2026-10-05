@@ -1,13 +1,15 @@
 ---
 title: Performance Center
-description: What the Performance Center measures, the LOW, BALANCED, HIGH and ULTRA presets with the exact vanilla option values they set, render distance suggestions and the honest limits of what VANTA can do.
+description: What the Performance Center measures, the LOW, BALANCED, HIGH and ULTRA presets with their exact vanilla values, render distance suggestions, the Performance pack and honest limits.
 order: 23
 category: Client
 ---
 
 The Performance Center is a dashboard for the numbers that matter and a quick way to apply a sensible set of
-**vanilla** video options. It does not modify Minecraft's renderer, it does not bundle Sodium, OptiFine or any other
-performance mod, and it makes no FPS promises: how fast your game runs depends on your hardware and on Minecraft.
+**vanilla** video options. It does not modify Minecraft's renderer itself and it makes no FPS promises: how fast your
+game runs depends on your hardware and on Minecraft. For more than vanilla options can give, it points to the
+[Performance pack](#the-performance-pack): optimisation mods from Modrinth that VANTA installs on request but does not
+ship in its own files.
 
 Open it from *Settings → Performance → Open Performance Center*, the performance key (unbound by default), the
 main menu, or `/vanta perf`.
@@ -97,10 +99,37 @@ A suggestion appears as a banner with **Apply suggestion**; it is **never applie
 *Settings → Performance → Apply render distance suggestions automatically* (off by default). Turn the feature off
 entirely with *Render distance suggestions*.
 
+## The Performance pack
+
+Below the cards the Performance Center shows *Want much more FPS?* with **Open Mods & Shaders**. Presets can only
+make Minecraft render less; the **Performance pack** (from client 1.1.0 and launcher 1.1.0 on) installs separate
+Fabric mods that make rendering and game logic faster:
+
+| Mod | What it does |
+| --- | --- |
+| [Sodium](https://modrinth.com/mod/sodium) | replaces the rendering engine; the largest frame rate gain of the six |
+| [Lithium](https://modrinth.com/mod/lithium) | faster game logic (ticking, physics, mob AI) |
+| [FerriteCore](https://modrinth.com/mod/ferrite-core) | uses less memory |
+| [ImmediatelyFast](https://modrinth.com/mod/immediatelyfast) | faster rendering of the HUD, text and entities |
+| [EntityCulling](https://modrinth.com/mod/entityculling) | skips entities and block entities you cannot see |
+| [Iris Shaders](https://modrinth.com/mod/iris) | loads shader packs and works together with Sodium |
+
+- **In the game**: *Mods & Shaders → Performance pack*, untick what you do not want, **Install performance pack**,
+  then restart the game.
+- **In the VANTA Launcher**: installed by default with PLAY, *PLAY via Minecraft Launcher* and *Use with Minecraft
+  Launcher*; *Settings → Game → Install the performance pack* turns it off.
+
+The newest Fabric version of each mod for Minecraft 1.21.11 is downloaded from Modrinth at install time and checked
+with the SHA-512 Modrinth publishes. The mods are independent projects by their own authors under their own licences.
+Everything about installing, disabling and removing them is in
+[Mods & Shaders](mods-and-shaders.md#the-performance-pack).
+
 ## Honest limits
 
-- VANTA changes **vanilla options only**. Everything a preset does, you could do by hand in Video Settings.
-- There is no claim such as "+200 % FPS". Measured improvements come from Minecraft rendering less, nothing else.
-- If you need renderer-level optimisation, mods such as Sodium exist; VANTA does not bundle, require or configure
-  them, and we do not test combinations ([Fabric → Using VANTA with other mods](fabric.md#using-vanta-with-other-fabric-mods)).
+- VANTA's presets change **vanilla options only**. Everything a preset does, you could do by hand in Video Settings.
+- There is no claim such as "+200 % FPS", neither for the presets nor for the Performance pack. Measure on your own
+  machine with the cards above.
+- The Performance pack mods are not part of VANTA; VANTA installs them on request. CI runs VANTA's game test with
+  them loaded; other mod combinations are not tested
+  ([Fabric → Using VANTA with other mods](fabric.md#using-vanta-with-other-fabric-mods)).
 - The CPU card shows "n/a" when the Java runtime does not provide process CPU load.

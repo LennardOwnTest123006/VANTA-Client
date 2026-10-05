@@ -1,7 +1,7 @@
 ---
 title: Cosmetics
 description: UI themes, menu backgrounds, HUD themes, menu particles, badges and crosshair presets — all purely visual and free — plus the cosmetic pack format.
-order: 25
+order: 26
 category: Client
 ---
 

@@ -22,19 +22,26 @@ Details are in [Minecraft requirements](minecraft-requirements.md) and [Java 21]
 
 ## Choose how to install
 
-| | A. VANTA Launcher | B. VANTA Launcher → *Use with Minecraft Launcher* | C. Manual |
+| | A. VANTA Launcher → *PLAY* | B. VANTA Launcher → *PLAY via Minecraft Launcher* | C. Manual |
 | --- | --- | --- | --- |
-| You download | the launcher file for your system | the launcher file for your system | `vanta-client-1.0.1-mods.zip` and the Fabric installer (`.exe` on Windows, `.jar` on macOS and Linux) |
+| You download | the launcher file for your system | the launcher file for your system | `vanta-client-1.1.0-mods.zip` and the Fabric installer (`.exe` on Windows, `.jar` on macOS and Linux) |
 | Who installs Minecraft and Java | the VANTA Launcher | the official Minecraft Launcher | the official Minecraft Launcher |
 | Who signs you in | the VANTA Launcher (needs a Microsoft client id, see below) | the official Minecraft Launcher | the official Minecraft Launcher |
 | Game folder | `<data directory>/instances/vanta-1.21.11` | the same VANTA instance | your `.minecraft` folder |
-| Checksums verified for you | every file | Fabric API and the VANTA Client by VANTA; the rest by the Minecraft Launcher | the two jars by you, with `SHA256SUMS` |
+| Performance pack | installed by default | installed by default | optional, from *Mods & Shaders* in the game |
+| Checksums verified for you | every file | Fabric API, the VANTA Client and the Performance pack by VANTA; the rest by the Minecraft Launcher | the two jars by you, with `SHA256SUMS` |
 
 **Which one should I use?** Microsoft sign-in inside the VANTA Launcher needs an application id that Mojang has
-approved for the Minecraft API. The project does not have one, so in the published launcher **PLAY stays disabled**
-and the Home screen says so. Until that changes, play with **path B** (one button in the VANTA Launcher) or
-**path C** (no VANTA Launcher at all). Path A works when you configure an approved client id yourself
-([Launcher → Microsoft client id](launcher.md#microsoft-client-id)).
+approved for the Minecraft API. The project does not have one, so in the published launcher the main button on the
+Home screen is **PLAY via Minecraft Launcher**: that is **path B**, one click in the VANTA Launcher. **Path C** needs no
+VANTA Launcher at all. Path A works when you configure an approved client id yourself
+([Launcher → Microsoft client id](launcher.md#microsoft-client-id)); then the main button is **PLAY**. (Launcher 1.0.x
+showed a disabled PLAY instead and offered path B as the button *Use with Minecraft Launcher*, which still exists.)
+
+The **Performance pack** is six optimisation mods from Modrinth: Sodium, Lithium, FerriteCore, ImmediatelyFast,
+EntityCulling and Iris Shaders. Paths A and B install it by default (from launcher 1.1.0 on; *Settings → Game →
+Install the performance pack* turns it off). With path C you can install it in the game from *Mods & Shaders*. See
+[Mods & Shaders](mods-and-shaders.md#the-performance-pack).
 
 ## 1. Download
 
@@ -43,32 +50,33 @@ Every file is published on GitHub Releases by the project's release workflow, an
 SHA-256:
 
 - all releases: [github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases)
-- VANTA Launcher 1.0.2: release [`launcher-v1.0.2`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.2)
-- VANTA Client 1.0.1: release [`client-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.1)
-  (launcher 1.0.2 is a launcher-only release; the client stays at 1.0.1)
-- the previous releases [`launcher-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.1),
-  [`launcher-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.0) and
+- VANTA Launcher 1.1.0: release [`launcher-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.1.0)
+- VANTA Client 1.1.0: release [`client-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.1.0)
+- the previous releases [`launcher-v1.0.2`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.2),
+  [`launcher-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.1),
+  [`launcher-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.0),
+  [`client-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.1) and
   [`client-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.0) stay available
 
 Each file's direct address is `https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/<release>/<file>`.
-Treat a VANTA download from anywhere else as untrusted. The tables below name the files of launcher 1.0.2 and
-client 1.0.1; another version has the same names with its own version number. Sizes on the Download page, in the
+Treat a VANTA download from anywhere else as untrusted. The tables below name the files of launcher 1.1.0 and
+client 1.1.0; another version has the same names with its own version number. Sizes on the Download page, in the
 release notes and in the launcher are decimal with one decimal place (1 MB = 1,000,000 bytes), so a file of
 66,900,000 bytes is shown as "66.9 MB".
 
 ### VANTA Launcher files
 
-From the release `launcher-v1.0.2`:
+From the release `launcher-v1.1.0`:
 
 | Your system | File | What it is |
 | --- | --- | --- |
-| Windows 10/11 x64 | `VANTA-Launcher-1.0.2.msi` | **recommended**: per-user installer, no administrator rights, includes the Java 21 runtime |
-| Windows 10/11 x64 | `VANTA-Launcher-1.0.2.exe` | the same installer as an `.exe`, for systems that block `.msi` files |
-| Windows 10/11 x64 | `VANTA-Launcher-1.0.2-windows-portable.zip` | no installation: unzip and run `VANTA Launcher\VANTA Launcher.exe`; includes the Java 21 runtime |
-| Windows 10/11 x64 | `vanta-launcher-1.0.2-windows-all.jar` | single jar for Windows x64; needs Java 21 installed |
-| Linux x64 | `VANTA-Launcher-1.0.2-linux-x64.tar.gz` | **recommended**: app image, includes the Java 21 runtime; run `VANTA Launcher/bin/VANTA Launcher` |
-| Linux x64 | `vanta-launcher-1.0.2-linux-all.jar` | single jar for Linux x64; needs Java 21 installed |
-| macOS, Apple Silicon (M1 or newer) | `vanta-launcher-1.0.2-macos-aarch64-all.jar` | single jar for Apple Silicon; needs Java 21 installed; not signed. It is built and tested from the command line on a macOS machine in CI; its window has not been tested |
+| Windows 10/11 x64 | `VANTA-Launcher-1.1.0.msi` | **recommended**: per-user installer, no administrator rights, includes the Java 21 runtime |
+| Windows 10/11 x64 | `VANTA-Launcher-1.1.0.exe` | the same installer as an `.exe`, for systems that block `.msi` files |
+| Windows 10/11 x64 | `VANTA-Launcher-1.1.0-windows-portable.zip` | no installation: unzip and run `VANTA Launcher\VANTA Launcher.exe`; includes the Java 21 runtime |
+| Windows 10/11 x64 | `vanta-launcher-1.1.0-windows-all.jar` | single jar for Windows x64; needs Java 21 installed |
+| Linux x64 | `VANTA-Launcher-1.1.0-linux-x64.tar.gz` | **recommended**: app image, includes the Java 21 runtime; run `VANTA Launcher/bin/VANTA Launcher` |
+| Linux x64 | `vanta-launcher-1.1.0-linux-all.jar` | single jar for Linux x64; needs Java 21 installed |
+| macOS, Apple Silicon (M1 or newer) | `vanta-launcher-1.1.0-macos-aarch64-all.jar` | single jar for Apple Silicon; needs Java 21 installed; not signed. It is built and tested from the command line on a macOS machine in CI; its window has not been tested |
 | macOS on Intel, Linux on ARM, other | — | no launcher build: use [path C](#c-manual-installation) |
 
 **There is no single launcher jar for every system.** Each `-all.jar` contains the JavaFX libraries of one system
@@ -80,16 +88,17 @@ jar.
 
 ### VANTA Client files
 
-From the release `client-v1.0.1`:
+From the release `client-v1.1.0`:
 
 | File | What it is |
 | --- | --- |
-| `vanta-client-1.0.1.jar` | the VANTA Client Fabric mod. The VANTA Launcher downloads it for you (paths A and B) |
-| `vanta-client-1.0.1-mods.zip` | for path C: a `mods/` folder with `vanta-client-1.0.1.jar` and `fabric-api-0.141.6+1.21.11.jar`, plus `INSTALL.txt` (the steps of path C) and `SHA256SUMS` |
+| `vanta-client-1.1.0.jar` | the VANTA Client Fabric mod. The VANTA Launcher downloads it for you (paths A and B) |
+| `vanta-client-1.1.0-mods.zip` | for path C: a `mods/` folder with `vanta-client-1.1.0.jar` and `fabric-api-0.141.6+1.21.11.jar`, plus `INSTALL.txt` (the steps of path C) and `SHA256SUMS` |
 | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0). VANTA requires it; it is also inside the mods bundle |
 
 Both releases also contain `SHA256SUMS.txt` (the SHA-256 of every file above) and the release manifest
-(`launcher-1.0.2.json`, `client-1.0.1.json`) that the website and the launcher read.
+(`launcher-1.1.0.json`, `client-1.1.0.json`) that the website and the launcher read. The Performance pack is not in
+any VANTA release: its mods are downloaded from Modrinth when they are installed.
 
 If the Download page says a version is **not published yet**, its files are not out yet and the page keeps offering
 the newest published release; see
@@ -104,8 +113,8 @@ Check before you run or install anything.
 **Windows** (PowerShell; the second command also works in `cmd`):
 
 ```powershell
-Get-FileHash .\VANTA-Launcher-1.0.2.msi -Algorithm SHA256
-certutil -hashfile VANTA-Launcher-1.0.2.msi SHA256
+Get-FileHash .\VANTA-Launcher-1.1.0.msi -Algorithm SHA256
+certutil -hashfile VANTA-Launcher-1.1.0.msi SHA256
 ```
 
 Compare the printed value with the line for the same file in `SHA256SUMS.txt`. `Get-FileHash` prints upper-case
@@ -114,9 +123,9 @@ letters and `SHA256SUMS.txt` uses lower-case; that difference does not matter.
 **macOS** (Terminal, in the folder with the download and `SHA256SUMS.txt`):
 
 ```bash
-shasum -a 256 vanta-launcher-1.0.2-macos-aarch64-all.jar
+shasum -a 256 vanta-launcher-1.1.0-macos-aarch64-all.jar
 # or let shasum compare it with SHA256SUMS.txt (prints "OK"):
-grep -F '  vanta-launcher-1.0.2-macos-aarch64-all.jar' SHA256SUMS.txt | shasum -a 256 -c
+grep -F '  vanta-launcher-1.1.0-macos-aarch64-all.jar' SHA256SUMS.txt | shasum -a 256 -c
 ```
 
 **Linux** (checks every file from `SHA256SUMS.txt` that is in the current folder and prints `OK` for each):
@@ -128,7 +137,7 @@ sha256sum -c --ignore-missing SHA256SUMS.txt
 **The mods bundle** carries its own `SHA256SUMS` for the two jars inside. After unzipping, run
 `sha256sum -c SHA256SUMS` (Linux) or `shasum -a 256 -c SHA256SUMS` (macOS) in the unzipped folder. On Windows run
 `Get-FileHash mods\*.jar -Algorithm SHA256 | Format-List Hash, Path` in PowerShell, which prints the full path of
-each jar (or `certutil -hashfile mods\vanta-client-1.0.1.jar SHA256` and
+each jar (or `certutil -hashfile mods\vanta-client-1.1.0.jar SHA256` and
 `certutil -hashfile mods\fabric-api-0.141.6+1.21.11.jar SHA256` in the Command Prompt), and compare the hash of
 **both** jars with the line for the same file in `SHA256SUMS`. `INSTALL.txt` in the bundle lists the same commands.
 
@@ -156,7 +165,7 @@ may warn about this file as well; the same rule applies.
 **Linux app image (`-linux-x64.tar.gz`)**
 
 ```bash
-tar -xzf VANTA-Launcher-1.0.2-linux-x64.tar.gz
+tar -xzf VANTA-Launcher-1.1.0-linux-x64.tar.gz
 "./VANTA Launcher/bin/VANTA Launcher"
 ```
 
@@ -165,12 +174,17 @@ The app image contains its own Java runtime; no system Java is needed for the la
 **Launcher jar (`-windows-all.jar`, `-linux-all.jar`, `-macos-aarch64-all.jar`)**
 
 ```bash
-java -jar vanta-launcher-1.0.2-macos-aarch64-all.jar   # use the file for your system
+java -jar vanta-launcher-1.1.0-macos-aarch64-all.jar   # use the file for your system
 ```
 
 This needs Java 21 (`java -version` must print 21; see [Java 21](java-21.md)). On macOS start the jar from Terminal
 as shown; it is not signed or notarized. Adding `--help` prints the
 [command line reference](launcher.md#command-line-reference).
+
+**If Windows blocks the file or the launcher does not open**, see
+[Troubleshooting → The launcher does not start or Windows blocks it](troubleshooting.md#the-launcher-does-not-start-or-windows-blocks-it).
+Smart App Control on Windows 11 can block unsigned programs without a *Run anyway* option, and from launcher 1.1.0
+on a failed start shows a message and writes `startup-error.txt` instead of closing silently.
 
 ## 4. First start
 
@@ -181,17 +195,19 @@ as shown; it is not signed or notarized. Adding `--help` prints the
    SHA-256 published by Adoptium and unpacks it into its own `runtimes/` folder. You can also point it at an
    installed Java in Settings.
 2. **Sign in.** This needs a Microsoft client id ([Launcher → Microsoft client id](launcher.md#microsoft-client-id)).
-   Without one the Home screen explains that sign-in is not available and offers *Use with Minecraft Launcher*
-   (path B) instead. With an id: click **Sign in**, the launcher shows a code and opens `microsoft.com/link`; enter
+   Without one the main button is **PLAY via Minecraft Launcher** (path B) instead. With an id: click **Sign in**, the launcher shows a code and opens `microsoft.com/link`; enter
    the code there and approve. The launcher then verifies that the account owns Minecraft Java Edition and loads your
    profile name. Passwords are never typed into the launcher.
 3. **PLAY.** The first click installs everything into a dedicated instance: Minecraft 1.21.11 (client jar,
    libraries and assets from Mojang's servers — the same files the official launcher downloads, several hundred
-   megabytes), Fabric Loader 0.19.5 (from Fabric's servers), Fabric API 0.141.6+1.21.11 and the VANTA Client jar
-   (from the release manifest). Every file is checked against its published checksum; the launcher checks free disk
-   space first and resumes an interrupted installation without downloading verified files again.
+   megabytes), Fabric Loader 0.19.5 (from Fabric's servers), Fabric API 0.141.6+1.21.11, the VANTA Client jar
+   (from the release manifest) and the Performance pack (the newest 1.21.11 Fabric versions from Modrinth, unless
+   *Settings → Game → Install the performance pack* is off). Every file is checked against its published checksum;
+   the launcher checks free disk space first and resumes an interrupted installation without downloading verified
+   files again. If Modrinth cannot be reached, the installation continues without the pack and says so.
 4. The status line turns to **Running** and the game starts with the VANTA main menu. Logs stream into the
-   **Logs** screen while you play.
+   **Logs** screen while you play. When you change mods in the game, **Restart game** on the Mods & Shaders screen
+   quits and the launcher starts the game again ([Mods & Shaders → Restarting](mods-and-shaders.md#restarting-the-game)).
 
 Before the first installation the **VANTA Client** card on the Home screen says **Not installed yet** next to the
 latest release. It offers no *Update* (there is nothing to update yet) but the ways to install: **Install now** (the
@@ -200,8 +216,8 @@ Launcher**. The update banner does not offer a client update either until a clie
 
 If the VANTA Client has not been published (no manifest, or an empty download URL in it), the installation stops at
 the VANTA Client step with "not published yet" (exit code 7 on the command line); the files downloaded before that
-stay verified for the next attempt, and *Use with Minecraft Launcher* stops before it writes anything to the
-Minecraft folder. The launcher never invents a download. Developers can install a locally built jar with
+stay verified for the next attempt, and *PLAY via Minecraft Launcher* and *Use with Minecraft Launcher* stop before
+they write anything to the Minecraft folder. The launcher never invents a download. Developers can install a locally built jar with
 `--install --client-jar <path>` or `--install-official-profile --client-jar <path>`.
 
 ### B. Play through the official Minecraft Launcher
@@ -211,23 +227,40 @@ Minecraft folder. The launcher never invents a download. Developers can install 
    `launcher_profiles_microsoft_store.json` (Minecraft Launcher from the Microsoft Store or the Xbox app on Windows).
    VANTA adds its profile to every one of these files that exists and never creates one. That is not what the
    Fabric installer (path C) does: when both files exist, it asks which launcher to use and writes only that one.
-2. In the VANTA Launcher click **Use with Minecraft Launcher** on the Home screen. The confirmation lists exactly
-   which files will be written; click **Add profile**.
-3. VANTA installs Fabric API and the VANTA Client (both SHA-256 verified) into its own game folder, adds the Fabric
-   Loader 0.19.5 version files to the Minecraft folder and adds the profile **VANTA 1.21.11** to every profiles file
-   from step 1 that exists. Your other profiles and settings are kept, and each file is backed up once next to it as
-   `launcher_profiles.json.vanta-backup` or `launcher_profiles_microsoft_store.json.vanta-backup`.
-4. Open the Minecraft Launcher (restart it if it was open), choose the profile **VANTA 1.21.11** and press
+2. **Close the Minecraft Launcher completely.** It reads its profiles only when it starts, so a profile added while
+   it runs does not appear until it is closed and started again. On Windows it often keeps running in the system tray
+   after you close its window: click the arrow next to the clock, right-click the Minecraft Launcher icon and choose
+   *Exit* (or end "Minecraft Launcher" in the Task Manager). On macOS quit it with Command-Q.
+3. In the VANTA Launcher click **PLAY via Minecraft Launcher** on the Home screen. If the Minecraft Launcher is still
+   running, VANTA says so (*Close the Minecraft Launcher first*) and names its process: close it and choose
+   **Check again**, or **Continue anyway** (the profile then appears after the next start of the Minecraft
+   Launcher). VANTA never closes it for you.
+4. The first time, a confirmation lists exactly which files will be written, including the Performance pack mods;
+   click **Add profile and open**. Later clicks update the profile directly.
+5. VANTA installs Fabric API, the VANTA Client (both SHA-256 verified) and the Performance pack (SHA-512 verified)
+   into its own game folder, adds the Fabric Loader 0.19.5 version files to the Minecraft folder and adds the profile
+   **VANTA 1.21.11** to every profiles file from step 1 that exists. Your other profiles and settings are kept, and
+   each file is backed up once next to it as `launcher_profiles.json.vanta-backup` or
+   `launcher_profiles_microsoft_store.json.vanta-backup`. The progress shows each step and the file being
+   downloaded; files that are already in place and verified are not downloaded again.
+6. VANTA then opens the Minecraft Launcher. Choose the profile **VANTA 1.21.11** next to its Play button and press
    **Play**. The Minecraft Launcher downloads Minecraft 1.21.11, its libraries, assets and Java itself and signs you
    in with Microsoft.
 
+Afterwards the Home screen shows *Ready in the Minecraft Launcher* with **Open Minecraft Launcher**, which starts the
+Minecraft Launcher again (a running one is left alone). If it says that no Minecraft Launcher was found, start the
+Minecraft Launcher yourself. The smaller button **Use with Minecraft Launcher** on the Home screen does the same setup
+with the confirmation every time and without opening the Minecraft Launcher, as in launcher 1.0.x.
+
 The same from the command line: `--install-official-profile` (add `--minecraft-dir <path>` for a Minecraft folder
-in a non-standard place). Exactly what is written is listed in
+in a non-standard place, `--without-performance-pack` to skip the pack) and `--open-official-launcher`.
+`--install-official-profile` prints a warning when the Minecraft Launcher is running. Exactly what is written is listed in
 [Launcher → Use with the Minecraft Launcher](launcher.md#use-with-the-minecraft-launcher). If VANTA reports that the
 Minecraft Launcher has not been set up yet (neither profiles file exists), or the profile does not show up in the
 Minecraft Launcher, see
-[Troubleshooting](troubleshooting.md#use-with-minecraft-launcher-says-the-profiles-file-is-missing). CI checks the
-contents VANTA writes into both profiles files on Linux. Whether the Minecraft Launcher from the Microsoft Store or the
+[Troubleshooting](troubleshooting.md#use-with-minecraft-launcher-says-the-profiles-file-is-missing) and
+[The profile VANTA 1.21.11 does not show up](troubleshooting.md#the-profile-vanta-12111-does-not-show-up-in-the-minecraft-launcher).
+CI checks the contents VANTA writes into both profiles files on Linux. Whether the Minecraft Launcher from the Microsoft Store or the
 Xbox app then shows the profile has not been tested on a real Windows PC yet; if it does not, use path C, whose Fabric
 installer supports that launcher too.
 
@@ -254,7 +287,7 @@ No VANTA Launcher involved; any launcher that runs Fabric works the same way.
    checked and click *Install*. If both Minecraft Launchers are installed (the one from minecraft.net and the one from
    the Microsoft Store or the Xbox app), the Fabric installer asks which one to use: choose the one you play with. It
    adds the profile to that launcher only.
-3. Download `vanta-client-1.0.1-mods.zip`, verify it ([Verify the checksum](#2-verify-the-checksum)), unzip it and
+3. Download `vanta-client-1.1.0-mods.zip`, verify it ([Verify the checksum](#2-verify-the-checksum)), unzip it and
    copy **both** jars from its `mods/` folder into the `mods` folder of your Minecraft directory (create it if it does
    not exist):
    - Windows: `%APPDATA%\.minecraft\mods`
@@ -262,13 +295,18 @@ No VANTA Launcher involved; any launcher that runs Fabric works the same way.
    - Linux: `~/.minecraft/mods`
 4. In the Minecraft Launcher start the profile the Fabric installer created. It is listed as
    **fabric-loader-1.21.11** (its version is `fabric-loader-0.19.5-1.21.11`).
+5. Optional: in the game, open **Mods & Shaders** from the VANTA main menu and install the **Performance pack** or
+   other mods, shader packs and resource packs from Modrinth; they go into the same `.minecraft` folder. Restart the
+   game afterwards so new mods load ([Mods & Shaders](mods-and-shaders.md)).
 
 `INSTALL.txt` in the bundle repeats these steps: it starts with step 0, *start the official Minecraft Launcher
-once*, says to keep *Create profile* checked in the Fabric installer, shows how to verify both jars on Linux, macOS and
-Windows (PowerShell or Command Prompt), and explains that the zoom key C is also vanilla's *Save Hotbar Activator*
-([Keybinds → Zoom](keybinds.md#zoom)). Which Fabric installer to take on each system and the question which
-launcher to use (step 2 of this path) are explained in `INSTALL.txt` from the next client release on; the
-`INSTALL.txt` in `vanta-client-1.0.1-mods.zip` does not mention them yet. For Prism Launcher, MultiMC and other details see
+once*, says which Fabric installer to take on each system (the `.exe` on Windows, the universal `.jar` with Java 21 on
+macOS and Linux), that the Fabric installer asks which launcher to use when both Minecraft Launchers are installed,
+and to keep *Create profile* checked. It shows how to verify both jars on Linux, macOS and Windows (PowerShell or
+Command Prompt), mentions Mods & Shaders and the Performance pack, and explains that the zoom key C is also vanilla's
+*Save Hotbar Activator* ([Keybinds → Zoom](keybinds.md#zoom)). The notes on the Fabric installer per system, the
+launcher choice and Mods & Shaders are new in `vanta-client-1.1.0-mods.zip`; the `INSTALL.txt` of 1.0.1 does not have
+them. For Prism Launcher, MultiMC and other details see
 [Fabric → Manual installation](fabric.md#manual-installation-into-an-existing-fabric-profile).
 
 ## 5. Where files live
@@ -284,10 +322,10 @@ The VANTA Launcher keeps everything in its data directory (override it with the 
 
 | Inside the data directory | Content |
 | --- | --- |
-| `instances/vanta-1.21.11/` | the game directory (paths A and B): `mods/` (Fabric API + VANTA), `config/vanta/` (VANTA settings), `saves/`, `resourcepacks/`, `screenshots/`, `logs/latest.log` |
+| `instances/vanta-1.21.11/` | the game directory (paths A and B): `mods/` (Fabric API, VANTA, the Performance pack and mods from Modrinth), `shaderpacks/`, `resourcepacks/`, `config/vanta/` (VANTA settings and `modrinth.json`, the list of what was installed from Modrinth), `saves/`, `screenshots/`, `logs/latest.log` |
 | `libraries/`, `assets/`, `versions/` | Minecraft and Fabric files in the standard layout for path A (reused read-only from the official `.minecraft` when *Share official Minecraft files* is on) |
 | `runtimes/` | Java runtimes installed by the launcher |
-| `logs/` | `launcher-0.log` (rotating) and `game-<timestamp>.log` |
+| `logs/` | `launcher-0.log` (rotating), `game-<timestamp>.log` and, after a failed start of the launcher, `startup-error.txt` |
 | `cache/updates/` | downloaded launcher updates, from launcher 1.0.2 on as `<version>/<file name>` under the exact name of the release file (see [Updating](#updating)) |
 | `settings.json` | launcher settings |
 | `accounts.dat` (+ `key.bin` outside Windows) | encrypted account tokens |
@@ -309,11 +347,13 @@ VANTA's own configuration lives in the game directory under `config/vanta/`: `se
   [Launcher → Releases URL](launcher.md#releases-url)) and shows a banner when a newer launcher exists, or a newer
   client while a client is installed. Client updates are downloaded, verified and swapped into `mods/` of the VANTA
   instance, which is also the game folder of the *VANTA 1.21.11* profile; the last three versions stay available for
-  rollback on the Versions screen. Running *Use with Minecraft Launcher* again also installs the newest published
-  client.
+  rollback on the Versions screen. Running *PLAY via Minecraft Launcher* or *Use with Minecraft Launcher* again also
+  installs the newest published client. Every installation (PLAY, *PLAY via Minecraft Launcher*, *Use with Minecraft
+  Launcher*) also brings the Performance pack mods to their newest 1.21.11 versions while the pack is switched on, and
+  *Update all* on the Mods page updates everything else you installed from Modrinth.
 - **The launcher itself** updates with the file that matches how you installed it, downloaded and SHA-256 verified
-  first. Launcher 1.0.2 saves it as `cache/updates/<version>/<file name>` in its data directory, under the exact name
-  of the release file, and its dialog shows the full path (you can select and copy it) with *Show in folder*:
+  first. From launcher 1.0.2 on it is saved as `cache/updates/<version>/<file name>` in the data directory, under the
+  exact name of the release file, and its dialog shows the full path (you can select and copy it) with *Show in folder*:
   - installed with the `.msi` or `.exe`: the new `.msi`; the launcher asks, then hands it to Windows;
   - the Windows portable folder: the new `-windows-portable.zip`. The launcher shows the instructions with your
     folders' paths, and *Show in folder* opens the download. Close the launcher, then extract the zip into the folder
@@ -329,27 +369,29 @@ VANTA's own configuration lives in the game directory under `config/vanta/`: `se
   - Intel Macs and other systems without a launcher build: the update dialog opens the release page.
 
   This choice by installation type exists from launcher 1.0.1 on. The update is offered by the launcher you are
-  running, and **launcher 1.0.0 still picks the file by system only**, for the update to 1.0.2 as it did for 1.0.1:
-  on Windows it offers `VANTA-Launcher-1.0.2.msi` (also in the portable folder and when started as a jar), on Linux
-  x64 `VANTA-Launcher-1.0.2-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a portable
+  running, and **launcher 1.0.0 still picks the file by system only**, for the update to 1.1.0 as for every earlier
+  one: on Windows it offers `VANTA-Launcher-1.1.0.msi` (also in the portable folder and when started as a jar), on
+  Linux x64 `VANTA-Launcher-1.1.0-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a portable
   folder or a jar gives you a second, installed launcher while your portable copy or jar stays at 1.0.0. To keep a
   portable or jar setup, choose *Not now* when the 1.0.0 launcher offers to open the installer (or *Close* before
   downloading; on Linux, ignore the downloaded `.tar.gz`), close the launcher and download
-  `VANTA-Launcher-1.0.2-windows-portable.zip` or the jar for your system yourself from the release
-  [`launcher-v1.0.2`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.2). Verify it
+  `VANTA-Launcher-1.1.0-windows-portable.zip` or the jar for your system yourself from the release
+  [`launcher-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.1.0). Verify it
   ([step 2](#2-verify-the-checksum)), then replace the portable folder's files as described above or start the new
   jar instead of the old one. Launcher 1.0.1 and newer pick the matching file themselves.
 
   **Downloaded by launcher 1.0.0 or 1.0.1.** These versions save the update in `cache/updates/` as
-  `<version>-<file name>`, so the update to 1.0.2 lands there as, for example,
-  `1.0.2-vanta-launcher-1.0.2-linux-all.jar` or `1.0.2-VANTA-Launcher-1.0.2-windows-portable.zip`. It is the
+  `<version>-<file name>`, so the update to 1.1.0 lands there as, for example,
+  `1.1.0-vanta-launcher-1.1.0-linux-all.jar` or `1.1.0-VANTA-Launcher-1.1.0-windows-portable.zip`. It is the
   verified release file under a different name: *Show in folder* opens that folder, and
-  `java -jar 1.0.2-vanta-launcher-1.0.2-linux-all.jar` works there. To check it yourself with
+  `java -jar 1.1.0-vanta-launcher-1.1.0-linux-all.jar` works there. To check it yourself with
   `sha256sum -c --ignore-missing SHA256SUMS.txt` from the release, rename it to the release name first (here
-  `vanta-launcher-1.0.2-linux-all.jar`). From 1.0.2 on, the file keeps its release name.
+  `vanta-launcher-1.1.0-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name.
 
   Details: [Launcher → Updates and rollback](launcher.md#updates-and-rollback).
-- **Path C.** Download the new mods bundle, verify it and replace both jars in `.minecraft/mods`.
+- **Path C.** Download the new mods bundle, verify it and replace both jars in `.minecraft/mods`. The game does not
+  update mods you installed with *Mods & Shaders*; to get a newer version, remove the project there and install it
+  again.
 
 ## Uninstalling
 
@@ -360,5 +402,7 @@ VANTA's own configuration lives in the game directory under `config/vanta/`: `se
 - **Path B profile:** in the Minecraft Launcher open *Installations*, choose *VANTA 1.21.11* and delete it. The
   folder `versions/fabric-loader-0.19.5-1.21.11` can be deleted when no other profile uses that Fabric version, and
   the `.vanta-backup` files next to the profiles files when you no longer need the backups.
+- **Mods, shader packs and resource packs from Modrinth:** remove them on the launcher's Mods page or on the Mods &
+  Shaders screen in the game ([Mods & Shaders → Disabling and removing](mods-and-shaders.md#disabling-and-removing)).
 - **Path C:** remove `vanta-client-<version>.jar` (and Fabric API, if no other mod needs it) from `mods/` and, for a
   clean slate, the `config/vanta/` folder.

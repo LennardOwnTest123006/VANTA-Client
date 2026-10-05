@@ -1,7 +1,7 @@
 ---
 title: Keybinds
 description: VANTA's own key bindings and their defaults, the keybind manager with search, rebinding, reset and conflict detection, and the zoom key.
-order: 24
+order: 25
 category: Client
 ---
 

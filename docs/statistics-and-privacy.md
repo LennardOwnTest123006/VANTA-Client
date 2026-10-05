@@ -1,7 +1,7 @@
 ---
 title: Statistics and privacy
 description: What the local statistics record, where they are stored, and how to disable, export or delete them. Nothing ever leaves your computer.
-order: 26
+order: 27
 category: Client
 ---
 
@@ -62,6 +62,7 @@ The built-in **Recording** profile turns *Remember servers* off.
 ## What never happens
 
 - No statistic, setting, crash report or identifier is sent to the VANTA project or anyone else. VANTA opens no
-  network connection of its own; the game's own connections (Mojang services, the servers you join) are unchanged.
+  network connection of its own except to Modrinth while you use [Mods & Shaders](mods-and-shaders.md), and that
+  sends no statistics; the game's own connections (Mojang services, the servers you join) are unchanged.
 - No statistic is shown to other players or servers.
 - The launcher and the website follow the same rule — see [Privacy](privacy.md).

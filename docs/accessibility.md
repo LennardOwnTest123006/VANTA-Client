@@ -1,7 +1,7 @@
 ---
 title: Accessibility
 description: UI scale, reduced motion, high contrast, larger text, reduced transparency, colour-blind palettes and keyboard navigation in VANTA's screens.
-order: 27
+order: 28
 category: Client
 ---
 
