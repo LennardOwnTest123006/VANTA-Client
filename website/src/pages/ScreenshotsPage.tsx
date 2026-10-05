@@ -130,7 +130,7 @@ export default function ScreenshotsPage() {
             <p className="mt-6 text-sm text-text-muted">
               The exact procedure is documented in{' '}
               <a
-                href={`${githubLinks.repository}/blob/main/assets/screenshots/README.md`}
+                href={`${githubLinks.repository}/blob/HEAD/assets/screenshots/README.md`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-accent-violet-hover underline decoration-accent-violet/40 underline-offset-4 hover:text-text-primary"

@@ -107,7 +107,7 @@ describe('routes and links', () => {
   });
   it('builds the GitHub edit URL', () => {
     expect(docEditUrl('https://github.com/o/r/', 'hud.md')).toBe(
-      'https://github.com/o/r/blob/main/docs/hud.md',
+      'https://github.com/o/r/blob/HEAD/docs/hud.md',
     );
   });
 });

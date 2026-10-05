@@ -53,6 +53,14 @@ All optional; see `.env.example`. Read through the typed, validated accessor in 
 Download URLs are never hardcoded. A release manifest in `shared/releases/` with an empty
 `downloadUrl` (or a missing environment override) renders the download page in its honest
 "Not published yet — release pending" state while keeping version, date and file facts visible.
+Once the release workflow has filled a manifest, its card keeps the main button (launcher: the
+`.msi`; client: exactly `vanta-client-<version>.jar`, plus the mods bundle) and lists every file of
+the manifest with a label derived from the file name (`describeReleaseFile` in `src/lib/downloads.ts`),
+size, SHA-256 and its own link. The GitHub release page is linked only when it can be derived from a
+manifest URL of the form `https://github.com/<owner>/<repo>/releases/download/<tag>/<file>`
+(`githubReleasePageUrl` in `src/lib/releases.ts`). The unit tests render both states from the fixture
+manifests in `src/test/fixtures/releases.ts` (fake values, test-only), so they do not depend on the
+state of the repository manifests; the end-to-end test checks whichever state the build has.
 
 ## Project layout
 
@@ -72,7 +80,7 @@ website/
     │   ├── layout/          Header (sticky, mobile sheet with focus trap), Footer, Layout, PageMeta, Reveal
     │   ├── page/            PageHero, PresetTable, TocNav, PrevNext, IsoCube
     │   ├── home/            Hero, TrustSection, FeatureGrid, InterfacePreview, HowItWorks, FinalCta
-    │   ├── download/        DownloadCard
+    │   ├── download/        DownloadCard, ReleaseFileList, InstallOptions
     │   ├── docs/            DocsSidebar, DocsSearch (MiniSearch combobox), DocToc (scroll spy)
     │   ├── changelog/       ChangelogEntryCard
     │   ├── news/            NewsCard

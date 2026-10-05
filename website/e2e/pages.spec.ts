@@ -1,14 +1,24 @@
 import { expect, test } from '@playwright/test';
-import { axeViolations, revealAll, trackConsoleErrors, waitForApp } from './helpers';
+import {
+  axeViolations,
+  expectNoSidewaysScroll,
+  revealAll,
+  trackConsoleErrors,
+  waitForApp,
+} from './helpers';
 import { routes } from './routes';
 
 /**
  * Every public route: the SPA fallback serves it with status 200, the document title and h1 are
  * right, the console stays clean, the canonical/robots metadata is set and axe-core reports no
- * serious or critical accessibility violation.
+ * serious or critical accessibility violation. On the phone viewport the page must also fit the
+ * screen width, so it cannot be panned sideways.
  */
 for (const route of routes) {
-  test(`${route.path} renders, is titled and passes the accessibility scan`, async ({ page }) => {
+  test(`${route.path} renders, is titled and passes the accessibility scan`, async ({
+    page,
+    isMobile,
+  }) => {
     const errors = trackConsoleErrors(page);
     const response = await page.goto(route.path);
     expect(response?.status()).toBe(200);
@@ -36,10 +46,28 @@ for (const route of routes) {
     }
 
     await revealAll(page);
+    if (isMobile) await expectNoSidewaysScroll(page);
     expect(await axeViolations(page)).toEqual([]);
     expect(errors()).toEqual([]);
   });
 }
+
+test('the download page fits small phones without sideways scrolling', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(!isMobile, 'mobile only');
+  // 390px is covered by the route test above; 320px is the narrowest common phone width. The
+  // checksum commands and the release card headers must wrap or scroll inside their cards.
+  for (const width of [390, 360, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('/download');
+    await waitForApp(page);
+    await revealAll(page);
+    await expect(page.getByText(/certutil -hashfile/)).toBeVisible();
+    await expectNoSidewaysScroll(page);
+  }
+});
 
 test('the mobile navigation sheet lists every header route and traps focus', async ({
   page,

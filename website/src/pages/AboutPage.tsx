@@ -60,7 +60,7 @@ const parts = [
   },
   {
     title: 'VANTA Launcher',
-    text: 'A JavaFX desktop application that installs Minecraft, Fabric and the client from the official sources with checksum verification, signs you in through Microsoft and starts the game.',
+    text: 'A JavaFX desktop application that installs Minecraft, Fabric and the client from the official sources with checksum verification. Until Microsoft sign-in is available inside VANTA, it adds a VANTA profile to the official Minecraft Launcher, which signs you in and starts the game.',
   },
   {
     title: 'This website',

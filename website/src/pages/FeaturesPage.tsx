@@ -48,8 +48,10 @@ export default function FeaturesPage() {
                 id={family.id}
                 className="scroll-mt-24 border-b border-border-subtle py-12 last:border-0 sm:py-16"
               >
-                <Reveal className={cn('grid items-start gap-8 lg:grid-cols-12 lg:gap-12')}>
-                  <div className={cn('lg:col-span-5', reversed && 'lg:order-2')}>
+                <Reveal
+                  className={cn('grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-12')}
+                >
+                  <div className={cn('min-w-0 lg:col-span-5', reversed && 'lg:order-2')}>
                     <div className="flex items-center gap-3">
                       <span
                         aria-hidden="true"
@@ -78,7 +80,7 @@ export default function FeaturesPage() {
                     ) : null}
                   </div>
 
-                  <div className={cn('lg:col-span-7', reversed && 'lg:order-1')}>
+                  <div className={cn('min-w-0 lg:col-span-7', reversed && 'lg:order-1')}>
                     {isList ? (
                       <ul
                         className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4"

@@ -25,8 +25,12 @@ export const site = {
   fabricApi: clientRelease?.fabricApiVersion ?? '0.141.6+1.21.11',
   java: clientRelease?.javaVersion ?? 21,
   platform: 'Windows 10/11',
-  /** Other platforms the plain-Java builds run on; not the primary target. */
-  secondaryPlatforms: 'Linux and macOS (plain Java, unsupported installers)',
+  /**
+   * Other platforms with launcher builds; not the primary target. Each launcher jar contains JavaFX
+   * for the one platform it was built on, so there is no single jar for every system.
+   */
+  secondaryPlatforms:
+    'Linux x64 and Apple Silicon macOS (per-platform builds, no support guarantees)',
 
   license: 'MIT',
   githubUrl: env.githubUrl,
@@ -34,6 +38,12 @@ export const site = {
   supportEmail: env.supportEmail,
   releasesBaseUrl: env.releasesBaseUrl,
 } as const;
+
+/**
+ * Name of the profile that "Use with Minecraft Launcher" adds to the official Minecraft Launcher
+ * (profile key `vanta-1.21.11` in launcher_profiles.json).
+ */
+export const officialLauncherProfileName = `VANTA ${site.minecraft}`;
 
 /** "Minecraft 1.21.11 · Fabric Loader 0.19.5 · Java 21" */
 export const toolchainLine = `Minecraft ${site.minecraft} · Fabric Loader ${site.fabricLoader} · Java ${site.java}`;
@@ -52,7 +62,7 @@ export const githubLinks = site.githubUrl
       repository: site.githubUrl,
       issues: `${site.githubUrl}/issues`,
       releases: `${site.githubUrl}/releases`,
-      license: `${site.githubUrl}/blob/main/LICENSE`,
-      contributing: `${site.githubUrl}/blob/main/CONTRIBUTING.md`,
+      license: `${site.githubUrl}/blob/HEAD/LICENSE`,
+      contributing: `${site.githubUrl}/blob/HEAD/CONTRIBUTING.md`,
     }
   : undefined;

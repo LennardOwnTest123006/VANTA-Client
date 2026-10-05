@@ -196,6 +196,41 @@ export function isPublished(manifest: ReleaseManifest): boolean {
   return manifest.files.some((file) => file.downloadUrl !== '');
 }
 
+/**
+ * `https://github.com/<owner>/<repo>/releases/download/<tag>/<file>` — the only shape of release asset
+ * URL the release workflow writes. Owner, repository, tag and file are single path segments.
+ */
+const GITHUB_RELEASE_ASSET =
+  /^https:\/\/github\.com\/([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)\/([A-Za-z0-9._-]+)\/releases\/download\/([^/?#\s]+)\/([^/?#\s]+)$/;
+
+/**
+ * Derives the GitHub release page from a release asset download URL:
+ * `https://github.com/o/r/releases/download/<tag>/<file>` → `https://github.com/o/r/releases/tag/<tag>`.
+ * Returns `undefined` for every URL that does not have exactly that shape (other hosts, mirrors, query
+ * strings, extra path segments), so the website never links to a page it merely guessed.
+ */
+export function githubReleasePageUrl(downloadUrl: string): string | undefined {
+  const match = GITHUB_RELEASE_ASSET.exec(downloadUrl);
+  if (!match) return undefined;
+  const [, owner, repo, tag] = match;
+  if (!owner || !repo || !tag || repo === '.' || repo === '..' || tag === '.' || tag === '..') {
+    return undefined;
+  }
+  return `https://github.com/${owner}/${repo}/releases/tag/${tag}`;
+}
+
+/**
+ * The GitHub release page of a manifest, derived from the first file whose `downloadUrl` is a GitHub
+ * release asset URL (see {@link githubReleasePageUrl}); `undefined` while nothing is published.
+ */
+export function releasePageUrl(manifest: ReleaseManifest): string | undefined {
+  for (const file of manifest.files) {
+    const page = githubReleasePageUrl(file.downloadUrl);
+    if (page) return page;
+  }
+  return undefined;
+}
+
 /** All release manifests of the repository, loaded at build time. */
 export const releases: readonly ReleaseManifest[] = loadReleaseManifests(
   import.meta.glob('../../../shared/releases/*.json', { eager: true }),

@@ -11,6 +11,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { DownloadCard } from '../components/download/DownloadCard';
+import { InstallOptions } from '../components/download/InstallOptions';
 import { PageMeta } from '../components/layout/PageMeta';
 import { PageHero } from '../components/page/PageHero';
 import { Button } from '../components/ui/Button';
@@ -19,8 +20,8 @@ import { Card } from '../components/ui/Card';
 import { RouteLink } from '../components/ui/RouteLink';
 import { Section } from '../components/ui/Section';
 import { Stat, StatGroup } from '../components/ui/Stat';
-import { githubLinks, site, specFacts } from '../config/site';
-import { resolveDownload } from '../lib/downloads';
+import { githubLinks, officialLauncherProfileName, site, specFacts } from '../config/site';
+import { modsBundleFile, resolveDownload } from '../lib/downloads';
 import { env } from '../lib/env';
 import { latestRelease, releases } from '../lib/releases';
 
@@ -28,12 +29,12 @@ const requirements = [
   {
     label: 'Operating system',
     value: 'Windows 10 or 11 (64-bit)',
-    note: 'Linux and macOS run the plain Java builds; installers are Windows only.',
+    note: 'Installers are Windows only. Linux x64 and Apple Silicon macOS get their own launcher builds, without support guarantees.',
   },
   {
     label: 'Java',
     value: `Java ${site.java}`,
-    note: 'Detected automatically, or the launcher installs Eclipse Temurin 21.',
+    note: `Included in the launcher installers and portable apps. For the game the launcher finds Java ${site.java} or installs Eclipse Temurin ${site.java}.`,
   },
   {
     label: 'Memory',
@@ -74,6 +75,7 @@ export default function DownloadPage() {
   const client = latestRelease(releases, 'client');
   const launcherDownload = resolveDownload(launcher, env.downloadLauncherUrl);
   const clientDownload = resolveDownload(client, env.downloadClientUrl);
+  const modsBundle = modsBundleFile(client);
 
   return (
     <>
@@ -101,17 +103,17 @@ export default function DownloadPage() {
       </PageHero>
 
       <Section id="downloads" spacing="sm" aria-label="Downloads">
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <DownloadCard
             manifest={launcher}
             resolution={launcherDownload}
             icon={Monitor}
             eyebrow="Launcher"
             title="VANTA Launcher"
-            description={`Installs Minecraft ${site.minecraft}, Fabric Loader ${site.fabricLoader}, Fabric API and the VANTA Client with checksum verification, signs you in with Microsoft and starts the game. Windows installer (.msi).`}
+            description={`Installs Minecraft ${site.minecraft}, Fabric Loader ${site.fabricLoader}, Fabric API and the VANTA Client with checksum verification. Until Microsoft sign-in is available inside VANTA, it adds the profile “${officialLauncherProfileName}” to the official Minecraft Launcher, which signs you in and starts the game. Windows installer (.msi) with Java ${site.java} included.`}
             cta="Download launcher"
             primary
-            footnote="Also available as .exe installer and portable .jar in the release assets."
+            footnote={`Also published: the same installer as .exe, portable apps for Windows x64 and Linux x64 that include Java ${site.java}, and launcher jars for Windows x64, Linux x64 and Apple Silicon macOS that need Java ${site.java} installed. Each jar runs only on the system it was built for. Nothing is code-signed yet, so check the SHA-256 first.`}
           />
           <DownloadCard
             manifest={client}
@@ -119,10 +121,13 @@ export default function DownloadPage() {
             icon={Package}
             eyebrow="Client"
             title="VANTA Client (jar)"
-            description={`The Fabric mod on its own, for players who already run Fabric Loader ${site.fabricLoader} on Minecraft ${site.minecraft}. Drop it into your mods folder next to Fabric API ${site.fabricApi}.`}
+            description={`The Fabric mod for Minecraft ${site.minecraft} with Fabric Loader ${site.fabricLoader}. It needs Fabric API ${site.fabricApi}, which is included in the mods bundle (VANTA + Fabric API) and also published as its own file.`}
             cta="Download client jar"
+            secondaryDownload={{ file: modsBundle, label: 'Download mods bundle' }}
             footnote={`Requires Fabric API ${site.fabricApi}. Other mods such as rendering optimisers can be installed alongside.`}
-          />
+          >
+            <InstallOptions idPrefix="download-client" />
+          </DownloadCard>
         </div>
         {site.releasesBaseUrl || githubLinks ? (
           <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-text-secondary">
@@ -155,23 +160,26 @@ export default function DownloadPage() {
             padding="sm"
           >
             <p>
-              The launcher signs you in through Microsoft's device code flow in your browser and
-              checks the game entitlement exactly like the official launcher. There is no VANTA
-              account and no offline mode without a verified purchase.
+              Minecraft needs it whichever way you play. Signing in inside the VANTA Launcher needs
+              a Microsoft application id approved by Mojang, which the project does not have yet, so
+              “Use with Minecraft Launcher” adds a VANTA profile to the official Minecraft Launcher
+              and you sign in there. There is no VANTA account.
             </p>
           </Card>
           <Card icon={<Coffee />} title={`Java ${site.java}`} padding="sm">
             <p>
-              Minecraft {site.minecraft} requires Java {site.java}. The launcher detects an existing
-              installation; if none is found it downloads Eclipse Temurin {site.java} from Adoptium,
-              verifies the SHA-256 and installs it only for VANTA.
+              Minecraft {site.minecraft} requires Java {site.java}. The launcher installers and
+              portable apps bring their own. For the game the launcher detects an existing
+              installation or downloads Eclipse Temurin {site.java} from Adoptium, verifies the
+              SHA-256 and installs it only for VANTA; the Minecraft Launcher uses its own runtime.
             </p>
           </Card>
           <Card icon={<Monitor />} title={site.platform} padding="sm">
             <p>
-              The installer targets 64-bit Windows 10 and 11. The client jar and the launcher jar
-              are plain Java and also run on Linux and macOS, without an installer or support
-              guarantees.
+              The installers target 64-bit Windows 10 and 11. Linux x64 gets an app with Java
+              included, Apple Silicon Macs a launcher jar; a launcher jar contains JavaFX for one
+              system only, so pick the file for yours. No support guarantees outside Windows. The
+              client jar is the same on every system.
             </p>
           </Card>
         </div>
@@ -207,9 +215,9 @@ export default function DownloadPage() {
         className="border-t border-border-subtle bg-bg-void/40"
         spacing="md"
       >
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {verification.map((item) => (
-            <div key={item.os} className="surface-card p-5 sm:p-6">
+            <div key={item.os} className="surface-card min-w-0 p-5 sm:p-6">
               <p className="flex items-center gap-2 text-[11px] font-semibold tracking-label text-text-muted uppercase">
                 <Terminal className="size-3.5" aria-hidden="true" /> {item.os}
               </p>
@@ -247,8 +255,8 @@ export default function DownloadPage() {
             padding="sm"
           >
             <p>
-              Verify the checksum, install the launcher, sign in and press PLAY — step by step, with
-              the folders where everything ends up.
+              Verify the checksum, install the launcher and play through VANTA or the Minecraft
+              Launcher — step by step, with the folders where everything ends up.
             </p>
           </Card>
           <Card icon={<History />} title="Release notes" to="/changelog" padding="sm">

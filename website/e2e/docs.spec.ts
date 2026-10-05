@@ -31,8 +31,15 @@ test.describe('documentation', () => {
     expect(await axeViolations(page)).toEqual([]);
 
     await input.fill('profile');
-    await expect(list.getByRole('option').first()).toContainText('Profiles');
+    const results = list.getByRole('option');
+    await expect(results.first()).toContainText('Profiles');
+    // Arrow keys move the active option (checked at every step, so the test does not depend on how
+    // other pages rank further down); Enter opens the active one, here the best match again.
+    await expect(results.first()).toHaveAttribute('aria-selected', 'true');
     await input.press('ArrowDown');
+    await expect(results.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await input.press('ArrowUp');
+    await expect(results.first()).toHaveAttribute('aria-selected', 'true');
     await input.press('Enter');
     await expect(page).toHaveURL(/\/documentation\/profiles/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Profiles');
@@ -79,7 +86,7 @@ test.describe('documentation', () => {
     await expect(page).toHaveURL(/\/documentation\/java-21$/);
     await expect(page.getByRole('link', { name: /Edit on GitHub/ })).toHaveAttribute(
       'href',
-      'https://github.com/LennardOwnTest123006/VANTA-Client/blob/main/docs/java-21.md',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/blob/HEAD/docs/java-21.md',
     );
     expect(errors()).toEqual([]);
   });

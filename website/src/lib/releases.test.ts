@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { clientFixture, launcherFixture } from '../test/fixtures/releases';
 import {
   compareVersionsDesc,
+  githubReleasePageUrl,
   isPublished,
   latestRelease,
   loadReleaseManifests,
   parseReleaseManifest,
   pickFile,
   ReleaseManifestError,
+  releasePageUrl,
   releases,
 } from './releases';
 
@@ -126,5 +129,70 @@ describe('repository manifests (shared/releases)', () => {
     expect(client?.fabricVersion).toBe('0.19.5');
     expect(client?.javaVersion).toBe(21);
     expect(launcher?.minecraftVersion).toBe('1.21.11');
+  });
+});
+
+describe('githubReleasePageUrl', () => {
+  it.each([
+    [
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.0.0/vanta-client-1.0.0.jar',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.0',
+    ],
+    [
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.0.0/fabric-api-0.141.6+1.21.11.jar',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.0',
+    ],
+    [
+      'https://github.com/o/r.js/releases/download/launcher-v1.0.0/VANTA-Launcher-1.0.0.msi',
+      'https://github.com/o/r.js/releases/tag/launcher-v1.0.0',
+    ],
+  ])('derives the release page of %s', (url, page) => {
+    expect(githubReleasePageUrl(url)).toBe(page);
+  });
+
+  it.each([
+    ['empty', ''],
+    ['http', 'http://github.com/o/r/releases/download/v1/x.jar'],
+    ['another host', 'https://example.com/o/r/releases/download/v1/x.jar'],
+    ['a look-alike host', 'https://github.com.evil.example/o/r/releases/download/v1/x.jar'],
+    ['a subdomain', 'https://api.github.com/o/r/releases/download/v1/x.jar'],
+    ['no file segment', 'https://github.com/o/r/releases/download/v1'],
+    ['a trailing slash', 'https://github.com/o/r/releases/download/v1/'],
+    ['extra segments', 'https://github.com/o/r/releases/download/v1/sub/x.jar'],
+    ['a query string', 'https://github.com/o/r/releases/download/v1/x.jar?raw=1'],
+    ['a fragment', 'https://github.com/o/r/releases/download/v1/x.jar#x'],
+    ['the latest alias', 'https://github.com/o/r/releases/latest/download/x.jar'],
+    ['a dot-dot tag', 'https://github.com/o/r/releases/download/../x.jar'],
+    ['a dot-dot repository', 'https://github.com/o/../releases/download/v1/x.jar'],
+    ['an invalid owner', 'https://github.com/-o/r/releases/download/v1/x.jar'],
+    ['surrounding spaces', ' https://github.com/o/r/releases/download/v1/x.jar'],
+    ['a release page', 'https://github.com/o/r/releases/tag/v1'],
+  ])('returns undefined for %s', (_label, url) => {
+    expect(githubReleasePageUrl(url)).toBeUndefined();
+  });
+});
+
+describe('releasePageUrl', () => {
+  it('is undefined while nothing is published', () => {
+    expect(releasePageUrl(clientFixture({ published: false }))).toBeUndefined();
+  });
+
+  it('uses the first file with a GitHub release asset URL', () => {
+    expect(releasePageUrl(launcherFixture({ published: true }))).toBe(
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.0',
+    );
+    const partly = clientFixture({ published: true, unpublished: ['vanta-client-1.0.0.jar'] });
+    expect(releasePageUrl(partly)).toBe(
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.0',
+    );
+  });
+
+  it('shows no page for downloads hosted somewhere else', () => {
+    const mirror = clientFixture({
+      published: true,
+      url: (tag, name) => `https://mirror.example/${tag}/${name}`,
+    });
+    expect(isPublished(mirror)).toBe(true);
+    expect(releasePageUrl(mirror)).toBeUndefined();
   });
 });

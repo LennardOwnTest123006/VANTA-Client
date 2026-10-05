@@ -155,7 +155,7 @@ export function resolveDocLink(href: string, knownSlugs?: ReadonlySet<string>): 
 
 /** Repository URL of a documentation file, for "Edit on GitHub". */
 export function docEditUrl(repositoryUrl: string, file: string): string {
-  return `${repositoryUrl.replace(/\/+$/, '')}/blob/main/docs/${file}`;
+  return `${repositoryUrl.replace(/\/+$/, '')}/blob/HEAD/docs/${file}`;
 }
 
 const docModules = import.meta.glob<string>('../../../docs/*.md', {

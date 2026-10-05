@@ -25,8 +25,9 @@ Fabric API 0.141.6+1.21.11 and Java 21, and it is built on top of vanilla Minecr
 - **Local statistics.** Playtime, sessions, FPS, worlds, servers, distance, blocks broken and placed, kept in a JSON
   file on your computer with switches to disable, export or delete all of it.
 - **A launcher.** The VANTA Launcher installs Minecraft 1.21.11, Fabric and the client from the official sources
-  with checksum verification, signs you in with your Microsoft account using the device code flow, finds or installs
-  Java 21 and keeps the client up to date.
+  with checksum verification, finds or installs Java 21 and keeps the client up to date. Signing in inside VANTA
+  needs a Microsoft application id approved by Mojang, which the project does not have yet; until then, "Use with
+  Minecraft Launcher" adds a "VANTA 1.21.11" profile to the official Minecraft Launcher, which signs you in.
 
 ## What VANTA is not
 
@@ -39,10 +40,12 @@ server rules.
 ## How releases will work
 
 Every release is built by the public release workflow in the repository: the client jar on Linux, the launcher
-installers on Windows. The workflow computes SHA-256 checksums, publishes the files as a GitHub Release and updates
-the release manifests that the Download page and the launcher read. **No download link exists until that workflow has
-run**, which is why the Download page currently says "not published yet" instead of linking to something that is not
-there. When the first release is published, the Download page, the changelog and this news section will show it.
+installers on Windows and the Linux and Apple Silicon macOS launcher builds on their own systems. The workflow
+computes SHA-256 checksums, publishes the files as a GitHub Release and updates the release manifests that the
+Download page and the launcher read. **No download link exists until that workflow has
+run**, so until then the Download page says "not published yet" instead of linking to something that is not there.
+Once a release is published, the Download page lists every file of it with size, SHA-256 and a direct link, and the
+changelog shows its release notes.
 
 ## Open source
 

@@ -1,5 +1,5 @@
 import { Download, LogIn, Play } from 'lucide-react';
-import { site } from '../../config/site';
+import { officialLauncherProfileName, site } from '../../config/site';
 import { Reveal } from '../layout/Reveal';
 import { Section } from '../ui/Section';
 
@@ -7,17 +7,17 @@ const steps = [
   {
     icon: <Download />,
     title: 'Install the launcher',
-    text: `Run the Windows installer. The launcher downloads Minecraft ${site.minecraft}, Fabric Loader ${site.fabricLoader}, Fabric API and the VANTA Client jar from the official sources and verifies every file.`,
+    text: `Run the Windows installer — Java ${site.java} is included. Everything the launcher downloads, from Fabric Loader ${site.fabricLoader} and Fabric API to the VANTA Client jar, comes from the official sources and is verified before use.`,
   },
   {
     icon: <LogIn />,
-    title: 'Sign in with Microsoft',
-    text: 'Use the same Microsoft account you play with. The sign-in happens in your browser through the device code flow; VANTA never sees your password.',
+    title: 'Add it to the Minecraft Launcher',
+    text: `Signing in inside VANTA needs a Microsoft application id the project does not ship yet. Until then, “Use with Minecraft Launcher” adds the profile “${officialLauncherProfileName}” to the official Minecraft Launcher, where you sign in with Microsoft as usual.`,
   },
   {
     icon: <Play />,
     title: `Play ${site.minecraft}`,
-    text: `Press PLAY. The launcher detects Java ${site.java} or installs a verified Temurin runtime, then starts the game with the VANTA main menu.`,
+    text: `Choose the profile “${officialLauncherProfileName}” in the Minecraft Launcher and press Play. The game starts with the VANTA main menu.`,
   },
 ] as const;
 

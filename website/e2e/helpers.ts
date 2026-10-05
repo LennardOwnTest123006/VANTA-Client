@@ -65,3 +65,42 @@ export async function axeViolations(page: Page): Promise<string[]> {
   }
   return [...summarise('critical'), ...summarise('serious')];
 }
+
+/**
+ * Asserts that the page fits the viewport width, i.e. a phone cannot pan it sideways. Content that
+ * is wider on purpose (code blocks, tables, chip rows) must scroll inside its own box. On failure the
+ * message names the outermost elements that stick out and are not clipped by a scrolling ancestor.
+ */
+export async function expectNoSidewaysScroll(page: Page): Promise<void> {
+  const viewportWidth = page.viewportSize()?.width;
+  if (!viewportWidth) throw new Error('expectNoSidewaysScroll needs a fixed viewport size');
+  const result = await page.evaluate((width) => {
+    const isClipped = (element: Element) => {
+      for (
+        let node = element.parentElement;
+        node && node !== document.body;
+        node = node.parentElement
+      ) {
+        const style = getComputedStyle(node);
+        if (style.overflowX !== 'visible' || style.position === 'fixed') return true;
+      }
+      return false;
+    };
+    const offenders: string[] = [];
+    for (const element of Array.from(document.querySelectorAll('body *'))) {
+      if (getComputedStyle(element).position === 'fixed') continue;
+      const rect = element.getBoundingClientRect();
+      if (rect.width === 0 || rect.right <= width + 0.5 || isClipped(element)) continue;
+      if (offenders.length >= 5) break;
+      const text = (element.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
+      offenders.push(
+        `<${element.tagName.toLowerCase()} class="${(element.getAttribute('class') ?? '').slice(0, 60)}"> ${Math.round(rect.width)}px wide "${text}"`,
+      );
+    }
+    return { scrollWidth: document.documentElement.scrollWidth, offenders };
+  }, viewportWidth);
+  expect(
+    result.scrollWidth,
+    `page is ${result.scrollWidth}px wide in a ${viewportWidth}px viewport:\n  ${result.offenders.join('\n  ')}`,
+  ).toBeLessThanOrEqual(viewportWidth);
+}

@@ -75,7 +75,7 @@ describe('DocumentationPage', () => {
     expect(within(article).queryByRole('link', { name: /\.md/ })).toBeNull();
     expect(screen.getByRole('link', { name: /Edit on GitHub/ })).toHaveAttribute(
       'href',
-      'https://github.com/LennardOwnTest123006/VANTA-Client/blob/main/docs/installation.md',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/blob/HEAD/docs/installation.md',
     );
     const pagination = screen.getByRole('navigation', { name: 'Pagination' });
     expect(within(pagination).getByRole('link', { name: /Previous/ })).toHaveAttribute(

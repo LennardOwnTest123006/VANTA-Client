@@ -24,7 +24,7 @@ const pillars = [
   {
     icon: <FileCheck />,
     title: 'Verified downloads',
-    text: 'Every release ships with SHA-256 checksums in a signed manifest. The launcher refuses files that do not match and never runs anything it downloaded except the verified Java runtime.',
+    text: 'Every release ships with SHA-256 checksums in its release manifest and in SHA256SUMS.txt. The launcher refuses files that do not match, and a downloaded launcher update is only opened after you confirm it.',
   },
 ] as const;
 

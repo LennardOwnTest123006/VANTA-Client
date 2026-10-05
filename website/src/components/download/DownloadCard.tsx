@@ -1,15 +1,16 @@
-import { ArrowRight, Download, ExternalLink, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Download, FolderArchive, type LucideIcon } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { findChangelog, markdownExcerpt } from '../../lib/content';
 import { type DownloadResolution } from '../../lib/downloads';
 import { formatBytes, formatDate, groupHash } from '../../lib/format';
-import { type ReleaseManifest } from '../../lib/releases';
+import { type ReleaseFile, type ReleaseManifest, isPublished } from '../../lib/releases';
 import { cn } from '../../lib/cn';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { CopyButton } from '../ui/CopyButton';
 import { Tag } from '../ui/Pill';
+import { ReleaseFileList } from './ReleaseFileList';
 
 export interface DownloadCardProps {
   readonly manifest: ReleaseManifest | undefined;
@@ -21,6 +22,13 @@ export interface DownloadCardProps {
   readonly cta: string;
   readonly primary?: boolean;
   readonly footnote?: ReactNode;
+  /**
+   * A second file offered under the main button once it has a download URL, e.g. the client's mods
+   * bundle. Nothing is rendered while the file is unpublished.
+   */
+  readonly secondaryDownload?: { readonly file: ReleaseFile | undefined; readonly label: string };
+  /** Extra content between the actions and the file list, e.g. the ways to install. */
+  readonly children?: ReactNode;
 }
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
@@ -36,7 +44,8 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 
 /**
  * Download card for one product. Shows the release facts from the manifest and either a real
- * download button or an explicitly disabled "Not published yet" state — never a dead link.
+ * download button or an explicitly disabled "Not published yet" state — never a dead link. Once the
+ * manifest is published, every file of the release is listed with size, SHA-256 and its own link.
  */
 export function DownloadCard({
   manifest,
@@ -48,14 +57,23 @@ export function DownloadCard({
   cta,
   primary = false,
   footnote,
+  secondaryDownload,
+  children,
 }: DownloadCardProps) {
+  const idPrefix = `download-${eyebrow.toLowerCase()}`;
   const file = resolution.state === 'missing' ? undefined : resolution.file;
   const size = file ? formatBytes(file.size) : undefined;
   const sha = file && file.sha256 !== '' ? file.sha256 : undefined;
   const notes = manifest ? findChangelog(manifest.product, manifest.version) : undefined;
-  const excerpt = notes ? markdownExcerpt(notes.body, 4) : [];
+  const excerpt = notes ? markdownExcerpt(notes.body, 3) : [];
   const date = manifest ? formatDate(manifest.releaseDate) : undefined;
   const available = resolution.state === 'available';
+  // The file list carries every checksum once the release is out; the facts then skip the SHA-256.
+  const showFileList = manifest !== undefined && isPublished(manifest);
+  const secondaryFile =
+    secondaryDownload?.file && secondaryDownload.file.downloadUrl !== ''
+      ? secondaryDownload.file
+      : undefined;
 
   return (
     <article
@@ -64,14 +82,14 @@ export function DownloadCard({
         primary &&
           'ring-1 ring-accent-violet/30 shadow-[0_0_0_1px_rgba(124,92,255,0.15),0_24px_64px_-24px_rgba(124,92,255,0.45)]',
       )}
-      aria-labelledby={`download-${eyebrow.toLowerCase()}`}
+      aria-labelledby={idPrefix}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="flex min-w-0 items-center gap-3">
           <span
             aria-hidden="true"
             className={cn(
-              'inline-flex size-11 items-center justify-center rounded-lg border [&>svg]:size-5',
+              'inline-flex size-11 shrink-0 items-center justify-center rounded-lg border [&>svg]:size-5',
               primary
                 ? 'border-accent-violet/40 bg-accent-violet/15 text-accent-violet-hover'
                 : 'border-border-subtle bg-surface-2 text-text-secondary',
@@ -79,10 +97,10 @@ export function DownloadCard({
           >
             <Icon />
           </span>
-          <div>
+          <div className="min-w-0">
             <p className="eyebrow">{eyebrow}</p>
             <h2
-              id={`download-${eyebrow.toLowerCase()}`}
+              id={idPrefix}
               className="font-display text-xl font-semibold text-text-primary sm:text-2xl"
             >
               {title}
@@ -117,26 +135,28 @@ export function DownloadCard({
           <Fact label="Fabric Loader">
             <span className="font-mono">{manifest.fabricVersion}</span>
           </Fact>
-          <div className="col-span-2 flex flex-col gap-1 sm:col-span-3">
-            <dt className="text-[11px] font-semibold tracking-label text-text-muted uppercase">
-              SHA-256
-            </dt>
-            <dd className="flex flex-wrap items-center gap-3 text-sm">
-              {sha ? (
-                <>
-                  <code className="rounded-sm border border-border-subtle bg-surface-2 px-2 py-1 font-mono text-[12px] leading-5 break-all text-text-primary">
-                    {groupHash(sha)}
-                  </code>
-                  <CopyButton
-                    value={sha}
-                    label={`Copy SHA-256 checksum of ${file?.name ?? title}`}
-                  />
-                </>
-              ) : (
-                <span className="text-text-muted">Published with the release</span>
-              )}
-            </dd>
-          </div>
+          {showFileList ? null : (
+            <div className="col-span-2 flex flex-col gap-1 sm:col-span-3">
+              <dt className="text-[11px] font-semibold tracking-label text-text-muted uppercase">
+                SHA-256
+              </dt>
+              <dd className="flex flex-wrap items-center gap-3 text-sm">
+                {sha ? (
+                  <>
+                    <code className="rounded-sm border border-border-subtle bg-surface-2 px-2 py-1 font-mono text-[12px] leading-5 break-words text-text-primary">
+                      {groupHash(sha)}
+                    </code>
+                    <CopyButton
+                      value={sha}
+                      label={`Copy SHA-256 checksum of ${file?.name ?? title}`}
+                    />
+                  </>
+                ) : (
+                  <span className="text-text-muted">Published with the release</span>
+                )}
+              </dd>
+            </div>
+          )}
         </dl>
       ) : (
         <p className="mt-6 border-t border-border-subtle pt-6 text-sm text-text-muted">
@@ -175,10 +195,12 @@ export function DownloadCard({
         {available ? (
           <Button
             href={resolution.url}
+            external={false}
+            rel="noopener"
+            download
             size="lg"
             variant={primary ? 'primary' : 'secondary'}
             leadingIcon={<Download />}
-            trailingIcon={<ExternalLink />}
             fullWidth
           >
             {cta}
@@ -191,12 +213,12 @@ export function DownloadCard({
               leadingIcon={<Download />}
               fullWidth
               disabled
-              aria-describedby={`download-${eyebrow.toLowerCase()}-pending`}
+              aria-describedby={`${idPrefix}-pending`}
             >
               {cta}
             </Button>
             <p
-              id={`download-${eyebrow.toLowerCase()}-pending`}
+              id={`${idPrefix}-pending`}
               role="status"
               className="text-center text-sm text-warning"
             >
@@ -204,8 +226,27 @@ export function DownloadCard({
             </p>
           </>
         )}
+        {secondaryDownload && secondaryFile ? (
+          <Button
+            href={secondaryFile.downloadUrl}
+            external={false}
+            rel="noopener"
+            download
+            variant="secondary"
+            leadingIcon={<FolderArchive />}
+            fullWidth
+          >
+            {secondaryDownload.label}
+          </Button>
+        ) : null}
         {footnote ? <p className="text-xs leading-relaxed text-text-muted">{footnote}</p> : null}
       </div>
+
+      {children}
+
+      {showFileList ? (
+        <ReleaseFileList manifest={manifest} idPrefix={idPrefix} primaryName={file?.name} />
+      ) : null}
     </article>
   );
 }

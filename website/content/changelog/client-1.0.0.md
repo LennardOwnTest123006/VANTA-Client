@@ -21,9 +21,11 @@ First public release of VANTA Client for Minecraft Java Edition 1.21.11 (Fabric 
 - Cosmetics: five UI themes (VANTA Dark, Midnight, Aurora, Ember, Graphite), menu backgrounds, HUD themes (Clean, Glass, Outline, Minimal), menu particles and profile badges; all purely visual, all free
 - Profiles (Default, PvP, Building, Performance, Recording) storing settings, HUD layout, key overrides, crosshair and cosmetics, with duplicate, rename, export to JSON and validated import
 - Notifications, resource pack manager with enable/disable/reorder/apply, local statistics dashboard with privacy controls and export, accessibility options (UI scale, reduced motion, high contrast, larger text, reduced transparency, colour-blind palettes) and a zoom key
+- Mods folder bundle `vanta-client-1.0.0-mods.zip` with the VANTA Client and Fabric API 0.141.6+1.21.11 jars in `mods/`, an `INSTALL.txt` and a `SHA256SUMS` file; Fabric API, which VANTA requires, is also published unmodified as its own file
+- Three ways to install: the VANTA Launcher; the launcher's "Use with Minecraft Launcher", which adds the profile "VANTA 1.21.11" to the official Minecraft Launcher; or by hand with the Fabric installer and the two jars from the mods bundle
 
 ## Notes
 
 - VANTA is a legitimate client: it contains no cheats, no combat automation, no packet manipulation and no anti-cheat bypasses, and it only changes vanilla options when you ask it to
 - All statistics stay on your computer; nothing is sent anywhere
-- Downloads are published through the release workflow with SHA-256 checksums; until the first workflow run the Download page shows "not published yet"
+- Every file is published by the release workflow with its SHA-256 in the release manifest and in `SHA256SUMS.txt`; compare it before installing

@@ -259,7 +259,7 @@ export const featureFamilies: readonly FeatureFamily[] = [
     description: 'Quiet, consistent toasts for things that happen on your side of the screen.',
     bullets: [
       'Profile switched, preset applied, resource packs reloaded, screenshot saved',
-      'Launcher update available (read from the signed release manifest)',
+      'Launcher update available (read from the release manifest)',
       'Position, duration and sound are configurable; everything can be muted',
       'Never used for advertising or news',
     ],
