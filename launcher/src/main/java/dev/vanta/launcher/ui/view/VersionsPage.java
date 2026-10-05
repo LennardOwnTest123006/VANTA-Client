@@ -46,8 +46,13 @@ public final class VersionsPage extends VBox {
         });
         final HBox header = Ui.pageHeader(ctx.t("versions.title"), ctx.t("versions.subtitle"), refresh);
 
-        final VBox empty = Ui.card(Ui.emptyState(Icons.Icon.PACKAGE, ctx.t("versions.empty.title"),
-            ctx.t("versions.empty.text", LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER)));
+        final VBox emptyState = Ui.emptyState(Icons.Icon.PACKAGE, ctx.t("versions.empty.title"),
+            ctx.t("versions.empty.text", LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER));
+        // Without Microsoft sign-in PLAY is never enabled: the text then points to "Use with Minecraft Launcher".
+        ((Label) emptyState.getChildren().get(2)).textProperty().bind(vm.emptyTitleProperty());
+        ((Label) emptyState.getChildren().get(3)).textProperty().bind(vm.emptyTextProperty());
+        final VBox empty = Ui.card(emptyState);
+        empty.getStyleClass().add("versions-empty");
         Ui.bindVisible(empty, Bindings.createBooleanBinding(() -> ctx.session().instance().isEmpty(), ctx.session().instanceProperty()));
 
         table.getStyleClass().add("data-table");
@@ -168,7 +173,16 @@ public final class VersionsPage extends VBox {
         for (VersionsViewModel.Kept k : vm.kept()) {
             final Label version = Ui.label("VANTA Client " + k.version(), "kv-value");
             final Label since = Ui.label(ctx.t("versions.previous.installedAt", ctx.formats().date(k.installedAt())), "text-muted", "text-small");
-            final VBox text = new VBox(2, version, since);
+            final VBox text = new VBox(2, version);
+            if (k.localCopy()) {
+                // Copied from mods/ before an update replaced it: not a downloaded release, so say so (own short line,
+                // so nothing is cut off at the minimum window size).
+                final Label local = Ui.label(ctx.t("versions.previous.localCopy"), "text-muted", "text-small", "kept-local-copy");
+                local.setTooltip(Ui.tooltip(ctx.t("versions.previous.localCopy.tooltip")));
+                text.getChildren().add(local);
+            }
+            text.getChildren().add(since);
+            text.setMinWidth(0);
             HBox.setHgrow(text, Priority.ALWAYS);
             final HBox row = new HBox(10, text);
             row.setAlignment(Pos.CENTER_LEFT);
@@ -183,6 +197,7 @@ public final class VersionsPage extends VBox {
                 row.getChildren().add(Ui.badge(ctx.t("versions.previous.missingJar"), "danger"));
             } else {
                 final Button rollback = Ui.button(ctx.t("versions.previous.rollback"), Icons.Icon.ROTATE_CCW, "secondary", "small");
+                rollback.setMinWidth(Region.USE_PREF_SIZE);
                 rollback.setDisable(vm.rollingBackProperty().get());
                 rollback.setOnAction(e -> vm.rollback(k.version()));
                 row.getChildren().add(rollback);

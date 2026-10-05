@@ -132,14 +132,41 @@ class MainTest {
 
     @Test
     void platformsWithoutADownloadSaySo() {
-        for (OsInfo os : List.of(LINUX_ARM, WINDOWS_ARM)) {
-            final FakeHost host = new FakeHost(os);
-            host.headless = true;
-            final Outcome r = start("linux", host);
-            assertEquals(OptionalInt.of(1), r.code(), os.toString());
-            assertTrue(r.err().contains("There is no ready-made VANTA Launcher download for " + PlatformCheck.describeRunning(os) + " yet."), r.err());
-            assertTrue(r.err().contains("--install-official-profile"), r.err());
+        final FakeHost host = new FakeHost(LINUX_ARM);
+        host.headless = true;
+        final Outcome r = start("linux", host);
+        assertEquals(OptionalInt.of(1), r.code());
+        assertTrue(r.err().contains("There is no ready-made VANTA Launcher download for " + PlatformCheck.describeRunning(LINUX_ARM) + " yet."), r.err());
+        assertTrue(r.err().contains("--install-official-profile"), r.err());
+    }
+
+    @Test
+    void windowsOnArmIsPointedToTheX64DownloadsBeforeAnythingElse() {
+        // os.aarch64 / arm64 reported by an arm64 Java on Windows 11 on ARM, which runs x64 programs under emulation.
+        for (String raw : List.of("aarch64", "arm64")) {
+            final OsInfo os = OsInfo.fromProperties("Windows 11", raw, "10.0");
+            assertEquals(WINDOWS_ARM, os);
+            for (String jar : List.of("win", "linux")) {
+                final FakeHost host = new FakeHost(os);
+                host.headless = true;
+                final Outcome r = start(jar, host);
+                assertEquals(OptionalInt.of(1), r.code());
+                assertEquals(0, host.uiLaunches);
+                final String err = r.err();
+                assertTrue(err.contains("but it was started by a Java runtime for Windows arm64."), err);
+                assertTrue(err.contains("Windows 11 on ARM runs x64 programs under emulation"), err);
+                final int msi = err.indexOf("VANTA-Launcher-" + V + ".msi");
+                final int portable = err.indexOf("VANTA-Launcher-" + V + "-windows-portable.zip");
+                final int x64Java = err.indexOf("install an x64 Java 21 and start vanta-launcher-" + V + "-windows-all.jar");
+                assertTrue(msi > 0 && portable > 0 && x64Java > 0, err);
+                assertFalse(err.contains("There is no ready-made VANTA Launcher download"), "there is one: the x64 builds. " + err);
+                final int official = err.indexOf("--install-official-profile");
+                assertTrue(official > x64Java, "fallbacks only after the x64 recommendations: " + err);
+                assertFalse(err.contains("Build the launcher from source"), "JavaFX has no Windows arm64 build to compile against: " + err);
+            }
         }
+        // An x64 Java on the same computer (emulated) reports x64 and simply runs the Windows jar.
+        assertTrue(PlatformCheck.mismatch("win", OsInfo.fromProperties("Windows 11", "amd64", "10.0"), V, "https://x").isEmpty());
     }
 
     @Test

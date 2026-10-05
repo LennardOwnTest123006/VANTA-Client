@@ -216,11 +216,20 @@ public final class SettingsPage extends VBox {
         final Switch developer = new Switch();
         developer.selectedProperty().bindBidirectional(vm.developerModeProperty());
         final Path dataDir = vm.dataDir();
-        final Label dir = Ui.label(dataDir.toString(), "mono", "text-secondary");
+        // A long path shrinks with an ellipsis in the middle (the tooltip has all of it); the button keeps its label.
+        final Label dir = Ui.label(dataDir.toString(), "mono", "text-secondary", "data-dir-path");
         dir.setStyle("-fx-font-size: 12px;");
+        dir.setMinWidth(0);
+        dir.setMaxWidth(Double.MAX_VALUE);
+        dir.setTextOverrun(javafx.scene.control.OverrunStyle.CENTER_ELLIPSIS);
+        dir.setTooltip(Ui.tooltip(dataDir.toString()));
+        HBox.setHgrow(dir, Priority.ALWAYS);
         final Button open = Ui.button(ctx.t("settings.dataDir.open"), Icons.Icon.FOLDER, "secondary", "small");
+        open.getStyleClass().add("data-dir-open");
+        open.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
+        open.setTooltip(Ui.tooltip(ctx.t("settings.dataDir.open.tooltip")));
         open.setOnAction(e -> ctx.opener().openFolder(dataDir));
-        final HBox dirRow = new HBox(10, dir, Ui.spacer(), open);
+        final HBox dirRow = new HBox(10, dir, open);
         dirRow.setAlignment(Pos.CENTER_LEFT);
         return section(ctx.t("settings.section.advanced"),
             row(ctx.t("settings.shareFiles.label"), ctx.t("settings.shareFiles.help"), share),
@@ -240,7 +249,7 @@ public final class SettingsPage extends VBox {
         final Switch motion = new Switch();
         motion.selectedProperty().bindBidirectional(vm.reducedMotionProperty());
         return section(ctx.t("settings.section.appearance"), themeBlock,
-            row(ctx.t("settings.highContrast.label"), ctx.t("settings.theme.help"), contrast),
+            row(ctx.t("settings.highContrast.label"), ctx.t("settings.highContrast.help"), contrast),
             row(ctx.t("settings.reducedMotion.label"), ctx.t("settings.reducedMotion.help"), motion));
     }
 

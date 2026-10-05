@@ -30,7 +30,8 @@ public final class PlatformCheck {
     /**
      * @param os running platform
      * @return the JavaFX classifier that runs there ({@code win}, {@code linux}, {@code linux-aarch64}, {@code mac},
-     *         {@code mac-aarch64}); empty when JavaFX has no build for it (32-bit Java, Windows on ARM, ...)
+     *         {@code mac-aarch64}); empty when JavaFX has no build for it (32-bit Java, an arm64 Java on Windows on ARM,
+     *         ...; an x64 Java on Windows on ARM reports x64 and runs the Windows jar under emulation)
      */
     public static Optional<String> javafxPlatformFor(final OsInfo os) {
         final String arch = os.arch();
@@ -127,6 +128,16 @@ public final class PlatformCheck {
                         + v + "-windows-all.jar with it, or use the installer VANTA-Launcher-" + v + ".msi or the portable app"
                         + " VANTA-Launcher-" + v + "-windows-portable.zip, which bring their own Java runtime. There is no VANTA"
                         + " Launcher download for 32-bit Windows.";
+                }
+                if (os.isWindows() && "arm64".equals(os.arch())) {
+                    // JavaFX has no Windows arm64 build in these jars, but Windows 11 on ARM runs x64 programs under
+                    // emulation: the x64 downloads (with their own x64 Java) or an x64 Java work there.
+                    yield "This is a Java runtime for Windows on ARM. Windows 11 on ARM runs x64 programs under emulation, so use the"
+                        + " installer VANTA-Launcher-" + v + ".msi or the portable app VANTA-Launcher-" + v + "-windows-portable.zip:"
+                        + " both are x64 and bring their own x64 Java runtime. Or install an x64 Java 21 and start vanta-launcher-" + v
+                        + "-windows-all.jar with it. (Windows 10 on ARM cannot run x64 programs.) There is no native arm64 build of the"
+                        + " VANTA Launcher for Windows. Without x64 emulation, set VANTA up for the official Minecraft Launcher with this"
+                        + " jar's command line: java -jar <this jar> --install-official-profile";
                 }
                 if (!os.is64Bit() && os.isLinux()) {
                     yield "This is a 32-bit Java runtime. On 64-bit Linux, install a 64-bit (x64) Java 21 and start vanta-launcher-"

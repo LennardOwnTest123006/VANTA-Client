@@ -72,8 +72,11 @@ text in a Swing dialog when a display is available (a double-clicked jar has no 
 Java on a Mac (an Intel Mac, or an Apple Silicon Mac running that Java under Rosetta 2) is told to use an arm64
 (aarch64) Java 21 with `vanta-launcher-<v>-macos-aarch64-all.jar` on Apple Silicon, and that Intel Macs have no
 download yet. A 32-bit Java on Windows or Linux is told to use a 64-bit Java 21 with the platform jar, or the `.msi`,
-the portable app or the Linux app image, which bring their own Java runtime. Systems without a release file (Linux or
-Windows on ARM) are told so. Any other failed UI start (JavaFX missing, no display) also exits with 1. Command line
+the portable app or the Linux app image, which bring their own Java runtime. An arm64 Java on Windows on ARM is told to
+use `VANTA-Launcher-<v>.msi` or `VANTA-Launcher-<v>-windows-portable.zip` (both x64 with their own x64 Java runtime,
+which Windows 11 on ARM runs under x64 emulation) or an x64 Java 21 with `vanta-launcher-<v>-windows-all.jar`; only
+then `--install-official-profile` is mentioned for systems without x64 emulation (Windows 10 on ARM). Linux on ARM has
+no release file and is told so. Any other failed UI start (JavaFX missing, no display) also exits with 1. Command line
 flags (`--help`, `--version`, `--install`, `--check-update`, ...) need no JavaFX and work with every jar on every
 system.
 
@@ -149,9 +152,12 @@ The launcher updates itself with the release file that replaces exactly the kind
 
 The release workflow writes `vanta-portable.marker` (text `portable`) into `VANTA Launcher/app/` of the Windows portable
 zip only; the `.msi` and `.exe` are built from a fresh app image without it. Every file is downloaded to
-`cache/updates/` and its SHA-256 verified. Only the Windows installer is handed to the operating system, after
-confirmation. Everything else is never unpacked or run by the launcher; it is shown in its folder with instructions:
-the `.tar.gz` is extracted and `VANTA Launcher/bin/VANTA Launcher` started, a jar is started with Java 21, and the
+`cache/updates/<version>/<file name>`, keeping the exact name of the release file so `sha256sum -c --ignore-missing
+SHA256SUMS.txt` from the release works in that folder (launcher 1.0.0 and 1.0.1 saved `cache/updates/<version>-<file
+name>`), and its SHA-256 is verified. The dialog afterwards shows the full path and offers "Show in folder". Only the
+Windows installer is handed to the operating system, after confirmation. Everything else is never unpacked or run by
+the launcher; it is shown in its folder with instructions: the `.tar.gz` is extracted and `VANTA Launcher/bin/VANTA
+Launcher` started, a jar is started with Java 21 (`java -jar "<full path>"`), and the
 portable zip is extracted after closing the launcher. The portable zip's top level is a `VANTA Launcher` folder, so the
 instructions name the folder that *contains* the portable folder (for `D:\Games\VANTA Launcher`: extract into
 `D:\Games` and replace the existing files); extracting it into the portable folder itself would only nest a second
@@ -191,7 +197,7 @@ instead; it downloads Minecraft, its libraries, assets and Java and signs you in
 | --- | --- |
 | `<data>/instances/vanta-1.21.11/mods/fabric-api-0.141.6+1.21.11.jar` | Fabric API from `maven.fabricmc.net`, SHA-256 verified |
 | `<data>/instances/vanta-1.21.11/mods/vanta-client-<v>.jar` | the published VANTA Client (SHA-256 from the manifest) or `--client-jar` |
-| `<data>/versions/vanta-client/<v>/vanta-client-<v>.jar` and `manifest.json` | rollback copy of a published release (not for `--client-jar`) |
+| `<data>/versions/vanta-client/<v>/vanta-client-<v>.jar` and `manifest.json` | rollback copy of a published release, or a local copy of a jar that was in `mods/` (see below); not for `--client-jar` |
 | `<data>/instances/vanta-1.21.11/instance.json` | the installed client version, only when the instance file exists |
 | `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.json` | the Fabric Loader version JSON exactly as `meta.fabricmc.net` serves it |
 | `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.jar` | empty, as the official Fabric installer writes it |
@@ -211,7 +217,8 @@ Support/minecraft`, `~/.minecraft`). The game directory is the same instance the
 file is parsed as a JSON tree: every other profile and key is kept (including keys whose value is `null`), an existing VANTA entry is updated in place (its
 `created` time and keys VANTA does not manage, such as `javaDir`, survive), the first run keeps a backup
 `<file>.vanta-backup`, and the file is replaced atomically. VANTA writes the profile into every profiles file that
-exists, like the Fabric installer does. Nothing in the Minecraft folder is written before every download succeeded.
+exists (the official Fabric installer instead asks which launcher to use when both files exist and writes only that
+one). Nothing in the Minecraft folder is written before every download succeeded.
 When neither `launcher_profiles.json` nor `launcher_profiles_microsoft_store.json` exists, the Minecraft Launcher has
 never been started there: the command stops with "Start the Minecraft Launcher once, then try again" (exit code 3)
 and changes nothing. Afterwards: open the Minecraft Launcher, choose the profile 'VANTA 1.21.11' and press Play (restart it first
@@ -235,6 +242,15 @@ Client: not installed (install it with --install or --install-official-profile);
 A client installed by "Use with Minecraft Launcher" (jar in `mods/`, no `instance.json`) counts as installed and is
 updated like any other; `UpdateService.installClientUpdate` refuses to put an "update" into an empty instance.
 
+Before an update or install replaces the active client jar, `VantaClientService` keeps a copy of it under
+`versions/vanta-client/<old>/` (with a `manifest.json` that records its SHA-256) when its version is a release version
+(not `dev`), it has no rollback copy yet (for example a jar put into `mods/` by hand) and it is among the 3 newest
+versions afterwards; otherwise it would be pruned right away. Such a copy is a *local copy*: its `manifest.json` is
+written from the jar itself (no download URL, no Minecraft version or release date; `KeptVersion.isLocalCopy()`), and
+the Versions page labels it "Local copy from mods/". Roll back re-activates exactly that file (its SHA-256 is checked).
+The "VANTA Client <v> installed" notification names the previous version for roll back only when a copy of it is
+really kept; otherwise it says whether other kept versions remain for roll back.
+
 ## Directory layout
 
 Data directory: Windows `%APPDATA%\VANTA Launcher`, macOS `~/Library/Application Support/VANTA Launcher`, Linux
@@ -247,10 +263,10 @@ Data directory: Windows `%APPDATA%\VANTA Launcher`, macOS `~/Library/Application
 ├── assets/indexes/, objects/, log_configs/
 ├── versions/1.21.11/            1.21.11.json + 1.21.11.jar
 ├── versions/fabric-loader-0.19.5-1.21.11/   Fabric profile JSON
-├── versions/vanta-client/<v>/   last 3 verified client jars + manifests (rollback)
+├── versions/vanta-client/<v>/   rollback copies of the 3 newest client versions + manifests
 ├── runtimes/                    Java runtimes installed by the launcher (temurin-21-<release>)
 ├── logs/                        launcher-N.log (rotating), game-<timestamp>.log
-├── cache/updates/               downloaded updates (verified before use)
+├── cache/updates/<v>/<file>      downloaded launcher updates under their release file names (verified before use)
 ├── settings.json
 ├── accounts.dat                 encrypted accounts (DPAPI on Windows, AES-256-GCM elsewhere)
 └── key.bin                      AES key, owner-only permissions (not on Windows)
@@ -362,7 +378,13 @@ resources .../ui/               theme/vanta.css (design tokens), i18n/launcher_e
 
 External links come from `links.properties`: the sidebar and About "Website" entries open `website.url`
 (https://vanta-client.netlify.app), "Support" opens the GitHub issues; `VANTA_WEBSITE_URL` / `VANTA_SUPPORT_URL` override
-them at run time, and an empty value disables the entry with "Not configured". File sizes are shown in decimal units with
+them at run time, and an empty value disables the entry with "Not configured". Links are opened off the JavaFX thread
+by `dev.vanta.launcher.ui.BrowserOpener`: `java.awt.Desktop.browse` when supported, else the system's opener
+(`xdg-open` on Linux, `open` on macOS, `rundll32 url.dll,FileProtocolHandler` on Windows; http(s) only, checked by its
+exit code), else JavaFX `HostServices`, which cannot report failures. Unless Desktop or the system opener confirmed the
+start, the address is shown in a notification, so a click never does nothing; only when every opener failed is it also
+copied to the clipboard (after `HostServices` accepted it the clipboard is left alone, so a sign-in code copied just
+before "Open microsoft.com/link" stays there). File sizes are shown in decimal units with
 one decimal place (1 MB = 1,000,000 bytes, "66.9 MB"), in the UI and on the command line alike, like the website.
 
 View models run blocking core calls on a background executor and publish results on the JavaFX thread
@@ -371,6 +393,14 @@ file, downloads what is missing) → refresh the account token → `LaunchServic
 Logs page → notify on exit. Settings changes go through `LauncherServices.saveSettings`; a launcher update is
 downloaded and re-verified by `UpdateService` and only then, after an explicit confirmation, handed to the operating
 system.
+
+Home and Versions follow what can actually be done: "Verify files" is only shown when an installation
+(`instance.json`) exists and never starts a first install (PLAY or the client card's "Install now" do that); like PLAY
+it runs the regular install, which also replaces an older VANTA Client with the latest release, and its notification
+says so. While no account is stored and Microsoft sign-in is not configured (`SessionModel.playPossible()`, the same
+rule as the client card), the Versions page and the "nothing installed" message point to "Use with Minecraft Launcher"
+instead of PLAY, which cannot be enabled then. The sidebar then says "Sign-in not available" and offers "How to
+configure" instead of "Sign in".
 
 Tests: the view models are covered with a scriptable `FakeBackend` (`src/test/.../ui/testutil`), and
 `LauncherAppSmokeTest` starts the real application on the Monocle headless platform, visits every page and dialog

@@ -166,6 +166,11 @@ public final class FakeBackend implements LauncherBackend {
     public String sha256 = "43af029f14abd60e022d50e036ac7398856997f6d1e759c815c277cded0812e1";
     /** Kept versions. */
     public final List<VantaClientService.KeptVersion> kept = new ArrayList<>();
+    /**
+     * Whether {@link #installClientUpdate} keeps a rollback copy of the client it replaces, like the core does for a jar
+     * with a release version that has no copy yet (false: the copy is pruned or the version is unknown).
+     */
+    public boolean keepReplacedClient = true;
     /** Whether a releases URL is configured. */
     public boolean updatesConfigured = true;
     /** Launcher update. */
@@ -174,6 +179,11 @@ public final class FakeBackend implements LauncherBackend {
     public Optional<UpdateInfo> clientUpdate = Optional.empty();
     /** Latest client release when {@link #clientUpdate} is empty. */
     public String latestClientVersion = "1.0.0";
+    /**
+     * When set, {@link #install} over an existing instance installs this VANTA Client version, like the core, whose
+     * standard install always installs the latest release (null: the installed client stays).
+     */
+    public String installClientVersion;
     /** How the fake launcher was installed. */
     public LauncherPackaging packaging = LauncherPackaging.PLAIN_JAR;
     /** Failure thrown by the client check. */
@@ -482,6 +492,9 @@ public final class FakeBackend implements LauncherBackend {
         if (instance == null) {
             instance = installedInstance("1.0.0");
             activeJar = paths.modsDir().resolve(instance.vantaClientJar());
+        } else if (installClientVersion != null) {
+            instance = instance.withVantaClient(installClientVersion, "vanta-client-" + installClientVersion + ".jar");
+            activeJar = paths.modsDir().resolve(instance.vantaClientJar());
         }
         listener.onLog("Installation complete: " + ByteSizes.format(bytes) + " downloaded");
         return instance;
@@ -640,7 +653,7 @@ public final class FakeBackend implements LauncherBackend {
         if (!update.isDownloadable()) {
             throw new NotPublishedException(update.product(), update.latestVersion().toString(), "announced but not downloadable yet");
         }
-        final Path target = paths.updatesCacheDir().resolve(update.latestVersion() + "-" + update.file().name());
+        final Path target = paths.updatesCacheDir().resolve(update.latestVersion().toString()).resolve(update.file().name());
         final DownloadRequest request = new DownloadRequest(URI.create(update.file().downloadUrl()), target, update.file().size(), null,
             update.file().name());
         listener.onProgress(request, update.file().size() / 2, update.file().size());
@@ -651,7 +664,7 @@ public final class FakeBackend implements LauncherBackend {
     @Override
     public Path prepareInstaller(final UpdateInfo update) {
         calls.add("prepareInstaller");
-        return paths.updatesCacheDir().resolve(update.latestVersion() + "-" + update.file().name());
+        return paths.updatesCacheDir().resolve(update.latestVersion().toString()).resolve(update.file().name());
     }
 
     @Override
@@ -660,8 +673,19 @@ public final class FakeBackend implements LauncherBackend {
         if (installedClient().isEmpty()) {
             throw new IOException("No VANTA Client is installed, so there is nothing to update.");
         }
+        final InstalledClient previous = installedClient().orElseThrow();
         downloadUpdate(update, listener, token);
         final String version = update.latestVersion().toString();
+        if (keepReplacedClient && previous.jar().isPresent() && previous.semVer().isPresent() && kept.stream().noneMatch(k -> k.version().equals(previous.version()))) {
+            // Like the core: a jar without a kept copy is copied as a local copy (no download URL in its manifest).
+            final String name = "vanta-client-" + previous.version() + ".jar";
+            kept.add(new VantaClientService.KeptVersion(previous.version(), VantaClientService.localCopyManifest(previous.version(),
+                new ReleaseManifest.ReleaseFile(name, "", 1L, sha256)), paths.clientVersionsDir().resolve(previous.version()).resolve(name),
+                CLOCK.instant()));
+        }
+        kept.removeIf(k -> k.version().equals(version));
+        kept.add(0, new VantaClientService.KeptVersion(version, update.manifest(),
+            paths.clientVersionsDir().resolve(version).resolve("vanta-client-" + version + ".jar"), CLOCK.instant()));
         if (instance != null) {
             instance = instance.withVantaClient(version, "vanta-client-" + version + ".jar");
         }

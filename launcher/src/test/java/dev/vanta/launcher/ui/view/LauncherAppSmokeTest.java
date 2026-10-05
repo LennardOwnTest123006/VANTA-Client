@@ -93,7 +93,9 @@ class LauncherAppSmokeTest {
 
     @BeforeAll
     void launch() throws Exception {
-        data = Files.createTempDirectory("vanta-smoke");
+        // A long data directory, as on Windows with a long account name: the Settings row must still show "Open".
+        data = Files.createTempDirectory("vanta-smoke").resolve("Users").resolve("someone-with-a-rather-long-account-name")
+            .resolve("AppData").resolve("Roaming").resolve("VANTA Launcher with a long folder name");
         backend = new FakeBackend(data);
         backend.accounts.add(FakeBackend.microsoftAccount("Nova"));
         backend.javaInstalls.add(backend.temurin21());
@@ -321,6 +323,9 @@ class LauncherAppSmokeTest {
                 assertNotNull(card.lookup(".client-install"), "the regular install is offered");
                 assertNotNull(card.lookup(".client-official"), "and 'Use with Minecraft Launcher'");
                 assertEquals(app.context().t("client.card.notInstalled"), ((Label) card.lookup(".client-installed")).getText());
+                final Node verify = app.window().page(NavigationModel.Page.HOME).lookup(".verify-button");
+                assertNotNull(verify);
+                assertFalse(verify.isVisible() || verify.isManaged(), "no 'Verify files' while nothing is installed (it started a full install)");
                 assertNull(app.context().updates().clientUpdateProperty().get());
                 assertFalse(app.context().updates().bannerVisibleProperty().get(), "no client update banner");
                 app.window().showClientUpdate();
@@ -339,8 +344,97 @@ class LauncherAppSmokeTest {
                 return null;
             });
             waitUntil(() -> app.context().updates().clientUpdateProperty().get() != null);
+            fx(() -> {
+                assertTrue(app.window().page(NavigationModel.Page.HOME).lookup(".verify-button").isVisible(), "an installation can be verified");
+                return null;
+            });
         }
         assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+    }
+
+    @Test
+    void dataDirectoryRowKeepsTheOpenButtonReadable() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        final double width = fx(() -> app.stage().getWidth());
+        try {
+            fx(() -> {
+                app.stage().setWidth(LauncherApp.MIN_WIDTH);
+                app.context().navigation().navigate(NavigationModel.Page.SETTINGS);
+                return null;
+            });
+            waitUntil(() -> {
+                final Node open = app.window().page(NavigationModel.Page.SETTINGS).lookup(".data-dir-open");
+                return open != null && open.getScene() != null && ((Button) open).getWidth() > 0;
+            });
+            fx(() -> {
+                final Node page = app.window().page(NavigationModel.Page.SETTINGS);
+                final Button open = (Button) page.lookup(".data-dir-open");
+                assertEquals(app.context().t("settings.dataDir.open"), open.getText());
+                assertTrue(open.getWidth() >= open.prefWidth(-1) - 0.5, "'Open' keeps its label (1.0.1 showed '...'): width "
+                    + open.getWidth() + " < pref " + open.prefWidth(-1));
+                final Label path = (Label) page.lookup(".data-dir-path");
+                assertEquals(backend.paths().dataDir().toString(), path.getText());
+                assertEquals(backend.paths().dataDir().toString(), path.getTooltip().getText(), "the full path is in the tooltip");
+                assertTrue(path.getWidth() < path.prefWidth(-1), "the long path is what shrinks");
+                return null;
+            });
+        } finally {
+            fx(() -> {
+                app.stage().setWidth(width);
+                app.context().navigation().navigate(NavigationModel.Page.HOME);
+                return null;
+            });
+        }
+    }
+
+    @Test
+    void sidebarSaysBrieflyWhenSignInIsNotAvailable() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        final boolean wasConfigured = backend.signInConfigured;
+        final var accounts = List.copyOf(backend.accounts);
+        try {
+            backend.signInConfigured = false;
+            backend.accounts.clear();
+            fx(() -> {
+                app.context().session().refreshAll();
+                return null;
+            });
+            waitUntil(() -> app.context().session().account().isEmpty() && !app.context().session().signInConfiguredProperty().get());
+            fx(() -> {
+                final Label sub = app.window().sidebar().accountSubLabel();
+                assertEquals(app.context().t("account.signedOut.sub.notConfigured"), sub.getText(), "not 'Sign in with Microsoft to play'");
+                assertEquals(app.context().t("account.signedOut.sub.notConfigured.tooltip"), sub.getTooltip().getText());
+                // No primary "Sign in" right under "Sign-in not available": the Home account card's "How to configure".
+                final Button button = app.window().sidebar().signedOutButton();
+                assertEquals(app.context().t("account.card.howToConfigure"), button.getText());
+                assertTrue(button.getStyleClass().contains("secondary"), button.getStyleClass().toString());
+                assertFalse(button.getStyleClass().contains("primary"), button.getStyleClass().toString());
+                return null;
+            });
+            backend.signInConfigured = true;
+            fx(() -> {
+                app.context().session().refreshAll();
+                return null;
+            });
+            waitUntil(() -> app.context().session().signInConfiguredProperty().get());
+            fx(() -> {
+                final Label sub = app.window().sidebar().accountSubLabel();
+                assertEquals(app.context().t("account.signedOut.sub"), sub.getText());
+                assertEquals(app.context().t("account.signedOut.sub.tooltip"), sub.getTooltip().getText());
+                final Button button = app.window().sidebar().signedOutButton();
+                assertEquals(app.context().t("account.signIn"), button.getText());
+                assertTrue(button.getStyleClass().contains("primary"), button.getStyleClass().toString());
+                return null;
+            });
+        } finally {
+            backend.signInConfigured = wasConfigured;
+            backend.accounts.addAll(accounts);
+            fx(() -> {
+                app.context().session().refreshAll();
+                return null;
+            });
+            waitUntil(() -> app.context().session().account().isPresent());
+        }
     }
 
     private static <T> T fx(final Callable<T> action) throws Exception {

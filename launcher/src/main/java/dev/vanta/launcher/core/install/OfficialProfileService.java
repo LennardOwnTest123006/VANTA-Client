@@ -550,7 +550,8 @@ public final class OfficialProfileService {
     /**
      * The profiles files of the official launcher that exist in a Minecraft directory: {@code launcher_profiles.json}
      * (Java Edition launcher from minecraft.net) and/or {@code launcher_profiles_microsoft_store.json} (the launcher from
-     * the Microsoft Store / Xbox app). VANTA writes its profile into every one that exists, like the Fabric installer.
+     * the Microsoft Store / Xbox app). VANTA writes its profile into every one that exists (the official Fabric
+     * installer instead asks which launcher to use when both exist and writes only that one).
      *
      * @param minecraftDir Minecraft directory
      * @return existing profiles files, {@code launcher_profiles.json} first

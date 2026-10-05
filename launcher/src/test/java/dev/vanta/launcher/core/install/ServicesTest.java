@@ -167,6 +167,88 @@ class ServicesTest {
         assertFalse(Files.exists(paths.clientVersionsDir().resolve("1.0.2/vanta-client-1.0.2.jar")));
     }
 
+    /** Publishes {@code vanta-client-<v>.jar} on the fake server and returns its manifest. */
+    private ReleaseManifest publishClient(final String v) {
+        final byte[] jar = FakeWorld.synthetic("vanta " + v, 700);
+        world.server().add("releases/vanta-client-" + v + ".jar", jar);
+        return new ReleaseManifest(1, "client", v, "1.21.11", "0.19.5", LauncherVersion.FABRIC_API, 21, "2026-11-01", "stable",
+            List.of(new ReleaseManifest.ReleaseFile("vanta-client-" + v + ".jar", world.server().url("releases/vanta-client-" + v + ".jar").toString(),
+                jar.length, Checksums.hex(jar, HashAlgorithm.SHA256))), "changelog " + v);
+    }
+
+    private void keptCopy(final String v) throws IOException {
+        final Path dir = paths.clientVersionsDir().resolve(v);
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("vanta-client-" + v + ".jar"), "kept " + v);
+        Json.write(dir.resolve(VantaClientService.KEPT_MANIFEST), new ReleaseManifest(1, "client", v, "1.21.11", "0.19.5",
+            LauncherVersion.FABRIC_API, 21, "2026-01-01", "stable", List.of(new ReleaseManifest.ReleaseFile("vanta-client-" + v + ".jar",
+            "https://example.invalid/x.jar", 1, Checksums.hex(("kept " + v).getBytes(StandardCharsets.UTF_8), HashAlgorithm.SHA256))), ""));
+    }
+
+    @Test
+    void updateKeepsTheReplacedJarWhenItHasNoRollbackCopy() throws Exception {
+        final VantaClientService vanta = wired.vanta();
+        // A jar put into mods/ by hand (or whose rollback copy was deleted): its version is known from the name.
+        Files.createDirectories(paths.modsDir());
+        final byte[] manual = FakeWorld.synthetic("hand-installed 1.0.0", 640);
+        Files.write(paths.modsDir().resolve("vanta-client-1.0.0.jar"), manual);
+        assertTrue(vanta.listKeptVersions().isEmpty());
+
+        final ReleaseManifest update = publishClient("1.1.0");
+        final VantaClientService.ClientChanges planned = vanta.changesForRelease(update);
+        final Path keptJar = paths.clientVersionsDir().resolve("1.0.0/vanta-client-1.0.0.jar");
+        final Path keptManifest = paths.clientVersionsDir().resolve("1.0.0/" + VantaClientService.KEPT_MANIFEST);
+        assertTrue(planned.keptFiles().containsAll(List.of(keptJar, keptManifest)), "the plan lists the copy: " + planned.keptFiles());
+        assertTrue(planned.prunedVersions().isEmpty());
+
+        vanta.installFromManifest(update, DownloadProgressListener.NONE, CancellationToken.NONE);
+        assertEquals(paths.modsDir().resolve("vanta-client-1.1.0.jar"), vanta.activeJar().orElseThrow());
+        assertEquals(List.of("1.1.0", "1.0.0"), vanta.listKeptVersions().stream().map(VantaClientService.KeptVersion::version).toList());
+        assertTrue(vanta.listKeptVersions().get(1).isAvailable());
+        assertEquals(Checksums.hex(manual, HashAlgorithm.SHA256), Checksums.sha256Hex(keptJar), "exactly the jar that was active");
+        final ReleaseManifest recorded = Json.read(keptManifest, ReleaseManifest.class);
+        assertEquals("1.0.0", recorded.version());
+        assertEquals(Checksums.hex(manual, HashAlgorithm.SHA256), recorded.clientJar().orElseThrow().sha256());
+        assertFalse(recorded.clientJar().orElseThrow().isPublished(), "a local copy, not a published release");
+        assertTrue(vanta.listKeptVersions().get(1).isLocalCopy(), "listed as a local copy on the Versions page");
+        assertFalse(vanta.listKeptVersions().get(0).isLocalCopy(), "the downloaded release is not");
+
+        // Roll back re-activates exactly that jar.
+        assertEquals(paths.modsDir().resolve("vanta-client-1.0.0.jar"), vanta.rollback("1.0.0"));
+        assertEquals(Checksums.hex(manual, HashAlgorithm.SHA256), Checksums.sha256Hex(paths.modsDir().resolve("vanta-client-1.0.0.jar")));
+    }
+
+    @Test
+    void replacedJarIsNotCopiedWhenUnknownAlreadyKeptOrBelowTheKeptVersions() throws Exception {
+        final VantaClientService vanta = wired.vanta();
+        Files.createDirectories(paths.modsDir());
+
+        // A development build has no release version: nothing to keep.
+        Files.writeString(paths.modsDir().resolve("vanta-client-dev.jar"), "local build");
+        vanta.installFromManifest(publishClient("1.1.0"), DownloadProgressListener.NONE, CancellationToken.NONE);
+        assertFalse(Files.exists(paths.clientVersionsDir().resolve("dev")));
+        assertEquals(List.of("1.1.0"), vanta.listKeptVersions().stream().map(VantaClientService.KeptVersion::version).toList());
+
+        // Already kept: the existing copy and its manifest stay untouched.
+        final Path keptManifest = paths.clientVersionsDir().resolve("1.1.0/" + VantaClientService.KEPT_MANIFEST);
+        final String before = Files.readString(keptManifest);
+        vanta.installFromManifest(publishClient("1.2.0"), DownloadProgressListener.NONE, CancellationToken.NONE);
+        assertEquals(before, Files.readString(keptManifest));
+
+        // Three higher versions are kept: a hand-installed 0.9.0 would be pruned right away, so it is not copied and
+        // nothing else is pruned for it.
+        Files.delete(paths.modsDir().resolve("vanta-client-1.2.0.jar"));
+        Files.writeString(paths.modsDir().resolve("vanta-client-0.9.0.jar"), "old manual");
+        keptCopy("1.0.5");
+        final ReleaseManifest next = publishClient("1.3.0");
+        final VantaClientService.ClientChanges planned = vanta.changesForRelease(next);
+        assertFalse(planned.keptFiles().stream().anyMatch(p -> p.toString().contains("0.9.0")), planned.keptFiles().toString());
+        vanta.installFromManifest(next, DownloadProgressListener.NONE, CancellationToken.NONE);
+        assertFalse(Files.exists(paths.clientVersionsDir().resolve("0.9.0")));
+        assertEquals(List.of("1.3.0", "1.2.0", "1.1.0"), vanta.listKeptVersions().stream().map(VantaClientService.KeptVersion::version).toList());
+        assertEquals(List.of(paths.clientVersionsDir().resolve("1.0.5")), planned.prunedVersions());
+    }
+
     @Test
     void vantaClientInstallsExactlyTheClientJar() throws Exception {
         final byte[] jar = FakeWorld.synthetic("vanta 1.0.0", 700);

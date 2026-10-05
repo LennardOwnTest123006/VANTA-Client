@@ -7,11 +7,12 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 /**
- * Confirmation card (title, text, optional details, confirm/cancel) for the {@link DialogLayer}.
+ * Confirmation card (title, text, optional details, confirm/cancel, optional extra action) for the {@link DialogLayer}.
  */
 public final class ConfirmDialog implements DialogLayer.Dialog {
 
     private final VBox card = new VBox();
+    private final HBox actions;
     private final Button confirm;
     private final Runnable onConfirm;
     private final Runnable onCancel;
@@ -54,7 +55,7 @@ public final class ConfirmDialog implements DialogLayer.Dialog {
         });
         final Button cancel = Ui.button(cancelText, "secondary");
         cancel.setOnAction(e -> close.run());
-        final HBox actions = new HBox(10, Ui.spacer(), cancel, confirm);
+        actions = new HBox(10, Ui.spacer(), cancel, confirm);
         actions.setAlignment(Pos.CENTER_RIGHT);
         card.getChildren().addAll(Ui.label(title, "dialog-title"), Ui.paragraph(text, "dialog-text"));
         if (details != null) {
@@ -63,6 +64,24 @@ public final class ConfirmDialog implements DialogLayer.Dialog {
             card.getChildren().add(details);
         }
         card.getChildren().addAll(Ui.vgap(4), actions);
+    }
+
+    /**
+     * Adds an action on the left of the button row that does not close the dialog (for example "Show in folder" next
+     * to "Open installer").
+     *
+     * @param text   button text
+     * @param icon   icon
+     * @param action runs on click; the dialog stays open
+     * @return this dialog
+     */
+    public ConfirmDialog withExtraAction(final String text, final Icons.Icon icon, final Runnable action) {
+        final Button extra = Ui.button(text, icon, "ghost");
+        extra.getStyleClass().add("dialog-extra-action");
+        extra.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
+        extra.setOnAction(e -> action.run());
+        actions.getChildren().add(0, extra);
+        return this;
     }
 
     @Override

@@ -5,6 +5,7 @@ import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.update.UpdateInfo;
 import dev.vanta.launcher.ui.model.NavigationModel;
 import dev.vanta.launcher.ui.model.SettingsViewModel;
+import dev.vanta.launcher.ui.model.UpdateViewModel;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -167,31 +168,41 @@ public final class MainWindow extends StackPane {
      * zip or a jar is not an installer: the launcher shows it in its folder with instructions instead (for the portable
      * zip: close the launcher, then extract it into the folder that contains the portable folder, see
      * {@link dev.vanta.launcher.ui.model.UpdateViewModel#portableUpdateInstructions(String)}) and keeps running. Nothing but a Windows installer is
-     * ever opened, and only after confirmation.
+     * ever opened, and only after confirmation. Every variant shows the full path of the file
+     * ({@code cache/updates/<version>/<asset name>}) and offers "Show in folder".
      *
      * @param installer verified installer path
      */
     public void confirmInstaller(final Path installer) {
-        final String name = installer.getFileName().toString();
-        final String lower = name.toLowerCase(java.util.Locale.ROOT);
-        if (lower.endsWith(".msi") || lower.endsWith(".exe")) {
-            dialogs.show(new ConfirmDialog(ctx.t("update.confirm.title"), ctx.t("update.confirm.text", name),
+        final String text = ctx.updates().downloadedInstructions(installer);
+        final Runnable showFolder = () -> ctx.opener().openFolder(installer.getParent());
+        if (UpdateViewModel.kindOf(installer) == UpdateViewModel.DownloadedFile.INSTALLER) {
+            dialogs.show(new ConfirmDialog(ctx.t("update.confirm.title"), text, savedTo(installer),
                 ctx.t("update.confirm.open"), ctx.t("update.confirm.cancel"),
                 () -> ctx.opener().openFile(installer, () -> {
                     ctx.toasts().info(ctx.t("update.toast.opened.title"), ctx.t("update.toast.opened.message"));
                     onInstallerOpened.run();
-                }), () -> { }, dialogs::close));
+                }), () -> { }, dialogs::close)
+                .withExtraAction(ctx.t("update.confirm.showFolder"), Icons.Icon.FOLDER, showFolder));
             return;
         }
-        final String text;
-        if (lower.endsWith("-windows-portable.zip")) {
-            // Portable folder: never unpacked or started by the launcher; the user replaces the folder after closing it.
-            text = ctx.updates().portableUpdateInstructions(name);
-        } else {
-            text = lower.endsWith(".jar") ? ctx.t("update.confirm.jar.text", name) : ctx.t("update.confirm.archive.text", name);
-        }
-        dialogs.show(new ConfirmDialog(ctx.t("update.confirm.manual.title"), text, ctx.t("update.confirm.showFolder"),
-            ctx.t("update.confirm.cancel"), () -> ctx.opener().openFolder(installer.getParent()), () -> { }, dialogs::close));
+        // Portable folder, app image or jar: never unpacked or started by the launcher.
+        dialogs.show(new ConfirmDialog(ctx.t("update.confirm.manual.title"), text, savedTo(installer), ctx.t("update.confirm.showFolder"),
+            ctx.t("update.confirm.cancel"), showFolder, () -> { }, dialogs::close));
+    }
+
+    /**
+     * @param file verified download
+     * @return "Saved to" with the full path in a read-only field, so it can be selected and copied
+     */
+    private Node savedTo(final Path file) {
+        final javafx.scene.control.TextField path = new javafx.scene.control.TextField(file.toAbsolutePath().toString());
+        path.setEditable(false);
+        path.getStyleClass().addAll("mono", "download-path");
+        path.setAccessibleText(ctx.t("update.confirm.savedTo") + " " + file.toAbsolutePath());
+        final VBox box = new VBox(6, Ui.label(ctx.t("update.confirm.savedTo"), "field-label"), path);
+        box.getStyleClass().add("download-location");
+        return box;
     }
 
     /**

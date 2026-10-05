@@ -139,9 +139,13 @@ public final class HomePage extends VBox {
             && !vm.errorTextProperty().get().isEmpty(), vm.stateProperty(), vm.errorTextProperty()));
 
         final Button verify = Ui.button(ctx.t("home.verify"), Icons.Icon.SHIELD, "secondary");
+        verify.getStyleClass().add("verify-button");
+        verify.setTooltip(Ui.tooltip(ctx.t("home.verify.tooltip")));
         verify.setOnAction(e -> vm.verify());
         verify.disableProperty().bind(Bindings.createBooleanBinding(() -> vm.state() == HomeViewModel.State.INSTALLING
             || vm.state() == HomeViewModel.State.VERIFYING || vm.state() == HomeViewModel.State.RUNNING, vm.stateProperty()));
+        // Only an existing installation can be verified; a fresh launcher installs with PLAY or "Install now".
+        Ui.bindVisible(verify, vm.verifyAvailableProperty());
         final Button openFolder = Ui.button(ctx.t("home.openFolder"), Icons.Icon.FOLDER, "ghost");
         openFolder.setOnAction(e -> ctx.opener().openFolder(ctx.backend().paths().instanceDir()));
         final Button official = officialButton("secondary");
@@ -438,7 +442,7 @@ public final class HomePage extends VBox {
             card.getChildren().add(settings);
         } else if (installed.isEmpty()) {
             // Nothing to update: offer the regular install (what PLAY installs) or the official Minecraft Launcher.
-            final boolean canPlayHere = ctx.session().account().isPresent() || ctx.session().signInConfiguredProperty().get();
+            final boolean canPlayHere = ctx.session().playPossible();
             card.getChildren().add(Ui.paragraph(canPlayHere ? ctx.t("client.card.notInstalled.hint.play", LauncherVersion.MINECRAFT)
                 : ctx.t("client.card.notInstalled.hint.official", LauncherVersion.MINECRAFT), "card-caption"));
             final VBox actions = new VBox(8);

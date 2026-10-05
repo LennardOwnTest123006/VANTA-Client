@@ -2,11 +2,14 @@ package dev.vanta.launcher.ui.model;
 
 import dev.vanta.launcher.LauncherVersion;
 import dev.vanta.launcher.core.install.InstalledClient;
+import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.ui.Messages;
 import dev.vanta.launcher.ui.backend.LauncherBackend;
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.StringBinding;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyStringProperty;
@@ -59,8 +62,11 @@ public final class VersionsViewModel {
      * @param available   whether the jar exists
      * @param active      whether it is the active version
      * @param releaseDate release date from its manifest
+     * @param localCopy   whether it is a copy of a jar that was in {@code mods/} (for example put there by hand), kept
+     *                    before an update replaced it, not a downloaded release
+     *                    ({@link VantaClientService.KeptVersion#isLocalCopy()})
      */
-    public record Kept(String version, Instant installedAt, boolean available, boolean active, String releaseDate) {
+    public record Kept(String version, Instant installedAt, boolean available, boolean active, String releaseDate, boolean localCopy) {
     }
 
     private final SessionModel session;
@@ -77,6 +83,8 @@ public final class VersionsViewModel {
     private final StringProperty jarName = new SimpleStringProperty("");
     private final BooleanProperty computingSha = new SimpleBooleanProperty(false);
     private final BooleanProperty rollingBack = new SimpleBooleanProperty(false);
+    private final StringBinding emptyTitle;
+    private final StringBinding emptyText;
 
     /**
      * @param session   session
@@ -98,7 +106,45 @@ public final class VersionsViewModel {
         session.instanceProperty().addListener((obs, old, now) -> refresh());
         session.installedClientProperty().addListener((obs, old, now) -> refresh());
         session.javaProperty().addListener((obs, old, now) -> rebuildRows());
+        emptyTitle = Bindings.createStringBinding(() -> officialOnly() ? messages.get("versions.empty.officialDone.title")
+            : messages.get("versions.empty.title"), session.instanceProperty(), session.installedClientProperty());
+        emptyText = Bindings.createStringBinding(this::computeEmptyText, session.instanceProperty(), session.installedClientProperty(),
+            session.signInConfiguredProperty(), session.accountProperty());
         rebuildRows();
+    }
+
+    /** @return title of the card shown while no instance is installed */
+    public StringBinding emptyTitleProperty() {
+        return emptyTitle;
+    }
+
+    /**
+     * What the card says while no instance is installed: press PLAY when PLAY can work here (an account is present or
+     * Microsoft sign-in is configured, {@link SessionModel#playPossible()}, the same rule as the Home client card);
+     * otherwise PLAY can never be enabled, so it points to "Use with Minecraft Launcher"; after that was used (the
+     * client jar is in {@code mods/} but there is no {@code instance.json}) it says where to start the game.
+     *
+     * @return text of the card
+     */
+    public StringBinding emptyTextProperty() {
+        return emptyText;
+    }
+
+    /** @return whether only "Use with Minecraft Launcher" installed something (client jar, no instance.json) */
+    private boolean officialOnly() {
+        return session.instance().isEmpty() && session.installedClient().isPresent();
+    }
+
+    private String computeEmptyText() {
+        if (officialOnly()) {
+            final String client = session.installedClient().map(InstalledClient::version).filter(v -> !v.isEmpty())
+                .map(v -> VantaClientService.DEV_VERSION.equals(v) ? messages.get("client.card.dev") : v).orElse(messages.get("common.unknown"));
+            return messages.format("versions.empty.officialDone.text", LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER, client,
+                OfficialProfileService.profileName(LauncherVersion.MINECRAFT));
+        }
+        return session.playPossible()
+            ? messages.format("versions.empty.text", LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER)
+            : messages.format("versions.empty.text.official", LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER);
     }
 
     /** @return component rows */
@@ -153,7 +199,7 @@ public final class VersionsViewModel {
             final List<Kept> list = new ArrayList<>();
             for (VantaClientService.KeptVersion k : loaded.kept()) {
                 list.add(new Kept(k.version(), k.installedAt(), k.isAvailable(), k.version().equals(active),
-                    k.manifest() == null || k.manifest().releaseDate() == null ? "" : k.manifest().releaseDate()));
+                    k.manifest() == null || k.manifest().releaseDate() == null ? "" : k.manifest().releaseDate(), k.isLocalCopy()));
             }
             kept.setAll(list);
         }, error -> {

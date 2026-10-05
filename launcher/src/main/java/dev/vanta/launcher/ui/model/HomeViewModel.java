@@ -97,6 +97,7 @@ public final class HomeViewModel {
     private final BooleanProperty officialBusy = new SimpleBooleanProperty(false);
     private final StringProperty officialDoneText = new SimpleStringProperty("");
     private final BooleanBinding playEnabled;
+    private final BooleanBinding verifyAvailable;
     private final StringBinding blockReason;
     private final StringBinding idleBlockReason;
     private final StringBinding statusText;
@@ -133,6 +134,7 @@ public final class HomeViewModel {
 
         playEnabled = Bindings.createBooleanBinding(() -> (state.get() == State.READY || state.get() == State.ERROR)
             && session.account().isPresent() && session.java().isPresent(), state, session.accountProperty(), session.javaProperty());
+        verifyAvailable = Bindings.createBooleanBinding(() -> session.instance().isPresent(), session.instanceProperty());
         blockReason = Bindings.createStringBinding(this::computeBlockReason, state, session.accountProperty(), session.javaProperty(),
             session.detectingJavaProperty(), session.signInConfiguredProperty());
         idleBlockReason = Bindings.createStringBinding(() -> isBusy() ? "" : idleBlockReason(), state, session.accountProperty(),
@@ -163,6 +165,25 @@ public final class HomeViewModel {
     /** @return whether PLAY is enabled */
     public BooleanBinding playEnabledProperty() {
         return playEnabled;
+    }
+
+    /**
+     * "Verify files" checks an existing installation only (instance.json present). On a fresh launcher it is hidden:
+     * a full install is never started by it; PLAY or the client card's "Install now" installs deliberately.
+     *
+     * @return whether "Verify files" is offered
+     */
+    public BooleanBinding verifyAvailableProperty() {
+        return verifyAvailable;
+    }
+
+    /**
+     * @return what to say when nothing is installed: press PLAY when PLAY can work here (an account is present or
+     *     Microsoft sign-in is configured, {@link SessionModel#playPossible()}), otherwise use "Use with Minecraft
+     *     Launcher" (PLAY cannot be enabled then)
+     */
+    public String nothingInstalledText() {
+        return messages.get(session.playPossible() ? "error.nothingInstalled" : "error.nothingInstalled.official");
     }
 
     /** @return localised reason PLAY is disabled, or empty */
@@ -315,14 +336,30 @@ public final class HomeViewModel {
     /**
      * The regular install offered by the client card while no VANTA client is installed: exactly what PLAY installs
      * (Minecraft, Fabric Loader, Fabric API, VANTA Client, {@code instance.json}), without launching. Needs neither an
-     * account nor Java.
+     * account nor Java. With an existing instance it verifies it, like {@link #verify()}.
      */
     public void install() {
-        verify();
+        installOrVerify();
     }
 
-    /** Verify files: install/verify without launching. */
+    /**
+     * Verify files: re-checks an existing installation without launching (missing or damaged files are downloaded
+     * again). Like PLAY it runs the regular install, so an older VANTA Client is also replaced by the latest release
+     * (the toast then says so). It never starts a first install: without {@code instance.json} it only says how to
+     * install (the button is hidden then, see {@link #verifyAvailableProperty()}).
+     */
     public void verify() {
+        if (isBusy()) {
+            return;
+        }
+        if (session.instance().isEmpty()) {
+            toasts.info(messages.get("home.toast.nothingToVerify.title"), nothingInstalledText());
+            return;
+        }
+        installOrVerify();
+    }
+
+    private void installOrVerify() {
         if (isBusy()) {
             return;
         }
@@ -332,17 +369,31 @@ public final class HomeViewModel {
         officialDoneText.set("");
         beginProgress(session.instance().isPresent() ? State.VERIFYING : State.INSTALLING);
         final boolean hadInstance = session.instance().isPresent();
+        final String clientBefore = session.instance().map(InstanceInfo::vantaClientVersion).orElse("");
         running = Async.run(executors, () -> backend.install(InstallRequest.standard(), installListener(), token), installed -> {
             session.setInstance(installed);
             endProgress();
             settle();
             if (hadInstance) {
-                toasts.success(messages.get("home.toast.verified.title"), messages.get("home.toast.verified.message"));
+                toasts.success(messages.get("home.toast.verified.title"), verifiedMessage(clientBefore, installed.vantaClientVersion()));
             } else {
                 toasts.success(messages.get("home.toast.installed.title"), messages.format("home.toast.installed.message",
                     installed.minecraftVersion(), installed.fabricLoaderVersion()));
             }
         }, this::fail);
+    }
+
+    /**
+     * @param before VANTA Client version in {@code instance.json} before "Verify files" (or PLAY's verify) ran
+     * @param after  VANTA Client version it installed
+     * @return "nothing was missing or damaged", or, when the install also replaced the VANTA Client with the latest
+     *     release (the standard install always installs that one), which version it installed
+     */
+    String verifiedMessage(final String before, final String after) {
+        if (before == null || before.isEmpty() || after == null || after.isEmpty() || before.equals(after)) {
+            return messages.get("home.toast.verified.message");
+        }
+        return messages.format("home.toast.verified.clientUpdated", after);
     }
 
     /**

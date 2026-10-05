@@ -160,8 +160,39 @@ class UpdateServiceTest {
         final UpdateService linux = service("1.0.0", new OsInfo("linux", "x64", "6.8"));
         final UpdateInfo update = linux.checkLauncher().orElseThrow();
         final Path file = linux.downloadUpdate(update, DownloadProgressListener.NONE, CancellationToken.NONE);
-        assertEquals(paths.updatesCacheDir().resolve("1.1.0-VANTA-Launcher-1.1.0-linux-x64.tar.gz"), file);
+        assertEquals(paths.updatesCacheDir().resolve("1.1.0/VANTA-Launcher-1.1.0-linux-x64.tar.gz"), file);
         assertEquals(file, linux.prepareInstaller(update));
+    }
+
+    @Test
+    void downloadedFilesKeepTheExactAssetNameInAFolderPerVersion() throws Exception {
+        // 1.0.0/1.0.1 saved "1.1.0-vanta-launcher-1.1.0-linux-all.jar": "java -jar vanta-launcher-1.1.0-linux-all.jar" and
+        // "sha256sum -c SHA256SUMS.txt" did not find it.
+        final UpdateService jar = service("1.0.0", new OsInfo("linux", "x64", "6.8"), LauncherPackaging.PLAIN_JAR);
+        final UpdateInfo update = jar.checkLauncher().orElseThrow();
+        assertEquals("vanta-launcher-1.1.0-linux-all.jar", update.file().name());
+        final Path file = jar.downloadUpdate(update, DownloadProgressListener.NONE, CancellationToken.NONE);
+        assertEquals(paths.updatesCacheDir().resolve("1.1.0").resolve("vanta-launcher-1.1.0-linux-all.jar"), file);
+        assertEquals(update.file().name(), file.getFileName().toString(), "exactly the name listed in SHA256SUMS.txt");
+        assertEquals(file, jar.downloadTarget(update));
+        assertEquals(file, jar.prepareInstaller(update));
+        try (java.util.stream.Stream<Path> listing = Files.list(paths.updatesCacheDir())) {
+            assertEquals(java.util.List.of(paths.updatesCacheDir().resolve("1.1.0")), listing.toList(), "no <version>-<name> files any more");
+        }
+    }
+
+    @Test
+    void assetNamesThatAreNotPlainFileNamesAreRefused() throws Exception {
+        final ReleaseManifest manifest = Json.parse(Fixtures.read("release/launcher-latest.json"), ReleaseManifest.class);
+        final UpdateService s = service("1.0.0", new OsInfo("windows", "x64", ""));
+        for (String name : java.util.List.of("../evil.msi", "..", "sub/dir.msi", "C:evil.msi", "a\\b.msi")) {
+            final ReleaseManifest.ReleaseFile file = new ReleaseManifest.ReleaseFile(name, server.url("rel/VANTA-Launcher-1.1.0.msi").toString(),
+                installer.length, Checksums.hex(installer, HashAlgorithm.SHA256));
+            final UpdateInfo bad = new UpdateInfo("launcher", SemVer.of(1, 0, 0), SemVer.parse("1.1.0"), "", file, file.sha256(), manifest);
+            assertThrows(IOException.class, () -> s.downloadUpdate(bad, DownloadProgressListener.NONE, CancellationToken.NONE), name);
+        }
+        assertFalse(Files.exists(paths.updatesCacheDir().resolve("evil.msi")));
+        assertFalse(Files.exists(paths.cacheDir().resolve("evil.msi")));
     }
 
     @Test
@@ -196,7 +227,7 @@ class UpdateServiceTest {
         final UpdateService windows = service("1.0.0", new OsInfo("windows", "x64", "10.0"));
         final UpdateInfo update = windows.checkLauncher().orElseThrow();
         final Path file = windows.downloadUpdate(update, DownloadProgressListener.NONE, CancellationToken.NONE);
-        assertEquals(paths.updatesCacheDir().resolve("1.1.0-VANTA-Launcher-1.1.0.msi"), file);
+        assertEquals(paths.updatesCacheDir().resolve("1.1.0/VANTA-Launcher-1.1.0.msi"), file);
         assertEquals(Checksums.hex(installer, HashAlgorithm.SHA256), Checksums.sha256Hex(file));
         assertEquals(file, windows.prepareInstaller(update));
 
@@ -295,7 +326,7 @@ class UpdateServiceTest {
         assertEquals(UpdateInfo.AssetKind.PORTABLE, portable.assetKind());
         final UpdateService portableService = service("1.0.0", windows, LauncherPackaging.portable(portableDir));
         final Path zip = portableService.downloadUpdate(portable, DownloadProgressListener.NONE, CancellationToken.NONE);
-        assertEquals(paths.updatesCacheDir().resolve("1.1.0-VANTA-Launcher-1.1.0-windows-portable.zip"), zip, "downloaded and verified only");
+        assertEquals(paths.updatesCacheDir().resolve("1.1.0/VANTA-Launcher-1.1.0-windows-portable.zip"), zip, "downloaded and verified only");
         assertEquals(zip, portableService.prepareInstaller(portable));
         assertEquals(Optional.of(portableDir), portableService.packaging().appDirectory());
 
@@ -330,7 +361,10 @@ class UpdateServiceTest {
         final UpdateInfo update = s.checkClient(installed("1.0.0")).update().orElseThrow();
         final Path active = s.installClientUpdate(update, DownloadProgressListener.NONE, CancellationToken.NONE);
         assertEquals(paths.modsDir().resolve("vanta-client-1.1.0.jar"), active);
-        assertEquals(1, s.listClientVersions().size());
+        // The replaced 1.0.0 jar had no rollback copy (it was put into mods/ directly): the update kept one.
+        assertEquals(java.util.List.of("1.1.0", "1.0.0"), s.listClientVersions().stream().map(VantaClientService.KeptVersion::version).toList());
+        assertTrue(s.listClientVersions().stream().allMatch(VantaClientService.KeptVersion::isAvailable));
+        assertEquals(paths.modsDir().resolve("vanta-client-1.0.0.jar"), s.rollbackClient("1.0.0"));
         assertEquals(active, s.rollbackClient("1.1.0"));
         assertEquals(SemVer.of(1, 0, 0), s.currentLauncher());
     }

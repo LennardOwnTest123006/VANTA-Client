@@ -3,6 +3,7 @@ package dev.vanta.launcher.ui.model;
 import dev.vanta.launcher.LauncherVersion;
 import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.NotPublishedException;
+import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
@@ -315,7 +316,10 @@ public final class UpdateViewModel {
     }
 
     /**
-     * Downloads the client update, verifies it and activates it (the previous version is kept for rollback).
+     * Downloads the client update, verifies it and activates it. The core keeps a rollback copy of the version it
+     * replaces when it can (see {@link dev.vanta.launcher.core.install.VantaClientService#installFromManifest}); the
+     * success toast only promises a roll back to that version when a kept copy of it really exists afterwards, and
+     * otherwise says whether other kept versions can still be rolled back to.
      *
      * @param onDone runs on the UI thread after success
      */
@@ -325,18 +329,47 @@ public final class UpdateViewModel {
             return;
         }
         startBusy(update);
-        Async.run(executors, () -> backend.installClientUpdate(update, progressListener(), new CancellationToken()), jar -> {
+        Async.run(executors, () -> {
+            final String previous = backend.installedClient().map(InstalledClient::version).orElse("");
+            backend.installClientUpdate(update, progressListener(), new CancellationToken());
+            final String installed = update.latestVersion().toString();
+            final List<VantaClientService.KeptVersion> kept = backend.keptClientVersions();
+            final boolean previousKept = !previous.isEmpty() && !previous.equals(installed)
+                && kept.stream().anyMatch(k -> k.version().equals(previous) && k.isAvailable());
+            final boolean otherKept = kept.stream().anyMatch(k -> k.isAvailable() && !k.version().equals(installed)
+                && !k.version().equals(previous));
+            return new ClientInstalled(previousKept ? previous : "", otherKept);
+        }, outcome -> {
             endBusy();
             clientUpdate.set(null);
             clientAvailability.set(ClientAvailability.UP_TO_DATE);
             toasts.success(messages.format("update.toast.client.installed.title", update.latestVersion().toString()),
-                messages.get("update.toast.client.installed.message"));
+                clientInstalledMessage(outcome.keptPrevious(), outcome.otherKept()));
             session.refreshInstance();
             onDone.run();
         }, error -> {
             endBusy();
             toasts.error(messages.get("update.toast.failed.title"), errors.describe(error));
         });
+    }
+
+    /** What a client update left for roll back: the kept replaced version (or empty) and whether others are kept. */
+    private record ClientInstalled(String keptPrevious, boolean otherKept) {
+    }
+
+    /**
+     * @param keptPrevious version of the replaced client that is kept for roll back, or empty when none is kept
+     * @param otherKept    whether other versions (neither the new nor the replaced one) are kept with their jar, so
+     *                     the Versions page still offers a roll back to them
+     * @return the message of the "client installed" toast; it names a version for roll back only when a copy of it
+     *     really exists; otherwise it says that no copy of the replaced version is kept, and either that the Versions
+     *     page lists other kept versions or, when no kept version is left at all, that none is kept for roll back
+     */
+    public String clientInstalledMessage(final String keptPrevious, final boolean otherKept) {
+        if (keptPrevious != null && !keptPrevious.isEmpty()) {
+            return messages.format("update.toast.client.installed.message", keptPrevious);
+        }
+        return messages.get(otherKept ? "update.toast.client.installed.notKept" : "update.toast.client.installed.noRollback");
     }
 
     /**
@@ -358,7 +391,7 @@ public final class UpdateViewModel {
         }, installer -> {
             endBusy();
             toasts.success(messages.get("update.toast.downloaded.title"), messages.format("update.toast.downloaded.message",
-                installer.getFileName().toString()));
+                installer.getFileName().toString(), String.valueOf(installer.getParent())));
             onVerified.accept(installer);
         }, error -> {
             endBusy();
@@ -425,6 +458,51 @@ public final class UpdateViewModel {
         }
         final String folder = appDirectory == null ? messages.get("update.confirm.portable.folderUnknown") : appDirectory.toString();
         return messages.format("update.confirm.portable.copy.text", zipName, folder);
+    }
+
+    /** What the launcher does with a verified launcher download. */
+    public enum DownloadedFile {
+        /** Windows {@code .msi}/{@code .exe}: opened after confirmation. */
+        INSTALLER,
+        /** Windows portable zip: the user replaces the portable folder. */
+        PORTABLE,
+        /** Platform fat jar: the user starts it with {@code java -jar}. */
+        JAR,
+        /** Linux app image archive: the user extracts it. */
+        ARCHIVE
+    }
+
+    /**
+     * @param file verified download
+     * @return what it is, by its (exact release asset) file name
+     */
+    public static DownloadedFile kindOf(final Path file) {
+        final String lower = file.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+        if (lower.endsWith(".msi") || lower.endsWith(".exe")) {
+            return DownloadedFile.INSTALLER;
+        }
+        if (lower.endsWith("-windows-portable.zip")) {
+            return DownloadedFile.PORTABLE;
+        }
+        return lower.endsWith(".jar") ? DownloadedFile.JAR : DownloadedFile.ARCHIVE;
+    }
+
+    /**
+     * The text of the dialog shown after a launcher download was verified. The file keeps the exact name of the release
+     * asset ({@code cache/updates/<version>/<asset name>}), so the {@code java -jar} command names the real file; it
+     * uses the full, quoted path because the data directory usually contains spaces.
+     *
+     * @param file verified download
+     * @return localised instructions
+     */
+    public String downloadedInstructions(final Path file) {
+        final String name = file.getFileName().toString();
+        return switch (kindOf(file)) {
+            case INSTALLER -> messages.format("update.confirm.text", name);
+            case PORTABLE -> portableUpdateInstructions(name);
+            case JAR -> messages.format("update.confirm.jar.text", name, file.toAbsolutePath().toString());
+            case ARCHIVE -> messages.format("update.confirm.archive.text", name);
+        };
     }
 
     /**

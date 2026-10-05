@@ -127,6 +127,18 @@ public final class SessionModel {
         return signInConfigured;
     }
 
+    /**
+     * Whether PLAY can install and start the game from this launcher: an account is present (stored accounts load
+     * without a client id) or Microsoft sign-in is configured so one can be added. Otherwise PLAY can never be enabled
+     * and texts point to "Use with Minecraft Launcher". Bindings that use it depend on {@link #accountProperty()} and
+     * {@link #signInConfiguredProperty()}.
+     *
+     * @return whether PLAY can work here
+     */
+    public boolean playPossible() {
+        return account().isPresent() || signInConfigured.get();
+    }
+
     /** @return whether the core policy allows an offline session */
     public ReadOnlyBooleanProperty offlineAllowedProperty() {
         return offlineAllowed;

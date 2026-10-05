@@ -161,15 +161,76 @@ class HomeViewModelTest {
     }
 
     @Test
+    void verifySaysWhenItAlsoReplacedTheClientWithTheLatestRelease() {
+        // The regular install behind "Verify files" always installs the latest VANTA Client release.
+        backend.javaInstalls.add(backend.temurin21());
+        backend.instance = FakeBackend.installedInstance("1.0.0");
+        backend.installClientVersion = "1.0.1";
+        ctx.session.refreshAll();
+        final HomeViewModel vm = ctx.home();
+        vm.verify();
+        final ToastModel.Toast toast = ctx.toasts.toasts().get(0);
+        assertEquals(ctx.messages.get("home.toast.verified.title"), toast.title());
+        assertEquals(ctx.messages.format("home.toast.verified.clientUpdated", "1.0.1"), toast.message());
+        assertFalse(toast.message().contains("Nothing was missing"), toast.message());
+
+        vm.verify();
+        assertEquals(ctx.messages.get("home.toast.verified.message"), ctx.toasts.toasts().get(1).message(), "already the latest release");
+        assertTrue(ctx.messages.get("home.verify.tooltip").contains("latest release"), "the tooltip says so too");
+    }
+
+    @Test
     void verifyWorksWithoutAccount() {
         backend.javaInstalls.add(backend.temurin21());
+        backend.instance = FakeBackend.installedInstance("1.0.0");
         ctx.session.refreshAll();
         final HomeViewModel vm = ctx.home();
         assertEquals(HomeViewModel.State.NOT_READY, vm.state());
+        assertTrue(vm.verifyAvailableProperty().get());
+        final List<HomeViewModel.State> seen = new ArrayList<>();
+        backend.installHook = () -> seen.add(vm.state());
         vm.verify();
+        assertEquals(List.of(HomeViewModel.State.VERIFYING), seen);
         assertEquals(HomeViewModel.State.NOT_READY, vm.state(), "verifying does not need an account and returns to the idle state");
+        assertEquals(ctx.messages.get("home.toast.verified.title"), ctx.toasts.toasts().get(0).title());
+    }
+
+    @Test
+    void verifyNeverStartsAFirstInstall() {
+        // 1.0.1: "Verify files" on a fresh launcher downloaded the whole game (INSTALLING).
+        backend.javaInstalls.add(backend.temurin21());
+        ctx.session.refreshAll();
+        final HomeViewModel vm = ctx.home();
+        assertFalse(vm.verifyAvailableProperty().get(), "hidden while nothing is installed");
+        final List<HomeViewModel.State> seen = new ArrayList<>();
+        vm.stateProperty().addListener((obs, old, now) -> seen.add(now));
+        vm.verify();
+        assertTrue(seen.isEmpty(), "no INSTALLING/VERIFYING: " + seen);
+        assertFalse(backend.calls.contains("install"));
+        assertEquals(ctx.messages.get("home.toast.nothingToVerify.title"), ctx.toasts.toasts().get(0).title());
+        assertEquals(ctx.messages.get("error.nothingInstalled"), ctx.toasts.toasts().get(0).message(), "sign-in is configured: PLAY installs");
+
+        // Without Microsoft sign-in PLAY stays disabled: point to the official Minecraft Launcher instead.
+        backend.signInConfigured = false;
+        ctx.session.refreshAll();
+        vm.verify();
+        assertEquals(ctx.messages.get("error.nothingInstalled.official"), ctx.toasts.toasts().get(1).message());
+        assertFalse(ctx.toasts.toasts().get(1).message().contains("PLAY to install"), ctx.toasts.toasts().get(1).message());
+        assertTrue(ctx.toasts.toasts().get(1).message().contains("Use with Minecraft Launcher"));
+        assertFalse(backend.calls.contains("install"));
+
+        // A stored account (accounts load without a client id) enables PLAY, so PLAY is what installs: same rule as the
+        // client card's "Install now".
+        ctx.session.setAccount(FakeBackend.microsoftAccount("Nova"));
+        vm.verify();
+        assertEquals(ctx.messages.get("error.nothingInstalled"), ctx.toasts.toasts().get(2).message());
+        assertFalse(backend.calls.contains("install"));
+        ctx.session.setAccount(null);
+
+        // The deliberate install (the client card's "Install now") still installs; afterwards Verify is offered.
+        vm.install();
         assertTrue(backend.calls.contains("install"));
-        assertEquals(ctx.messages.get("home.toast.installed.title"), ctx.toasts.toasts().get(0).title());
+        assertTrue(vm.verifyAvailableProperty().get());
     }
 
     @Test

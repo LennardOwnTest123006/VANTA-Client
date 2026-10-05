@@ -157,8 +157,13 @@ class OfficialProfileServiceTest {
         Json.write(paths.instanceFile(), dev.vanta.launcher.ui.testutil.FakeBackend.installedInstance("0.9.0"));
 
         final OfficialProfileService.Plan plan = service.plan(request());
-        assertEquals(java.util.Set.of(oldApi.toString(), oldClient.toString(), paths.clientVersionsDir().resolve("0.1.0").toString()),
-            locations(plan.removed()), "only VANTA's own older files are removed: " + plan.removed());
+        // The active 0.9.0 has no rollback copy: it is kept (0.9.0 is among the three highest versions after the install),
+        // so the two lowest copies are pruned.
+        assertEquals(java.util.Set.of(oldApi.toString(), oldClient.toString(), paths.clientVersionsDir().resolve("0.1.0").toString(),
+            paths.clientVersionsDir().resolve("0.2.0").toString()), locations(plan.removed()),
+            "only VANTA's own older files are removed: " + plan.removed());
+        assertTrue(locations(plan.written()).contains(paths.clientVersionsDir().resolve("0.9.0").resolve("vanta-client-0.9.0.jar").toString()),
+            String.valueOf(plan.written()));
         assertTrue(kinds(plan).contains(OfficialProfileService.Kind.INSTANCE_RECORD));
         assertTrue(kinds(plan).contains(OfficialProfileService.Kind.STORE_PROFILES_BACKUP));
 
@@ -172,7 +177,8 @@ class OfficialProfileServiceTest {
             assertFalse(Files.exists(Path.of(f.location())), f.toString());
         }
         assertTrue(Files.exists(otherMod), "other mods are left alone");
-        assertTrue(Files.isDirectory(paths.clientVersionsDir().resolve("0.2.0")));
+        assertTrue(Files.isDirectory(paths.clientVersionsDir().resolve("0.3.0")));
+        assertEquals("old client", Files.readString(paths.clientVersionsDir().resolve("0.9.0").resolve("vanta-client-0.9.0.jar")));
         assertEquals("1.0.0", Json.read(paths.instanceFile(), dev.vanta.launcher.core.model.InstanceInfo.class).vantaClientVersion());
 
         // Second run: the backups exist already and are no longer listed.

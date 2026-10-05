@@ -33,8 +33,11 @@ public final class Sidebar extends VBox {
     private final InitialsAvatar avatar = new InitialsAvatar("", 36);
     private final Label accountName = Ui.label("", "account-name");
     private final Label accountSub = Ui.label("", "account-sub");
+    private final Tooltip accountNameTip = Ui.tooltip("");
+    private final Tooltip accountSubTip = Ui.tooltip("");
     private final HBox chip = new HBox();
     private final Button signIn;
+    private final Button howToConfigure;
     private final Button accountMenu;
 
     /**
@@ -72,16 +75,28 @@ public final class Sidebar extends VBox {
         signIn = Ui.button(ctx.t("account.signIn"), Icons.Icon.KEY, "primary", "small");
         signIn.setOnAction(e -> onSignIn.run());
         signIn.setMaxWidth(Double.MAX_VALUE);
+        // Without a Microsoft client id nobody can sign in: the same action as the Home account card instead of "Sign in".
+        howToConfigure = Ui.button(ctx.t("account.card.howToConfigure"), Icons.Icon.EXTERNAL, "secondary", "small");
+        howToConfigure.setTooltip(Ui.tooltip(ctx.t("account.card.howToConfigure.tooltip")));
+        howToConfigure.setOnAction(e -> ctx.opener().browse(ctx.links().clientIdDocs()));
+        howToConfigure.setMaxWidth(Double.MAX_VALUE);
         accountMenu = Ui.iconButton(Icons.Icon.CHEVRON_DOWN, ctx.t("account.switch"), "ghost");
         accountMenu.setOnAction(e -> onAccountMenu.run());
-        accountName.setMaxWidth(112);
-        accountSub.setMaxWidth(112);
+        // The labels shrink with an ellipsis to the room the chip has; the tooltips carry the full text.
+        accountName.setMinWidth(0);
+        accountName.setMaxWidth(Double.MAX_VALUE);
+        accountName.setTooltip(accountNameTip);
+        accountSub.setMinWidth(0);
+        accountSub.setMaxWidth(Double.MAX_VALUE);
+        accountSub.setTooltip(accountSubTip);
         chip.getStyleClass().add("account-chip");
         chip.setAlignment(Pos.CENTER_LEFT);
         chip.setSpacing(10);
         getChildren().add(chip);
 
         ctx.session().accountProperty().addListener((obs, old, now) -> renderAccount(Optional.ofNullable(now)));
+        ctx.session().signInConfiguredProperty().addListener((obs, old, now) -> renderAccount(ctx.session().account()));
+        ctx.session().loadedProperty().addListener((obs, old, now) -> renderAccount(ctx.session().account()));
         renderAccount(ctx.session().account());
 
         ctx.navigation().currentProperty().addListener((obs, old, now) -> select(now));
@@ -160,25 +175,48 @@ public final class Sidebar extends VBox {
     private void renderAccount(final Optional<Account> account) {
         chip.getChildren().clear();
         final VBox names = new VBox(1, accountName, accountSub);
+        names.setMinWidth(0);
         HBox.setHgrow(names, Priority.ALWAYS);
         if (account.isPresent()) {
             final Account a = account.get();
             avatar.setName(a.name());
             avatar.setAccessibleText(ctx.t("account.avatar.accessible", a.name()));
             accountName.setText(a.name());
+            accountNameTip.setText(a.name());
             accountSub.setText(ctx.home().accountChipLabel(a));
+            accountSubTip.setText(ctx.home().accountTypeLabel(a));
             chip.getChildren().addAll(avatar, names, accountMenu);
         } else {
             avatar.setName("");
             accountName.setText(ctx.t("account.signedOut.title"));
-            accountSub.setText(ctx.t("account.signedOut.sub"));
+            accountNameTip.setText(ctx.t("account.signedOut.title"));
+            // Without a Microsoft client id nobody can sign in here: say so briefly instead of "Sign in ... to play".
+            final boolean notConfigured = ctx.session().loadedProperty().get() && !ctx.session().signInConfiguredProperty().get();
+            accountSub.setText(ctx.t(notConfigured ? "account.signedOut.sub.notConfigured" : "account.signedOut.sub"));
+            accountSubTip.setText(ctx.t(notConfigured ? "account.signedOut.sub.notConfigured.tooltip" : "account.signedOut.sub.tooltip"));
             final HBox head = new HBox(10, avatar, names);
             head.setAlignment(Pos.CENTER_LEFT);
-            final VBox block = new VBox(10, head, signIn);
+            final VBox block = new VBox(10, head, notConfigured ? howToConfigure : signIn);
             block.setAlignment(Pos.CENTER_LEFT);
             HBox.setHgrow(block, Priority.ALWAYS);
             chip.getChildren().add(block);
         }
+    }
+
+    /** @return the account subtitle under the name (tests and screenshots) */
+    Label accountSubLabel() {
+        return accountSub;
+    }
+
+    /**
+     * @return the button shown under a signed-out account: "Sign in", or "How to configure" without sign-in; null while
+     *     an account is shown (tests)
+     */
+    Button signedOutButton() {
+        if (chip.getChildren().size() == 1 && chip.getChildren().get(0) instanceof VBox block) {
+            return block.getChildren().contains(howToConfigure) ? howToConfigure : block.getChildren().contains(signIn) ? signIn : null;
+        }
+        return null;
     }
 
     /** @return the Home toggle (for initial focus) */

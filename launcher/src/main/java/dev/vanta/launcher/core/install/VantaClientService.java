@@ -40,7 +40,9 @@ import java.util.function.Supplier;
  *       {@code vanta-client-<version>.jar} is installed (never the {@code -mods.zip} bundle, the Fabric API jar or a
  *       sources jar listed in the same manifest); it is verified with its SHA-256 and a copy is kept under
  *       {@code versions/vanta-client/<version>/} for rollback (the {@value #KEEP_VERSIONS} highest versions are
- *       retained).</li>
+ *       retained). Before another version replaces the active jar, a jar whose version is known but that has no kept
+ *       copy yet (for example a jar that was put into {@code mods/} by hand) is copied there as well, as long as it is
+ *       among the {@value #KEEP_VERSIONS} highest versions afterwards.</li>
  *   <li>A manifest with an empty {@code downloadUrl}, or no manifest at the URL at all (HTTP 404), raises
  *       {@link NotPublishedException}.</li>
  *   <li>An unusable base URL raises {@link ReleasesNotConfiguredException}.</li>
@@ -181,9 +183,87 @@ public final class VantaClientService {
             file.size() > 0 ? file.size() : -1L, Checksum.sha256(file.sha256()), file.name());
         downloader.download(request, listener, token);
         Json.write(versionDir.resolve(KEPT_MANIFEST), manifest);
+        // The active jar is deleted by activate(): keep it for roll back first when nothing else does.
+        final Optional<PreviousCopy> previous = previousCopy(manifest.version());
+        if (previous.isPresent()) {
+            keepPrevious(previous.get());
+        }
         final Path active = activate(kept, file.name(), manifest.version());
         pruneKeptVersions();
         return active;
+    }
+
+    /**
+     * The rollback copy of the client that is active now, made before {@code newVersion} replaces it.
+     *
+     * @param version    version of the active client
+     * @param source     the active jar in {@code mods/}
+     * @param jar        where the copy goes ({@code versions/vanta-client/<version>/vanta-client-<version>.jar})
+     * @param manifest   the manifest written next to it, which {@link #rollback} and {@link #listKeptVersions} read
+     */
+    private record PreviousCopy(String version, Path source, Path jar, Path manifest) {
+    }
+
+    /**
+     * Decides whether installing {@code newVersion} has to keep a copy of the active client first: only for an
+     * installed jar with a known release version (not a development build, not an unparseable name) that has no kept
+     * copy yet and that stays among the {@value #KEEP_VERSIONS} highest versions after the install (otherwise the
+     * pruning would delete it right away).
+     */
+    private Optional<PreviousCopy> previousCopy(final String newVersion) throws IOException {
+        final Optional<InstalledClient> current = installedClient();
+        if (current.isEmpty() || current.get().jar().isEmpty() || current.get().semVer().isEmpty()) {
+            return Optional.empty();
+        }
+        final String version = current.get().version();
+        if (version.equals(newVersion) || !isPlainName(version)) {
+            return Optional.empty();
+        }
+        final Path dir = paths.clientVersionsDir().resolve(version);
+        if (Files.isRegularFile(dir.resolve(KEPT_MANIFEST))) {
+            // Already kept (its jar may be missing; that is shown on the Versions page and never claimed as kept).
+            return Optional.empty();
+        }
+        final List<KeptVersion> ranking = new ArrayList<>(listKeptVersions());
+        ranking.removeIf(k -> k.version().equals(newVersion) || k.version().equals(version));
+        ranking.add(new KeptVersion(newVersion, null, null, Instant.MAX));
+        ranking.add(new KeptVersion(version, null, null, Instant.MAX));
+        ranking.sort(KeptVersion.NEWEST_FIRST);
+        if (ranking.stream().limit(KEEP_VERSIONS).noneMatch(k -> k.version().equals(version))) {
+            return Optional.empty();
+        }
+        final String jarName = JAR_PREFIX + version + ".jar";
+        return Optional.of(new PreviousCopy(version, current.get().jar().get(), dir.resolve(jarName), dir.resolve(KEPT_MANIFEST)));
+    }
+
+    private void keepPrevious(final PreviousCopy copy) throws IOException {
+        Files.createDirectories(copy.jar().getParent());
+        final Path tmp = AtomicFiles.tempSibling(copy.jar());
+        Files.copy(copy.source(), tmp, StandardCopyOption.REPLACE_EXISTING);
+        AtomicFiles.move(tmp, copy.jar());
+        // No release manifest was kept for this jar: record what is known, with the digest of the copy so a roll back
+        // re-activates exactly this file. It has no download URL: it is a local copy, not a published release.
+        final ReleaseManifest.ReleaseFile file = new ReleaseManifest.ReleaseFile(copy.jar().getFileName().toString(), "",
+            Files.size(copy.jar()), Checksums.sha256Hex(copy.jar()));
+        Json.write(copy.manifest(), localCopyManifest(copy.version(), file));
+    }
+
+    /**
+     * The manifest written next to a local copy (see {@link KeptVersion#isLocalCopy()}): only the version and the
+     * copied jar with its size and SHA-256 are known; the jar has no download URL and the Minecraft and Fabric versions
+     * and the release date are empty.
+     *
+     * @param version version from the jar's file name
+     * @param jar     the copied jar (empty download URL)
+     * @return manifest
+     */
+    public static ReleaseManifest localCopyManifest(final String version, final ReleaseManifest.ReleaseFile jar) {
+        return new ReleaseManifest(1, ReleaseManifest.PRODUCT_CLIENT, version, "", "", "", 0, "", "stable", List.of(jar), "", "");
+    }
+
+    private static boolean isPlainName(final String name) {
+        return !name.isBlank() && !name.equals(".") && !name.equals("..") && name.indexOf('/') < 0 && name.indexOf('\\') < 0
+            && name.indexOf(':') < 0;
     }
 
     /**
@@ -244,8 +324,10 @@ public final class VantaClientService {
     public ClientChanges changesForRelease(final ReleaseManifest manifest) throws IOException {
         final ReleaseManifest.ReleaseFile file = installableJar(manifest);
         final Path versionDir = paths.clientVersionsDir().resolve(manifest.version());
-        return changes(file.name(), List.of(versionDir.resolve(file.name()), versionDir.resolve(KEPT_MANIFEST)),
-            prunedAfterInstalling(manifest.version()));
+        final List<Path> keptFiles = new ArrayList<>(List.of(versionDir.resolve(file.name()), versionDir.resolve(KEPT_MANIFEST)));
+        final Optional<PreviousCopy> previous = previousCopy(manifest.version());
+        previous.ifPresent(p -> keptFiles.addAll(List.of(p.jar(), p.manifest())));
+        return changes(file.name(), keptFiles, prunedAfterInstalling(manifest.version(), previous.map(PreviousCopy::version)));
     }
 
     /**
@@ -276,11 +358,15 @@ public final class VantaClientService {
         return new ClientChanges(paths.modsDir().resolve(targetName), keptFiles, instance, replaced, pruned);
     }
 
-    /** Kept version directories {@link #pruneKeptVersions} deletes once {@code version} is installed. */
-    private List<Path> prunedAfterInstalling(final String version) throws IOException {
+    /**
+     * Kept version directories {@link #pruneKeptVersions} deletes once {@code version} is installed (and the active
+     * client, when {@code previous} names it, was kept first).
+     */
+    private List<Path> prunedAfterInstalling(final String version, final Optional<String> previous) throws IOException {
         final List<KeptVersion> kept = new ArrayList<>(listKeptVersions());
-        kept.removeIf(k -> k.version().equals(version));
+        kept.removeIf(k -> k.version().equals(version) || previous.filter(k.version()::equals).isPresent());
         kept.add(new KeptVersion(version, null, null, Instant.MAX));
+        previous.ifPresent(p -> kept.add(new KeptVersion(p, null, null, Instant.MAX)));
         kept.sort(KeptVersion.NEWEST_FIRST);
         final List<Path> out = new ArrayList<>();
         for (int i = KEEP_VERSIONS; i < kept.size(); i++) {
@@ -516,6 +602,18 @@ public final class VantaClientService {
         /** @return whether the jar exists */
         public boolean isAvailable() {
             return jar != null;
+        }
+
+        /**
+         * A local copy is a jar that was active in {@code mods/} without a kept release manifest (for example put there
+         * by hand) and was copied before an update replaced it. Its manifest was written by the launcher from the jar
+         * itself: its client jar has no download URL (a kept published release always has one, see
+         * {@link #installableJar}) and its Minecraft version is unknown.
+         *
+         * @return whether this is such a local copy rather than a downloaded, verified release
+         */
+        public boolean isLocalCopy() {
+            return manifest != null && manifest.clientJar().map(f -> !f.isPublished()).orElse(false);
         }
     }
 }

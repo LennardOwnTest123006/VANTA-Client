@@ -72,7 +72,8 @@ public final class AppContext {
         this.navigation = new NavigationModel();
         this.prefs = prefsStore.load();
         Motion.reducedProperty().set(prefs.reducedMotion());
-        this.opener = new SystemOpener(browser, executors, toasts, messages);
+        this.opener = new SystemOpener(browser, dev.vanta.launcher.ui.BrowserOpener.system(backend.os(), browser),
+            SystemOpener::copyToSystemClipboard, executors, toasts, messages);
         final dev.vanta.launcher.ui.model.ErrorMessages errors = new dev.vanta.launcher.ui.model.ErrorMessages(messages, formats);
         this.session = new SessionModel(backend, executors, error -> toasts.error(messages.get("home.toast.error.title"), errors.describe(error)));
         this.home = new HomeViewModel(session, backend, executors, messages, formats, toasts, launcherLog, gameLog);

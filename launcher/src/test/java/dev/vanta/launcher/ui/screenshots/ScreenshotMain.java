@@ -51,7 +51,9 @@ public final class ScreenshotMain {
     public static void main(final String[] args) throws Exception {
         final Path out = Path.of(args.length > 0 ? args[0] : "build/screenshots").toAbsolutePath();
         Files.createDirectories(out);
-        final Path data = Files.createTempDirectory("vanta-screenshots");
+        // A long data directory (as on Windows with a long account name) so the Settings row is checked with one.
+        final Path data = Files.createTempDirectory("vanta-screenshots").resolve("Users").resolve("someone-with-a-long-account-name")
+            .resolve("AppData").resolve("Roaming").resolve("VANTA Launcher");
         final FakeBackend backend = scriptedBackend(data);
         final CountDownLatch done = new CountDownLatch(1);
         final AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -247,7 +249,68 @@ public final class ScreenshotMain {
                 app.stage().setWidth(LauncherApp.DEFAULT_WIDTH);
                 app.stage().setHeight(LauncherApp.DEFAULT_HEIGHT);
                 backend.packaging = dev.vanta.launcher.core.util.LauncherPackaging.portable(Path.of("D:/Games/VANTA Launcher"));
-                window.confirmInstaller(backend.paths().updatesCacheDir().resolve("1.0.1-VANTA-Launcher-1.0.1-windows-portable.zip"));
+                window.confirmInstaller(backend.paths().updatesCacheDir().resolve("1.0.1").resolve("VANTA-Launcher-1.0.1-windows-portable.zip"));
+            }, 900);
+            // A verified jar keeps its exact asset name (cache/updates/<version>/<asset name>); the dialog shows the path.
+            step("25-jar-update-verified", () -> {
+                window.dialogs().close();
+                backend.packaging = dev.vanta.launcher.core.util.LauncherPackaging.PLAIN_JAR;
+                window.confirmInstaller(backend.paths().updatesCacheDir().resolve("1.0.2").resolve("vanta-launcher-1.0.2-linux-all.jar"));
+            }, 900);
+            step("26-installer-verified", () -> {
+                window.dialogs().close();
+                window.confirmInstaller(backend.paths().updatesCacheDir().resolve("1.0.2").resolve("VANTA-Launcher-1.0.2.msi"));
+            }, 900);
+            // Fresh launcher without Microsoft sign-in: the Versions page points to "Use with Minecraft Launcher".
+            step("27-versions-fresh-no-sign-in", () -> {
+                window.dialogs().close();
+                ctx.toasts().clear();
+                backend.instance = null;
+                backend.activeJar = null;
+                backend.signInConfigured = false;
+                backend.accounts.clear();
+                ctx.session().refreshAll();
+                ctx.navigation().navigate(NavigationModel.Page.VERSIONS);
+            }, 900);
+            step("28-versions-fresh", () -> {
+                backend.signInConfigured = true;
+                ctx.session().refreshAll();
+            }, 900);
+            step("29-home-fresh-signed-out", () -> ctx.navigation().navigate(NavigationModel.Page.HOME), 900);
+            step("30-settings-advanced", () -> {
+                ctx.navigation().navigate(NavigationModel.Page.SETTINGS);
+                window.page(NavigationModel.Page.SETTINGS).lookupAll(".scroll-pane").forEach(n -> ((javafx.scene.control.ScrollPane) n).setVvalue(1.0));
+            }, 900);
+            step("31-settings-advanced-min-size", () -> {
+                app.stage().setWidth(LauncherApp.MIN_WIDTH);
+                app.stage().setHeight(LauncherApp.MIN_HEIGHT);
+                window.page(NavigationModel.Page.SETTINGS).lookupAll(".scroll-pane").forEach(n -> ((javafx.scene.control.ScrollPane) n).setVvalue(1.0));
+            }, 900);
+            // A hand-placed 1.0.0 jar was copied before the update to 1.1.0 replaced it: listed as a local copy.
+            step("32-versions-local-copy", () -> {
+                app.stage().setWidth(LauncherApp.DEFAULT_WIDTH);
+                app.stage().setHeight(LauncherApp.DEFAULT_HEIGHT);
+                backend.instance = FakeBackend.installedInstance("1.1.0");
+                backend.activeJar = backend.paths().modsDir().resolve("vanta-client-1.1.0.jar");
+                backend.signInConfigured = true;
+                backend.accounts.clear();
+                backend.accounts.add(FakeBackend.microsoftAccount("NovaPlayer"));
+                backend.kept.clear();
+                backend.kept.add(new VantaClientService.KeptVersion("1.1.0", FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true)
+                    .manifest(), backend.activeJar, Instant.parse("2026-11-20T17:05:00Z")));
+                backend.kept.add(new VantaClientService.KeptVersion("1.0.0", VantaClientService.localCopyManifest("1.0.0",
+                    new ReleaseManifest.ReleaseFile("vanta-client-1.0.0.jar", "", 1L, backend.sha256)),
+                    backend.paths().clientVersionsDir().resolve("1.0.0/vanta-client-1.0.0.jar"), Instant.parse("2026-11-20T17:05:00Z")));
+                backend.kept.add(new VantaClientService.KeptVersion("0.9.2", FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "0.0.0", "0.9.2", true)
+                    .manifest(), backend.paths().clientVersionsDir().resolve("0.9.2/vanta-client-0.9.2.jar"), Instant.parse("2026-09-12T09:15:00Z")));
+                ctx.session().refreshAll();
+                ctx.navigation().navigate(NavigationModel.Page.VERSIONS);
+                ctx.versions().refresh();
+            }, 900);
+            step("33-versions-local-copy-min-size", () -> {
+                app.stage().setWidth(LauncherApp.MIN_WIDTH);
+                app.stage().setHeight(LauncherApp.MIN_HEIGHT);
+                window.page(NavigationModel.Page.VERSIONS).lookupAll(".scroll-pane").forEach(n -> ((javafx.scene.control.ScrollPane) n).setVvalue(1.0));
             }, 900);
             next();
         }

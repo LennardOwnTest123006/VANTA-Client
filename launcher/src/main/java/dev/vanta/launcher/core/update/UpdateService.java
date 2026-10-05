@@ -40,7 +40,9 @@ import java.util.function.Supplier;
  *       Linux x64 {@code .tar.gz} for the app image, the platform fat jar for {@code java -jar}, the Apple Silicon
  *       macOS jar. Other platforms get an update without a file and the release page instead; the client update is
  *       exactly {@code vanta-client-<version>.jar}.</li>
- *   <li>{@link #downloadUpdate} fetches the file to {@code cache/updates/} with SHA-256 verification.</li>
+ *   <li>{@link #downloadUpdate} fetches the file to {@code cache/updates/<version>/<asset name>} (the exact file name
+ *       of the release asset, so {@code java -jar <name>} and {@code sha256sum -c SHA256SUMS.txt} work in that folder)
+ *       with SHA-256 verification.</li>
  *   <li>{@link #prepareInstaller} re-verifies the downloaded installer and returns its path; the UI asks the user
  *       before opening it. The launcher never runs the installer itself.</li>
  *   <li>Client updates go through {@link VantaClientService}, which keeps the last versions for rollback.</li>
@@ -216,7 +218,9 @@ public final class UpdateService {
     }
 
     /**
-     * Downloads an update file to {@code cache/updates/} and verifies its SHA-256.
+     * Downloads an update file to {@code cache/updates/<version>/<asset name>} and verifies its SHA-256. The file keeps
+     * the exact name of the release asset (launcher 1.0.0 and 1.0.1 prefixed it with {@code <version>-}, so the
+     * instructions {@code java -jar <name>} and {@code sha256sum -c SHA256SUMS.txt} did not match the file on disk).
      *
      * @param update   update
      * @param listener progress
@@ -241,8 +245,8 @@ public final class UpdateService {
         if (!file.hasSha256()) {
             throw new IntegrityException(null, "The release manifest has no SHA-256 for " + file.name() + "; refusing to download");
         }
-        Files.createDirectories(paths.updatesCacheDir());
-        final Path target = paths.updatesCacheDir().resolve(update.latestVersion() + "-" + file.name());
+        final Path target = downloadTarget(update);
+        Files.createDirectories(target.getParent());
         downloader.download(new DownloadRequest(URI.create(file.downloadUrl()), target, file.size() > 0 ? file.size() : -1L,
             Checksum.sha256(file.sha256()), file.name()), listener, token);
         return target;
@@ -257,7 +261,7 @@ public final class UpdateService {
      * @throws IOException when the file is missing or fails verification (it is deleted in that case)
      */
     public Path prepareInstaller(final UpdateInfo update) throws IOException {
-        final Path target = paths.updatesCacheDir().resolve(update.latestVersion() + "-" + update.file().name());
+        final Path target = downloadTarget(update);
         if (!Files.isRegularFile(target)) {
             throw new IOException("The update has not been downloaded yet");
         }
@@ -266,6 +270,34 @@ public final class UpdateService {
             throw new IntegrityException(target, "The downloaded installer failed verification and was deleted");
         }
         return target;
+    }
+
+    /**
+     * Where {@link #downloadUpdate} saves an update file: {@code cache/updates/<version>/<asset name>}, the exact name
+     * of the release asset in a folder per version.
+     *
+     * @param update update
+     * @return target path
+     * @throws IOException when the version or the asset name is not a plain file name (a manifest must never be able to
+     *                     write outside the updates cache)
+     */
+    public Path downloadTarget(final UpdateInfo update) throws IOException {
+        final String version = update.latestVersion().toString();
+        final String name = update.file().name();
+        if (!isPlainFileName(version) || !isPlainFileName(name)) {
+            throw new IOException("Refusing to save the update as '" + version + "/" + name + "': not a plain file name");
+        }
+        final Path dir = paths.updatesCacheDir().resolve(version);
+        final Path target = dir.resolve(name).normalize();
+        if (!target.getParent().equals(dir.normalize())) {
+            throw new IOException("Refusing to save the update outside " + dir);
+        }
+        return target;
+    }
+
+    private static boolean isPlainFileName(final String name) {
+        return name != null && !name.isBlank() && !name.equals(".") && !name.equals("..") && name.indexOf('/') < 0
+            && name.indexOf('\\') < 0 && name.indexOf(':') < 0 && name.chars().noneMatch(Character::isISOControl);
     }
 
     /**

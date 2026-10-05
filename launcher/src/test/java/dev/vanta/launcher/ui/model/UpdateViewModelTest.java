@@ -1,5 +1,6 @@
 package dev.vanta.launcher.ui.model;
 
+import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.util.LauncherPackaging;
 import dev.vanta.launcher.ui.LauncherLinks;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URI;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -256,6 +258,7 @@ class UpdateViewModelTest {
     @Test
     void clientUpdateInstallsAndRefreshesInstance() {
         ctx.backend.instance = FakeBackend.installedInstance("1.0.0");
+        ctx.backend.activeJar = ctx.backend.paths().modsDir().resolve("vanta-client-1.0.0.jar");
         ctx.session.refreshInstance();
         ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true));
         vm.check(false);
@@ -268,6 +271,98 @@ class UpdateViewModelTest {
         assertEquals(UpdateViewModel.ClientAvailability.UP_TO_DATE, vm.clientAvailabilityProperty().get());
         assertFalse(vm.busyProperty().get());
         assertEquals(ctx.messages.format("update.toast.client.installed.title", "1.1.0"), ctx.toasts.toasts().get(0).title());
+        assertEquals(ctx.messages.format("update.toast.client.installed.message", "1.0.0"), ctx.toasts.toasts().get(0).message(),
+            "1.0.0 is kept, so the toast names it for roll back");
+    }
+
+    @Test
+    void rollBackIsOnlyPromisedWhenAKeptCopyOfThePreviousVersionExists() {
+        // The core did not keep the replaced jar (pruned right away, or no release version): no roll back sentence.
+        ctx.backend.instance = FakeBackend.installedInstance("1.0.0");
+        ctx.backend.activeJar = ctx.backend.paths().modsDir().resolve("vanta-client-1.0.0.jar");
+        ctx.backend.keepReplacedClient = false;
+        ctx.session.refreshInstance();
+        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true));
+        vm.check(false);
+        vm.installClientUpdate(() -> { });
+        final ToastModel.Toast toast = ctx.toasts.toasts().get(0);
+        assertEquals(ctx.messages.get("update.toast.client.installed.noRollback"), toast.message());
+        assertFalse(toast.message().contains("kept on the Versions page"), toast.message());
+        assertFalse(toast.message().contains("previous version is kept for roll back"), "the 1.0.1 claim: " + toast.message());
+
+        assertEquals(ctx.messages.get("update.toast.client.installed.noRollback"), vm.clientInstalledMessage("", false));
+        assertEquals(ctx.messages.get("update.toast.client.installed.notKept"), vm.clientInstalledMessage("", true));
+        assertEquals(ctx.messages.format("update.toast.client.installed.message", "1.0.0"), vm.clientInstalledMessage("1.0.0", true));
+        assertTrue(vm.clientInstalledMessage("1.0.0", false).contains("1.0.0"));
+    }
+
+    @Test
+    void developmentBuildIsNeverClaimedAsKept() {
+        ctx.backend.activeJar = ctx.backend.paths().modsDir().resolve("vanta-client-dev.jar");
+        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true));
+        vm.check(false);
+        vm.installClientUpdate(() -> { });
+        assertEquals(ctx.messages.get("update.toast.client.installed.noRollback"), ctx.toasts.toasts().get(0).message(),
+            "nothing else is kept either");
+    }
+
+    @Test
+    void otherKeptVersionsAreNotDeniedWhenTheReplacedOneIsNotKept() {
+        // 1.0.0 installed normally (kept), then a dev jar activated with --install --client-jar, then an update to 1.1.0:
+        // the replaced "dev" jar has no copy, but 1.0.0 is still offered for roll back on the Versions page.
+        final var manifest = FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "0.9.0", "1.0.0", true).manifest();
+        ctx.backend.kept.add(new VantaClientService.KeptVersion("1.0.0", manifest,
+            ctx.backend.paths().clientVersionsDir().resolve("1.0.0").resolve("vanta-client-1.0.0.jar"), Instant.parse("2026-10-01T10:00:00Z")));
+        // A kept entry whose jar is missing cannot be rolled back to, so it does not count.
+        ctx.backend.kept.add(new VantaClientService.KeptVersion("0.9.0", manifest, null, Instant.parse("2026-09-01T10:00:00Z")));
+        ctx.backend.activeJar = ctx.backend.paths().modsDir().resolve("vanta-client-dev.jar");
+        ctx.session.refreshInstance();
+        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true));
+        vm.check(false);
+        vm.installClientUpdate(() -> { });
+        final String message = ctx.toasts.toasts().get(0).message();
+        assertEquals(ctx.messages.get("update.toast.client.installed.notKept"), message);
+        assertFalse(message.contains("nothing to roll back"), message);
+
+        // Without the kept 1.0.0 there is really nothing left to roll back to.
+        ctx.backend.kept.removeIf(k -> k.version().equals("1.0.0"));
+        ctx.backend.kept.removeIf(k -> k.version().equals("1.1.0"));
+        ctx.backend.activeJar = ctx.backend.paths().modsDir().resolve("vanta-client-dev.jar");
+        ctx.session.refreshInstance();
+        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true));
+        vm.check(false);
+        vm.installClientUpdate(() -> { });
+        assertEquals(ctx.messages.get("update.toast.client.installed.noRollback"), ctx.toasts.toasts().get(1).message());
+    }
+
+    @Test
+    void verifiedDownloadsAreDescribedWithTheirRealFileName() {
+        final Path dir = ctx.backend.paths().updatesCacheDir().resolve("1.0.2");
+        final Path jar = dir.resolve("vanta-launcher-1.0.2-linux-all.jar");
+        assertEquals(UpdateViewModel.DownloadedFile.JAR, UpdateViewModel.kindOf(jar));
+        final String jarText = vm.downloadedInstructions(jar);
+        assertTrue(jarText.contains("java -jar \"" + jar.toAbsolutePath() + "\""), jarText);
+        assertFalse(jarText.contains("1.0.2-vanta-launcher"), "no <version>- prefix (the 1.0.1 bug): " + jarText);
+
+        final Path msi = dir.resolve("VANTA-Launcher-1.0.2.msi");
+        assertEquals(UpdateViewModel.DownloadedFile.INSTALLER, UpdateViewModel.kindOf(msi));
+        assertTrue(vm.downloadedInstructions(msi).startsWith("The installer VANTA-Launcher-1.0.2.msi was downloaded"), vm.downloadedInstructions(msi));
+        assertEquals(UpdateViewModel.DownloadedFile.INSTALLER, UpdateViewModel.kindOf(dir.resolve("VANTA-Launcher-1.0.2.exe")));
+        final Path archive = dir.resolve("VANTA-Launcher-1.0.2-linux-x64.tar.gz");
+        assertEquals(UpdateViewModel.DownloadedFile.ARCHIVE, UpdateViewModel.kindOf(archive));
+        assertTrue(vm.downloadedInstructions(archive).startsWith("VANTA-Launcher-1.0.2-linux-x64.tar.gz was downloaded"));
+        final Path zip = dir.resolve("VANTA-Launcher-1.0.2-windows-portable.zip");
+        assertEquals(UpdateViewModel.DownloadedFile.PORTABLE, UpdateViewModel.kindOf(zip));
+        assertEquals(vm.portableUpdateInstructions(zip.getFileName().toString()), vm.downloadedInstructions(zip));
+
+        // The download lands in cache/updates/<version>/<asset name>; the toast names that folder.
+        ctx.backend.launcherUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_LAUNCHER, "1.0.1", "1.0.2", true));
+        vm.check(false);
+        final AtomicReference<Path> downloaded = new AtomicReference<>();
+        vm.downloadLauncherUpdate(downloaded::set);
+        assertEquals(dir.resolve("VANTA-Launcher-1.0.2.msi"), downloaded.get());
+        assertEquals(ctx.messages.format("update.toast.downloaded.message", "VANTA-Launcher-1.0.2.msi", dir.toString()),
+            ctx.toasts.toasts().get(0).message());
     }
 
     @Test
