@@ -10,7 +10,7 @@ public final class VantaLinks {
     /** Issue tracker. */
     public static final String ISSUES = REPOSITORY + "/issues";
     /** Documentation folder in the repository. */
-    public static final String DOCUMENTATION = REPOSITORY + "/tree/main/docs";
+    public static final String DOCUMENTATION = REPOSITORY + "/tree/HEAD/docs";
 
     private VantaLinks() {
     }
