@@ -72,6 +72,8 @@ public record ActionEntry(String id, List<String> keywords, Optional<ScreenId> s
                 open(ScreenId.COSMETICS, "theme", "background", "particles", "badge", "appearance"),
                 open(ScreenId.STATISTICS, "stats", "playtime", "sessions", "distance"),
                 open(ScreenId.RESOURCE_PACKS, "textures", "packs", "texture pack"),
+                open(ScreenId.MODS, "modrinth", "mods", "shaders", "shader packs", "iris", "sodium", "fps boost",
+                        "performance pack", "download", "install"),
                 open(ScreenId.ACCESSIBILITY, "contrast", "motion", "large text", "scale"),
                 open(ScreenId.ABOUT, "version", "credits", "license", "website"),
                 command(RESET_SETTINGS, "defaults", "restore", "factory"),

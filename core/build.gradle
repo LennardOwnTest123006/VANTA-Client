@@ -57,11 +57,31 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.named('test', Test) {
-    useJUnitPlatform()
+    // Tests tagged "live" talk to real services (the Modrinth API); they run only through liveTest.
+    useJUnitPlatform {
+        excludeTags 'live'
+    }
     systemProperty 'java.awt.headless', 'true'
     testLogging {
         events 'failed'
         exceptionFormat 'full'
+    }
+}
+
+tasks.register('liveTest', Test) {
+    group = 'verification'
+    description = 'Runs the tests tagged "live" against the real Modrinth API (needs network access).'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'live'
+    }
+    systemProperty 'java.awt.headless', 'true'
+    outputs.upToDateWhen { false }
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+        showStandardStreams = true
     }
 }
 

@@ -148,6 +148,7 @@ public final class MainMenuScreen extends VantaUiScreen {
         stack.add(menuButton("menu.language", "vanta.menu.language",
                 () -> navigator().openVanilla(VanillaScreen.LANGUAGE)));
         stack.add(menuButton("menu.resourcepacks", "vanta.menu.resourcepacks", () -> open(ScreenId.RESOURCE_PACKS)));
+        stack.add(menuButton("menu.mods", "vanta.menu.mods", () -> open(ScreenId.MODS)));
         stack.add(menuButton("menu.accessibility", "vanta.menu.accessibility", () -> open(ScreenId.ACCESSIBILITY)));
         quit = layout.add(new MenuButton(Lang.tr("vanta.menu.quit"), Button.Variant.SECONDARY,
                 () -> ConfirmDialogs.quitGame(context(), game::quitGame)));

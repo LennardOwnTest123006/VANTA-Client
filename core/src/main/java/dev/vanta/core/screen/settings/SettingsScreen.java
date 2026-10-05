@@ -371,6 +371,9 @@ public final class SettingsScreen extends VantaUiScreen {
             case CONTROLS -> out.add(new LinkRow(Icons.KEYBOARD, Lang.tr("vanta.settings.vanilla_controls"),
                     Lang.tr("vanta.settings.vanilla_controls.description"),
                     () -> navigator().openVanilla(VanillaScreen.CONTROLS)).external(true).id("link.vanilla_controls"));
+            case PERFORMANCE, VIDEO -> out.add(new LinkRow(Icons.DOWNLOAD, Lang.tr("vanta.action.open_mods"),
+                    Lang.tr("vanta.action.open_mods.description"),
+                    () -> navigator().openScreen(context(), ScreenId.MODS)).id("link.mods"));
             case HUD -> out.add(new LinkRow(Icons.CROSSHAIR, Lang.tr("vanta.action.open_crosshair"),
                     Lang.tr("vanta.action.open_crosshair.description"),
                     () -> navigator().openScreen(context(), ScreenId.CROSSHAIR)).id("link.crosshair"));

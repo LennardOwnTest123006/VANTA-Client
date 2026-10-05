@@ -17,6 +17,7 @@ import dev.vanta.core.crosshair.CrosshairStore;
 import dev.vanta.core.hud.HudStore;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.keybinds.KeybindModel;
+import dev.vanta.core.modrinth.ModrinthService;
 import dev.vanta.core.notifications.NotificationCenter;
 import dev.vanta.core.perf.PerformanceCenter;
 import dev.vanta.core.perf.PerformancePreset;
@@ -66,6 +67,7 @@ public final class VantaServices {
     private final GlobalSearch search;
     private final ScreenRegistry screens = new ScreenRegistry();
     private Optional<String> websiteUrl = Optional.empty();
+    private ModrinthService modrinth;
     private boolean loaded;
 
     private VantaServices(VantaPaths paths, GameBridge game, OptionsBridge options, KeybindBridge keybindBridge,
@@ -150,6 +152,9 @@ public final class VantaServices {
     public void shutdown() {
         stats.endSession();
         saveAll();
+        if (modrinth != null) {
+            modrinth.close();
+        }
         loaded = false;
     }
 
@@ -264,6 +269,20 @@ public final class VantaServices {
     /** Public website URL when configured. */
     public Optional<String> websiteUrl() {
         return websiteUrl;
+    }
+
+    /**
+     * Installs the Modrinth integration (the client creates it with the game directory and its main-thread executor;
+     * tests and previews install one backed by an in-memory API). Without it the Mods &amp; Shaders screen explains
+     * that downloads are unavailable.
+     */
+    public void setModrinth(ModrinthService service) {
+        this.modrinth = service;
+    }
+
+    /** The Modrinth integration, when installed. */
+    public Optional<ModrinthService> modrinth() {
+        return Optional.ofNullable(modrinth);
     }
 
     /** Translated label line for the About screen: "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric 0.19.5". */

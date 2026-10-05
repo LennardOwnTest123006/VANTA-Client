@@ -206,6 +206,15 @@ public final class PerformanceScreen extends VantaUiScreen {
         cards.add(systemCard());
         content.add(cards);
 
+        InfoBanner packBanner = new InfoBanner(InfoBanner.Tone.INFO, Lang.tr("vanta.perf.pack.title"),
+                Lang.tr("vanta.perf.pack.body")).icon(Icons.DOWNLOAD);
+        Button openMods = Button.primary(Lang.tr("vanta.action.open_mods"),
+                () -> navigator().openScreen(context(), ScreenId.MODS)).compact(true);
+        openMods.setId("perf.openMods");
+        packBanner.action(openMods);
+        packBanner.setId("perf.pack");
+        content.add(packBanner);
+
         content.add(presetCard());
         content.add(quickOptionsCard());
         content.add(new InfoBanner(InfoBanner.Tone.NEUTRAL, Lang.tr("vanta.perf.honest_note.title"),

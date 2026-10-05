@@ -36,7 +36,7 @@ class SearchOverlayTest {
         List<SearchOverlay.Entry> entries = overlay.entries();
         assertTrue(entries.get(0).isHeader());
         assertEquals(SearchOverlay.Group.SCREENS, entries.get(0).group());
-        assertEquals(11, overlay.results().size(), "one result per VANTA screen action");
+        assertEquals(12, overlay.results().size(), "one result per VANTA screen action");
         assertEquals(1, overlay.selectedIndex());
         assertFalse(overlay.isPauseScreen());
     }

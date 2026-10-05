@@ -19,6 +19,7 @@ public enum ScreenId implements LangKeyed {
     COSMETICS,
     STATISTICS,
     RESOURCE_PACKS,
+    MODS,
     ACCESSIBILITY,
     SEARCH,
     ABOUT;
