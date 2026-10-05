@@ -25,8 +25,8 @@
     "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
   },
   "06_keybinds.png": {
-    "caption": "Keybinds with conflict detection across VANTA and vanilla key mappings.",
-    "alt": "Keybinds screen with a banner reporting 14 conflicts, a Show only conflicts switch, a Reset all keys button and grouped rows: VANTA (Open VANTA menu on Right Shift, Toggle HUD, Open HUD editor, Open Performance Center, Zoom on C, HUD-free screenshot), Gameplay and Movement, with conflicting keys highlighted in red.",
+    "caption": "Keybinds with conflict detection across VANTA and vanilla key mappings, captured with 1.0.0: the Right Shift binding shown as \"Open VANTA menu\" is called \"Open VANTA settings\" since 1.0.1.",
+    "alt": "Keybinds screen of VANTA Client 1.0.0 with a banner reporting 14 conflicts, a Show only conflicts switch, a Reset all keys button and grouped rows: VANTA (Open VANTA menu on Right Shift, the 1.0.0 label of the binding that 1.0.1 renamed Open VANTA settings; Toggle HUD, Open HUD editor, Open Performance Center, Zoom on C, HUD-free screenshot), Gameplay and Movement, with conflicting keys highlighted in red.",
     "capturedWith": "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5 · automated game test on GitHub Actions, 1920×1080, GUI scale 2"
   },
   "07_crosshair.png": {

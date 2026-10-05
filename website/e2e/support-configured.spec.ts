@@ -56,3 +56,23 @@ test('a build with VITE_SITE_URL serves absolute images, and no canonical for "/
     await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', url);
   }
 });
+
+test('canonical and og:url name the route as defined, without query, hash or trailing slash', async ({
+  page,
+}) => {
+  // React Router renders these variants (case-insensitive matching, trailing slash ignored); the
+  // canonical URL must still be the one of the route, so variants do not compete in search results.
+  const cases = [
+    ['/?ref=chat#top', '/'],
+    ['/download/', '/download'],
+    ['/Download/?utm_source=chat#verify', '/download'],
+    ['/DOCUMENTATION/installation/', '/documentation/installation'],
+  ] as const;
+  for (const [path, expected] of cases) {
+    await page.goto(path);
+    await waitForApp(page);
+    const url = `https://vanta.example${expected}`;
+    await expect(page.locator('link[rel="canonical"]'), path).toHaveAttribute('href', url);
+    await expect(page.locator('meta[property="og:url"]'), path).toHaveAttribute('content', url);
+  }
+});

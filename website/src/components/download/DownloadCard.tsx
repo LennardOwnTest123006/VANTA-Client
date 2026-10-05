@@ -1,7 +1,7 @@
 import { ArrowRight, Clock, Download, FolderArchive, type LucideIcon } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { findChangelog, markdownExcerpt, productLabel } from '../../lib/content';
+import { findChangelog, productLabel, releaseHighlights } from '../../lib/content';
 import { type DownloadResolution } from '../../lib/downloads';
 import { formatBytes, formatDate, groupHash } from '../../lib/format';
 import { type ReleaseFile, type ReleaseManifest, isPublished } from '../../lib/releases';
@@ -47,10 +47,18 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** Bullets of the "In this release" excerpt; each is clamped to three lines. */
+const EXCERPT_ITEMS = 3;
+
 /**
  * Download card for one product. Shows the release facts from the manifest and either a real
  * download button or an explicitly disabled "Not published yet" state — never a dead link. Once the
  * manifest is published, every file of the release is listed with size, SHA-256 and its own link.
+ *
+ * Order: header, description, facts, then the download button(s) with the pending notice and the
+ * footnote, so the button stays within the first screen on a phone; after them the note about an
+ * upcoming version, a short "In this release" excerpt (at most three bullets of three lines, from
+ * `## Fixed` first) with the link to the full notes, the extra content and the file list.
  */
 export function DownloadCard({
   manifest,
@@ -71,7 +79,7 @@ export function DownloadCard({
   const size = file ? formatBytes(file.size) : undefined;
   const sha = file && file.sha256 !== '' ? file.sha256 : undefined;
   const notes = manifest ? findChangelog(manifest.product, manifest.version) : undefined;
-  const excerpt = notes ? markdownExcerpt(notes.body, 3) : [];
+  const excerpt = notes ? releaseHighlights(notes, EXCERPT_ITEMS) : [];
   const date = manifest ? formatDate(manifest.releaseDate) : undefined;
   const available = resolution.state === 'available';
   // The file list carries every checksum once the release is out; the facts then skip the SHA-256.
@@ -171,62 +179,7 @@ export function DownloadCard({
         </p>
       )}
 
-      {manifest && upcoming ? (
-        <div
-          role="note"
-          aria-label={`Upcoming version ${upcoming.version}`}
-          className="mt-6 flex gap-3 rounded-lg border border-border-subtle bg-surface-2/60 p-4 text-sm leading-relaxed text-text-secondary"
-        >
-          <Clock className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-          <div className="min-w-0">
-            <p>
-              <span className="font-semibold text-text-primary">
-                {productLabel(upcoming.product)} {upcoming.version}
-              </span>{' '}
-              is not published yet. Its files appear here once the release workflow has published
-              them; until then {manifest.version} is the current release.
-            </p>
-            {upcomingNotes ? (
-              <Link
-                to={`/changelog#${upcomingNotes.id}`}
-                className="mt-1.5 inline-flex items-center gap-1 font-medium text-accent-violet-hover transition-colors hover:text-text-primary"
-              >
-                What changes in {upcoming.version}{' '}
-                <ArrowRight className="size-3.5" aria-hidden="true" />
-              </Link>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {excerpt.length > 0 ? (
-        <div className="mt-6">
-          <p className="text-[11px] font-semibold tracking-label text-text-muted uppercase">
-            In this release
-          </p>
-          <ul className="mt-2 flex flex-col gap-1.5 text-sm text-text-secondary">
-            {excerpt.map((item) => (
-              <li key={item} className="flex gap-2.5">
-                <span
-                  aria-hidden="true"
-                  className="mt-2 size-1.5 shrink-0 rounded-full bg-accent-violet-hover"
-                />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-          {notes ? (
-            <Link
-              to={`/changelog#${notes.id}`}
-              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-accent-violet-hover transition-colors hover:text-text-primary"
-            >
-              Full release notes <ArrowRight className="size-3.5" aria-hidden="true" />
-            </Link>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className="mt-8 flex flex-col gap-3">
+      <div className="mt-6 flex flex-col gap-3">
         {available ? (
           <Button
             href={resolution.url}
@@ -276,6 +229,61 @@ export function DownloadCard({
         ) : null}
         {footnote ? <p className="text-xs leading-relaxed text-text-muted">{footnote}</p> : null}
       </div>
+
+      {manifest && upcoming ? (
+        <div
+          role="note"
+          aria-label={`Upcoming version ${upcoming.version}`}
+          className="mt-6 flex gap-3 rounded-lg border border-border-subtle bg-surface-2/60 p-4 text-sm leading-relaxed text-text-secondary"
+        >
+          <Clock className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+          <div className="min-w-0">
+            <p>
+              <span className="font-semibold text-text-primary">
+                {productLabel(upcoming.product)} {upcoming.version}
+              </span>{' '}
+              is not published yet. Its files appear here once the release workflow has published
+              them; until then {manifest.version} is the current release.
+            </p>
+            {upcomingNotes ? (
+              <Link
+                to={`/changelog#${upcomingNotes.id}`}
+                className="mt-1.5 inline-flex items-center gap-1 font-medium text-accent-violet-hover transition-colors hover:text-text-primary"
+              >
+                What changes in {upcoming.version}{' '}
+                <ArrowRight className="size-3.5" aria-hidden="true" />
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {excerpt.length > 0 ? (
+        <div className="mt-6 border-t border-border-subtle pt-6">
+          <p className="text-[11px] font-semibold tracking-label text-text-muted uppercase">
+            In this release
+          </p>
+          <ul className="mt-2 flex flex-col gap-1.5 text-sm text-text-secondary">
+            {excerpt.map((item) => (
+              <li key={item} className="flex gap-2.5">
+                <span
+                  aria-hidden="true"
+                  className="mt-2 size-1.5 shrink-0 rounded-full bg-accent-violet-hover"
+                />
+                <span className="line-clamp-3 min-w-0">{item}</span>
+              </li>
+            ))}
+          </ul>
+          {notes ? (
+            <Link
+              to={`/changelog#${notes.id}`}
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-accent-violet-hover transition-colors hover:text-text-primary"
+            >
+              Full release notes <ArrowRight className="size-3.5" aria-hidden="true" />
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
       {children}
 

@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { renderWithRouter } from '../test/render';
+import { findChangelog } from './content';
 import { MarkdownBlock } from './markdown';
 import MarkdownRenderer from './markdown-renderer';
 
@@ -84,5 +85,22 @@ describe('MarkdownBlock', () => {
   it('lazily loads the renderer', async () => {
     render(<MarkdownBlock source="Hello **world**" />);
     expect(await screen.findByText('world')).toBeInTheDocument();
+  });
+});
+
+describe('repository release notes', () => {
+  it('links the launcher 1.0.1 release page from the note for launcher 1.0.0 users', () => {
+    const notes = findChangelog('launcher', '1.0.1')?.sections.find((s) => s.kind === 'notes');
+    expect(notes?.body).toMatch(/^- Updating from launcher 1\.0\.0: /);
+    render(<MarkdownRenderer source={notes?.body ?? ''} />);
+    const url = 'https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.1';
+    // A bare URL in parentheses: GFM autolinks it without the closing parenthesis and comma.
+    const link = screen.getByRole('link', { name: url });
+    expect(link).toHaveAttribute('href', url);
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(screen.getByRole('listitem')).toHaveTextContent(
+      `from the launcher-v1.0.1 release (${url}), then compare its SHA-256.`,
+    );
+    expect(screen.getByText('VANTA-Launcher-1.0.1-windows-portable.zip').tagName).toBe('CODE');
   });
 });

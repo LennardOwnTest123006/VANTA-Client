@@ -36,7 +36,9 @@ export default function ScreenshotsPage() {
         title="Screenshots"
         description={
           count > 0
-            ? `${count} real screenshots of VANTA Client ${site.clientVersion} for Minecraft ${site.minecraft}, captured by the automated game test.`
+            ? // No client version here: the captures keep showing the version they were taken with
+              // (see `capturedWith` in captions.json) after newer releases.
+              `${count} real screenshots of VANTA Client for Minecraft ${site.minecraft}, captured by the automated game test.`
             : `Screenshots of VANTA Client for Minecraft ${site.minecraft} will be published with the first release — real captures from the automated game test only, never mock-ups.`
         }
       />

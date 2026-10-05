@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
-import { absoluteUrl, pageTitle } from '../../lib/meta';
+import { absoluteUrl, canonicalPath, pageTitle } from '../../lib/meta';
 
 export interface PageMetaProps {
   /** Page title without the site suffix; omit for the home page. */
@@ -46,7 +46,9 @@ function upsertLink(rel: string, href: string) {
 /**
  * Sets the per-route document metadata: title, description, canonical URL, Open Graph and Twitter
  * card tags and the robots directive. Everything is derived from the route so social previews and
- * crawlers see the right page even though the site is a client-rendered SPA.
+ * crawlers see the right page even though the site is a client-rendered SPA. The canonical URL and
+ * `og:url` use the route's canonical path ({@link canonicalPath}): `/Download/?ref=x` declares
+ * `/download`, not a variant of it.
  */
 export function PageMeta({
   title,
@@ -59,7 +61,7 @@ export function PageMeta({
   const { pathname } = useLocation();
   useEffect(() => {
     const full = pageTitle(title);
-    const url = absoluteUrl(pathname);
+    const url = absoluteUrl(canonicalPath(pathname));
     const imageUrl = absoluteUrl(image);
     document.title = full;
     upsertMeta('name', 'description', description);

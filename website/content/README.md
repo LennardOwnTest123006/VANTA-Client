@@ -13,6 +13,17 @@ Changelog bodies use the headings `## Added`, `## Improved`, `## Fixed` (any sub
 `## Notes`. Keep the entries in sync with the root `CHANGELOG.md`; the release manifest in `shared/releases/` points
 at the changelog file through its `changelog` field.
 
+The Download page card quotes at most three bullets of the release it offers, each cut to three lines: the bullets of
+`## Fixed` first, then `## Added` and `## Improved` (`releaseHighlights` in `src/lib/content.ts`). Only when these
+sections are missing or have no bullets does it quote the bullets of the intro and of other sections; `## Notes` is
+never quoted. Put the bullet that matters most first in its section. The launchers download the release notes of
+an update from `raw.githubusercontent.com/<repository>/HEAD/<changelog path>` when they show it, so a change to the
+notes of a published launcher version reaches running launchers without a new release. Their reader is plain
+(`MiniMarkdown` in the launcher): link markup `[text](url)` keeps only the text there, so write a URL the reader needs
+as a bare `https://…` URL (GitHub and the website still turn it into a link). The update dialog shows the notes in a
+small scroll pane that starts at the intro, so when a note under `## Notes` must be read before downloading, the
+intro should point to it (as the intro of `launcher-1.0.1.md` does for launcher 1.0.0 users).
+
 Front matter is a flat `key: value` block between `---` lines: strings (optionally quoted), numbers, `true`/`false`
 and inline arrays `[a, b]`. The website keeps every value as a string; the validator parses numbers, booleans and
 arrays so the schemas can check them. Markdown is GitHub-flavoured and rendered through the sanitised renderer in

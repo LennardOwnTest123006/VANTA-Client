@@ -8,6 +8,9 @@ TypeScript 5.9 and Tailwind CSS 4, deployed to Netlify (configuration in the rep
 verbatim from the `[[headers]]` blocks in `netlify.toml`) are shipped inside `dist/`. Netlify's manual
 drag-and-drop deploys do not read `netlify.toml`, so these two files make a manual deploy of `dist/`
 behave like a git-connected deploy. Keep them in sync when `netlify.toml` changes.
+`netlify.toml` also sets `VITE_SITE_URL = "https://vanta-client.netlify.app"` in `[build.environment]`, so a
+repository-linked build has the same absolute sitemap, robots.txt and social images as a local
+`VITE_SITE_URL=https://vanta-client.netlify.app npm run build` deployed by hand.
 
 ## Commands
 

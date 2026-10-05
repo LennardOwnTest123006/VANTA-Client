@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Monitor, Package } from 'lucide-react';
 import { describe, expect, it, vi } from 'vitest';
+import { findChangelog, releaseHighlights } from '../../lib/content';
 import { modsBundleFile, resolveDownload } from '../../lib/downloads';
 import { parseReleaseManifest } from '../../lib/releases';
 import {
@@ -66,6 +67,19 @@ const launcherProps = {
   cta: 'Download launcher',
   primary: true,
 } as const;
+
+/** True when `a` comes before `b` in document order. */
+function precedes(a: Node, b: Node): boolean {
+  return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+}
+
+/** The "In this release" excerpt of the rendered card. */
+function excerpt() {
+  const heading = screen.getByText('In this release');
+  const block = heading.parentElement;
+  if (!block) throw new Error('excerpt without container');
+  return { heading, items: within(block).getAllByRole('listitem') };
+}
 
 function mockClipboard() {
   const writeText = vi.fn().mockResolvedValue(undefined);
@@ -151,6 +165,74 @@ describe('DownloadCard', () => {
     );
     expect(screen.getByText('No release manifest found for this product.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Download client jar' })).toBeDisabled();
+  });
+});
+
+describe('DownloadCard layout', () => {
+  it('puts the button and the pending notice right under the facts, before the excerpt', () => {
+    renderWithRouter(
+      <DownloadCard
+        {...props}
+        manifest={pending}
+        resolution={resolveDownload(pending, undefined)}
+        footnote="Footnote text"
+      />,
+    );
+    const facts = screen.getByText('Release date').closest('dl')!;
+    const button = screen.getByRole('button', { name: 'Download client jar' });
+    const status = screen.getByRole('status');
+    const { heading } = excerpt();
+    expect(precedes(facts, button)).toBe(true);
+    expect(facts.contains(button)).toBe(false);
+    expect(precedes(button, status)).toBe(true);
+    expect(precedes(status, heading)).toBe(true);
+    expect(precedes(screen.getByText('Footnote text'), heading)).toBe(true);
+  });
+
+  it('offers the published release first, then mentions the upcoming one, then the excerpt', () => {
+    const manifest = launcherFixture({ published: true, version: '1.0.1' });
+    const upcoming = launcherFixture({ published: false, version: '1.0.2' });
+    renderWithRouter(
+      <DownloadCard
+        {...launcherProps}
+        manifest={manifest}
+        resolution={resolveDownload(manifest, undefined)}
+        upcoming={upcoming}
+      />,
+    );
+    const button = screen.getByRole('link', { name: 'Download launcher' });
+    expect(button).toHaveAttribute('href', manifest.files[0]?.downloadUrl);
+    const note = screen.getByRole('note', { name: 'Upcoming version 1.0.2' });
+    expect(note).toHaveTextContent('until then 1.0.1 is the current release');
+    const { heading } = excerpt();
+    const files = screen.getByRole('list', { name: 'All files in this release' });
+    expect(precedes(screen.getByText('Release date').closest('dl')!, button)).toBe(true);
+    expect(precedes(button, note)).toBe(true);
+    expect(precedes(note, heading)).toBe(true);
+    expect(precedes(heading, files)).toBe(true);
+  });
+
+  it('quotes at most three bullets, from Fixed first, each clamped to three lines', () => {
+    const manifest = launcherFixture({ published: true, version: '1.0.1' });
+    renderWithRouter(
+      <DownloadCard
+        {...launcherProps}
+        manifest={manifest}
+        resolution={resolveDownload(manifest, undefined)}
+      />,
+    );
+    const notes = findChangelog('launcher', '1.0.1')!;
+    const expected = releaseHighlights(notes, 3);
+    expect(expected).toHaveLength(3);
+    const { items } = excerpt();
+    expect(items.map((item) => item.textContent)).toEqual(expected);
+    for (const item of items) {
+      expect(item.querySelector('.line-clamp-3')).toHaveTextContent(item.textContent ?? '');
+    }
+    expect(screen.getByRole('link', { name: 'Full release notes' })).toHaveAttribute(
+      'href',
+      '/changelog#launcher-1.0.1',
+    );
   });
 });
 

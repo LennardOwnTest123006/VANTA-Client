@@ -6,7 +6,7 @@ title: VANTA Launcher 1.0.1
 minecraftVersion: 1.21.11
 ---
 
-Maintenance release of the VANTA Launcher. A fresh launcher no longer offers an update for a client that is not installed, a launcher jar started on the wrong system says which file to download, and the launcher's self-update now uses the file that matches how the launcher was installed.
+Maintenance release of the VANTA Launcher. A fresh launcher no longer offers an update for a client that is not installed, a launcher jar started on the wrong system says which file to download, and from this version on the launcher's self-update uses the file that matches how the launcher was installed. If you update from launcher 1.0.0 that runs from the portable folder or a jar, read the note at the end before you download.
 
 ## Improved
 
@@ -26,3 +26,7 @@ Maintenance release of the VANTA Launcher. A fresh launcher no longer offers an 
 - A launcher jar started on the wrong system (for example the Windows jar on Linux) failed inside JavaFX or showed nothing. It now checks the system before JavaFX is loaded, names the file to download instead (for example `vanta-launcher-1.0.1-linux-all.jar` or the app image `VANTA-Launcher-1.0.1-linux-x64.tar.gz`), also in a window when the jar was double-clicked, and exits with code 1. The message describes the Java runtime that started the jar, not the computer: an x64 Java on an Apple Silicon Mac (Rosetta 2) is told to use an arm64 Java 21 with `vanta-launcher-1.0.1-macos-aarch64-all.jar`, a 32-bit Java to use a 64-bit Java 21 or a download that brings its own Java runtime. Command line options such as `--help`, `--version` and `--install` keep working with every jar
 - When the user interface cannot start (JavaFX missing, no display), the launcher now exits with code 1 instead of printing the help and exiting with 0
 - Sign-in dialog: the expiry countdown of a new sign-in code could be overwritten by its initial value when the first timer tick came early (an intermittent race in the automated tests)
+
+## Notes
+
+- Updating from launcher 1.0.0: launcher 1.0.0 offers the `.msi` on Windows (also for the portable folder or a jar) and the `.tar.gz` on Linux x64 (also for a jar). To keep a portable or jar setup, choose Not now (or Close before downloading), close the launcher and download `VANTA-Launcher-1.0.1-windows-portable.zip` or the jar for your system from the launcher-v1.0.1 release (https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.1), then compare its SHA-256. From 1.0.1 on the launcher picks the matching file itself

@@ -17,6 +17,11 @@
 [build.environment]
   NODE_VERSION = "22"
   NPM_FLAGS = "--no-audit --no-fund"
+  # Public origin of the site: absolute sitemap.xml URLs, the Sitemap line of robots.txt, the absolute
+  # og:image/twitter:image of index.html and the canonical/og:url base, the same as the zip deployed by hand.
+  # Without it a repository-linked build would fall back to Netlify's URL for the sitemap and leave the
+  # social images of index.html relative.
+  VITE_SITE_URL = "https://vanta-client.netlify.app"
 
 # --- SPA fallback -----------------------------------------------------------
 [[redirects]]

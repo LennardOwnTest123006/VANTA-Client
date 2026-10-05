@@ -198,6 +198,41 @@ export const changelog: readonly ChangelogEntry[] = loadChangelog(
   }),
 );
 
+/** Sections the download card quotes from, in order of preference. Notes are never quoted. */
+const HIGHLIGHT_KINDS = ['fixed', 'added', 'improved'] as const;
+
+/** The first `limit` bullets of the given markdown bodies, in order. */
+function excerptOf(bodies: readonly string[], limit: number): string[] {
+  const items: string[] = [];
+  for (const body of bodies) {
+    if (items.length >= limit) break;
+    items.push(...markdownExcerpt(body, limit - items.length));
+  }
+  return items;
+}
+
+/**
+ * Up to `limit` bullets of a release as plain text for the short "In this release" excerpt of the
+ * download card: the bullets of `## Fixed` first, then those of `## Added` and `## Improved`. When
+ * these sections are missing or have no bullets, the excerpt falls back to the bullets of the intro
+ * and of other sections in document order. Bullets of `## Notes` are never quoted.
+ */
+export function releaseHighlights(
+  entry: Pick<ChangelogEntry, 'intro' | 'sections'>,
+  limit = 3,
+): string[] {
+  const preferred = HIGHLIGHT_KINDS.flatMap((kind) =>
+    entry.sections.filter((section) => section.kind === kind),
+  );
+  const highlights = excerptOf(
+    preferred.map((section) => section.body),
+    limit,
+  );
+  if (highlights.length > 0) return highlights;
+  const fallback = entry.sections.filter((section) => section.kind !== 'notes');
+  return excerptOf([entry.intro, ...fallback.map((section) => section.body)], limit);
+}
+
 /** Finds the release notes for a product version. */
 export function findChangelog(product: string, version: string): ChangelogEntry | undefined {
   return changelog.find((entry) => entry.product === product && entry.version === version);

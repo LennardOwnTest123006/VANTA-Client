@@ -69,6 +69,65 @@ test('the download page fits small phones without sideways scrolling', async ({
   }
 });
 
+test('the download buttons are on the first phone screen of their cards, before the excerpt', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(!isMobile, 'mobile only');
+  // The mobile project runs at 390×844. With a card scrolled to the top of the content area (below
+  // the sticky site header), its main button must be visible without scrolling further: the release
+  // notes excerpt, the upcoming-version note and the file list come after it.
+  await page.goto('/download');
+  await waitForApp(page);
+  await revealAll(page);
+  const viewport = page.viewportSize();
+  const siteHeader = await page.getByRole('banner').boundingBox();
+  expect(viewport).toEqual({ width: 390, height: 844 });
+  if (!viewport || !siteHeader) return;
+  const available = viewport.height - siteHeader.height;
+  for (const { name, cta } of [
+    { name: 'VANTA Launcher', cta: 'Download launcher' },
+    { name: 'VANTA Client (jar)', cta: 'Download client jar' },
+  ]) {
+    const card = page.getByRole('article', { name });
+    const button = card
+      .getByRole('link', { name: cta, exact: true })
+      .or(card.getByRole('button', { name: cta, exact: true }));
+    await expect(button).toBeVisible();
+    const cardBox = await card.boundingBox();
+    const buttonBox = await button.boundingBox();
+    if (!cardBox || !buttonBox) throw new Error(`${name}: no layout boxes`);
+    const buttonBottom = buttonBox.y + buttonBox.height;
+    expect(buttonBottom - cardBox.y, `${cta} from the top of its card`).toBeLessThanOrEqual(
+      available,
+    );
+
+    const excerpt = card.getByText('In this release', { exact: true });
+    if ((await excerpt.count()) > 0) {
+      const excerptBox = await excerpt.boundingBox();
+      expect(excerptBox?.y ?? 0, `${name}: excerpt below the button`).toBeGreaterThan(buttonBottom);
+      // At most three bullets, each cut to three lines; the full notes are one link away.
+      const bullets = excerpt.locator('xpath=following-sibling::ul[1]/li');
+      expect(await bullets.count()).toBeLessThanOrEqual(3);
+      const lineCounts = await bullets.evaluateAll((items) =>
+        items.map((item) => {
+          const text = item.querySelector('.line-clamp-3');
+          if (!text) return 99;
+          const lineHeight = parseFloat(getComputedStyle(text).lineHeight);
+          return text.getBoundingClientRect().height / lineHeight;
+        }),
+      );
+      expect(lineCounts.length).toBeGreaterThan(0);
+      for (const lines of lineCounts) expect(lines).toBeLessThanOrEqual(3.05);
+      await expect(card.getByRole('link', { name: 'Full release notes' })).toBeVisible();
+    }
+    const note = card.getByRole('note', { name: /^Upcoming version/ });
+    if ((await note.count()) > 0) {
+      expect((await note.boundingBox())?.y ?? 0).toBeGreaterThan(buttonBottom);
+    }
+  }
+});
+
 test('the mobile navigation sheet lists every header route and traps focus', async ({
   page,
   isMobile,
