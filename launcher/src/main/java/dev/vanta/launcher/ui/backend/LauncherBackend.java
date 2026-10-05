@@ -6,6 +6,7 @@ import dev.vanta.launcher.core.auth.DeviceCode;
 import dev.vanta.launcher.core.install.InstallException;
 import dev.vanta.launcher.core.install.InstallListener;
 import dev.vanta.launcher.core.install.InstallRequest;
+import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.launch.GameProcess;
@@ -15,6 +16,7 @@ import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
 import dev.vanta.launcher.core.paths.LauncherPaths;
 import dev.vanta.launcher.core.settings.LauncherSettings;
+import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
 import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateInfo;
 import dev.vanta.launcher.core.util.OsInfo;
@@ -237,8 +239,14 @@ public interface LauncherBackend extends AutoCloseable {
      */
     Path rollbackClient(String version) throws IOException;
 
-    /** @return whether a releases base URL is configured */
+    /** @return whether the releases base URL in effect is a usable http(s) URL */
     boolean updatesConfigured();
+
+    /**
+     * @return the releases base URL in effect (settings &gt; {@code VANTA_RELEASES_BASE_URL} &gt; built-in default)
+     *     and where it came from
+     */
+    ReleasesBaseUrl releasesBaseUrl();
 
     /**
      * @return launcher update when newer
@@ -297,6 +305,33 @@ public interface LauncherBackend extends AutoCloseable {
      * @throws InterruptedException when interrupted
      */
     String fetchText(URI uri) throws IOException, InterruptedException;
+
+    // ---------------------------------------------------------------- official Minecraft Launcher
+
+    /**
+     * Describes exactly what "Use with the Minecraft Launcher" writes and removes (the detected official Minecraft
+     * directory and the VANTA instance). Fetches the client release manifest so the client jar is named exactly;
+     * changes nothing.
+     *
+     * @return plan
+     * @throws IOException          when the official launcher was never started ({@code launcher_profiles.json} missing,
+     *                              {@link dev.vanta.launcher.core.install.OfficialLauncherNotFoundException}), the file is
+     *                              unreadable, or the client release cannot be resolved (not published, network)
+     * @throws InterruptedException when interrupted
+     */
+    OfficialProfileService.Plan officialProfilePlan() throws IOException, InterruptedException;
+
+    /**
+     * Installs Fabric API and the VANTA client into the instance and adds the VANTA profile to the official
+     * Minecraft Launcher (see {@link OfficialProfileService}).
+     *
+     * @param listener progress
+     * @param token    cancellation
+     * @return result
+     * @throws IOException          on failure (nothing in the Minecraft directory is changed before all downloads succeeded)
+     * @throws InterruptedException when interrupted
+     */
+    OfficialProfileService.Result installOfficialProfile(InstallListener listener, CancellationToken token) throws IOException, InterruptedException;
 
     // ---------------------------------------------------------------- misc
 

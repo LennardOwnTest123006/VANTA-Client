@@ -1,5 +1,6 @@
 package dev.vanta.launcher.ui.view;
 
+import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.update.UpdateInfo;
 import dev.vanta.launcher.ui.model.NavigationModel;
@@ -41,7 +42,7 @@ public final class MainWindow extends StackPane {
         this.ctx = ctx;
         getStyleClass().add("app-shell");
 
-        factories.put(NavigationModel.Page.HOME, () -> new HomePage(ctx, this::showSignIn, this::showClientUpdate));
+        factories.put(NavigationModel.Page.HOME, () -> new HomePage(ctx, this::showSignIn, this::showClientUpdate, this::showOfficialProfile));
         factories.put(NavigationModel.Page.VERSIONS, () -> new VersionsPage(ctx));
         factories.put(NavigationModel.Page.LOGS, () -> new LogsPage(ctx));
         factories.put(NavigationModel.Page.SETTINGS, () -> new SettingsPage(ctx, this::applyTheme));
@@ -162,17 +163,56 @@ public final class MainWindow extends StackPane {
     }
 
     /**
-     * Asks before handing a verified installer to the operating system.
+     * Asks before handing a verified installer to the operating system. A Linux app image archive or a macOS jar is
+     * not an installer: the launcher shows it in its folder with instructions instead and keeps running.
      *
      * @param installer verified installer path
      */
     public void confirmInstaller(final Path installer) {
-        dialogs.show(new ConfirmDialog(ctx.t("update.confirm.title"), ctx.t("update.confirm.text", installer.getFileName().toString()),
-            ctx.t("update.confirm.open"), ctx.t("update.confirm.cancel"),
-            () -> ctx.opener().openFile(installer, () -> {
-                ctx.toasts().info(ctx.t("update.toast.opened.title"), ctx.t("update.toast.opened.message"));
-                onInstallerOpened.run();
-            }), () -> { }, dialogs::close));
+        final String name = installer.getFileName().toString();
+        final String lower = name.toLowerCase(java.util.Locale.ROOT);
+        if (lower.endsWith(".msi") || lower.endsWith(".exe")) {
+            dialogs.show(new ConfirmDialog(ctx.t("update.confirm.title"), ctx.t("update.confirm.text", name),
+                ctx.t("update.confirm.open"), ctx.t("update.confirm.cancel"),
+                () -> ctx.opener().openFile(installer, () -> {
+                    ctx.toasts().info(ctx.t("update.toast.opened.title"), ctx.t("update.toast.opened.message"));
+                    onInstallerOpened.run();
+                }), () -> { }, dialogs::close));
+            return;
+        }
+        final String text = lower.endsWith(".jar") ? ctx.t("update.confirm.jar.text", name) : ctx.t("update.confirm.archive.text", name);
+        dialogs.show(new ConfirmDialog(ctx.t("update.confirm.manual.title"), text, ctx.t("update.confirm.showFolder"),
+            ctx.t("update.confirm.cancel"), () -> ctx.opener().openFolder(installer.getParent()), () -> { }, dialogs::close));
+    }
+
+    /**
+     * "Use with the Minecraft Launcher": reads what would be written, lists it in a confirmation dialog and runs the
+     * setup only after the user confirmed.
+     */
+    public void showOfficialProfile() {
+        ctx.home().prepareOfficialProfile(plan -> dialogs.show(new ConfirmDialog(ctx.t("official.confirm.title", plan.profileName()),
+            ctx.t("official.confirm.text", plan.profileName(), plan.minecraftDir().toString(), plan.vantaClientVersion()), officialPlanDetails(plan),
+            ctx.t("official.confirm.install"), ctx.t("official.confirm.cancel"), () -> ctx.home().installOfficialProfile(), () -> { },
+            dialogs::close)));
+    }
+
+    private Node officialPlanDetails(final OfficialProfileService.Plan plan) {
+        final VBox list = new VBox(8);
+        for (OfficialProfileService.PlannedFile file : plan.files()) {
+            final String label = ctx.home().officialPlanLabel(file.kind());
+            final javafx.scene.control.Label what = Ui.paragraph(file.removal() ? ctx.t("official.plan.removedPrefix", label) : label, "field-label");
+            final javafx.scene.control.Label where = Ui.paragraph(file.location(), "mono", "text-secondary");
+            where.setStyle("-fx-font-size: 11px;");
+            list.getChildren().add(new VBox(2, what, where));
+        }
+        final ScrollPane scroll = new ScrollPane(list);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setPrefViewportHeight(310);
+        scroll.setMaxHeight(330);
+        final VBox box = new VBox(10, scroll, Ui.paragraph(ctx.t("official.confirm.note"), "text-muted", "text-small"));
+        box.getStyleClass().add("official-plan");
+        return box;
     }
 
     /** Applies the theme variant from the saved settings (high contrast on/off). */

@@ -60,6 +60,14 @@ public final class FabricApiService {
 
     /**
      * @param version Fabric API version
+     * @return download URL of the jar
+     */
+    public URI url(final String version) {
+        return mavenBase.resolve(coordinate(version).path());
+    }
+
+    /**
+     * @param version Fabric API version
      * @return target jar in {@code mods/}
      */
     public Path targetJar(final String version) {
@@ -76,15 +84,10 @@ public final class FabricApiService {
      */
     public DownloadRequest request(final String version) throws IOException, InterruptedException {
         final MavenCoordinate coordinate = coordinate(version);
-        final URI url = mavenBase.resolve(coordinate.path());
+        final URI url = url(version);
         final Path target = targetJar(version);
-        Checksum checksum = null;
-        if (!Files.isRegularFile(target)) {
-            checksum = fabric.fetchSidecarChecksum(url);
-        } else {
-            // Verify an existing jar against the sidecar as well (cheap, and protects against a corrupt mods dir).
-            checksum = fabric.fetchSidecarChecksum(url);
-        }
+        // An existing jar is verified against the sidecar as well (cheap, and protects against a corrupt mods dir).
+        final Checksum checksum = fabric.fetchSidecarChecksum(url);
         return new DownloadRequest(url, target, -1L, checksum, coordinate.fileName());
     }
 
@@ -97,18 +100,34 @@ public final class FabricApiService {
      */
     public List<Path> pruneOtherVersions(final String keepVersion) throws IOException {
         final List<Path> deleted = new ArrayList<>();
+        for (Path p : otherVersions(keepVersion)) {
+            Files.deleteIfExists(p);
+            deleted.add(p);
+        }
+        return deleted;
+    }
+
+    /**
+     * Lists the Fabric API jars in {@code mods/} that {@link #pruneOtherVersions} would delete. Changes nothing.
+     *
+     * @param keepVersion version to keep
+     * @return other Fabric API jars, sorted by name
+     * @throws IOException on failure
+     */
+    public List<Path> otherVersions(final String keepVersion) throws IOException {
+        final List<Path> others = new ArrayList<>();
         final Path keep = targetJar(keepVersion);
         if (!Files.isDirectory(paths.modsDir())) {
-            return deleted;
+            return others;
         }
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(paths.modsDir(), ARTIFACT + "-*.jar")) {
             for (Path p : stream) {
                 if (!p.getFileName().equals(keep.getFileName())) {
-                    Files.deleteIfExists(p);
-                    deleted.add(p);
+                    others.add(p);
                 }
             }
         }
-        return deleted;
+        others.sort(null);
+        return others;
     }
 }

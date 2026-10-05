@@ -1,6 +1,7 @@
 package dev.vanta.launcher.core.settings;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -13,7 +14,9 @@ import java.util.Optional;
  * @param resolution                  initial window size; {@code null} = game default
  * @param keepLauncherOpen            keep the launcher window open while the game runs
  * @param msClientId                  Microsoft Entra application (client) id; empty = use {@code VANTA_MS_CLIENT_ID} env
- * @param releasesBaseUrl             base URL for {@code launcher-latest.json} / {@code client-latest.json}; empty = not configured
+ * @param releasesBaseUrl             base URL for {@code launcher-latest.json} / {@code client-latest.json}; empty = use
+ *                                    {@value #RELEASES_BASE_URL_ENV} or {@link #DEFAULT_RELEASES_BASE_URL} (see
+ *                                    {@link #effectiveReleasesBaseUrl(Map)})
  * @param autoUpdateCheck             check for updates at start
  * @param developerMode               enables development features (offline accounts with {@code VANTA_DEV_OFFLINE=1})
  * @param shareOfficialMinecraftFiles reuse verified libraries/assets from the official {@code .minecraft} directory
@@ -37,6 +40,14 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
     public static final String DEFAULT_THEME = "vanta-dark";
     /** Environment variable holding the Microsoft client id. */
     public static final String MS_CLIENT_ID_ENV = "VANTA_MS_CLIENT_ID";
+    /** Environment variable that provides the releases base URL when the settings leave it empty. */
+    public static final String RELEASES_BASE_URL_ENV = "VANTA_RELEASES_BASE_URL";
+    /**
+     * Built-in releases base URL: the {@code shared/releases/latest} directory of the VANTA repository on its default
+     * branch, which holds {@code client-latest.json} and {@code launcher-latest.json} once a release is published.
+     */
+    public static final String DEFAULT_RELEASES_BASE_URL =
+        "https://raw.githubusercontent.com/LennardOwnTest123006/VANTA-Client/HEAD/shared/releases/latest";
 
     public LauncherSettings {
         schemaVersion = schemaVersion <= 0 ? SCHEMA_VERSION : schemaVersion;
@@ -83,9 +94,23 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
         return Optional.ofNullable(resolution);
     }
 
-    /** @return whether a releases base URL is configured */
+    /**
+     * @return whether {@code settings.json} stores an explicit releases base URL; when it does not, the environment
+     *     variable or the built-in default applies (see {@link #effectiveReleasesBaseUrl(Map)})
+     */
     public boolean hasReleasesBaseUrl() {
         return !releasesBaseUrl.isEmpty();
+    }
+
+    /**
+     * The releases base URL in effect: the stored value when non-empty, else {@value #RELEASES_BASE_URL_ENV}, else
+     * {@link #DEFAULT_RELEASES_BASE_URL}.
+     *
+     * @param env environment variables
+     * @return URL in effect and its source
+     */
+    public ReleasesBaseUrl effectiveReleasesBaseUrl(final Map<String, String> env) {
+        return ReleasesBaseUrl.resolve(releasesBaseUrl, env, DEFAULT_RELEASES_BASE_URL);
     }
 
     /** @return copy */

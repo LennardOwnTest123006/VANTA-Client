@@ -95,6 +95,62 @@ class UpdateViewModelTest {
     }
 
     @Test
+    void missingManifestsAreNeverReportedAsUpToDate() {
+        ctx.backend.instance = FakeBackend.installedInstance("1.0.0");
+        ctx.session.refreshInstance();
+        ctx.backend.launcherCheckFailure = new dev.vanta.launcher.core.install.NotPublishedException("launcher", "",
+            "No release manifest at https://releases.example/launcher-latest.json (HTTP 404)");
+        ctx.backend.clientCheckFailure = new dev.vanta.launcher.core.install.NotPublishedException("client", "",
+            "No release manifest at https://releases.example/client-latest.json (HTTP 404)");
+        vm.check(true);
+        assertEquals(1, ctx.toasts.toasts().size(), String.valueOf(ctx.toasts.toasts()));
+        final ToastModel.Toast toast = ctx.toasts.toasts().get(0);
+        assertEquals(ToastModel.Kind.INFO, toast.kind(), "no success toast without a manifest: " + toast);
+        assertEquals(ctx.messages.get("update.notPublished.title"), toast.title());
+        assertTrue(toast.message().contains("https://releases.example/launcher-latest.json"), toast.message());
+        assertTrue(toast.message().contains("https://releases.example/client-latest.json"), toast.message());
+        assertFalse(toast.message().contains(ctx.messages.format("update.upToDate.message", dev.vanta.launcher.LauncherVersion.VERSION)));
+        assertEquals(UpdateViewModel.ClientAvailability.NOT_PUBLISHED, vm.clientAvailabilityProperty().get());
+        assertTrue(vm.checkErrorProperty().get().isEmpty(), "not published is not an error");
+        assertFalse(vm.bannerVisibleProperty().get());
+    }
+
+    @Test
+    void oneMissingManifestIsEnoughToNotClaimUpToDate() {
+        ctx.backend.instance = FakeBackend.installedInstance("1.0.0");
+        ctx.session.refreshInstance();
+        // Launcher manifest found and current, client manifest missing.
+        ctx.backend.clientCheckFailure = new dev.vanta.launcher.core.install.NotPublishedException("client", "",
+            "No release manifest at https://releases.example/client-latest.json (HTTP 404)");
+        vm.check(true);
+        assertEquals(ToastModel.Kind.INFO, ctx.toasts.toasts().get(0).kind());
+        assertEquals(ctx.messages.get("update.notPublished.title"), ctx.toasts.toasts().get(0).title());
+
+        // Launcher manifest missing, client manifest found and current.
+        ctx.toasts.clear();
+        ctx.backend.clientCheckFailure = null;
+        ctx.backend.launcherCheckFailure = new dev.vanta.launcher.core.install.NotPublishedException("launcher", "",
+            "No release manifest at https://releases.example/launcher-latest.json (HTTP 404)");
+        vm.check(true);
+        assertEquals(ToastModel.Kind.INFO, ctx.toasts.toasts().get(0).kind());
+        assertTrue(ctx.toasts.toasts().get(0).message().contains("launcher-latest.json"), ctx.toasts.toasts().get(0).message());
+        assertEquals(UpdateViewModel.ClientAvailability.UP_TO_DATE, vm.clientAvailabilityProperty().get());
+
+        // A missing launcher manifest does not hide a client update: the banner shows it and no toast is needed.
+        ctx.toasts.clear();
+        ctx.backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true));
+        vm.check(true);
+        assertTrue(ctx.toasts.toasts().isEmpty(), String.valueOf(ctx.toasts.toasts()));
+        assertTrue(vm.bannerVisibleProperty().get());
+
+        // Not interactive (startup check): no toast at all.
+        ctx.backend.clientUpdate = Optional.empty();
+        ctx.backend.clientCheckFailure = new dev.vanta.launcher.core.install.NotPublishedException("client", "", "missing");
+        vm.check(false);
+        assertTrue(ctx.toasts.toasts().isEmpty(), String.valueOf(ctx.toasts.toasts()));
+    }
+
+    @Test
     void checkFailureIsReported() {
         ctx.backend.launcherCheckFailure = new java.net.UnknownHostException("releases.example");
         vm.check(true);
@@ -145,5 +201,22 @@ class UpdateViewModelTest {
         ctx.backend.documents.clear();
         vm.loadChangelog(update, text::set, error -> text.set("ERR"));
         assertEquals("ERR", text.get());
+    }
+
+    @Test
+    void releasePageForPlatformsWithoutAnAsset() {
+        final UpdateViewModel withReleases;
+        final Properties props = new Properties();
+        props.setProperty("releases.url", "https://github.com/example/vanta/releases");
+        withReleases = new UpdateViewModel(ctx.session, ctx.backend, ctx.executors, ctx.messages, ctx.formats, ctx.toasts, new LauncherLinks(props, Map.of()));
+        final dev.vanta.launcher.core.update.UpdateInfo base = FakeBackend.update(ReleaseManifest.PRODUCT_LAUNCHER, "1.0.0", "1.1.0", true);
+        final dev.vanta.launcher.core.update.UpdateInfo noAsset = new dev.vanta.launcher.core.update.UpdateInfo(base.product(), base.currentVersion(),
+            base.latestVersion(), base.changelog(), new ReleaseManifest.ReleaseFile("", "", 0, ""), "", base.manifest(),
+            "https://github.com/example/vanta/releases/tag/launcher-v1.1.0");
+        assertFalse(noAsset.hasPlatformAsset());
+        assertEquals(Optional.of(URI.create("https://github.com/example/vanta/releases/tag/launcher-v1.1.0")), withReleases.releasePage(noAsset));
+        assertEquals(Optional.of(URI.create("https://github.com/example/vanta/releases")), withReleases.releasePage(base),
+            "without a release page in the manifest the project's releases page is used");
+        assertTrue(vm.releasePage(base).isEmpty(), "nothing configured, nothing shown");
     }
 }

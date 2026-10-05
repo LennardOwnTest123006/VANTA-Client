@@ -162,7 +162,8 @@ def generateBuildInfo = tasks.register('generateBuildInfo') {
         'minecraft.version'   : project.minecraft_version,
         'fabric.loader.version': project.fabric_loader_version,
         'fabric.api.version'  : project.fabric_api_version,
-        'javafx.version'      : project.javafx_version
+        'javafx.version'      : project.javafx_version,
+        'javafx.platform'     : javafxPlatform
     ]
     inputs.properties(props)
     outputs.dir(outDir)
@@ -179,13 +180,14 @@ sourceSets.main.resources.srcDir(generatedResources)
 tasks.named('processResources') { dependsOn generateBuildInfo }
 
 // ---------------------------------------------------------------------------------------------
-// fatJar: everything except JavaFX (JavaFX comes from the jlink runtime image or the host JDK classpath)
+// fatJar: one runnable jar with every dependency INCLUDING JavaFX for the target platform. JavaFX jars carry
+// native libraries for exactly one platform, so a fat jar built for `win` shows its window with any Java 21 on
+// Windows x64 only (`-PjavafxPlatform` selects the target; it defaults to the build host). jpackage bundles the same
+// jar: there the JavaFX modules of the jlink runtime take precedence over the copies on the class path.
 // ---------------------------------------------------------------------------------------------
-def isJavafxJar = { File f -> f.name.startsWith('javafx-') }
-
 def fatJar = tasks.register('fatJar', Jar) {
     group = 'build'
-    description = 'Assembles a single runnable jar with all dependencies except JavaFX.'
+    description = "Assembles a single runnable jar with all dependencies, including JavaFX for ${javafxPlatform} (runs on that platform only)."
     dependsOn tasks.named('classes')
     archiveClassifier = 'all'
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -195,12 +197,14 @@ def fatJar = tasks.register('fatJar', Jar) {
             'Implementation-Title': 'VANTA Launcher',
             'Implementation-Version': project.version,
             'Implementation-Vendor': 'VANTA',
-            'Multi-Release': 'true'
+            'Multi-Release': 'true',
+            'JavaFX-Platform': javafxPlatform
         )
     }
     from(sourceSets.main.output)
-    def runtimeJars = configurations.runtimeClasspath.filter { File f -> !isJavafxJar(f) }
+    def runtimeJars = configurations.runtimeClasspath
     inputs.files(runtimeJars)
+    inputs.property('javafxPlatform', javafxPlatform)
     from({ runtimeJars.collect { File f -> zipTree(f) } }) {
         exclude 'module-info.class'
         exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/*.EC'
@@ -225,15 +229,18 @@ def jdkTool = { String name ->
 
 tasks.register('jdeps', Exec) {
     group = 'verification'
-    description = 'Prints the JDK module dependencies of the fat jar (maintenance aid for jlinkImage).'
-    dependsOn fatJar
-    def jarFile = fatJar.flatMap { it.archiveFile }
+    description = 'Prints the JDK module dependencies of the launcher (maintenance aid for jlinkImage).'
+    dependsOn tasks.named('jar')
+    def jarFile = tasks.named('jar', Jar).flatMap { it.archiveFile }
+    def libs = configurations.runtimeClasspath
     def fxPath = configurations.javafxRuntime
     inputs.file(jarFile)
+    inputs.files(libs)
     doFirst {
         def modulePath = fxPath.files.join(File.pathSeparator)
-        commandLine([jdkTool('jdeps'), '--multi-release', '21', '--ignore-missing-deps', '--print-module-deps',
-                     '--module-path', modulePath, jarFile.get().asFile.absolutePath])
+        def classPath = libs.files.findAll { !it.name.startsWith('javafx-') }.join(File.pathSeparator)
+        commandLine([jdkTool('jdeps'), '--multi-release', '21', '--ignore-missing-deps', '--print-module-deps', '--recursive',
+                     '--module-path', modulePath, '--class-path', classPath, jarFile.get().asFile.absolutePath])
     }
 }
 

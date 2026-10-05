@@ -6,6 +6,8 @@ import dev.vanta.launcher.core.auth.AccountType;
 import dev.vanta.launcher.core.install.InstallListener;
 import dev.vanta.launcher.core.install.InstallProgress;
 import dev.vanta.launcher.core.install.InstallRequest;
+import dev.vanta.launcher.core.install.OfficialProfileService;
+import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.launch.LaunchRequest;
 import dev.vanta.launcher.core.model.InstanceInfo;
@@ -49,6 +51,10 @@ import java.util.function.Consumer;
  * <p>The launch flow is: ensure Java → ensure installed/verified → refresh the account token → start the game →
  * stream its output into the game log → {@code RUNNING} → exit code notification. Every blocking step runs on the
  * background executor; properties change only on the UI thread.</p>
+ *
+ * <p>"Use with the Minecraft Launcher" ({@link #prepareOfficialProfile} → confirmation in the view →
+ * {@link #installOfficialProfile}) runs through {@code INSTALLING} as well and needs neither an account nor Java:
+ * the official Minecraft Launcher signs in and provides Java itself.</p>
  */
 public final class HomeViewModel {
 
@@ -88,6 +94,8 @@ public final class HomeViewModel {
     private final StringProperty phaseText = new SimpleStringProperty("");
     private final ReadOnlyObjectWrapper<RunningGame> game = new ReadOnlyObjectWrapper<>();
     private final BooleanProperty javaInstalling = new SimpleBooleanProperty(false);
+    private final BooleanProperty officialBusy = new SimpleBooleanProperty(false);
+    private final StringProperty officialDoneText = new SimpleStringProperty("");
     private final BooleanBinding playEnabled;
     private final StringBinding blockReason;
     private final StringBinding idleBlockReason;
@@ -126,13 +134,13 @@ public final class HomeViewModel {
         playEnabled = Bindings.createBooleanBinding(() -> (state.get() == State.READY || state.get() == State.ERROR)
             && session.account().isPresent() && session.java().isPresent(), state, session.accountProperty(), session.javaProperty());
         blockReason = Bindings.createStringBinding(this::computeBlockReason, state, session.accountProperty(), session.javaProperty(),
-            session.detectingJavaProperty());
+            session.detectingJavaProperty(), session.signInConfiguredProperty());
         idleBlockReason = Bindings.createStringBinding(() -> isBusy() ? "" : idleBlockReason(), state, session.accountProperty(),
-            session.javaProperty(), session.detectingJavaProperty());
+            session.javaProperty(), session.detectingJavaProperty(), session.signInConfiguredProperty());
         statusText = Bindings.createStringBinding(this::computeStatusText, state, phaseText);
         titleText = Bindings.createStringBinding(this::computeTitle, state, session.accountProperty(), session.javaProperty());
         leadText = Bindings.createStringBinding(this::computeLead, state, session.accountProperty(), session.javaProperty(),
-            session.instanceProperty());
+            session.instanceProperty(), session.signInConfiguredProperty());
         factsText = Bindings.createStringBinding(this::computeFacts, session.javaProperty());
 
         session.accountProperty().addListener((obs, old, now) -> recomputeIdleState());
@@ -222,6 +230,21 @@ public final class HomeViewModel {
         return javaInstalling;
     }
 
+    /** @return whether "Use with the Minecraft Launcher" is running */
+    public ReadOnlyBooleanProperty officialBusyProperty() {
+        return officialBusy;
+    }
+
+    /** @return confirmation shown after the official launcher profile was set up (empty otherwise) */
+    public ReadOnlyStringProperty officialDoneTextProperty() {
+        return officialDoneText;
+    }
+
+    /** @return whether a long-running operation (install, verify, official profile, game) is active */
+    public boolean busy() {
+        return isBusy();
+    }
+
     /** @return whether an install/verify is cancellable right now */
     public boolean canCancel() {
         return state.get() == State.INSTALLING || state.get() == State.VERIFYING;
@@ -254,6 +277,7 @@ public final class HomeViewModel {
         final CancellationToken token = new CancellationToken();
         cancellation.set(token);
         errorText.set("");
+        officialDoneText.set("");
         beginProgress(session.instance().isPresent() ? State.VERIFYING : State.INSTALLING);
         running = Async.run(executors, () -> {
             final InstanceInfo installed = backend.install(request, installListener(), token);
@@ -296,6 +320,7 @@ public final class HomeViewModel {
         final CancellationToken token = new CancellationToken();
         cancellation.set(token);
         errorText.set("");
+        officialDoneText.set("");
         beginProgress(session.instance().isPresent() ? State.VERIFYING : State.INSTALLING);
         final boolean hadInstance = session.instance().isPresent();
         running = Async.run(executors, () -> backend.install(InstallRequest.standard(), installListener(), token), installed -> {
@@ -309,6 +334,76 @@ public final class HomeViewModel {
                     installed.minecraftVersion(), installed.fabricLoaderVersion()));
             }
         }, this::fail);
+    }
+
+    /**
+     * First half of "Use with the Minecraft Launcher": reads what would be written into the official Minecraft
+     * directory (nothing is changed) and hands it to the view, which asks for confirmation. A missing or unreadable
+     * {@code launcher_profiles.json} is reported as an error toast instead.
+     *
+     * @param onPlan receives the plan on the UI thread
+     */
+    public void prepareOfficialProfile(final Consumer<OfficialProfileService.Plan> onPlan) {
+        if (isBusy()) {
+            return;
+        }
+        Async.run(executors, backend::officialProfilePlan, onPlan, error -> {
+            final String text = errors.describe(error);
+            launcherLog.append(LogLevel.WARN, text);
+            toasts.error(messages.get("official.toast.failed.title"), text);
+        });
+    }
+
+    /**
+     * Second half of "Use with the Minecraft Launcher", after the user confirmed: installs Fabric API and the VANTA
+     * client into the instance and adds the profile to the official launcher. Needs neither an account nor Java.
+     */
+    public void installOfficialProfile() {
+        if (isBusy()) {
+            return;
+        }
+        final CancellationToken token = new CancellationToken();
+        cancellation.set(token);
+        errorText.set("");
+        officialDoneText.set("");
+        officialBusy.set(true);
+        beginProgress(State.INSTALLING);
+        phaseText.set(messages.get("home.status.official"));
+        running = Async.run(executors, () -> backend.installOfficialProfile(installListener(), token), result -> {
+            officialBusy.set(false);
+            endProgress();
+            settle();
+            final String done = messages.format("official.toast.done.message", result.profileName());
+            officialDoneText.set(done);
+            launcherLog.append(LogLevel.INFO, (result.created() ? "Added" : "Updated") + " the Minecraft Launcher profile '"
+                + result.profileName() + "' (" + result.versionId() + ", game directory " + result.gameDir() + ")");
+            toasts.success(messages.format("official.toast.done.title", result.profileName()), done);
+        }, error -> {
+            officialBusy.set(false);
+            fail(error);
+        });
+    }
+
+    /**
+     * @param kind kind of a file the official launcher setup writes
+     * @return localised description for the confirmation dialog
+     */
+    public String officialPlanLabel(final OfficialProfileService.Kind kind) {
+        return switch (kind) {
+            case FABRIC_API -> messages.format("official.plan.fabricApi", LauncherVersion.FABRIC_API);
+            case VANTA_CLIENT -> messages.get("official.plan.vantaClient");
+            case VANTA_CLIENT_LOCAL -> messages.get("official.plan.vantaClientLocal");
+            case CLIENT_ROLLBACK_COPY -> messages.get("official.plan.rollbackCopy");
+            case INSTANCE_RECORD -> messages.get("official.plan.instanceRecord");
+            case REPLACED_JAR -> messages.get("official.plan.replacedJar");
+            case PRUNED_ROLLBACK_COPY -> messages.format("official.plan.prunedRollbackCopy", Integer.toString(VantaClientService.KEEP_VERSIONS));
+            case VERSION_JSON -> messages.format("official.plan.versionJson", LauncherVersion.FABRIC_LOADER);
+            case VERSION_JAR -> messages.get("official.plan.versionJar");
+            case PROFILES_BACKUP -> messages.get("official.plan.profilesBackup");
+            case PROFILES -> messages.get("official.plan.profiles");
+            case STORE_PROFILES_BACKUP -> messages.get("official.plan.storeProfilesBackup");
+            case STORE_PROFILES -> messages.get("official.plan.storeProfiles");
+        };
     }
 
     /** Cancels a running install/verify. */
@@ -492,7 +587,7 @@ public final class HomeViewModel {
     /** @return why PLAY is disabled in an idle state ("" when it is enabled); shown under the button */
     public String idleBlockReason() {
         if (session.account().isEmpty()) {
-            return messages.get("home.block.noAccount");
+            return session.signInConfiguredProperty().get() ? messages.get("home.block.noAccount") : messages.get("home.block.noSignIn");
         }
         if (session.java().isEmpty()) {
             return session.detectingJavaProperty().get() ? messages.get("java.card.detecting")
@@ -533,7 +628,8 @@ public final class HomeViewModel {
 
     private String computeLead() {
         return switch (state.get()) {
-            case NOT_READY -> session.account().isEmpty() ? messages.get("home.lead.noAccount")
+            case NOT_READY -> session.account().isEmpty()
+                ? session.signInConfiguredProperty().get() ? messages.get("home.lead.noAccount") : messages.get("home.lead.noSignIn")
                 : messages.format("home.lead.noJava", LauncherVersion.MINECRAFT, Integer.toString(LauncherVersion.JAVA_MAJOR));
             case READY -> session.instance().isPresent() ? messages.get("home.lead.ready")
                 : messages.format("home.lead.readyNotInstalled", LauncherVersion.MINECRAFT);

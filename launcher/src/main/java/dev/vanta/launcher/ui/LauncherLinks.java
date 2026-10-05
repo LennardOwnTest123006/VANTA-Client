@@ -60,7 +60,13 @@ public final class LauncherLinks {
 
     /** @return launcher documentation page */
     public URI launcherDocs() {
-        return required("docs.launcher.url", source().toString() + "/blob/main/docs/launcher.md");
+        return required("docs.launcher.url", source().toString() + "/blob/HEAD/docs/launcher.md");
+    }
+
+    /** @return the project's releases page when configured */
+    public Optional<URI> releases() {
+        final String value = props.getProperty("releases.url", "").trim();
+        return value.isEmpty() ? Optional.empty() : parse(value).filter(u -> isHttp(u.toString()));
     }
 
     /** @return documentation section explaining the Microsoft client id */
@@ -90,7 +96,7 @@ public final class LauncherLinks {
      * @return URL of the raw markdown when the reference can be resolved
      */
     public Optional<URI> changelogRaw(final String changelog) {
-        return resolveChangelog(changelog, "changelog.raw.base", source().toString() + "/raw/main/");
+        return resolveChangelog(changelog, "changelog.raw.base", source().toString() + "/raw/HEAD/");
     }
 
     /**
@@ -100,7 +106,7 @@ public final class LauncherLinks {
      * @return browser URL
      */
     public Optional<URI> changelogPage(final String changelog) {
-        return resolveChangelog(changelog, "changelog.browse.base", source().toString() + "/blob/main/");
+        return resolveChangelog(changelog, "changelog.browse.base", source().toString() + "/blob/HEAD/");
     }
 
     private Optional<URI> resolveChangelog(final String changelog, final String baseKey, final String fallbackBase) {

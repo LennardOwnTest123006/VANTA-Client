@@ -13,6 +13,9 @@ import dev.vanta.launcher.core.install.InstallProgress;
 import dev.vanta.launcher.core.install.InstallRequest;
 import dev.vanta.launcher.core.install.InsufficientDiskSpaceException;
 import dev.vanta.launcher.core.install.NotPublishedException;
+import dev.vanta.launcher.core.install.OfficialLauncherNotFoundException;
+import dev.vanta.launcher.core.install.OfficialProfileService;
+import dev.vanta.launcher.core.install.ReleasesNotConfiguredException;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.java.UnsafeArchiveException;
 import dev.vanta.launcher.core.launch.GameProcess;
@@ -24,8 +27,10 @@ import dev.vanta.launcher.core.net.DownloadProgressListener;
 import dev.vanta.launcher.core.net.DownloadRequest;
 import dev.vanta.launcher.core.net.HttpStatusException;
 import dev.vanta.launcher.core.net.IntegrityException;
+import dev.vanta.launcher.core.net.NetworkErrors;
 import dev.vanta.launcher.core.paths.LauncherPaths;
 import dev.vanta.launcher.core.settings.LauncherSettings;
+import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
 import dev.vanta.launcher.core.settings.Resolution;
 import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateInfo;
@@ -51,6 +56,7 @@ import java.util.function.Function;
  *
  * <pre>
  * vanta-launcher --install [--client-jar path] [--without-client] [--no-assets]
+ * vanta-launcher --install-official-profile [--minecraft-dir path] [--client-jar path]
  * vanta-launcher --launch [--dev-offline --username X] [--world name | --server host] [--exit-after seconds]
  * vanta-launcher --check-java [--java path]
  * vanta-launcher --install-java
@@ -137,6 +143,8 @@ public final class LauncherCli {
             case VERSION -> {
                 out.println("VANTA Launcher " + LauncherVersion.VERSION);
                 out.println(LauncherVersion.statusLine());
+                out.println("Built for JavaFX platform " + LauncherVersion.JAVAFX_PLATFORM + " · running on " + os.name() + "/" + os.arch()
+                    + " · Java " + Runtime.version());
                 return ExitCode.OK;
             }
             default -> {
@@ -149,6 +157,7 @@ public final class LauncherCli {
             applyOverrides(services, args);
             return switch (args.command()) {
                 case INSTALL -> install(services, args, out);
+                case INSTALL_OFFICIAL_PROFILE -> installOfficialProfile(services, args, out);
                 case LAUNCH -> launch(services, args, out, err);
                 case CHECK_JAVA -> checkJava(services, args, out);
                 case INSTALL_JAVA -> installJava(services, out);
@@ -199,7 +208,20 @@ public final class LauncherCli {
             LauncherVersion.FABRIC_API, localJar.orElse(null), !args.has("without-client"), !args.has("no-assets"));
         out.println("Installing into " + services.paths().dataDir());
         out.println(LauncherVersion.statusLine() + " · Fabric API " + LauncherVersion.FABRIC_API);
-        final InstallListener listener = new InstallListener() {
+        if (localJar.isEmpty() && !args.has("without-client")) {
+            out.println("VANTA Client release manifests: " + describe(services.releasesBaseUrl()));
+        }
+        final InstallListener listener = progressPrinter(out);
+        final InstanceInfo info = services.installer().install(request, listener, new CancellationToken());
+        out.println("Installed instance '" + info.instanceId() + "': Minecraft " + info.minecraftVersion() + ", Fabric Loader "
+            + info.fabricLoaderVersion() + ", Fabric API " + info.fabricApiVersion()
+            + (info.hasVantaClient() ? ", VANTA Client " + info.vantaClientVersion() : ", no VANTA Client"));
+        out.println("Game directory: " + services.paths().instanceDir());
+        return ExitCode.OK;
+    }
+
+    private static InstallListener progressPrinter(final PrintStream out) {
+        return new InstallListener() {
             private InstallProgress last;
 
             @Override
@@ -217,12 +239,46 @@ public final class LauncherCli {
                 out.println("      " + message);
             }
         };
-        final InstanceInfo info = services.installer().install(request, listener, new CancellationToken());
-        out.println("Installed instance '" + info.instanceId() + "': Minecraft " + info.minecraftVersion() + ", Fabric Loader "
-            + info.fabricLoaderVersion() + ", Fabric API " + info.fabricApiVersion()
-            + (info.hasVantaClient() ? ", VANTA Client " + info.vantaClientVersion() : ", no VANTA Client"));
-        out.println("Game directory: " + services.paths().instanceDir());
+    }
+
+    private ExitCode installOfficialProfile(final LauncherServices services, final CliArgs args, final PrintStream out) throws Exception {
+        final Path minecraftDir = args.option("minecraft-dir").map(Path::of).map(Path::toAbsolutePath)
+            .orElseGet(() -> LauncherPaths.officialMinecraftDirCandidate(os, env, userHome));
+        final Path localJar = args.option("client-jar").map(Path::of).map(Path::toAbsolutePath).orElse(null);
+        final OfficialProfileService.Request request = services.officialProfileRequest(minecraftDir, localJar);
+        out.println("Setting up '" + OfficialProfileService.profileName(request.minecraftVersion()) + "' for the official Minecraft Launcher in "
+            + request.minecraftDir());
+        out.println(LauncherVersion.statusLine() + " · Fabric API " + LauncherVersion.FABRIC_API);
+        if (localJar == null) {
+            out.println("VANTA Client release manifests: " + describe(services.releasesBaseUrl()));
+        }
+        final OfficialProfileService.Plan plan = services.officialProfiles().plan(request);
+        out.println("VANTA Client " + plan.vantaClientVersion() + (localJar == null ? " (published release)" : " (local jar " + localJar + ")"));
+        printPlannedFiles(out, "Files that will be written (a file that is already identical is left as it is):", plan.written());
+        printPlannedFiles(out, "Files that will be removed:", plan.removed());
+        final OfficialProfileService.Result result = services.officialProfiles().install(request, progressPrinter(out), new CancellationToken());
+        out.println((result.created() ? "Added" : "Updated") + " the profile '" + result.profileName() + "' (" + result.profileKey()
+            + ", version " + result.versionId() + ", VANTA Client " + result.vantaClientVersion() + ", -Xmx"
+            + services.settings().memoryMb() + "M)");
+        for (Path backup : result.backups()) {
+            out.println("Backup of the original file: " + backup);
+        }
+        out.println("Game directory: " + result.gameDir());
+        out.println(result.nextStep());
+        out.println("The Minecraft Launcher downloads Minecraft " + LauncherVersion.MINECRAFT + ", its libraries, assets and Java itself and"
+            + " signs you in with Microsoft. If it is open right now, restart it so it reads the new profile.");
         return ExitCode.OK;
+    }
+
+    private static void printPlannedFiles(final PrintStream out, final String header, final List<OfficialProfileService.PlannedFile> files) {
+        if (files.isEmpty()) {
+            return;
+        }
+        out.println(header);
+        for (OfficialProfileService.PlannedFile f : files) {
+            out.println("  - " + f.location());
+            out.println("      " + f.kind().description());
+        }
     }
 
     private ExitCode launch(final LauncherServices services, final CliArgs args, final PrintStream out, final PrintStream err) throws Exception {
@@ -330,14 +386,29 @@ public final class LauncherCli {
     }
 
     private ExitCode checkUpdate(final LauncherServices services, final PrintStream out) throws Exception {
+        final ReleasesBaseUrl releases = services.releasesBaseUrl();
         if (!services.updates().isConfigured()) {
-            out.println("No releases URL is configured (settings \"releasesBaseUrl\" or --releases-url). Update checks are disabled.");
+            out.println("The releases URL '" + releases.url() + "' (" + describeSource(releases) + ") is not a valid http(s) URL."
+                + " Update checks are disabled. Fix it, or leave \"releasesBaseUrl\" empty to use the built-in default.");
             return ExitCode.NOT_CONFIGURED;
         }
-        out.println("Launcher " + LauncherVersion.VERSION + ": " + describe(services.updates().checkLauncher()));
+        out.println("Release manifests: " + describe(releases));
+        int unpublished = 0;
+        try {
+            out.println("Launcher " + LauncherVersion.VERSION + ": " + describe(services.updates().checkLauncher()));
+        } catch (NotPublishedException e) {
+            unpublished++;
+            out.println("Launcher " + LauncherVersion.VERSION + ": no published release found. " + e.getMessage());
+        }
         final Optional<SemVer> client = services.installer().loadInstance().map(InstanceInfo::vantaClientVersion).flatMap(SemVer::tryParse);
-        out.println("Client " + client.map(SemVer::toString).orElse("(not installed)") + ": " + describe(services.updates().checkClient(client)));
-        return ExitCode.OK;
+        final String clientLabel = "Client " + client.map(SemVer::toString).orElse("(not installed)") + ": ";
+        try {
+            out.println(clientLabel + describe(services.updates().checkClient(client)));
+        } catch (NotPublishedException e) {
+            unpublished++;
+            out.println(clientLabel + "no published release found. " + e.getMessage());
+        }
+        return unpublished == 2 ? ExitCode.NOT_PUBLISHED : ExitCode.OK;
     }
 
     // --------------------------------------------------------------------------------------------------
@@ -404,7 +475,23 @@ public final class LauncherCli {
             return "up to date";
         }
         final UpdateInfo u = update.get();
+        if (!u.hasPlatformAsset()) {
+            return "update available: " + u.latestVersion() + " (no download for this platform"
+                + (u.releasePage().isEmpty() ? ")" : "; see " + u.releasePage() + ")");
+        }
         return "update available: " + u.latestVersion() + (u.isDownloadable() ? " (" + u.file().name() + ")" : " (announced, not downloadable yet)");
+    }
+
+    private static String describe(final ReleasesBaseUrl releases) {
+        return releases.url() + " (" + describeSource(releases) + ")";
+    }
+
+    private static String describeSource(final ReleasesBaseUrl releases) {
+        return switch (releases.source()) {
+            case SETTINGS -> "from settings or --releases-url";
+            case ENVIRONMENT -> "from " + LauncherSettings.RELEASES_BASE_URL_ENV;
+            case DEFAULT -> "built-in default";
+        };
     }
 
     /**
@@ -421,10 +508,13 @@ public final class LauncherCli {
             err.println(prefix + root.getMessage());
             return ExitCode.NOT_CONFIGURED;
         }
+        if (root instanceof ReleasesNotConfiguredException || root instanceof OfficialLauncherNotFoundException) {
+            err.println(prefix + root.getMessage());
+            return ExitCode.NOT_CONFIGURED;
+        }
         if (root instanceof NotPublishedException) {
             err.println(prefix + root.getMessage());
-            return root.getMessage() != null && root.getMessage().contains("not configured") || root.getMessage().startsWith("No releases URL")
-                ? ExitCode.NOT_CONFIGURED : ExitCode.NOT_PUBLISHED;
+            return ExitCode.NOT_PUBLISHED;
         }
         if (root instanceof InsufficientDiskSpaceException) {
             err.println(root.getMessage());
@@ -438,14 +528,19 @@ public final class LauncherCli {
             err.println(prefix + root.getMessage());
             return ExitCode.AUTH;
         }
-        if (root instanceof HttpStatusException || root instanceof java.net.ConnectException
-            || root instanceof java.net.UnknownHostException || root instanceof java.net.http.HttpTimeoutException
-            || root instanceof java.net.http.HttpConnectTimeoutException) {
-            err.println(prefix + "network error: " + root.getMessage());
+        if (NetworkErrors.isNetworkFailure(e)) {
+            // The InstallException message names the step and, where known, the URL that failed.
+            err.println(e instanceof InstallException ? e.getMessage() : "Request failed: " + messageOf(e));
+            err.println("network error: " + NetworkErrors.describe(e)
+                + ". Check the internet connection, proxy and firewall settings, then try again.");
             return ExitCode.NETWORK;
         }
-        err.println(prefix + (root.getMessage() == null ? root.toString() : root.getMessage()));
+        err.println(prefix + messageOf(root));
         return ExitCode.FAILURE;
+    }
+
+    private static String messageOf(final Throwable t) {
+        return t.getMessage() == null || t.getMessage().isBlank() ? t.toString() : t.getMessage();
     }
 
     /**
@@ -460,12 +555,13 @@ public final class LauncherCli {
         out.println();
         out.println("Commands:");
         for (CliCommand c : CliCommand.values()) {
-            out.printf("  %-18s %s%n", c.flag(), c.description());
+            out.printf("  %-28s %s%n", c.flag(), c.description());
         }
         out.println();
         out.println("Options:");
         out.printf("  %-28s %s%n", "--data-dir <path>", "Launcher data directory (default: platform data dir or $" + LauncherPaths.HOME_ENV + ")");
-        out.printf("  %-28s %s%n", "--client-jar <path>", "--install: install a local VANTA client jar instead of the published release");
+        out.printf("  %-28s %s%n", "--client-jar <path>", "--install / --install-official-profile: install a local VANTA client jar instead of the published release");
+        out.printf("  %-28s %s%n", "--minecraft-dir <path>", "--install-official-profile: the official Minecraft directory (default: the platform .minecraft)");
         out.printf("  %-28s %s%n", "--without-client", "--install: skip the VANTA client (plain Fabric instance)");
         out.printf("  %-28s %s%n", "--no-assets", "--install: skip game assets (development only; the game will lack sounds and languages)");
         out.printf("  %-28s %s%n", "--dev-offline", "--launch/--print-command: development offline account (requires " + OfflineAccountPolicy.DEV_OFFLINE_ENV + "=1)");
@@ -476,7 +572,8 @@ public final class LauncherCli {
         out.printf("  %-28s %s%n", "--java <path>", "Java home or executable to use");
         out.printf("  %-28s %s%n", "--memory <mb>", "Maximum heap for the game");
         out.printf("  %-28s %s%n", "--resolution <WxH>", "Initial window size");
-        out.printf("  %-28s %s%n", "--releases-url <url>", "Base URL of launcher-latest.json / client-latest.json");
+        out.printf("  %-28s %s%n", "--releases-url <url>", "Base URL of launcher-latest.json / client-latest.json for this run (default: settings,");
+        out.printf("  %-28s %s%n", "", "then $" + LauncherSettings.RELEASES_BASE_URL_ENV + ", then " + LauncherSettings.DEFAULT_RELEASES_BASE_URL + ")");
         out.println();
         out.println("Exit codes:");
         for (ExitCode c : ExitCode.values()) {

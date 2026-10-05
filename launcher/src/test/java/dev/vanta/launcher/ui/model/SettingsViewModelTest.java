@@ -163,4 +163,25 @@ class SettingsViewModelTest {
         assertFalse(vm.dirtyProperty().get());
         assertEquals(FakeBackend.CLOCK, ctx.backend.clock());
     }
+
+    @Test
+    void effectiveReleasesUrlFollowsTheEditorAndResets() {
+        assertEquals("https://releases.example/vanta", vm.effectiveReleasesUrlProperty().get());
+        assertEquals(ctx.messages.get("settings.releasesUrl.source.settings"), vm.effectiveReleasesSourceProperty().get());
+        vm.resetReleasesBaseUrl();
+        assertEquals("", vm.releasesBaseUrlProperty().get());
+        assertEquals(LauncherSettings.DEFAULT_RELEASES_BASE_URL, vm.effectiveReleasesUrlProperty().get());
+        assertEquals(ctx.messages.get("settings.releasesUrl.source.default"), vm.effectiveReleasesSourceProperty().get());
+        assertEquals(LauncherSettings.DEFAULT_RELEASES_BASE_URL, vm.defaultReleasesBaseUrl());
+        assertTrue(vm.dirtyProperty().get());
+        assertTrue(vm.validProperty().get(), "an empty field is valid: the default applies");
+        assertEquals("", vm.toSettings().releasesBaseUrl(), "the default is not copied into settings.json");
+
+        ctx.backend.putEnv(LauncherSettings.RELEASES_BASE_URL_ENV, "https://mirror.example/vanta");
+        vm.releasesBaseUrlProperty().set(" ");
+        vm.releasesBaseUrlProperty().set("");
+        assertEquals("https://mirror.example/vanta", vm.effectiveReleasesUrlProperty().get());
+        assertEquals(ctx.messages.format("settings.releasesUrl.source.environment", LauncherSettings.RELEASES_BASE_URL_ENV),
+            vm.effectiveReleasesSourceProperty().get());
+    }
 }

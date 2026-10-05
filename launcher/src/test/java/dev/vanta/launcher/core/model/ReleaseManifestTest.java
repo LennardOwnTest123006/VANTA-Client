@@ -1,6 +1,7 @@
 package dev.vanta.launcher.core.model;
 
 import dev.vanta.launcher.core.util.Json;
+import dev.vanta.launcher.core.util.OsInfo;
 import dev.vanta.launcher.testutil.Fixtures;
 import org.junit.jupiter.api.Test;
 
@@ -37,11 +38,62 @@ class ReleaseManifestTest {
         assertFalse(m.fileWithExtension(".jar").orElseThrow().hasSha256());
     }
 
+    private static final OsInfo WINDOWS = new OsInfo("windows", "x64", "10.0");
+    private static final OsInfo LINUX = new OsInfo("linux", "x64", "6.8");
+    private static final OsInfo LINUX_ARM = new OsInfo("linux", "arm64", "6.8");
+    private static final OsInfo MAC_ARM = new OsInfo("osx", "arm64", "15.0");
+    private static final OsInfo MAC_INTEL = new OsInfo("osx", "x64", "13.6");
+
     @Test
-    void preferredLauncherFileDependsOnPlatform() {
+    void launcherAssetDependsOnPlatform() {
         final ReleaseManifest m = Json.parse(Fixtures.read("release/launcher-latest.json"), ReleaseManifest.class);
-        assertEquals("VANTA-Launcher-1.1.0.msi", m.preferredFile(true).orElseThrow().name());
-        assertEquals("vanta-launcher-1.1.0-all.jar", m.preferredFile(false).orElseThrow().name());
+        assertEquals("VANTA-Launcher-1.1.0.msi", m.launcherAssetFor(WINDOWS).orElseThrow().name());
+        assertEquals("VANTA-Launcher-1.1.0-linux-x64.tar.gz", m.launcherAssetFor(LINUX).orElseThrow().name());
+        assertEquals("vanta-launcher-1.1.0-macos-aarch64-all.jar", m.launcherAssetFor(MAC_ARM).orElseThrow().name());
+        assertTrue(m.launcherAssetFor(MAC_INTEL).isEmpty(), "Intel macOS has no asset: the release page is offered instead");
+        assertTrue(m.launcherAssetFor(LINUX_ARM).isEmpty(), "the Linux app image bundles an x64 runtime");
+        assertEquals(m.launcherAssetFor(WINDOWS), m.preferredFile(WINDOWS));
+        assertEquals(List.of("VANTA-Launcher-2.0.0.msi", "VANTA-Launcher-2.0.0.exe"), ReleaseManifest.launcherAssetNames("2.0.0", WINDOWS));
+
+        // Without an msi the Windows exe installer is used; the portable zip and fat jars are never picked.
+        final ReleaseManifest exeOnly = new ReleaseManifest(1, "launcher", "1.1.0", "1.21.11", "0.19.5", "0.141.6+1.21.11", 21, "", "stable",
+            List.of(file("vanta-launcher-1.1.0-windows-all.jar"), file("VANTA-Launcher-1.1.0-windows-portable.zip"), file("VANTA-Launcher-1.1.0.exe")), "");
+        assertEquals("VANTA-Launcher-1.1.0.exe", exeOnly.launcherAssetFor(WINDOWS).orElseThrow().name());
+        assertTrue(exeOnly.launcherAssetFor(LINUX).isEmpty(), "the Windows fat jar does not run on Linux");
+    }
+
+    @Test
+    void clientJarIsExactlyTheModJar() {
+        final ReleaseManifest published = Json.parse(Fixtures.read("release/client-latest.json"), ReleaseManifest.class);
+        assertEquals("vanta-client-1.0.0.jar", published.clientJar().orElseThrow().name());
+        assertEquals("vanta-client-1.0.0.jar", published.preferredFile(WINDOWS).orElseThrow().name());
+
+        // Fabric API listed first, the mods bundle and a sources jar: still exactly vanta-client-<version>.jar.
+        final ReleaseManifest tricky = new ReleaseManifest(1, "client", "1.0.0", "1.21.11", "0.19.5", "0.141.6+1.21.11", 21, "", "stable",
+            List.of(file("fabric-api-0.141.6+1.21.11.jar"), file("vanta-client-1.0.0-sources.jar"), file("vanta-client-1.0.0-mods.zip"),
+                file("vanta-client-1.0.0.jar")), "");
+        assertEquals("vanta-client-1.0.0.jar", tricky.clientJar().orElseThrow().name());
+        assertEquals("fabric-api-0.141.6+1.21.11.jar", tricky.fileWithExtension(".jar").orElseThrow().name(),
+            "why the extension lookup must not be used for the client");
+
+        final ReleaseManifest missing = new ReleaseManifest(1, "client", "1.0.0", "1.21.11", "0.19.5", "0.141.6+1.21.11", 21, "", "stable",
+            List.of(file("fabric-api-0.141.6+1.21.11.jar"), file("vanta-client-0.9.0.jar")), "");
+        assertTrue(missing.clientJar().isEmpty(), "a jar of another version is not this release's client jar");
+    }
+
+    @Test
+    void releasePageIsDerivedFromGithubAssetUrls() {
+        final ReleaseManifest m = Json.parse(Fixtures.read("release/launcher-latest.json"), ReleaseManifest.class);
+        assertEquals("https://github.com/vanta-client/vanta/releases/tag/launcher-v1.1.0", m.releasePageUrl().orElseThrow());
+        assertTrue(Json.parse(Fixtures.read("release/client-unpublished.json"), ReleaseManifest.class).releasePageUrl().isEmpty(),
+            "no URL, no release page");
+        final ReleaseManifest elsewhere = new ReleaseManifest(1, "launcher", "1.1.0", "1.21.11", "0.19.5", "x", 21, "", "stable",
+            List.of(new ReleaseManifest.ReleaseFile("a.msi", "https://cdn.example/a.msi", 1, "ab")), "");
+        assertTrue(elsewhere.releasePageUrl().isEmpty(), "only GitHub release assets map to a release page");
+    }
+
+    private static ReleaseManifest.ReleaseFile file(final String name) {
+        return new ReleaseManifest.ReleaseFile(name, "https://github.com/vanta-client/vanta/releases/download/x/" + name, 10, "ab".repeat(32));
     }
 
     @Test

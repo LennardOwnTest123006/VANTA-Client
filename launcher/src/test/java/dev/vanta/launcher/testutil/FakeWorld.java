@@ -226,10 +226,13 @@ public final class FakeWorld implements AutoCloseable {
         return server.url("releases/").toString();
     }
 
-    /** @return endpoints pointing at this world (auth endpoints relative to the server) */
+    /**
+     * @return endpoints pointing at this world (auth endpoints relative to the server; the built-in releases base URL
+     *     is this world's {@code releases/})
+     */
     public ServiceEndpoints endpoints() {
         return new ServiceEndpoints(manifestUrl(), resourcesBase(), fabricMetaBase(), fabricMavenBase(), server.url("adoptium/v3/"),
-            MicrosoftAuthService.Endpoints.relativeTo(server.url("auth/")));
+            MicrosoftAuthService.Endpoints.relativeTo(server.url("auth/")), releasesBase());
     }
 
     /**

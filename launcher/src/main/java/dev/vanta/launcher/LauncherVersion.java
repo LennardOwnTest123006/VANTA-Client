@@ -19,6 +19,11 @@ public final class LauncherVersion {
     public static final String FABRIC_LOADER;
     /** Fabric API version (Maven version string, e.g. {@code 0.141.6+1.21.11}). */
     public static final String FABRIC_API;
+    /**
+     * JavaFX platform classifier the jar was built for ({@code win}, {@code linux}, {@code mac-aarch64}, ...). The
+     * fat jar bundles JavaFX natives for this platform only.
+     */
+    public static final String JAVAFX_PLATFORM;
     /** Java major version required by Minecraft 1.21.11. */
     public static final int JAVA_MAJOR = 21;
     /** Instance id used for the game directory and the {@code --version} argument. */
@@ -39,6 +44,7 @@ public final class LauncherVersion {
         MINECRAFT = props.getProperty("minecraft.version", "1.21.11");
         FABRIC_LOADER = props.getProperty("fabric.loader.version", "0.19.5");
         FABRIC_API = props.getProperty("fabric.api.version", "0.141.6+1.21.11");
+        JAVAFX_PLATFORM = props.getProperty("javafx.platform", "unknown");
         INSTANCE_ID = "vanta-" + MINECRAFT;
         USER_AGENT = "VANTA-Launcher/" + VERSION;
     }

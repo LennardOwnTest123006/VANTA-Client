@@ -117,17 +117,30 @@ public final class LauncherPaths {
      * @return directory when present
      */
     public static Optional<Path> officialMinecraftDir(final OsInfo os, final Map<String, String> env, final Path userHome) {
-        final Path candidate;
+        final Path candidate = officialMinecraftDirCandidate(os, env, userHome);
+        return Files.isDirectory(candidate) ? Optional.of(candidate) : Optional.empty();
+    }
+
+    /**
+     * Where the official Minecraft Launcher keeps its data on this platform, whether or not it exists:
+     * Windows {@code %APPDATA%\.minecraft}, macOS {@code ~/Library/Application Support/minecraft}, Linux and others
+     * {@code ~/.minecraft}.
+     *
+     * @param os       host os
+     * @param env      environment variables
+     * @param userHome user home directory
+     * @return the platform default (not checked)
+     */
+    public static Path officialMinecraftDirCandidate(final OsInfo os, final Map<String, String> env, final Path userHome) {
         if (os.isWindows()) {
             final String appData = env.get("APPDATA");
-            candidate = (appData != null && !appData.isBlank() ? Path.of(appData) : userHome.resolve("AppData").resolve("Roaming"))
+            return (appData != null && !appData.isBlank() ? Path.of(appData) : userHome.resolve("AppData").resolve("Roaming"))
                 .resolve(".minecraft");
-        } else if (os.isMac()) {
-            candidate = userHome.resolve("Library").resolve("Application Support").resolve("minecraft");
-        } else {
-            candidate = userHome.resolve(".minecraft");
         }
-        return Files.isDirectory(candidate) ? Optional.of(candidate) : Optional.empty();
+        if (os.isMac()) {
+            return userHome.resolve("Library").resolve("Application Support").resolve("minecraft");
+        }
+        return userHome.resolve(".minecraft");
     }
 
     /** @return the data directory */

@@ -26,7 +26,30 @@ public final class Json {
         .registerTypeAdapter(Argument.class, new Argument.Adapter())
         .create();
 
+    /**
+     * Gson for JSON trees VANTA edits but does not own, such as the official Minecraft Launcher's
+     * {@code launcher_profiles.json} or the Fabric version JSON served by Fabric meta. Unlike {@link #GSON} it writes
+     * object members whose value is JSON {@code null} instead of silently dropping them, so every key of the original
+     * document survives.
+     */
+    private static final Gson TREE_GSON = new GsonBuilder()
+        .setPrettyPrinting()
+        .disableHtmlEscaping()
+        .serializeNulls()
+        .create();
+
     private Json() {
+    }
+
+    /**
+     * Serialises a JSON tree to pretty printed text without losing anything: members with a {@code null} value are
+     * kept, numbers keep their original text and no HTML escaping is applied.
+     *
+     * @param tree parsed JSON
+     * @return JSON text
+     */
+    public static String treeToJson(final JsonElement tree) {
+        return TREE_GSON.toJson(Objects.requireNonNull(tree, "tree"));
     }
 
     /**

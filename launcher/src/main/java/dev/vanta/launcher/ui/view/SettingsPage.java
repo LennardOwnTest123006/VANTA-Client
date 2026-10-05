@@ -184,10 +184,23 @@ public final class SettingsPage extends VBox {
         final VBox clientBlock = new VBox(8, Ui.label(ctx.t("settings.msClientId.label"), "field-label"), clientId,
             Ui.paragraph(ctx.t("settings.msClientId.help"), "field-help"), fromEnv, docs);
 
-        final TextField releases = field(vm.releasesBaseUrlProperty(), ctx.t("settings.releasesUrl.prompt"), 0);
+        // The prompt shows the built-in default: an empty field means "use VANTA_RELEASES_BASE_URL or the default".
+        final TextField releases = field(vm.releasesBaseUrlProperty(), vm.defaultReleasesBaseUrl(), 0);
         releases.getStyleClass().add("mono");
         releases.setMaxWidth(Double.MAX_VALUE);
-        final VBox releasesBlock = new VBox(8, Ui.label(ctx.t("settings.releasesUrl.label"), "field-label"), releases,
+        HBox.setHgrow(releases, Priority.ALWAYS);
+        final Button resetReleases = Ui.button(ctx.t("settings.releasesUrl.resetDefault"), Icons.Icon.ROTATE_CCW, "secondary", "small");
+        resetReleases.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
+        resetReleases.disableProperty().bind(Bindings.createBooleanBinding(() -> vm.releasesBaseUrlProperty().get().isBlank(),
+            vm.releasesBaseUrlProperty()));
+        resetReleases.setOnAction(e -> vm.resetReleasesBaseUrl());
+        final HBox releasesRow = new HBox(8, releases, resetReleases);
+        releasesRow.setAlignment(Pos.CENTER_LEFT);
+        final Label effective = Ui.paragraph("", "field-help", "settings-effective-url");
+        effective.textProperty().bind(Bindings.createStringBinding(() -> ctx.t("settings.releasesUrl.effective",
+            vm.effectiveReleasesUrlProperty().get(), vm.effectiveReleasesSourceProperty().get()),
+            vm.effectiveReleasesUrlProperty(), vm.effectiveReleasesSourceProperty()));
+        final VBox releasesBlock = new VBox(8, Ui.label(ctx.t("settings.releasesUrl.label"), "field-label"), releasesRow, effective,
             Ui.paragraph(ctx.t("settings.releasesUrl.help"), "field-help"));
 
         final Switch autoUpdate = new Switch();

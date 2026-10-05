@@ -7,9 +7,12 @@ import dev.vanta.launcher.core.auth.XboxAuthException;
 import dev.vanta.launcher.core.install.InstallException;
 import dev.vanta.launcher.core.install.InsufficientDiskSpaceException;
 import dev.vanta.launcher.core.install.NotPublishedException;
+import dev.vanta.launcher.core.install.OfficialLauncherNotFoundException;
+import dev.vanta.launcher.core.install.ReleasesNotConfiguredException;
 import dev.vanta.launcher.core.java.UnsafeArchiveException;
 import dev.vanta.launcher.core.net.HttpStatusException;
 import dev.vanta.launcher.core.net.IntegrityException;
+import dev.vanta.launcher.core.net.NetworkErrors;
 import dev.vanta.launcher.ui.Messages;
 
 import java.net.ConnectException;
@@ -21,6 +24,7 @@ import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpTimeoutException;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -81,6 +85,13 @@ public final class ErrorMessages {
         if (error instanceof InsufficientDiskSpaceException disk) {
             return messages.format("error.diskSpace", formats.bytes(disk.requiredBytes()), formats.bytes(disk.availableBytes()));
         }
+        if (error instanceof OfficialLauncherNotFoundException notFound) {
+            return messages.format("error.official.notFound", String.valueOf(notFound.minecraftDir()));
+        }
+        if (error instanceof ReleasesNotConfiguredException releases) {
+            return releases.url().isEmpty() ? messages.get("error.releasesUrl.missing")
+                : messages.format("error.releasesUrl.invalid", releases.url());
+        }
         if (error instanceof NotPublishedException notPublished) {
             return messages.format("error.notPublished", plain(notPublished.getMessage()));
         }
@@ -89,6 +100,11 @@ public final class ErrorMessages {
         }
         if (error instanceof UnsafeArchiveException) {
             return messages.get("error.unsafeArchive");
+        }
+        final Optional<NetworkErrors.Kind> network = NetworkErrors.classify(error);
+        if (network.isPresent() && (network.get() == NetworkErrors.Kind.PROXY || network.get() == NetworkErrors.Kind.TLS)) {
+            final String detail = NetworkErrors.find(error).map(Throwable::getMessage).map(ErrorMessages::plain).orElse("");
+            return messages.format(network.get() == NetworkErrors.Kind.PROXY ? "error.network.proxy" : "error.network.tls", detail);
         }
         if (error instanceof HttpStatusException http) {
             return messages.format("error.network.status", Integer.toString(http.status()));

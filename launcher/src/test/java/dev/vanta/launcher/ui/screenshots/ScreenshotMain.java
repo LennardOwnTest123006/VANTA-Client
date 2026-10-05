@@ -84,8 +84,8 @@ public final class ScreenshotMain {
      */
     static FakeBackend scriptedBackend(final Path data) {
         final FakeBackend backend = new FakeBackend(data);
-        backend.settings = backend.settings.withReleasesBaseUrl("https://releases.vanta.example/").withMsClientId("00000000-0000-4000-8000-000000000000")
-            .withKeepLauncherOpen(true);
+        // The releases URL stays empty: the Settings page shows the built-in default in effect.
+        backend.settings = backend.settings.withMsClientId("00000000-0000-4000-8000-000000000000").withKeepLauncherOpen(true);
         backend.accounts.add(FakeBackend.microsoftAccount("NovaPlayer"));
         backend.javaInstalls.add(backend.temurin21());
         backend.javaInstalls.add(backend.system17());
@@ -98,7 +98,7 @@ public final class ScreenshotMain {
             Instant.parse("2026-09-12T09:15:00Z")));
         backend.kept.add(new VantaClientService.KeptVersion("0.9.1", kept, null, Instant.parse("2026-08-30T20:03:00Z")));
         backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true));
-        backend.documents.put(URI.create("https://raw.githubusercontent.com/LennardOwnTest123006/VANTA-Client/main/website/content/changelog/client-1.1.0.md"),
+        backend.documents.put(URI.create("https://raw.githubusercontent.com/LennardOwnTest123006/VANTA-Client/HEAD/website/content/changelog/client-1.1.0.md"),
             """
             ---
             product: client
@@ -193,6 +193,33 @@ public final class ScreenshotMain {
                 app.stage().setHeight(LauncherApp.MIN_HEIGHT);
             }, 900);
             step("15-versions-min-size", () -> ctx.navigation().navigate(NavigationModel.Page.VERSIONS), 700);
+            step("16-home-no-sign-in", () -> {
+                app.stage().setWidth(LauncherApp.DEFAULT_WIDTH);
+                app.stage().setHeight(LauncherApp.DEFAULT_HEIGHT);
+                backend.signInConfigured = false;
+                backend.accounts.clear();
+                ctx.session().refreshAll();
+                ctx.navigation().navigate(NavigationModel.Page.HOME);
+            }, 900);
+            step("17-official-confirm", window::showOfficialProfile, 900);
+            step("18-home-official-done", () -> {
+                window.dialogs().close();
+                ctx.home().installOfficialProfile();
+            }, 900);
+            step("19-home-no-sign-in-min-size", () -> {
+                app.stage().setWidth(LauncherApp.MIN_WIDTH);
+                app.stage().setHeight(LauncherApp.MIN_HEIGHT);
+                ctx.home().verify();
+                ctx.toasts().clear();
+            }, 900);
+            step("20-settings-releases", () -> {
+                ctx.toasts().clear();
+                app.stage().setWidth(LauncherApp.DEFAULT_WIDTH);
+                app.stage().setHeight(LauncherApp.DEFAULT_HEIGHT);
+                ctx.navigation().navigate(NavigationModel.Page.SETTINGS);
+                // Scroll the settings list to the "Releases and sign-in" section.
+                window.page(NavigationModel.Page.SETTINGS).lookupAll(".scroll-pane").forEach(n -> ((javafx.scene.control.ScrollPane) n).setVvalue(0.5));
+            }, 700);
             next();
         }
 

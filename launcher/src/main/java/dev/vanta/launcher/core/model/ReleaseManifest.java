@@ -1,8 +1,12 @@
 package dev.vanta.launcher.core.model;
 
+import dev.vanta.launcher.core.util.OsInfo;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A VANTA release manifest ({@code shared/releases/*.json}, {@code <releasesBaseUrl>/client-latest.json}, ...).
@@ -29,6 +33,15 @@ public record ReleaseManifest(int schemaVersion, String product, String version,
     public static final String PRODUCT_CLIENT = "client";
     /** Product name of the launcher. */
     public static final String PRODUCT_LAUNCHER = "launcher";
+    /** File name prefix of the VANTA client mod jar ({@code vanta-client-<version>.jar}). */
+    public static final String CLIENT_JAR_PREFIX = "vanta-client-";
+    /** File name prefix of the launcher installers and app images ({@code VANTA-Launcher-<version>...}). */
+    public static final String LAUNCHER_INSTALLER_PREFIX = "VANTA-Launcher-";
+    /** File name prefix of the launcher fat jars ({@code vanta-launcher-<version>-<platform>-all.jar}). */
+    public static final String LAUNCHER_JAR_PREFIX = "vanta-launcher-";
+
+    private static final Pattern GITHUB_RELEASE_ASSET =
+        Pattern.compile("^(https://github\\.com/[^/]+/[^/]+)/releases/download/([^/]+)/[^/]+$");
 
     public ReleaseManifest {
         files = files == null ? List.of() : List.copyOf(files);
@@ -70,7 +83,8 @@ public record ReleaseManifest(int schemaVersion, String product, String version,
     }
 
     /**
-     * Finds the first published file whose name ends with the given extension (case-insensitive).
+     * Finds the first file whose name ends with the given extension (case-insensitive). Prefer the exact lookups
+     * {@link #clientJar()} and {@link #launcherAssetFor(OsInfo)}: a manifest lists several jars.
      *
      * @param extension e.g. {@code .jar}, {@code .msi}
      * @return file when present
@@ -83,28 +97,97 @@ public record ReleaseManifest(int schemaVersion, String product, String version,
     }
 
     /**
-     * The file a given platform should install: for the client the jar; for the launcher the Windows installer
-     * ({@code .msi} preferred, then {@code .exe}) on Windows, else the portable jar.
-     *
-     * @param windows whether the running platform is Windows
-     * @return the preferred file when the manifest lists one
+     * @param name exact file name
+     * @return the file with exactly this name
      */
-    public Optional<ReleaseFile> preferredFile(final boolean windows) {
-        if (PRODUCT_LAUNCHER.equals(product) && windows) {
-            final Optional<ReleaseFile> msi = fileWithExtension(".msi");
-            if (msi.isPresent()) {
-                return msi;
-            }
-            final Optional<ReleaseFile> exe = fileWithExtension(".exe");
-            if (exe.isPresent()) {
-                return exe;
+    public Optional<ReleaseFile> fileNamed(final String name) {
+        return files.stream().filter(f -> f.name() != null && f.name().equals(name)).findFirst();
+    }
+
+    /** @return {@code vanta-client-<version>.jar}, the name of the Fabric mod jar of this client release */
+    public String clientJarName() {
+        return CLIENT_JAR_PREFIX + version + ".jar";
+    }
+
+    /**
+     * The VANTA client mod jar: exactly {@code vanta-client-<version>.jar}. The bundled {@code -mods.zip}, the
+     * Fabric API jar and any {@code -sources.jar} listed in the same manifest are never selected.
+     *
+     * @return the client jar when the manifest lists it
+     */
+    public Optional<ReleaseFile> clientJar() {
+        return fileNamed(clientJarName());
+    }
+
+    /**
+     * Launcher self-update asset names for a platform, in order of preference.
+     *
+     * <ul>
+     *   <li>Windows: {@code VANTA-Launcher-<v>.msi}, then {@code VANTA-Launcher-<v>.exe}</li>
+     *   <li>Linux x64: {@code VANTA-Launcher-<v>-linux-x64.tar.gz}</li>
+     *   <li>macOS on Apple Silicon: {@code vanta-launcher-<v>-macos-aarch64-all.jar}</li>
+     *   <li>anything else (Intel macOS, Linux on ARM, ...): none; the user downloads from the release page</li>
+     * </ul>
+     *
+     * @param launcherVersion launcher version
+     * @param os              platform
+     * @return candidate file names (empty when the release has nothing for the platform)
+     */
+    public static List<String> launcherAssetNames(final String launcherVersion, final OsInfo os) {
+        if (os.isWindows()) {
+            return List.of(LAUNCHER_INSTALLER_PREFIX + launcherVersion + ".msi", LAUNCHER_INSTALLER_PREFIX + launcherVersion + ".exe");
+        }
+        if (os.isLinux() && "x64".equals(os.arch())) {
+            return List.of(LAUNCHER_INSTALLER_PREFIX + launcherVersion + "-linux-x64.tar.gz");
+        }
+        if (os.isMac() && "arm64".equals(os.arch())) {
+            return List.of(LAUNCHER_JAR_PREFIX + launcherVersion + "-macos-aarch64-all.jar");
+        }
+        return List.of();
+    }
+
+    /**
+     * The launcher self-update asset of this manifest for a platform (see {@link #launcherAssetNames}).
+     *
+     * @param os platform
+     * @return the file, also when it is listed but not published yet; empty when the platform has no asset
+     */
+    public Optional<ReleaseFile> launcherAssetFor(final OsInfo os) {
+        for (String name : launcherAssetNames(version, os)) {
+            final Optional<ReleaseFile> file = fileNamed(name);
+            if (file.isPresent()) {
+                return file;
             }
         }
-        final Optional<ReleaseFile> jar = fileWithExtension(".jar");
-        if (jar.isPresent()) {
-            return jar;
+        return Optional.empty();
+    }
+
+    /**
+     * The file a platform should install: for the client exactly {@link #clientJar()}, for the launcher
+     * {@link #launcherAssetFor(OsInfo)}.
+     *
+     * @param os platform
+     * @return the file when the manifest lists one for the platform
+     */
+    public Optional<ReleaseFile> preferredFile(final OsInfo os) {
+        return PRODUCT_LAUNCHER.equals(product) ? launcherAssetFor(os) : clientJar();
+    }
+
+    /**
+     * The GitHub release page, derived from the download URL of a published file
+     * ({@code https://github.com/<owner>/<repo>/releases/download/<tag>/<file>} becomes
+     * {@code https://github.com/<owner>/<repo>/releases/tag/<tag>}).
+     *
+     * @return release page URL when a published file is a GitHub release asset
+     */
+    public Optional<String> releasePageUrl() {
+        for (ReleaseFile f : files) {
+            final Matcher m = GITHUB_RELEASE_ASSET.matcher(f.downloadUrl());
+            if (m.matches()) {
+                return Optional.of(m.group(1) + "/releases/tag/" + m.group(2));
+            }
         }
-        return files.stream().findFirst();
+        return Optional.empty();
     }
 
     /**

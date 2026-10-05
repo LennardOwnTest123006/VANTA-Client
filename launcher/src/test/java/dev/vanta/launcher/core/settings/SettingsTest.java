@@ -86,4 +86,42 @@ class SettingsTest {
         assertThrows(IllegalArgumentException.class, () -> Resolution.parse("ax b"));
         assertThrows(IllegalArgumentException.class, () -> new Resolution(10, 10));
     }
+
+    @Test
+    void releasesBaseUrlPrecedence() {
+        final java.util.Map<String, String> noEnv = java.util.Map.of();
+        final java.util.Map<String, String> env = java.util.Map.of(LauncherSettings.RELEASES_BASE_URL_ENV, " https://mirror.example/vanta ");
+        final LauncherSettings defaults = LauncherSettings.defaults(16384);
+
+        assertEquals(new ReleasesBaseUrl(LauncherSettings.DEFAULT_RELEASES_BASE_URL, ReleasesBaseUrl.Source.DEFAULT),
+            defaults.effectiveReleasesBaseUrl(noEnv), "an empty setting uses the built-in default");
+        assertEquals("https://raw.githubusercontent.com/LennardOwnTest123006/VANTA-Client/HEAD/shared/releases/latest",
+            LauncherSettings.DEFAULT_RELEASES_BASE_URL);
+        assertTrue(defaults.effectiveReleasesBaseUrl(noEnv).isValid());
+        assertTrue(defaults.effectiveReleasesBaseUrl(noEnv).isDefault());
+        assertEquals(new ReleasesBaseUrl("https://mirror.example/vanta", ReleasesBaseUrl.Source.ENVIRONMENT), defaults.effectiveReleasesBaseUrl(env));
+        assertEquals(new ReleasesBaseUrl("https://own.example/r", ReleasesBaseUrl.Source.SETTINGS),
+            defaults.withReleasesBaseUrl(" https://own.example/r ").effectiveReleasesBaseUrl(env), "a non-empty setting wins");
+        assertEquals(ReleasesBaseUrl.Source.DEFAULT, defaults.withReleasesBaseUrl("   ").effectiveReleasesBaseUrl(noEnv).source());
+        assertEquals(ReleasesBaseUrl.Source.DEFAULT,
+            ReleasesBaseUrl.resolve("", java.util.Map.of(LauncherSettings.RELEASES_BASE_URL_ENV, "  ")).source(), "a blank variable is ignored");
+        assertEquals("https://fake/releases/", ReleasesBaseUrl.resolve(null, noEnv, "https://fake/releases/").url());
+
+        final ReleasesBaseUrl invalid = defaults.withReleasesBaseUrl("ftp://releases.example").effectiveReleasesBaseUrl(noEnv);
+        assertEquals(ReleasesBaseUrl.Source.SETTINGS, invalid.source(), "an explicitly configured invalid URL is not replaced silently");
+        assertFalse(invalid.isValid());
+        for (String bad : java.util.List.of("", "releases.example", "http://", "https:// spaced .example", "file:///tmp/x")) {
+            assertFalse(ReleasesBaseUrl.isHttpUrl(bad), bad);
+        }
+        assertTrue(ReleasesBaseUrl.isHttpUrl("http://127.0.0.1:8080/releases/"));
+    }
+
+    @Test
+    void existingSettingsFilesWithAnEmptyUrlUseTheDefault() throws IOException {
+        final SettingsStore store = new SettingsStore(tmp.resolve("old-settings.json"), 16384);
+        Files.writeString(store.file(), "{\"schemaVersion\":1,\"memoryMb\":4096,\"releasesBaseUrl\":\"\"}");
+        final LauncherSettings loaded = store.load();
+        assertFalse(loaded.hasReleasesBaseUrl());
+        assertEquals(LauncherSettings.DEFAULT_RELEASES_BASE_URL, loaded.effectiveReleasesBaseUrl(java.util.Map.of()).url());
+    }
 }

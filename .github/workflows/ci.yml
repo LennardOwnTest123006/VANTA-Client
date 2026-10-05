@@ -282,6 +282,88 @@ jobs:
           JAR=$(ls client-jar/vanta-client-*.jar | grep -v sources | head -1)
           echo "Client jar: $JAR"
           java -jar launcher/build/libs/vanta-launcher-*-all.jar --install --client-jar "$JAR" --data-dir "$RUNNER_TEMP/vanta"
+      - name: Use with the Minecraft Launcher - add the VANTA profile to a fake official .minecraft and verify it
+        run: |
+          set -euo pipefail
+          JAR=$(ls client-jar/vanta-client-*.jar | grep -v sources | head -1)
+          MC="$RUNNER_TEMP/dotminecraft"
+          INSTANCE="$RUNNER_TEMP/vanta/instances/vanta-1.21.11"
+          mkdir -p "$MC"
+          # The --install step above already put both jars into this instance. Remove them so the checks below prove
+          # that --install-official-profile installs them itself (the launch steps afterwards use the jars it wrote).
+          rm -f "$INSTANCE"/mods/vanta-client-*.jar "$INSTANCE"/mods/fabric-api-*.jar
+          if ls "$INSTANCE"/mods/vanta-client-*.jar "$INSTANCE"/mods/fabric-api-*.jar 2>/dev/null; then echo "::error::jars still present"; exit 1; fi
+          # What the official launcher leaves behind after its first start: one unrelated profile, an extra key and
+          # members whose value is null (they must survive the rewrite).
+          cat > "$MC/launcher_profiles.json" <<'JSON'
+          {
+            "profiles": {
+              "ci-unrelated": {"name": "Unrelated vanilla", "type": "custom", "lastVersionId": "1.21.4", "created": "2024-01-01T00:00:00.000Z", "javaDir": null}
+            },
+            "settings": {"crashAssistance": true},
+            "version": 3,
+            "clientToken": null,
+            "ciExtraKey": {"keep": [1, 2, 3]}
+          }
+          JSON
+          java -jar launcher/build/libs/vanta-launcher-*-all.jar --install-official-profile --client-jar "$JAR" --minecraft-dir "$MC" --data-dir "$RUNNER_TEMP/vanta" | tee "$RUNNER_TEMP/official-profile.out"
+          grep -F "Files that will be written" "$RUNNER_TEMP/official-profile.out"
+          grep -F -- "- $MC/launcher_profiles.json.vanta-backup" "$RUNNER_TEMP/official-profile.out"
+          grep -F "Open the Minecraft Launcher, choose the profile 'VANTA 1.21.11' and press Play." "$RUNNER_TEMP/official-profile.out"
+          P="$MC/launcher_profiles.json"
+          jq . "$P" | grep -v '"icon"'
+          jq -e '.profiles["ci-unrelated"] == {"name": "Unrelated vanilla", "type": "custom", "lastVersionId": "1.21.4", "created": "2024-01-01T00:00:00.000Z", "javaDir": null}' "$P"
+          jq -e '.profiles["ci-unrelated"] | has("javaDir")' "$P"
+          jq -e 'has("clientToken") and .clientToken == null' "$P"
+          jq -e '.ciExtraKey == {"keep": [1, 2, 3]} and .settings.crashAssistance == true and .version == 3' "$P"
+          jq -e '.profiles["vanta-1.21.11"].lastVersionId == "fabric-loader-0.19.5-1.21.11"' "$P"
+          jq -e '.profiles["vanta-1.21.11"].name == "VANTA 1.21.11" and .profiles["vanta-1.21.11"].type == "custom"' "$P"
+          jq -e '.profiles["vanta-1.21.11"].icon | startswith("data:image/png;base64,")' "$P"
+          jq -e '.profiles["vanta-1.21.11"].javaArgs | test("^-Xmx[0-9]+M$")' "$P"
+          GAMEDIR=$(jq -r '.profiles["vanta-1.21.11"].gameDir' "$P")
+          echo "gameDir: $GAMEDIR"
+          test "$(realpath -m "$GAMEDIR")" = "$(realpath -m "$INSTANCE")" || { echo "::error::gameDir is not the VANTA instance"; exit 1; }
+          # Written by this step (removed above): the local client jar byte for byte, and exactly one Fabric API jar.
+          ls -la "$GAMEDIR"/mods/
+          cmp "$JAR" "$GAMEDIR/mods/$(basename "$JAR")"
+          test "$(ls "$GAMEDIR"/mods/vanta-client-*.jar | wc -l)" -eq 1
+          test -s "$GAMEDIR/mods/fabric-api-0.141.6+1.21.11.jar"
+          test "$(ls "$GAMEDIR"/mods/fabric-api-*.jar | wc -l)" -eq 1
+          VDIR="$MC/versions/fabric-loader-0.19.5-1.21.11"
+          jq -e '.inheritsFrom == "1.21.11" and .id == "fabric-loader-0.19.5-1.21.11" and (.libraries | length > 0)' "$VDIR"/*.json
+          test -f "$VDIR/fabric-loader-0.19.5-1.21.11.jar"
+          test -f "$P.vanta-backup"
+          echo "official launcher profile verified"
+          # The Minecraft Launcher from the Microsoft Store / Xbox app keeps only launcher_profiles_microsoft_store.json.
+          STORE_MC="$RUNNER_TEMP/dotminecraft-store"
+          mkdir -p "$STORE_MC"
+          printf '%s\n' '{"profiles":{"ci-store":{"name":"Store vanilla","type":"custom","lastVersionId":"1.21.4"}},"settings":{"locale":"de-de"}}' > "$STORE_MC/launcher_profiles_microsoft_store.json"
+          java -jar launcher/build/libs/vanta-launcher-*-all.jar --install-official-profile --client-jar "$JAR" --minecraft-dir "$STORE_MC" --data-dir "$RUNNER_TEMP/vanta"
+          S="$STORE_MC/launcher_profiles_microsoft_store.json"
+          jq -e '.profiles["vanta-1.21.11"].lastVersionId == "fabric-loader-0.19.5-1.21.11"' "$S"
+          jq -e '.profiles["ci-store"].name == "Store vanilla" and .settings.locale == "de-de"' "$S"
+          test -f "$S.vanta-backup"
+          test ! -e "$STORE_MC/launcher_profiles.json" || { echo "::error::launcher_profiles.json must not be created"; exit 1; }
+          test -f "$STORE_MC/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.json"
+          echo "Microsoft Store launcher profile verified"
+      - name: Install the published VANTA client through the built-in releases URL (skipped while no client release is published)
+        run: |
+          set -euo pipefail
+          MANIFEST_URL="https://raw.githubusercontent.com/LennardOwnTest123006/VANTA-Client/HEAD/shared/releases/latest/client-latest.json"
+          if ! BODY=$(curl -fsSL "$MANIFEST_URL") || ! printf '%s' "$BODY" | jq -e '[.files[]?.downloadUrl // "" | select(length > 0)] | length > 0' >/dev/null; then
+            echo "client release manifest not published yet; skipping"
+            exit 0
+          fi
+          VERSION=$(printf '%s' "$BODY" | jq -r .version)
+          echo "Published VANTA Client $VERSION"
+          # No --client-jar and no --releases-url: the launcher must find the release on its own. Assets are skipped
+          # because the previous steps already proved the full install; this step is about the published jar.
+          java -jar launcher/build/libs/vanta-launcher-*-all.jar --install --no-assets --data-dir "$RUNNER_TEMP/vanta-published"
+          INSTANCE="$RUNNER_TEMP/vanta-published/instances/vanta-1.21.11"
+          test -f "$INSTANCE/mods/vanta-client-$VERSION.jar"
+          jq -e --arg v "$VERSION" '.vantaClientVersion == $v and .vantaClientJar == ("vanta-client-" + $v + ".jar")' "$INSTANCE/instance.json"
+          EXPECTED=$(printf '%s' "$BODY" | jq -r --arg n "vanta-client-$VERSION.jar" '.files[] | select(.name == $n) | .sha256')
+          echo "$EXPECTED  $INSTANCE/mods/vanta-client-$VERSION.jar" | sha256sum -c -
       - name: Print the launch command (secrets redacted)
         run: |
           VANTA_DEV_OFFLINE=1 java -jar launcher/build/libs/vanta-launcher-*-all.jar --print-command --dev-offline --username CI --data-dir "$RUNNER_TEMP/vanta"

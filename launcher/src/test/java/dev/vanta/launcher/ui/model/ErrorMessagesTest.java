@@ -88,4 +88,20 @@ class ErrorMessagesTest {
         assertEquals(m.get("common.unknown"), f.isoDateTime(""));
         assertTrue(f.isoDateTime("2026-10-03T18:42:00Z").contains("2026"));
     }
+
+    @Test
+    void releasesOfficialLauncherAndProxyErrors() {
+        assertEquals(m.format("error.releasesUrl.invalid", "ftp://x"),
+            errors.describe(new dev.vanta.launcher.core.install.ReleasesNotConfiguredException("ftp://x", "invalid")));
+        assertEquals(m.get("error.releasesUrl.missing"), errors.describe(new dev.vanta.launcher.core.install.ReleasesNotConfiguredException("", "none")));
+        final java.nio.file.Path dir = java.nio.file.Path.of("dotminecraft");
+        assertEquals(m.format("error.official.notFound", dir.toString()),
+            errors.describe(new dev.vanta.launcher.core.install.OfficialLauncherNotFoundException(dir)));
+        assertEquals(m.format("error.network.proxy", "Tunnel failed, got: 403"), errors.describe(new java.io.IOException("Tunnel failed, got: 403")));
+        assertEquals("Downloading Fabric API failed. " + m.format("error.network.proxy", "Tunnel failed, got: 403"),
+            errors.describe(new InstallException(InstallStep.FABRIC_API, "x", new java.io.IOException("wrapped", new java.io.IOException("Tunnel failed, got: 403")))));
+        assertEquals(m.format("error.network.tls", "PKIX path building failed"),
+            errors.describe(new javax.net.ssl.SSLHandshakeException("PKIX path building failed")));
+        assertEquals(m.get("error.network.offline"), errors.describe(new ConnectException("Connection refused")));
+    }
 }

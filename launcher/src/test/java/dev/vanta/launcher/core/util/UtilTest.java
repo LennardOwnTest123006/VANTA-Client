@@ -51,6 +51,19 @@ class UtilTest {
     }
 
     @Test
+    void treeSerialisationKeepsNullMembersAndNumberText() {
+        final String original = "{\"a\":null,\"nested\":{\"b\":null,\"c\":[null,1e3,2.50]},\"html\":\"<&>\"}";
+        final com.google.gson.JsonElement tree = com.google.gson.JsonParser.parseString(original);
+        final String written = Json.treeToJson(tree);
+        assertEquals(tree, com.google.gson.JsonParser.parseString(written), "nothing is lost: " + written);
+        assertTrue(written.contains("\"a\": null"), written);
+        assertTrue(written.contains("\"b\": null"), written);
+        assertTrue(written.contains("1e3") && written.contains("2.50"), "numbers keep their text: " + written);
+        assertTrue(written.contains("<&>"), "no HTML escaping: " + written);
+        assertFalse(Json.GSON.toJson(tree).contains("\"a\""), "the regular Gson drops null members, which is why the tree variant exists");
+    }
+
+    @Test
     void jsonRejectsNullDocument() {
         assertTrue(org.junit.jupiter.api.Assertions.assertThrows(com.google.gson.JsonParseException.class,
             () -> Json.parse("null", Map.class)).getMessage().contains("Empty"));

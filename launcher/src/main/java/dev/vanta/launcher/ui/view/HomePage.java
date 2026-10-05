@@ -30,6 +30,8 @@ import java.util.Optional;
 
 /**
  * Home: hero card with PLAY, status and progress; side column with account, Java, client version and recent logs.
+ * "Use with Minecraft Launcher" sets VANTA up as a profile of the official Minecraft Launcher; while Microsoft
+ * sign-in is not configured a callout in the hero offers it as the way to play.
  */
 public final class HomePage extends VBox {
 
@@ -39,19 +41,22 @@ public final class HomePage extends VBox {
     private final HomeViewModel vm;
     private final Runnable openSignIn;
     private final Runnable openUpdateDialog;
+    private final Runnable openOfficialProfile;
     private final Circle statusDot = new Circle(4.5);
     private Animation pulse;
 
     /**
-     * @param ctx              context
-     * @param openSignIn       opens the sign-in dialog
-     * @param openUpdateDialog opens the client update dialog
+     * @param ctx                 context
+     * @param openSignIn          opens the sign-in dialog
+     * @param openUpdateDialog    opens the client update dialog
+     * @param openOfficialProfile starts "Use with the Minecraft Launcher" (confirmation dialog first)
      */
-    public HomePage(final AppContext ctx, final Runnable openSignIn, final Runnable openUpdateDialog) {
+    public HomePage(final AppContext ctx, final Runnable openSignIn, final Runnable openUpdateDialog, final Runnable openOfficialProfile) {
         this.ctx = ctx;
         this.vm = ctx.home();
         this.openSignIn = openSignIn;
         this.openUpdateDialog = openUpdateDialog;
+        this.openOfficialProfile = openOfficialProfile;
         getStyleClass().add("page");
         setSpacing(20);
 
@@ -140,14 +145,35 @@ public final class HomePage extends VBox {
             || vm.state() == HomeViewModel.State.VERIFYING || vm.state() == HomeViewModel.State.RUNNING, vm.stateProperty()));
         final Button openFolder = Ui.button(ctx.t("home.openFolder"), Icons.Icon.FOLDER, "ghost");
         openFolder.setOnAction(e -> ctx.opener().openFolder(ctx.backend().paths().instanceDir()));
+        final Button official = officialButton("secondary");
+        official.getStyleClass().add("official-button");
         verify.setMinWidth(Region.USE_PREF_SIZE);
         openFolder.setMinWidth(Region.USE_PREF_SIZE);
-        final javafx.scene.layout.FlowPane secondary = new javafx.scene.layout.FlowPane(10, 10, verify, openFolder);
+        official.setMinWidth(Region.USE_PREF_SIZE);
+        final javafx.scene.layout.FlowPane secondary = new javafx.scene.layout.FlowPane(10, 10, verify, official, openFolder);
         secondary.setAlignment(Pos.CENTER_LEFT);
+
+        // Microsoft sign-in needs an application id approved by Mojang; without it the official launcher is the way to play.
+        final VBox noSignIn = Ui.callout("accent", ctx.t("home.official.callout.title"),
+            ctx.t("home.official.callout.text", LauncherVersion.MINECRAFT), officialButton("primary", "small"));
+        noSignIn.getStyleClass().add("official-callout");
+        final javafx.beans.binding.BooleanBinding calloutShown = Bindings.createBooleanBinding(() -> !ctx.session().signInConfiguredProperty().get()
+                && ctx.session().loadedProperty().get() && ctx.session().account().isEmpty() && !vm.busy()
+                && vm.officialDoneTextProperty().get().isEmpty(),
+            ctx.session().signInConfiguredProperty(), ctx.session().loadedProperty(), ctx.session().accountProperty(), vm.stateProperty(),
+            vm.officialDoneTextProperty());
+        Ui.bindVisible(noSignIn, calloutShown);
+        // The callout carries the same action; the secondary button returns when the callout is gone.
+        Ui.bindVisible(official, calloutShown.not());
+        final VBox officialDone = Ui.callout("accent", ctx.t("official.done.title"), "", null);
+        final Label officialDoneText = (Label) officialDone.getChildren().get(1);
+        officialDoneText.textProperty().bind(vm.officialDoneTextProperty());
+        Ui.bindVisible(officialDone, Bindings.createBooleanBinding(() -> !vm.officialDoneTextProperty().get().isEmpty() && !vm.busy(),
+            vm.officialDoneTextProperty(), vm.stateProperty()));
 
         final VBox top = new VBox(eyebrow, Ui.vgap(6), title, Ui.vgap(8), lead);
         final VBox middle = new VBox(playRow, Ui.vgap(8), blockReason, Ui.vgap(18), facts, Ui.vgap(10), statusLine);
-        final VBox bottom = new VBox(progress, error, Ui.vgap(14), secondary);
+        final VBox bottom = new VBox(progress, error, noSignIn, officialDone, Ui.vgap(14), secondary);
         final Region flexTop = Ui.spacer();
         flexTop.setMinHeight(22);
         flexTop.setMaxHeight(64);
@@ -171,6 +197,14 @@ public final class HomePage extends VBox {
         clip.heightProperty().bind(hero.heightProperty());
         hero.setClip(clip);
         return hero;
+    }
+
+    private Button officialButton(final String... styleClasses) {
+        final Button button = Ui.button(ctx.t("home.official.button"), Icons.Icon.LAYERS, styleClasses);
+        button.setTooltip(Ui.tooltip(ctx.t("home.official.tooltip")));
+        button.setOnAction(e -> openOfficialProfile.run());
+        button.disableProperty().bind(Bindings.createBooleanBinding(vm::busy, vm.stateProperty()));
+        return button;
     }
 
     private void applyState(final HomeViewModel.State state) {

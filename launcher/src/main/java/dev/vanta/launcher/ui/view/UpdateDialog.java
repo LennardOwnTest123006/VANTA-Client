@@ -41,6 +41,8 @@ public final class UpdateDialog implements DialogLayer.Dialog {
         card.getStyleClass().addAll("dialog", "wide");
         card.setSpacing(14);
         final boolean launcher = ReleaseManifest.PRODUCT_LAUNCHER.equals(update.product());
+        // A launcher release may have nothing for this platform (e.g. Intel macOS): point at the release page instead.
+        final boolean noAsset = launcher && !update.hasPlatformAsset();
 
         final Label title = Ui.label(ctx.t(launcher ? "update.dialog.title.launcher" : "update.dialog.title.client",
             update.latestVersion().toString()), "dialog-title");
@@ -52,8 +54,8 @@ public final class UpdateDialog implements DialogLayer.Dialog {
         final ReleaseManifest manifest = update.manifest();
         final Label meta = Ui.label(ctx.t("update.dialog.released", manifest == null || manifest.releaseDate() == null ? ctx.t("common.unknown")
             : manifest.releaseDate(), manifest == null ? "stable" : manifest.channel()), "text-muted", "text-small");
-        final Label file = Ui.label(update.isDownloadable() ? ctx.updates().describeFile(update) : ctx.t("update.banner.notDownloadable"),
-            "text-secondary", "text-small");
+        final Label file = Ui.label(update.isDownloadable() ? ctx.updates().describeFile(update)
+            : noAsset ? ctx.t("update.dialog.noPlatformAsset.short") : ctx.t("update.banner.notDownloadable"), "text-secondary", "text-small");
         final HBox metaRow = new HBox(14, meta, file);
 
         notes.getChildren().add(Ui.label(ctx.t("update.dialog.changelog.loading"), "text-muted"));
@@ -68,8 +70,8 @@ public final class UpdateDialog implements DialogLayer.Dialog {
         final VBox known = manifest != null && manifest.hasNotes()
             ? Ui.callout("warning", ctx.t("update.dialog.notes"), manifest.notes(), null) : null;
 
-        final Label verify = Ui.paragraph(ctx.t(update.isDownloadable() ? "update.dialog.verify" : "update.dialog.notDownloadable"),
-            "text-muted", "text-small");
+        final Label verify = Ui.paragraph(noAsset ? ctx.t("update.dialog.noPlatformAsset", platformName(ctx))
+            : ctx.t(update.isDownloadable() ? "update.dialog.verify" : "update.dialog.notDownloadable"), "text-muted", "text-small");
 
         final ProgressBar progress = new ProgressBar(-1);
         progress.setMaxWidth(Double.MAX_VALUE);
@@ -79,13 +81,21 @@ public final class UpdateDialog implements DialogLayer.Dialog {
         final VBox progressBox = new VBox(6, progress, progressText);
         Ui.bindVisible(progressBox, ctx.updates().busyProperty());
 
-        action = Ui.button(ctx.t(launcher ? "update.dialog.downloadInstaller" : "update.dialog.installClient"),
-            launcher ? Icons.Icon.DOWNLOAD : Icons.Icon.ARROW_UP_CIRCLE, "primary");
-        action.setDisable(!update.isDownloadable());
-        action.disableProperty().bind(Bindings.createBooleanBinding(() -> !update.isDownloadable() || ctx.updates().busyProperty().get(),
-            ctx.updates().busyProperty()));
+        final String actionText = !launcher ? ctx.t("update.dialog.installClient") : switch (update.assetKind()) {
+            case INSTALLER -> ctx.t("update.dialog.downloadInstaller");
+            case ARCHIVE -> ctx.t("update.dialog.downloadArchive");
+            case JAR -> ctx.t("update.dialog.downloadJar");
+            case NONE -> ctx.t("update.dialog.openReleasePage");
+        };
+        action = Ui.button(actionText, noAsset ? Icons.Icon.EXTERNAL : launcher ? Icons.Icon.DOWNLOAD : Icons.Icon.ARROW_UP_CIRCLE, "primary");
+        final boolean hasReleasePage = ctx.updates().releasePage(update).isPresent();
+        action.disableProperty().bind(Bindings.createBooleanBinding(() -> noAsset ? !hasReleasePage
+            : !update.isDownloadable() || ctx.updates().busyProperty().get(), ctx.updates().busyProperty()));
         action.setOnAction(e -> {
-            if (launcher) {
+            if (noAsset) {
+                ctx.updates().releasePage(update).ifPresent(ctx.opener()::browse);
+                close.run();
+            } else if (launcher) {
                 ctx.updates().downloadLauncherUpdate(installer -> {
                     close.run();
                     onInstallerReady.accept(installer);
@@ -113,6 +123,10 @@ public final class UpdateDialog implements DialogLayer.Dialog {
     @Override
     public Node node() {
         return card;
+    }
+
+    private static String platformName(final AppContext ctx) {
+        return dev.vanta.launcher.core.update.UpdateService.describe(ctx.backend().os());
     }
 
     @Override

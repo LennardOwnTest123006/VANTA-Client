@@ -19,7 +19,7 @@ public record CliArgs(CliCommand command, Map<String, String> options, Set<Strin
 
     /** Options that take a value. */
     public static final Set<String> VALUE_OPTIONS = Set.of("client-jar", "username", "data-dir", "java", "memory", "releases-url",
-        "world", "server", "exit-after", "resolution");
+        "world", "server", "exit-after", "resolution", "minecraft-dir");
     /** Boolean flags. */
     public static final Set<String> BOOLEAN_FLAGS = Set.of("dev-offline", "without-client", "no-assets", "verbose", "ui");
 

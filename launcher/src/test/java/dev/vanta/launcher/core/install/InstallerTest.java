@@ -193,15 +193,20 @@ class InstallerTest {
     }
 
     @Test
-    void missingReleasesUrlIsReportedAsNotConfigured() throws Exception {
+    void missingOrInvalidReleasesUrlIsReportedAsNotConfigured() throws Exception {
         final LauncherPaths paths = new LauncherPaths(tmp.resolve("data"));
         final FakeWorld.Wired base = world.wire(paths, LINUX, Optional.empty(), CLOCK);
-        final VantaClientService noUrl = new VantaClientService(base.downloader(), paths, () -> "");
-        final Installer installer = new Installer(paths, LINUX, base.downloader(), base.mojang(), base.fabric(), base.fabricApi(), noUrl, Optional.empty(), CLOCK);
-        final InstallException e = assertThrows(InstallException.class,
-            () -> installer.install(new InstallRequest("1.21.11", "0.19.5", LauncherVersion.FABRIC_API, null, true, false), InstallListener.NONE, new CancellationToken()));
-        assertTrue(e.getCause() instanceof NotPublishedException);
-        assertTrue(e.getMessage().contains("No releases URL is configured"));
+        for (String url : List.of("", "ftp://releases.example/vanta", "not a url")) {
+            final VantaClientService unusable = new VantaClientService(base.downloader(), paths, () -> url);
+            final Installer installer = new Installer(paths, LINUX, base.downloader(), base.mojang(), base.fabric(), base.fabricApi(), unusable,
+                Optional.empty(), CLOCK);
+            final InstallException e = assertThrows(InstallException.class,
+                () -> installer.install(new InstallRequest("1.21.11", "0.19.5", LauncherVersion.FABRIC_API, null, true, false), InstallListener.NONE,
+                    new CancellationToken()));
+            assertEquals(InstallStep.VANTA_CLIENT, e.step());
+            assertTrue(e.getCause() instanceof ReleasesNotConfiguredException, url + ": " + e.getCause());
+            assertTrue(e.getMessage().contains(url.isEmpty() ? "No releases URL is configured" : "is not a valid http(s) URL"), e.getMessage());
+        }
     }
 
     @Test

@@ -10,8 +10,8 @@ public enum ExitCode {
     FAILURE(1, "unexpected failure"),
     /** Invalid command line. */
     USAGE(2, "invalid command line"),
-    /** A required setting is missing (Microsoft client id, releases URL). */
-    NOT_CONFIGURED(3, "not configured"),
+    /** A required setting is missing or unusable (Microsoft client id, releases URL, Minecraft Launcher never started). */
+    NOT_CONFIGURED(3, "not configured (client id, releases URL or Minecraft Launcher setup)"),
     /** A download failed verification. */
     INTEGRITY(4, "integrity check failed"),
     /** Network or server failure. */

@@ -1,5 +1,7 @@
 package dev.vanta.launcher.core.install;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import dev.vanta.launcher.core.launch.LibraryResolver;
 import dev.vanta.launcher.core.launch.ResolvedLibrary;
@@ -93,6 +95,52 @@ public final class FabricService {
     }
 
     /**
+     * @param gameVersion   Minecraft version
+     * @param loaderVersion loader version
+     * @return the Fabric meta URL of the launcher profile JSON
+     */
+    public URI profileUrl(final String gameVersion, final String loaderVersion) {
+        return metaBase.resolve("versions/loader/" + gameVersion + "/" + loaderVersion + "/profile/json");
+    }
+
+    /**
+     * Fetches the launcher profile JSON exactly as Fabric meta serves it (every field kept), for writing into the
+     * official Minecraft Launcher's {@code versions/} directory like the official Fabric installer does. Nothing is
+     * cached or written here.
+     *
+     * @param gameVersion   Minecraft version
+     * @param loaderVersion loader version
+     * @return the profile with {@code id} set to {@link #profileId} and {@code inheritsFrom} checked
+     * @throws IOException          on failure or when the profile does not describe this game/loader combination
+     * @throws InterruptedException when interrupted
+     */
+    public JsonObject fetchProfileTree(final String gameVersion, final String loaderVersion) throws IOException, InterruptedException {
+        final URI url = profileUrl(gameVersion, loaderVersion);
+        final JsonElement tree = json.getTree(url);
+        if (!tree.isJsonObject()) {
+            throw new IOException("Unexpected response from " + url + ": not a JSON object");
+        }
+        final JsonObject profile = tree.getAsJsonObject().deepCopy();
+        final String mainClass = profile.has("mainClass") && profile.get("mainClass").isJsonPrimitive()
+            ? profile.get("mainClass").getAsString() : "";
+        if (mainClass.isBlank()) {
+            throw new IOException("Fabric profile from " + url + " has no main class");
+        }
+        if (!profile.has("libraries") || !profile.get("libraries").isJsonArray() || profile.getAsJsonArray("libraries").isEmpty()) {
+            throw new IOException("Fabric profile from " + url + " lists no libraries");
+        }
+        final String inherits = profile.has("inheritsFrom") && profile.get("inheritsFrom").isJsonPrimitive()
+            ? profile.get("inheritsFrom").getAsString() : "";
+        if (inherits.isEmpty()) {
+            profile.addProperty("inheritsFrom", gameVersion);
+        } else if (!inherits.equals(gameVersion)) {
+            throw new IOException("Fabric profile from " + url + " inherits from " + inherits + ", expected " + gameVersion);
+        }
+        profile.addProperty("id", profileId(gameVersion, loaderVersion));
+        return profile;
+    }
+
+    /**
      * Fetches the launcher profile JSON and stores it as {@code versions/<profileId>/<profileId>.json}. A cached
      * profile is reused.
      *
@@ -115,7 +163,7 @@ public final class FabricService {
                 // re-download below
             }
         }
-        final URI url = metaBase.resolve("versions/loader/" + gameVersion + "/" + loaderVersion + "/profile/json");
+        final URI url = profileUrl(gameVersion, loaderVersion);
         final FabricProfileJson profile = json.get(url, FabricProfileJson.class);
         if (profile.mainClass() == null || profile.mainClass().isBlank()) {
             throw new IOException("Fabric profile for " + id + " has no main class");

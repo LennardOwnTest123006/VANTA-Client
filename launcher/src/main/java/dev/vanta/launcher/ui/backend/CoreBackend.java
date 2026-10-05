@@ -9,6 +9,7 @@ import dev.vanta.launcher.core.auth.OfflineAccountPolicy;
 import dev.vanta.launcher.core.install.InstallException;
 import dev.vanta.launcher.core.install.InstallListener;
 import dev.vanta.launcher.core.install.InstallRequest;
+import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaDetector;
 import dev.vanta.launcher.core.java.JavaInstall;
@@ -24,6 +25,7 @@ import dev.vanta.launcher.core.net.HttpResult;
 import dev.vanta.launcher.core.net.HttpStatusException;
 import dev.vanta.launcher.core.paths.LauncherPaths;
 import dev.vanta.launcher.core.settings.LauncherSettings;
+import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
 import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateInfo;
 import dev.vanta.launcher.core.util.OsInfo;
@@ -234,6 +236,23 @@ public final class CoreBackend implements LauncherBackend {
     @Override
     public boolean updatesConfigured() {
         return services.updates().isConfigured();
+    }
+
+    @Override
+    public ReleasesBaseUrl releasesBaseUrl() {
+        return services.releasesBaseUrl();
+    }
+
+    @Override
+    public OfficialProfileService.Plan officialProfilePlan() throws IOException, InterruptedException {
+        return services.officialProfiles().plan(services.officialProfileRequest(services.officialMinecraftDirCandidate(), null));
+    }
+
+    @Override
+    public OfficialProfileService.Result installOfficialProfile(final InstallListener listener, final CancellationToken token)
+        throws IOException, InterruptedException {
+        return services.officialProfiles().install(services.officialProfileRequest(services.officialMinecraftDirCandidate(), null),
+            listener, token);
     }
 
     @Override

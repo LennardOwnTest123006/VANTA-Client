@@ -12,20 +12,44 @@
     {
       "name": "VANTA-Launcher-1.1.0.msi",
       "downloadUrl": "https://github.com/vanta-client/vanta/releases/download/launcher-v1.1.0/VANTA-Launcher-1.1.0.msi",
-      "size": 61235200,
-      "sha256": "29eb9c8bb1323ae9071f68c206602f36d51f83eb9ef36b4f975c20bca1a5edc5"
+      "size": 4194304,
+      "sha256": "a77be4d15ecfad6b260dc37ab87dcad6f90bf538348e9aa4c07635128df6efb7"
     },
     {
       "name": "VANTA-Launcher-1.1.0.exe",
       "downloadUrl": "https://github.com/vanta-client/vanta/releases/download/launcher-v1.1.0/VANTA-Launcher-1.1.0.exe",
-      "size": 61500416,
-      "sha256": "3fa837d77fcc1c48a90f1f9c90b3ca18607d8ecd0fbdfab7a032644f20c5e91a"
+      "size": 4195328,
+      "sha256": "e19da25c1295c26c09641faaaadb3e43b67ad290378cf4589cee1ceb43e711ab"
     },
     {
-      "name": "vanta-launcher-1.1.0-all.jar",
-      "downloadUrl": "https://github.com/vanta-client/vanta/releases/download/launcher-v1.1.0/vanta-launcher-1.1.0-all.jar",
-      "size": 4194304,
-      "sha256": "2d686d63214e1d98d8ddf97ba052cd44edc3e4cea683ee83f3a035282a4e6400"
+      "name": "VANTA-Launcher-1.1.0-windows-portable.zip",
+      "downloadUrl": "https://github.com/vanta-client/vanta/releases/download/launcher-v1.1.0/VANTA-Launcher-1.1.0-windows-portable.zip",
+      "size": 4196352,
+      "sha256": "698e03bbe0993c66bb1690a1c9fbae899c940e509a39c70de2ce808ea67d62c4"
+    },
+    {
+      "name": "vanta-launcher-1.1.0-windows-all.jar",
+      "downloadUrl": "https://github.com/vanta-client/vanta/releases/download/launcher-v1.1.0/vanta-launcher-1.1.0-windows-all.jar",
+      "size": 4197376,
+      "sha256": "93eb4be80690b15abb84813b411e38edcf3f53faf9db3ddc371460a97797de3b"
+    },
+    {
+      "name": "VANTA-Launcher-1.1.0-linux-x64.tar.gz",
+      "downloadUrl": "https://github.com/vanta-client/vanta/releases/download/launcher-v1.1.0/VANTA-Launcher-1.1.0-linux-x64.tar.gz",
+      "size": 4198400,
+      "sha256": "07fa71ab6634f19cd6f0aaebcd6cad2446450d531622612bfc43dcdca621c65b"
+    },
+    {
+      "name": "vanta-launcher-1.1.0-linux-all.jar",
+      "downloadUrl": "https://github.com/vanta-client/vanta/releases/download/launcher-v1.1.0/vanta-launcher-1.1.0-linux-all.jar",
+      "size": 4199424,
+      "sha256": "c79cc30d732204d876e9d58b11de8008c8bf197e4aef4e81852398f382a66991"
+    },
+    {
+      "name": "vanta-launcher-1.1.0-macos-aarch64-all.jar",
+      "downloadUrl": "https://github.com/vanta-client/vanta/releases/download/launcher-v1.1.0/vanta-launcher-1.1.0-macos-aarch64-all.jar",
+      "size": 4200448,
+      "sha256": "70fdbbc66a99f5a7c5a573f7be10997b484e76b96e020a039fd34a07f1a71bfd"
     }
   ],
   "changelog": "website/content/changelog/launcher-1.1.0.md"

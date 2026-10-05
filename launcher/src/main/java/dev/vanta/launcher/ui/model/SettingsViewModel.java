@@ -3,12 +3,14 @@ package dev.vanta.launcher.ui.model;
 import dev.vanta.launcher.LauncherVersion;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.settings.LauncherSettings;
+import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
 import dev.vanta.launcher.core.settings.Resolution;
 import dev.vanta.launcher.ui.Messages;
 import dev.vanta.launcher.ui.backend.LauncherBackend;
 import dev.vanta.launcher.ui.prefs.UiPreferences;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
+import javafx.beans.binding.StringBinding;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.ObjectProperty;
@@ -23,7 +25,6 @@ import javafx.beans.property.StringProperty;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -80,6 +81,8 @@ public final class SettingsViewModel {
     private final BooleanProperty dirty = new SimpleBooleanProperty(false);
     private final StringProperty errorText = new SimpleStringProperty("");
     private final BooleanBinding valid;
+    private final StringBinding effectiveReleasesUrl;
+    private final StringBinding effectiveReleasesSource;
 
     private LauncherSettings baseline;
     private UiPreferences baselinePrefs = UiPreferences.defaults();
@@ -99,6 +102,8 @@ public final class SettingsViewModel {
         this.baseline = backend.settings();
         valid = Bindings.createBooleanBinding(() -> validationErrors().isEmpty(), memoryMb, javaAuto, javaPath, resolutionEnabled,
             resolutionWidth, resolutionHeight, releasesBaseUrl);
+        effectiveReleasesUrl = Bindings.createStringBinding(() -> effectiveReleasesBaseUrl().url(), releasesBaseUrl);
+        effectiveReleasesSource = Bindings.createStringBinding(() -> sourceText(effectiveReleasesBaseUrl()), releasesBaseUrl);
         for (javafx.beans.Observable o : new javafx.beans.Observable[] {memoryMb, javaAuto, javaPath, jvmArgs, resolutionEnabled,
             resolutionWidth, resolutionHeight, keepLauncherOpen, msClientId, releasesBaseUrl, autoUpdateCheck, shareOfficialFiles,
             developerMode, highContrast, reducedMotion}) {
@@ -173,6 +178,36 @@ public final class SettingsViewModel {
     /** @return releases base URL */
     public StringProperty releasesBaseUrlProperty() {
         return releasesBaseUrl;
+    }
+
+    /**
+     * The releases base URL the launcher uses with the value currently in the editor: the field when non-empty,
+     * else {@code VANTA_RELEASES_BASE_URL}, else the built-in default.
+     *
+     * @return URL in effect
+     */
+    public ReleasesBaseUrl effectiveReleasesBaseUrl() {
+        return ReleasesBaseUrl.resolve(releasesBaseUrl.get(), backend.env(), LauncherSettings.DEFAULT_RELEASES_BASE_URL);
+    }
+
+    /** @return the URL in effect for the current editor value */
+    public StringBinding effectiveReleasesUrlProperty() {
+        return effectiveReleasesUrl;
+    }
+
+    /** @return localised origin of the URL in effect ("built-in default", ...) */
+    public StringBinding effectiveReleasesSourceProperty() {
+        return effectiveReleasesSource;
+    }
+
+    /** @return the built-in releases base URL */
+    public String defaultReleasesBaseUrl() {
+        return LauncherSettings.DEFAULT_RELEASES_BASE_URL;
+    }
+
+    /** Clears the releases URL field so the environment variable or the built-in default applies (saved with {@link #save}). */
+    public void resetReleasesBaseUrl() {
+        releasesBaseUrl.set("");
     }
 
     /** @return auto update check */
@@ -313,7 +348,7 @@ public final class SettingsViewModel {
             problems.add(messages.get("settings.error.resolution"));
         }
         final String url = releasesBaseUrl.get().trim();
-        if (!url.isEmpty() && !isHttpUrl(url)) {
+        if (!url.isEmpty() && !ReleasesBaseUrl.isHttpUrl(url)) {
             problems.add(messages.get("settings.releasesUrl.invalid"));
         }
         return problems;
@@ -395,6 +430,14 @@ public final class SettingsViewModel {
 
     // ---------------------------------------------------------------- helpers
 
+    private String sourceText(final ReleasesBaseUrl url) {
+        return switch (url.source()) {
+            case SETTINGS -> messages.get("settings.releasesUrl.source.settings");
+            case ENVIRONMENT -> messages.format("settings.releasesUrl.source.environment", LauncherSettings.RELEASES_BASE_URL_ENV);
+            case DEFAULT -> messages.get("settings.releasesUrl.source.default");
+        };
+    }
+
     private void markDirty() {
         if (!loading) {
             dirty.set(true);
@@ -441,18 +484,6 @@ public final class SettingsViewModel {
             out.add(current.toString());
         }
         return out;
-    }
-
-    private static boolean isHttpUrl(final String value) {
-        final String lower = value.toLowerCase(Locale.ROOT);
-        if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
-            return false;
-        }
-        try {
-            return java.net.URI.create(value).getHost() != null;
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
     }
 
     /** Receives the result of a successful save. */

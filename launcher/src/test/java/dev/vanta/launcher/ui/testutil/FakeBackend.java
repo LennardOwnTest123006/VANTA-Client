@@ -13,6 +13,7 @@ import dev.vanta.launcher.core.install.InstallProgress;
 import dev.vanta.launcher.core.install.InstallRequest;
 import dev.vanta.launcher.core.install.InstallStep;
 import dev.vanta.launcher.core.install.NotPublishedException;
+import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.launch.GameProcess;
@@ -24,6 +25,7 @@ import dev.vanta.launcher.core.net.DownloadProgressListener;
 import dev.vanta.launcher.core.net.DownloadRequest;
 import dev.vanta.launcher.core.paths.LauncherPaths;
 import dev.vanta.launcher.core.settings.LauncherSettings;
+import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
 import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateInfo;
 import dev.vanta.launcher.core.util.OsInfo;
@@ -170,6 +172,14 @@ public final class FakeBackend implements LauncherBackend {
     public IOException clientCheckFailure;
     /** Failure thrown by the launcher check. */
     public IOException launcherCheckFailure;
+    /** Official Minecraft directory used by the fake "Use with the Minecraft Launcher". */
+    public Path officialMinecraftDir;
+    /** Failure thrown by {@link #officialProfilePlan()}. */
+    public IOException officialPlanFailure;
+    /** Failure thrown by {@link #installOfficialProfile}. */
+    public IOException officialInstallFailure;
+    /** Whether the VANTA profile already exists in the fake official launcher. */
+    public boolean officialProfileExists;
     /** Release notes by URL. */
     public final Map<URI, String> documents = new HashMap<>();
     /** Memory in MiB. */
@@ -184,6 +194,7 @@ public final class FakeBackend implements LauncherBackend {
      */
     public FakeBackend(final Path dataDir) {
         this.paths = new LauncherPaths(dataDir);
+        this.officialMinecraftDir = paths.dataDir().resolveSibling(".minecraft");
     }
 
     // ---------------------------------------------------------------- fixtures
@@ -503,6 +514,49 @@ public final class FakeBackend implements LauncherBackend {
     @Override
     public boolean updatesConfigured() {
         return updatesConfigured;
+    }
+
+    @Override
+    public ReleasesBaseUrl releasesBaseUrl() {
+        return settings.effectiveReleasesBaseUrl(env);
+    }
+
+    @Override
+    public OfficialProfileService.Plan officialProfilePlan() throws IOException {
+        calls.add("officialProfilePlan");
+        if (officialPlanFailure != null) {
+            throw officialPlanFailure;
+        }
+        final String id = "fabric-loader-" + LauncherVersion.FABRIC_LOADER + "-" + LauncherVersion.MINECRAFT;
+        final Path versionDir = officialMinecraftDir.resolve("versions").resolve(id);
+        return new OfficialProfileService.Plan(officialMinecraftDir, paths.instanceDir(), OfficialProfileService.profileKey(LauncherVersion.MINECRAFT),
+            OfficialProfileService.profileName(LauncherVersion.MINECRAFT), id, "1.0.0", List.of(
+                new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.FABRIC_API,
+                    paths.modsDir().resolve("fabric-api-" + LauncherVersion.FABRIC_API + ".jar").toString()),
+                new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.VANTA_CLIENT, paths.modsDir().resolve("vanta-client-1.0.0.jar").toString()),
+                new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.VERSION_JSON, versionDir.resolve(id + ".json").toString()),
+                new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.VERSION_JAR, versionDir.resolve(id + ".jar").toString()),
+                new OfficialProfileService.PlannedFile(OfficialProfileService.Kind.PROFILES,
+                    officialMinecraftDir.resolve(OfficialProfileService.PROFILES_FILE).toString())), officialProfileExists);
+    }
+
+    @Override
+    public OfficialProfileService.Result installOfficialProfile(final InstallListener listener, final CancellationToken token) throws IOException {
+        calls.add("installOfficialProfile");
+        final OfficialProfileService.Plan plan = officialProfilePlan();
+        final List<InstallStep> steps = List.of(InstallStep.FABRIC_PROFILE, InstallStep.FABRIC_API, InstallStep.VANTA_CLIENT, InstallStep.FINALIZE);
+        for (int i = 0; i < steps.size(); i++) {
+            token.throwIfCancelled();
+            listener.onProgress(new InstallProgress(steps.get(i), i, steps.size(), 1, 1, 0, null));
+        }
+        if (officialInstallFailure != null) {
+            throw officialInstallFailure;
+        }
+        final boolean created = !officialProfileExists;
+        officialProfileExists = true;
+        final Path clientJar = paths.modsDir().resolve("vanta-client-1.0.0.jar");
+        return new OfficialProfileService.Result(plan.minecraftDir(), plan.gameDir(), plan.profileKey(), plan.profileName(), plan.versionId(),
+            created, plan.files().stream().map(f -> Path.of(f.location())).toList(), List.of(), "1.0.0", clientJar);
     }
 
     @Override

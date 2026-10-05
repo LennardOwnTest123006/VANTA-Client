@@ -8,14 +8,15 @@ The VANTA Launcher installs and starts **Minecraft Java Edition 1.21.11** with *
 | Minecraft version manifest, version JSON, client jar, libraries, assets | `piston-meta.mojang.com`, `piston-data.mojang.com`, `libraries.minecraft.net`, `resources.download.minecraft.net` | SHA-1 + size from Mojang metadata |
 | Fabric Loader profile and libraries | `meta.fabricmc.net`, `maven.fabricmc.net` | SHA-256/SHA-1 from the profile or the Maven `.sha256`/`.sha1` sidecar |
 | Fabric API | `maven.fabricmc.net` | SHA-256 sidecar |
-| VANTA Client | release manifest (`<releasesBaseUrl>/client-latest.json`) | SHA-256 from the manifest |
+| VANTA Client | release manifest (`<releasesBaseUrl>/client-latest.json`, see [Releases URL](#releases-url)); exactly `vanta-client-<version>.jar` | SHA-256 from the manifest |
 | Java 21 runtime (optional) | Adoptium API (`api.adoptium.net`, Eclipse Temurin JRE) | SHA-256 from the API |
 | Sign-in | Microsoft OAuth device code flow → Xbox Live → XSTS → Minecraft services | — |
 
 Every download is written to a temporary file, verified while streaming and moved into place atomically. A file that
-fails verification is deleted and reported. The launcher never executes anything it downloaded except the verified
-Java runtime it installed for you; archives are extracted with path-traversal protection. Installs are idempotent and
-resumable: files that already exist with the right digest are skipped.
+fails verification is deleted, reported and never used. Apart from the verified Java runtime it installed for you, the
+only downloaded file the launcher hands to the operating system is a verified launcher installer (Windows
+`.msi`/`.exe`), and only after you confirm; archives are extracted with path-traversal protection. Installs are
+idempotent and resumable: files that already exist with the right digest are skipped.
 
 The only secret-like data the launcher handles are OAuth tokens. They are stored encrypted (`accounts.dat`, Windows
 DPAPI or AES-256-GCM with an owner-only key file) and redacted from every log line and from the printed command line.
@@ -26,13 +27,15 @@ There are no passwords: Microsoft sign-in happens in your browser.
 - Java 21 to build (a JDK; `jlink`/`jpackage` come with it)
 - Internet access to Maven Central for the build; Mojang/Fabric/Microsoft endpoints at run time
 - Windows 10/11 is the primary platform for installers; the launcher itself runs on Windows, macOS and Linux
+- A fat jar (`-all.jar`) contains the JavaFX native libraries of **one** platform only: a jar built on Windows does not
+  start its user interface on Linux or macOS, and vice versa. Releases therefore ship one fat jar per platform.
 
 ## Build
 
 ```bash
 cd launcher
 ./gradlew build            # compile, unit tests, build/libs/vanta-launcher-1.0.0.jar + -all.jar
-./gradlew fatJar           # build/libs/vanta-launcher-1.0.0-all.jar (all dependencies except JavaFX)
+./gradlew fatJar           # build/libs/vanta-launcher-1.0.0-all.jar: every dependency incl. JavaFX for -PjavafxPlatform
 ./gradlew run              # start the launcher with the host JDK (UI when present, otherwise CLI help)
 ./gradlew jdeps            # print the JDK modules the fat jar needs (maintenance aid)
 ./gradlew jlinkImage       # build/runtime — trimmed Java 21 + JavaFX runtime for the target platform
@@ -48,6 +51,13 @@ Gradle properties:
 
 Only the JDK's own `jlink` and `jpackage` are used — no third-party packaging plugins. `jpackage` cannot cross-build,
 so each platform package is produced on that platform.
+
+`fatJar` runs with any Java 21 (`java -jar vanta-launcher-1.0.0-all.jar`); JavaFX then loads from the class path and
+prints the harmless warning "Unsupported JavaFX configuration: classes were loaded from 'unnamed module'". jpackage
+bundles the same jar; inside the app image the JavaFX modules of the jlink runtime take precedence. `--version`
+prints the JavaFX platform a jar was built for. The release workflow publishes renamed copies:
+`vanta-launcher-<v>-windows-all.jar`, `vanta-launcher-<v>-linux-all.jar` and `vanta-launcher-<v>-macos-aarch64-all.jar`
+(built and command-line tested on a macOS runner; its user interface is untested there and the jar is unsigned).
 
 ### Windows installers
 
@@ -81,14 +91,34 @@ Minecraft API. It is configuration, never a constant in the code:
 3. Provide the id to the launcher either in `settings.json` (`"msClientId": "..."`) or through the environment
    variable `VANTA_MS_CLIENT_ID`.
 
-Without a client id the launcher explains exactly this and does not offer a fake login.
+Without a client id the launcher explains exactly this and does not offer a fake login. The project does not have an
+approved id, so released builds play through the official Minecraft Launcher instead: see
+[Use with the Minecraft Launcher](#use-with-the-minecraft-launcher).
 
 ### Releases URL
 
-`"releasesBaseUrl"` in `settings.json` (or `--releases-url`) points at the directory holding `client-latest.json` and
-`launcher-latest.json` (the release manifests described in `RELEASE.md`). When it is empty the launcher shows
-"not configured" and installs only when a local client jar is given. A manifest whose `downloadUrl` is empty means
-"no public release yet" and is reported as such.
+The releases base URL is the directory holding `client-latest.json` and `launcher-latest.json` (the release manifests
+described in `RELEASE.md`). The launcher uses, in this order:
+
+1. `--releases-url <url>` (this run only) or a non-empty `"releasesBaseUrl"` in `settings.json`,
+2. the environment variable `VANTA_RELEASES_BASE_URL`,
+3. the built-in default `https://raw.githubusercontent.com/LennardOwnTest123006/VANTA-Client/HEAD/shared/releases/latest`
+   (`LauncherSettings.DEFAULT_RELEASES_BASE_URL`; `HEAD` is the repository's default branch).
+
+Existing `settings.json` files with `"releasesBaseUrl": ""` therefore use the default. Settings → Releases base URL
+shows the URL in effect and where it came from, and "Reset to default" clears an override. Only an explicitly
+configured value that is not an absolute http(s) URL is reported as "not configured" (exit code 3); the launcher never
+guesses another location. No manifest at the URL (HTTP 404) or a manifest whose `downloadUrl` is empty means "no public
+release yet" (exit code 7) and is reported as such.
+
+From a client manifest the launcher installs exactly `vanta-client-<version>.jar`; the `-mods.zip` bundle and the
+Fabric API jar listed in the same release are never mistaken for it (Fabric API always comes from the Fabric Maven).
+
+Launcher self-update assets per platform: Windows `VANTA-Launcher-<v>.msi` (then `.exe`), Linux x64
+`VANTA-Launcher-<v>-linux-x64.tar.gz` (extract it and start `VANTA Launcher/bin/VANTA Launcher`), Apple Silicon macOS
+`vanta-launcher-<v>-macos-aarch64-all.jar` (start it with Java 21). Every other platform (for example an Intel Mac)
+gets no download; the update dialog opens the GitHub release page instead. Only the Windows installer is handed to the
+operating system after confirmation; the archive and the jar are shown in their folder.
 
 ### settings.json
 
@@ -100,7 +130,7 @@ Without a client id the launcher explains exactly this and does not offer a fake
 | `resolution` | initial window size `{ "width", "height" }` | game default |
 | `keepLauncherOpen` | keep the launcher window open while playing | `false` |
 | `msClientId` | Microsoft application id | empty → `VANTA_MS_CLIENT_ID` |
-| `releasesBaseUrl` | base URL of the release manifests | empty (not configured) |
+| `releasesBaseUrl` | base URL of the release manifests | empty → `VANTA_RELEASES_BASE_URL`, else the built-in default |
 | `autoUpdateCheck` | check manifests at start | `true` |
 | `developerMode` | enables development features (see offline accounts) | `false` |
 | `shareOfficialMinecraftFiles` | reuse verified libraries/assets from the official `.minecraft` (read-only) | `true` |
@@ -111,6 +141,43 @@ Without a client id the launcher explains exactly this and does not offer a fake
 VANTA is a legitimate client. Offline sessions are only possible as an *offline session of a Microsoft account that has
 signed in successfully on this computer before* (its verified name and UUID are reused), or — for development and CI
 only — with `developerMode` (or `--dev-offline`) **and** the environment variable `VANTA_DEV_OFFLINE=1`.
+
+## Use with the Minecraft Launcher
+
+Microsoft sign-in inside VANTA needs an application id that Mojang has approved, which the project does not have (see
+above). "Use with Minecraft Launcher" on the Home screen (offered prominently while sign-in is not configured) and
+`--install-official-profile` on the command line make VANTA playable through the **official Minecraft Launcher**
+instead; it downloads Minecraft, its libraries, assets and Java and signs you in with Microsoft. VANTA writes exactly:
+
+| File | Content |
+| --- | --- |
+| `<data>/instances/vanta-1.21.11/mods/fabric-api-0.141.6+1.21.11.jar` | Fabric API from `maven.fabricmc.net`, SHA-256 verified |
+| `<data>/instances/vanta-1.21.11/mods/vanta-client-<v>.jar` | the published VANTA Client (SHA-256 from the manifest) or `--client-jar` |
+| `<data>/versions/vanta-client/<v>/vanta-client-<v>.jar` and `manifest.json` | rollback copy of a published release (not for `--client-jar`) |
+| `<data>/instances/vanta-1.21.11/instance.json` | the installed client version, only when the instance file exists |
+| `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.json` | the Fabric Loader version JSON exactly as `meta.fabricmc.net` serves it |
+| `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.jar` | empty, as the official Fabric installer writes it |
+| `<minecraft>/launcher_profiles.json` | profile `vanta-1.21.11` ("VANTA 1.21.11", custom, VANTA icon, `lastVersionId` above, `gameDir` = the VANTA instance, `javaArgs` `-Xmx<memoryMb>M`), only when that file exists (launcher from minecraft.net) |
+| `<minecraft>/launcher_profiles_microsoft_store.json` | the same profile, only when that file exists (launcher from the Microsoft Store / Xbox app) |
+| `<file>.vanta-backup` next to each profiles file above | one-time backup of the original file, only when no backup exists yet |
+
+Like the regular install, older `fabric-api-*.jar` and `vanta-client-*.jar` files in the instance's `mods/` folder are
+removed so only one version is loaded, and only the 3 newest rollback copies are kept. Before anything is written the
+exact list (with `<v>` resolved from the release manifest, and every file that will be removed) is shown: in the
+confirmation dialog on the Home screen, and as "Files that will be written" / "Files that will be removed" on the command
+line. When the release cannot be installed (no manifest at the releases URL, or no download yet) this check fails first
+with exit code 7 and nothing is listed, downloaded or written.
+
+`<minecraft>` is `--minecraft-dir` or the platform default (`%APPDATA%\.minecraft`, `~/Library/Application
+Support/minecraft`, `~/.minecraft`). The game directory is the same instance the regular install uses. The profiles
+file is parsed as a JSON tree: every other profile and key is kept (including keys whose value is `null`), an existing VANTA entry is updated in place (its
+`created` time and keys VANTA does not manage, such as `javaDir`, survive), the first run keeps a backup
+`<file>.vanta-backup`, and the file is replaced atomically. VANTA writes the profile into every profiles file that
+exists, like the Fabric installer does. Nothing in the Minecraft folder is written before every download succeeded.
+When neither `launcher_profiles.json` nor `launcher_profiles_microsoft_store.json` exists, the Minecraft Launcher has
+never been started there: the command stops with "Start the Minecraft Launcher once, then try again" (exit code 3)
+and changes nothing. Afterwards: open the Minecraft Launcher, choose the profile 'VANTA 1.21.11' and press Play (restart it first
+if it was open).
 
 ## Directory layout
 
@@ -142,6 +209,9 @@ java -jar vanta-launcher-1.0.0-all.jar <command> [options]
 
 Commands
   --install          install Minecraft, Fabric Loader, Fabric API and VANTA Client
+  --install-official-profile
+                     install Fabric API + VANTA Client and add the profile 'VANTA 1.21.11' to the official
+                     Minecraft Launcher (see "Use with the Minecraft Launcher")
   --launch           launch the installed instance
   --check-java       list detected Java runtimes and the one that would be used
   --install-java     download and install Eclipse Temurin 21 (verified) into runtimes/
@@ -152,7 +222,9 @@ Commands
 
 Options
   --data-dir <path>        launcher data directory
-  --client-jar <path>      --install: install a local VANTA client jar instead of the published release
+  --client-jar <path>      --install / --install-official-profile: install a local VANTA client jar instead of the
+                           published release
+  --minecraft-dir <path>   --install-official-profile: the official Minecraft directory (default: platform .minecraft)
   --without-client         --install: plain Fabric instance without the VANTA client
   --no-assets              --install: skip assets (development only)
   --dev-offline            --launch/--print-command: development offline account (needs VANTA_DEV_OFFLINE=1)
@@ -163,19 +235,27 @@ Options
   --java <path>            Java home or executable
   --memory <mb>            maximum heap
   --resolution <WxH>       initial window size
-  --releases-url <url>     base URL of the release manifests
+  --releases-url <url>     base URL of the release manifests for this run (default: settings, then
+                           $VANTA_RELEASES_BASE_URL, then the built-in default)
 ```
 
 Exit codes: `0` success · `1` unexpected failure · `2` invalid command line · `3` not configured (client id /
-releases URL) · `4` integrity check failed · `5` network failure · `6` no Java 21 found · `7` release not published ·
-`8` cancelled · `9` authentication failed / no account · `10` game exited with an error · `11` insufficient disk space.
+unusable releases URL / Minecraft Launcher never started) · `4` integrity check failed · `5` network failure (refused
+connections, DNS, TLS, timeouts, HTTP errors and HTTPS proxy tunnels that answer `CONNECT` with 403/407; the message
+names the step and the URL) · `6` no Java 21 found · `7` release not published · `8` cancelled · `9` authentication
+failed / no account · `10` game exited with an error · `11` insufficient disk space.
 
 CI uses the CLI to integration-test the real pipeline:
 
 ```bash
 java -jar build/libs/vanta-launcher-1.0.0-all.jar --install --client-jar ../client/build/libs/vanta-client-1.0.0.jar --data-dir /tmp/vanta
 VANTA_DEV_OFFLINE=1 java -jar build/libs/vanta-launcher-1.0.0-all.jar --launch --dev-offline --username CI --exit-after 90 --data-dir /tmp/vanta
+java -jar build/libs/vanta-launcher-1.0.0-all.jar --install-official-profile --client-jar ../client/build/libs/vanta-client-1.0.0.jar \
+  --minecraft-dir /tmp/dotminecraft --data-dir /tmp/vanta   # CI checks the result with jq
 ```
+
+Once a client release is published, CI also runs `--install` without `--client-jar` to prove the launcher finds the
+published jar through the built-in releases URL.
 
 ## Code map
 
@@ -189,12 +269,14 @@ dev.vanta.launcher.core.model           Gson models: VersionManifest, VersionJso
                                         FabricLoaderVersion, MavenCoordinate, ReleaseManifest, InstanceInfo, AdoptiumAsset
 dev.vanta.launcher.core.launch          RuleEvaluator, ArgumentExpander, LibraryResolver, ClasspathBuilder,
                                         JvmArgsBuilder, GameArgsBuilder, LaunchService, GameProcess
-dev.vanta.launcher.core.net             HttpTransport (+JdkHttpTransport), Downloader, Checksums, CancellationToken
+dev.vanta.launcher.core.net             HttpTransport (+JdkHttpTransport), Downloader, Checksums, CancellationToken,
+                                        NetworkErrors (transport failure classification)
 dev.vanta.launcher.core.install         MojangService, FabricService, FabricApiService, VantaClientService,
-                                        Installer, InstallPlan, InstallProgress, SharedFileSource
+                                        Installer, InstallPlan, InstallProgress, SharedFileSource,
+                                        OfficialProfileService ("Use with the Minecraft Launcher")
 dev.vanta.launcher.core.java            JavaDetector, ProcessJavaProbe, AdoptiumService, ArchiveExtractor
 dev.vanta.launcher.core.auth            MicrosoftAuthService, AccountStore (DPAPI / AES-GCM), OfflineAccountPolicy
-dev.vanta.launcher.core.settings        LauncherSettings, SettingsStore
+dev.vanta.launcher.core.settings        LauncherSettings, SettingsStore, ReleasesBaseUrl (URL in effect + source)
 dev.vanta.launcher.core.update          UpdateService, UpdateInfo, SemVer
 dev.vanta.launcher.core.log             LauncherLog (java.util.logging, rotating), Redactor
 dev.vanta.launcher.ui                   JavaFX user interface (loaded reflectively by Main), see below

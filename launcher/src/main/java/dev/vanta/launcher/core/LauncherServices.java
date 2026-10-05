@@ -7,6 +7,7 @@ import dev.vanta.launcher.core.install.FabricApiService;
 import dev.vanta.launcher.core.install.FabricService;
 import dev.vanta.launcher.core.install.Installer;
 import dev.vanta.launcher.core.install.MojangService;
+import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.SharedFileSource;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.AdoptiumService;
@@ -20,6 +21,7 @@ import dev.vanta.launcher.core.net.HttpTransport;
 import dev.vanta.launcher.core.net.JdkHttpTransport;
 import dev.vanta.launcher.core.paths.LauncherPaths;
 import dev.vanta.launcher.core.settings.LauncherSettings;
+import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
 import dev.vanta.launcher.core.settings.SettingsStore;
 import dev.vanta.launcher.core.update.SemVer;
 import dev.vanta.launcher.core.update.UpdateService;
@@ -42,7 +44,8 @@ import java.util.logging.Logger;
  *
  * <p>Settings are cached; {@link #settings()} returns the current value and {@link #saveSettings} persists and
  * replaces it. Services that depend on settings (releases URL, client id) read them lazily through suppliers, so
- * a settings change takes effect immediately.</p>
+ * a settings change takes effect immediately. The releases base URL in effect is {@link #releasesBaseUrl()}:
+ * settings (or {@code --releases-url}) &gt; {@code VANTA_RELEASES_BASE_URL} &gt; the built-in default.</p>
  */
 public final class LauncherServices implements AutoCloseable {
 
@@ -67,7 +70,9 @@ public final class LauncherServices implements AutoCloseable {
     private final AccountStore accounts;
     private final LaunchService launch;
     private final UpdateService updates;
+    private final OfficialProfileService officialProfiles;
     private final Optional<Path> officialMinecraftDir;
+    private final Path userHome;
     private final ServiceEndpoints endpoints;
 
     /**
@@ -117,16 +122,18 @@ public final class LauncherServices implements AutoCloseable {
         this.mojang = new MojangService(downloader, paths, endpoints.mojangManifest(), endpoints.mojangResources());
         this.fabric = new FabricService(downloader, paths, endpoints.fabricMeta());
         this.fabricApi = new FabricApiService(fabric, paths, endpoints.fabricMaven());
-        this.vantaClient = new VantaClientService(downloader, paths, () -> settings().releasesBaseUrl());
+        this.vantaClient = new VantaClientService(downloader, paths, () -> releasesBaseUrl().url());
         this.javaDetector = new JavaDetector(os, env, paths, probe, List.of());
         this.adoptium = new AdoptiumService(downloader, paths, os, probe, endpoints.adoptiumApi());
         this.auth = new MicrosoftAuthService(transport, endpoints.auth(),
             MicrosoftAuthService.clientIdFrom(() -> settings().msClientId(), env), clock, sleeper);
         this.accounts = AccountStore.open(paths, os);
         this.launch = new LaunchService(paths, os, clock);
-        this.updates = new UpdateService(downloader, paths, () -> settings().releasesBaseUrl(),
+        this.updates = new UpdateService(downloader, paths, () -> releasesBaseUrl().url(),
             SemVer.tryParse(LauncherVersion.VERSION).orElse(SemVer.of(1, 0, 0)), os, vantaClient);
-        this.officialMinecraftDir = LauncherPaths.officialMinecraftDir(os, env, Path.of(System.getProperty("user.home", ".")));
+        this.officialProfiles = new OfficialProfileService(paths, downloader, fabric, fabricApi, vantaClient, clock);
+        this.userHome = Path.of(System.getProperty("user.home", "."));
+        this.officialMinecraftDir = LauncherPaths.officialMinecraftDir(os, env, userHome);
     }
 
     /**
@@ -197,6 +204,16 @@ public final class LauncherServices implements AutoCloseable {
      */
     public void overrideSettings(final LauncherSettings updated) {
         settings = Objects.requireNonNull(updated, "updated");
+    }
+
+    /**
+     * The releases base URL in effect: {@code "releasesBaseUrl"} from the settings (or {@code --releases-url}) when
+     * non-empty, else {@code VANTA_RELEASES_BASE_URL}, else the built-in default of the endpoints.
+     *
+     * @return URL and its source
+     */
+    public ReleasesBaseUrl releasesBaseUrl() {
+        return ReleasesBaseUrl.resolve(settings().releasesBaseUrl(), env, endpoints.defaultReleasesBaseUrl());
     }
 
     /** @return transport */
@@ -274,6 +291,27 @@ public final class LauncherServices implements AutoCloseable {
     /** @return the official {@code .minecraft} directory when present */
     public Optional<Path> officialMinecraftDir() {
         return officialMinecraftDir;
+    }
+
+    /** @return where the official Minecraft Launcher keeps its data on this platform (may not exist) */
+    public Path officialMinecraftDirCandidate() {
+        return LauncherPaths.officialMinecraftDirCandidate(os, env, userHome);
+    }
+
+    /** @return the "Use with the Minecraft Launcher" service */
+    public OfficialProfileService officialProfiles() {
+        return officialProfiles;
+    }
+
+    /**
+     * A request for the official launcher profile with the current settings (heap).
+     *
+     * @param minecraftDir   official Minecraft directory
+     * @param localClientJar local VANTA client jar instead of the published release (may be null)
+     * @return request
+     */
+    public OfficialProfileService.Request officialProfileRequest(final Path minecraftDir, final Path localClientJar) {
+        return OfficialProfileService.Request.standard(minecraftDir, localClientJar, settings().memoryMb());
     }
 
     /** @return remote endpoints in use */

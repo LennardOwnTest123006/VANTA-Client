@@ -1,6 +1,7 @@
 package dev.vanta.launcher.core.update;
 
 import dev.vanta.launcher.core.install.NotPublishedException;
+import dev.vanta.launcher.core.install.ReleasesNotConfiguredException;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.net.CancellationToken;
@@ -11,6 +12,7 @@ import dev.vanta.launcher.core.net.Downloader;
 import dev.vanta.launcher.core.net.IntegrityException;
 import dev.vanta.launcher.core.net.JsonHttp;
 import dev.vanta.launcher.core.paths.LauncherPaths;
+import dev.vanta.launcher.core.settings.ReleasesBaseUrl;
 import dev.vanta.launcher.core.util.OsInfo;
 
 import java.io.IOException;
@@ -27,8 +29,12 @@ import java.util.function.Supplier;
  * {@code <releasesBaseUrl>/launcher-latest.json} and {@code <releasesBaseUrl>/client-latest.json}.
  *
  * <ul>
- *   <li>{@link #checkLauncher()} / {@link #checkClient(SemVer)} compare SemVer and return an {@link UpdateInfo}
+ *   <li>{@link #checkLauncher()} / {@link #checkClient(Optional)} compare SemVer and return an {@link UpdateInfo}
  *       only when the manifest is newer.</li>
+ *   <li>The launcher asset is chosen per platform ({@link ReleaseManifest#launcherAssetFor}): the Windows
+ *       {@code .msi}, the Linux x64 {@code .tar.gz} app image or the Apple Silicon macOS jar. Other platforms get an
+ *       update without a file and the release page instead; the client update is exactly
+ *       {@code vanta-client-<version>.jar}.</li>
  *   <li>{@link #downloadUpdate} fetches the file to {@code cache/updates/} with SHA-256 verification.</li>
  *   <li>{@link #prepareInstaller} re-verifies the downloaded installer and returns its path; the UI asks the user
  *       before opening it. The launcher never runs the installer itself.</li>
@@ -51,7 +57,7 @@ public final class UpdateService {
     /**
      * @param downloader      downloader
      * @param paths           paths
-     * @param releasesBaseUrl supplier of the configured base URL (empty = not configured)
+     * @param releasesBaseUrl supplier of the base URL in effect (an empty or non-http(s) value means "not configured")
      * @param currentLauncher installed launcher version
      * @param os              host platform (selects installer type)
      * @param clientService   client service for client updates/rollback
@@ -67,10 +73,15 @@ public final class UpdateService {
         this.clientService = Objects.requireNonNull(clientService, "clientService");
     }
 
-    /** @return whether a releases base URL is configured */
+    /** @return whether the releases base URL in effect is a usable http(s) URL */
     public boolean isConfigured() {
+        return ReleasesBaseUrl.isHttpUrl(releasesBaseUrl.get());
+    }
+
+    /** @return the releases base URL in effect (may be unusable, see {@link #isConfigured()}) */
+    public String baseUrl() {
         final String base = releasesBaseUrl.get();
-        return base != null && !base.isBlank();
+        return base == null ? "" : base.trim();
     }
 
     /**
@@ -78,16 +89,15 @@ public final class UpdateService {
      *
      * @param fileName manifest file name
      * @return manifest
-     * @throws NotPublishedException when no base URL is configured
-     * @throws IOException           on failure
-     * @throws InterruptedException  when interrupted
+     * @throws ReleasesNotConfiguredException when the base URL is unusable
+     * @throws NotPublishedException          when there is no manifest at the URL (HTTP 404)
+     * @throws IOException                    on failure
+     * @throws InterruptedException           when interrupted
      */
     public ReleaseManifest fetchManifest(final String fileName) throws IOException, InterruptedException {
-        if (!isConfigured()) {
-            throw new NotPublishedException("", "", "No releases URL is configured, so updates cannot be checked. "
-                + "Set \"releasesBaseUrl\" in the launcher settings.");
-        }
-        return json.get(VantaClientService.manifestUrl(releasesBaseUrl.get(), fileName), ReleaseManifest.class);
+        final String base = VantaClientService.requireUsableBaseUrl(releasesBaseUrl.get());
+        final String product = LAUNCHER_MANIFEST.equals(fileName) ? ReleaseManifest.PRODUCT_LAUNCHER : ReleaseManifest.PRODUCT_CLIENT;
+        return VantaClientService.fetchManifest(json, VantaClientService.manifestUrl(base, fileName), product);
     }
 
     /**
@@ -121,7 +131,8 @@ public final class UpdateService {
      * @param product  expected product
      * @param current  installed version
      * @param manifest manifest
-     * @return update when newer (also when not yet downloadable, so the UI can say "coming soon")
+     * @return update when newer and on the stable channel (also when not yet downloadable, so the UI can say
+     *         "coming soon")
      * @throws IOException when the manifest is for a different product or has an invalid version
      */
     public Optional<UpdateInfo> compare(final String product, final SemVer current, final ReleaseManifest manifest) throws IOException {
@@ -133,9 +144,19 @@ public final class UpdateService {
         if (!latest.isNewerThan(current)) {
             return Optional.empty();
         }
-        final ReleaseManifest.ReleaseFile file = manifest.preferredFile(os.isWindows())
-            .orElse(new ReleaseManifest.ReleaseFile(product + "-" + manifest.version(), "", 0, ""));
-        return Optional.of(new UpdateInfo(product, current, latest, manifest.changelog(), file, file.sha256(), manifest));
+        // latest/ only ever follows stable releases; a pre-release manifest copied there by hand is not offered.
+        if (!"stable".equals(manifest.channel())) {
+            return Optional.empty();
+        }
+        final ReleaseManifest.ReleaseFile file;
+        if (ReleaseManifest.PRODUCT_CLIENT.equals(product)) {
+            file = manifest.clientJar().orElse(new ReleaseManifest.ReleaseFile(manifest.clientJarName(), "", 0, ""));
+        } else {
+            // No asset for this platform: an empty name; the UI points at the release page instead.
+            file = manifest.launcherAssetFor(os).orElse(new ReleaseManifest.ReleaseFile("", "", 0, ""));
+        }
+        return Optional.of(new UpdateInfo(product, current, latest, manifest.changelog(), file, file.sha256(), manifest,
+            manifest.releasePageUrl().orElse("")));
     }
 
     /**
@@ -152,6 +173,11 @@ public final class UpdateService {
     public Path downloadUpdate(final UpdateInfo update, final DownloadProgressListener listener, final CancellationToken token)
         throws IOException, InterruptedException {
         final ReleaseManifest.ReleaseFile file = update.file();
+        if (!update.hasPlatformAsset()) {
+            throw new NotPublishedException(update.product(), update.latestVersion().toString(),
+                capitalize(update.product()) + " " + update.latestVersion() + " has no download for " + describe(os)
+                    + (update.releasePage().isEmpty() ? "" : "; get it from " + update.releasePage()));
+        }
         if (!file.isPublished()) {
             throw new NotPublishedException(update.product(), update.latestVersion().toString(),
                 capitalize(update.product()) + " " + update.latestVersion() + " is announced but not downloadable yet");
@@ -226,6 +252,15 @@ public final class UpdateService {
     /** @return the running launcher version */
     public SemVer currentLauncher() {
         return currentLauncher;
+    }
+
+    /**
+     * @param os platform
+     * @return e.g. {@code macOS (x64)}
+     */
+    public static String describe(final OsInfo os) {
+        final String name = os.isWindows() ? "Windows" : os.isMac() ? "macOS" : os.isLinux() ? "Linux" : os.name();
+        return name + " (" + os.arch() + ")";
     }
 
     private static String capitalize(final String s) {

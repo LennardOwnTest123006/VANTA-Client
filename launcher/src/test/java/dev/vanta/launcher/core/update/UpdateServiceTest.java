@@ -1,6 +1,7 @@
 package dev.vanta.launcher.core.update;
 
 import dev.vanta.launcher.core.install.NotPublishedException;
+import dev.vanta.launcher.core.install.ReleasesNotConfiguredException;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.net.CancellationToken;
@@ -72,10 +73,23 @@ class UpdateServiceTest {
     }
 
     @Test
-    void notConfiguredWithoutBaseUrl() {
-        final UpdateService unconfigured = new UpdateService(downloader, paths, () -> "", SemVer.of(1, 0, 0), new OsInfo("linux", "x64", ""), clientService);
-        assertFalse(unconfigured.isConfigured());
-        assertThrows(NotPublishedException.class, unconfigured::checkLauncher);
+    void notConfiguredWithoutUsableBaseUrl() {
+        for (String url : java.util.List.of("", "  ", "file:///tmp/releases", "releases.example/vanta")) {
+            final UpdateService unconfigured = new UpdateService(downloader, paths, () -> url, SemVer.of(1, 0, 0), new OsInfo("linux", "x64", ""),
+                clientService);
+            assertFalse(unconfigured.isConfigured(), url);
+            assertThrows(ReleasesNotConfiguredException.class, unconfigured::checkLauncher, url);
+        }
+    }
+
+    @Test
+    void missingManifestMeansNotPublished() throws Exception {
+        final UpdateService s = new UpdateService(downloader, paths, () -> server.url("nothing-here/").toString(), SemVer.of(1, 0, 0),
+            new OsInfo("linux", "x64", ""), clientService);
+        assertTrue(s.isConfigured());
+        final NotPublishedException e = assertThrows(NotPublishedException.class, s::checkLauncher);
+        assertTrue(e.getMessage().contains("HTTP 404"), e.getMessage());
+        assertEquals("launcher", e.product());
     }
 
     @Test
@@ -90,12 +104,75 @@ class UpdateServiceTest {
         assertTrue(update.isDownloadable());
         assertEquals("website/content/changelog/launcher-1.1.0.md", update.changelog());
 
-        final UpdateService linux = service("1.0.0", new OsInfo("linux", "x64", ""));
-        assertEquals("vanta-launcher-1.1.0-all.jar", linux.checkLauncher().orElseThrow().file().name());
+        assertEquals(UpdateInfo.AssetKind.INSTALLER, update.assetKind());
+        assertEquals("", update.releasePage(), "files served from the fake server are not GitHub release assets");
+
+        final UpdateInfo linux = service("1.0.0", new OsInfo("linux", "x64", "")).checkLauncher().orElseThrow();
+        assertEquals("VANTA-Launcher-1.1.0-linux-x64.tar.gz", linux.file().name());
+        assertEquals(UpdateInfo.AssetKind.ARCHIVE, linux.assetKind());
+        assertTrue(linux.isDownloadable());
+
+        final UpdateInfo macArm = service("1.0.0", new OsInfo("osx", "arm64", "15.0")).checkLauncher().orElseThrow();
+        assertEquals("vanta-launcher-1.1.0-macos-aarch64-all.jar", macArm.file().name());
+        assertEquals(UpdateInfo.AssetKind.JAR, macArm.assetKind());
 
         assertTrue(service("1.1.0", new OsInfo("linux", "x64", "")).checkLauncher().isEmpty(), "same version is up to date");
         assertTrue(service("1.2.0", new OsInfo("linux", "x64", "")).checkLauncher().isEmpty(), "newer local build is up to date");
         assertTrue(service("1.1.0-beta.1", new OsInfo("linux", "x64", "")).checkLauncher().isPresent(), "release beats its pre-release");
+    }
+
+    @Test
+    void intelMacHasNoAssetAndGetsTheReleasePage() throws Exception {
+        // The fixture as published: GitHub release asset URLs, from which the release page is derived.
+        server.addJson("rel/launcher-latest.json", Fixtures.read("release/launcher-latest.json"));
+        final UpdateService intel = service("1.0.0", new OsInfo("osx", "x64", "13.6"));
+        final UpdateInfo update = intel.checkLauncher().orElseThrow();
+        assertEquals(SemVer.parse("1.1.0"), update.latestVersion());
+        assertFalse(update.hasPlatformAsset());
+        assertFalse(update.isDownloadable());
+        assertEquals(UpdateInfo.AssetKind.NONE, update.assetKind());
+        assertEquals("https://github.com/vanta-client/vanta/releases/tag/launcher-v1.1.0", update.releasePage());
+        assertEquals(java.net.URI.create(update.releasePage()), update.releasePageUri().orElseThrow());
+        final NotPublishedException e = assertThrows(NotPublishedException.class,
+            () -> intel.downloadUpdate(update, DownloadProgressListener.NONE, CancellationToken.NONE));
+        assertTrue(e.getMessage().contains("has no download for macOS (x64)"), e.getMessage());
+        assertTrue(e.getMessage().contains("releases/tag/launcher-v1.1.0"), e.getMessage());
+    }
+
+    @Test
+    void linuxArchiveDownloadsAndVerifies() throws Exception {
+        final UpdateService linux = service("1.0.0", new OsInfo("linux", "x64", "6.8"));
+        final UpdateInfo update = linux.checkLauncher().orElseThrow();
+        final Path file = linux.downloadUpdate(update, DownloadProgressListener.NONE, CancellationToken.NONE);
+        assertEquals(paths.updatesCacheDir().resolve("1.1.0-VANTA-Launcher-1.1.0-linux-x64.tar.gz"), file);
+        assertEquals(file, linux.prepareInstaller(update));
+    }
+
+    @Test
+    void clientUpdateNeverPicksTheBundleOrFabricApi() throws Exception {
+        final byte[] jar = FakeWorld.synthetic("client 1.2.0", 900);
+        server.add("rel/vanta-client-1.2.0.jar", jar);
+        final ReleaseManifest manifest = new ReleaseManifest(1, "client", "1.2.0", "1.21.11", "0.19.5", "0.141.6+1.21.11", 21, "2026-12-01", "stable",
+            java.util.List.of(
+                new ReleaseManifest.ReleaseFile("fabric-api-0.141.6+1.21.11.jar", server.url("rel/fabric-api.jar").toString(), 5, "ab".repeat(32)),
+                new ReleaseManifest.ReleaseFile("vanta-client-1.2.0-mods.zip", server.url("rel/mods.zip").toString(), 5, "cd".repeat(32)),
+                new ReleaseManifest.ReleaseFile("vanta-client-1.2.0.jar", server.url("rel/vanta-client-1.2.0.jar").toString(), jar.length,
+                    Checksums.hex(jar, HashAlgorithm.SHA256))), "notes");
+        server.addJson("rel/client-latest.json", Json.toJson(manifest));
+        final UpdateService s = service("1.0.0", new OsInfo("windows", "x64", "10.0"));
+        final UpdateInfo update = s.checkClient(Optional.of(SemVer.of(1, 0, 0))).orElseThrow();
+        assertEquals("vanta-client-1.2.0.jar", update.file().name());
+        assertEquals(paths.modsDir().resolve("vanta-client-1.2.0.jar"), s.installClientUpdate(update, DownloadProgressListener.NONE, CancellationToken.NONE));
+    }
+
+    @Test
+    void preReleaseManifestIsNeverOfferedAsAnUpdate() throws Exception {
+        final ReleaseManifest beta = new ReleaseManifest(1, "client", "1.3.0-beta.1", "1.21.11", "0.19.5", "0.141.6+1.21.11", 21,
+            "2026-12-01", "beta", java.util.List.of(new ReleaseManifest.ReleaseFile("vanta-client-1.3.0-beta.1.jar",
+                server.url("rel/beta.jar").toString(), 5, "ab".repeat(32))), "notes");
+        server.addJson("rel/client-latest.json", Json.toJson(beta));
+        final UpdateService s = service("1.0.0", new OsInfo("windows", "x64", "10.0"));
+        assertEquals(Optional.empty(), s.checkClient(Optional.of(SemVer.of(1, 0, 0))));
     }
 
     @Test

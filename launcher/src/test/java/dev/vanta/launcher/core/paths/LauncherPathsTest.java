@@ -71,4 +71,17 @@ class LauncherPathsTest {
         assertEquals(appData.resolve(".minecraft"),
             LauncherPaths.officialMinecraftDir(new OsInfo("windows", "x64", ""), Map.of("APPDATA", appData.toString()), home).orElseThrow());
     }
+
+    @Test
+    void officialMinecraftDirCandidateExistsOrNot() {
+        final Path home = tmp.resolve("candidate-home");
+        assertEquals(home.resolve(".minecraft"), LauncherPaths.officialMinecraftDirCandidate(new OsInfo("linux", "x64", ""), Map.of(), home));
+        assertEquals(home.resolve("Library").resolve("Application Support").resolve("minecraft"),
+            LauncherPaths.officialMinecraftDirCandidate(new OsInfo("osx", "arm64", ""), Map.of(), home));
+        assertEquals(Path.of("X:", "Users", "nova", "AppData", "Roaming").resolve(".minecraft"),
+            LauncherPaths.officialMinecraftDirCandidate(new OsInfo("windows", "x64", ""),
+                Map.of("APPDATA", Path.of("X:", "Users", "nova", "AppData", "Roaming").toString()), home));
+        assertEquals(home.resolve("AppData").resolve("Roaming").resolve(".minecraft"),
+            LauncherPaths.officialMinecraftDirCandidate(new OsInfo("windows", "x64", ""), Map.of(), home));
+    }
 }

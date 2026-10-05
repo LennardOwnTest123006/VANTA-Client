@@ -168,6 +168,40 @@ class ServicesTest {
     }
 
     @Test
+    void vantaClientInstallsExactlyTheClientJar() throws Exception {
+        final byte[] jar = FakeWorld.synthetic("vanta 1.0.0", 700);
+        world.server().add("releases/exact/vanta-client-1.0.0.jar", jar);
+        // Fabric API first, then the bundle and a sources jar: none of them may end up as the client jar.
+        final ReleaseManifest m = new ReleaseManifest(1, "client", "1.0.0", "1.21.11", "0.19.5", LauncherVersion.FABRIC_API, 21, "2026-10-04", "stable",
+            List.of(new ReleaseManifest.ReleaseFile("fabric-api-0.141.6+1.21.11.jar", world.server().url("releases/exact/fapi.jar").toString(), 10, "ab".repeat(32)),
+                new ReleaseManifest.ReleaseFile("vanta-client-1.0.0-mods.zip", world.server().url("releases/exact/mods.zip").toString(), 10, "cd".repeat(32)),
+                new ReleaseManifest.ReleaseFile("vanta-client-1.0.0-sources.jar", world.server().url("releases/exact/src.jar").toString(), 10, "ef".repeat(32)),
+                new ReleaseManifest.ReleaseFile("vanta-client-1.0.0.jar", world.server().url("releases/exact/vanta-client-1.0.0.jar").toString(), jar.length,
+                    Checksums.hex(jar, HashAlgorithm.SHA256))), "");
+        world.server().addJson("releases/client-latest.json", Json.toJson(m));
+        final Path active = wired.vanta().installFromManifest(wired.vanta().fetchClientManifest(), DownloadProgressListener.NONE, CancellationToken.NONE);
+        assertEquals(paths.modsDir().resolve("vanta-client-1.0.0.jar"), active);
+        assertEquals(Checksums.hex(jar, HashAlgorithm.SHA256), Checksums.sha256Hex(active));
+        assertEquals(0, world.server().hits("releases/exact/fapi.jar") + world.server().hits("releases/exact/mods.zip")
+            + world.server().hits("releases/exact/src.jar"));
+        assertEquals("1.0.0", wired.vanta().listKeptVersions().get(0).version());
+        assertTrue(wired.vanta().listKeptVersions().get(0).isAvailable());
+
+        final ReleaseManifest noClientJar = new ReleaseManifest(1, "client", "1.0.1", "1.21.11", "0.19.5", LauncherVersion.FABRIC_API, 21, "", "stable",
+            List.of(m.files().get(0), m.files().get(1)), "");
+        final NotPublishedException e = assertThrows(NotPublishedException.class,
+            () -> wired.vanta().installFromManifest(noClientJar, DownloadProgressListener.NONE, CancellationToken.NONE));
+        assertTrue(e.getMessage().contains("lists no vanta-client-1.0.1.jar"), e.getMessage());
+    }
+
+    @Test
+    void missingClientManifestIsNotPublished() {
+        world.server().remove("releases/client-latest.json");
+        final NotPublishedException e = assertThrows(NotPublishedException.class, () -> wired.vanta().fetchClientManifest());
+        assertTrue(e.getMessage().contains("HTTP 404"), e.getMessage());
+    }
+
+    @Test
     void vantaClientRefusesManifestWithoutSha256() {
         final ReleaseManifest m = new ReleaseManifest(1, "client", "2.0.0", "1.21.11", "0.19.5", LauncherVersion.FABRIC_API, 21, "2026-11-01", "stable",
             List.of(new ReleaseManifest.ReleaseFile("vanta-client-2.0.0.jar", world.server().url("releases/vanta-client-1.0.0.jar").toString(), 0, "")), "");

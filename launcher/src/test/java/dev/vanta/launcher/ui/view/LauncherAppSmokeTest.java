@@ -209,6 +209,61 @@ class LauncherAppSmokeTest {
         assertTrue(CSS_WARNINGS.isEmpty(), "stylesheet applied without warnings: " + CSS_WARNINGS.stream().map(LogRecord::getMessage).toList());
     }
 
+    @Test
+    void officialLauncherProfileIsConfirmedFirstAndOfferedWithoutSignIn() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        fx(() -> {
+            app.context().navigation().navigate(NavigationModel.Page.HOME);
+            return null;
+        });
+        fx(() -> {
+            final Button official = (Button) app.window().lookup(".official-button");
+            assertNotNull(official, "Home has the 'Use with Minecraft Launcher' button");
+            assertEquals(app.context().t("home.official.button"), official.getText());
+            app.window().showOfficialProfile();
+            return null;
+        });
+        waitUntil(() -> app.window().dialogs().isOpen());
+        fx(() -> {
+            final Node plan = app.window().dialogs().lookup(".official-plan");
+            assertNotNull(plan, "the confirmation lists what is written");
+            final boolean listsProfiles = plan.lookupAll(".mono").stream().map(n -> ((Label) n).getText())
+                .anyMatch(t -> t.endsWith("launcher_profiles.json"));
+            assertTrue(listsProfiles, "launcher_profiles.json is listed");
+            app.window().dialogs().close();
+            return null;
+        });
+        assertFalse(backend.calls.contains("installOfficialProfile"), "closing the dialog writes nothing");
+
+        // Without a Microsoft client id the hero explains it and offers the official launcher as the way to play.
+        final boolean wasConfigured = backend.signInConfigured;
+        final var accounts = List.copyOf(backend.accounts);
+        try {
+            backend.signInConfigured = false;
+            backend.accounts.clear();
+            fx(() -> {
+                app.context().session().refreshAll();
+                return null;
+            });
+            waitUntil(() -> app.context().session().account().isEmpty() && !app.context().session().signInConfiguredProperty().get());
+            fx(() -> {
+                final Node callout = app.window().lookup(".official-callout");
+                assertNotNull(callout);
+                assertTrue(callout.isVisible(), "callout visible while sign-in is not configured");
+                return null;
+            });
+        } finally {
+            backend.signInConfigured = wasConfigured;
+            backend.accounts.addAll(accounts);
+            fx(() -> {
+                app.context().session().refreshAll();
+                return null;
+            });
+            waitUntil(() -> app.context().session().account().isPresent());
+        }
+        assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+    }
+
     private static <T> T fx(final Callable<T> action) throws Exception {
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicReference<T> result = new AtomicReference<>();

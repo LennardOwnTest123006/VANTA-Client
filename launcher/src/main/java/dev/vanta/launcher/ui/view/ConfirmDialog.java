@@ -7,7 +7,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 /**
- * Simple confirmation card (title, text, confirm/cancel) for the {@link DialogLayer}.
+ * Confirmation card (title, text, optional details, confirm/cancel) for the {@link DialogLayer}.
  */
 public final class ConfirmDialog implements DialogLayer.Dialog {
 
@@ -28,6 +28,21 @@ public final class ConfirmDialog implements DialogLayer.Dialog {
      */
     public ConfirmDialog(final String title, final String text, final String confirmText, final String cancelText,
                          final Runnable onConfirm, final Runnable onCancel, final Runnable close) {
+        this(title, text, null, confirmText, cancelText, onConfirm, onCancel, close);
+    }
+
+    /**
+     * @param title       title
+     * @param text        body text
+     * @param details     optional node shown between the text and the buttons (wide dialog when present)
+     * @param confirmText confirm button text
+     * @param cancelText  cancel button text
+     * @param onConfirm   runs when confirmed (dialog closes first)
+     * @param onCancel    runs when cancelled/closed
+     * @param close       closes the dialog
+     */
+    public ConfirmDialog(final String title, final String text, final Node details, final String confirmText, final String cancelText,
+                         final Runnable onConfirm, final Runnable onCancel, final Runnable close) {
         this.onConfirm = onConfirm;
         this.onCancel = onCancel;
         card.getStyleClass().add("dialog");
@@ -41,7 +56,13 @@ public final class ConfirmDialog implements DialogLayer.Dialog {
         cancel.setOnAction(e -> close.run());
         final HBox actions = new HBox(10, Ui.spacer(), cancel, confirm);
         actions.setAlignment(Pos.CENTER_RIGHT);
-        card.getChildren().addAll(Ui.label(title, "dialog-title"), Ui.paragraph(text, "dialog-text"), Ui.vgap(4), actions);
+        card.getChildren().addAll(Ui.label(title, "dialog-title"), Ui.paragraph(text, "dialog-text"));
+        if (details != null) {
+            card.getStyleClass().add("wide");
+            card.setSpacing(10);
+            card.getChildren().add(details);
+        }
+        card.getChildren().addAll(Ui.vgap(4), actions);
     }
 
     @Override

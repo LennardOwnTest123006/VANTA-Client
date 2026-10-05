@@ -212,6 +212,69 @@ class HomeViewModelTest {
         assertEquals(HomeViewModel.State.READY, vm.state());
     }
 
+    @Test
+    void withoutSignInTheOfficialLauncherIsTheWayToPlay() {
+        backend.signInConfigured = false;
+        backend.javaInstalls.add(backend.temurin21());
+        ctx.session.refreshAll();
+        final HomeViewModel vm = ctx.home();
+        assertEquals(HomeViewModel.State.NOT_READY, vm.state());
+        assertEquals(ctx.messages.get("home.block.noSignIn"), vm.blockReasonProperty().get(), "no 'sign in first' when sign-in is impossible");
+        assertEquals(ctx.messages.get("home.lead.noSignIn"), vm.leadTextProperty().get());
+
+        final List<dev.vanta.launcher.core.install.OfficialProfileService.Plan> plans = new ArrayList<>();
+        vm.prepareOfficialProfile(plans::add);
+        assertEquals(1, plans.size());
+        assertEquals("VANTA 1.21.11", plans.get(0).profileName());
+        assertEquals(5, plans.get(0).files().size());
+        for (var f : plans.get(0).files()) {
+            assertFalse(vm.officialPlanLabel(f.kind()).isBlank());
+        }
+        for (var kind : dev.vanta.launcher.core.install.OfficialProfileService.Kind.values()) {
+            assertFalse(vm.officialPlanLabel(kind).contains("{"), kind + " label is fully formatted");
+        }
+        assertFalse(backend.calls.contains("installOfficialProfile"), "preparing only reads the plan");
+
+        final List<HomeViewModel.State> seen = new ArrayList<>();
+        vm.stateProperty().addListener((obs, old, now) -> seen.add(now));
+        vm.installOfficialProfile();
+        assertTrue(seen.contains(HomeViewModel.State.INSTALLING), "no account and no PLAY needed: " + seen);
+        assertEquals(HomeViewModel.State.NOT_READY, vm.state(), "back to idle afterwards");
+        assertFalse(vm.officialBusyProperty().get());
+        assertEquals("Open the Minecraft Launcher, choose the profile 'VANTA 1.21.11' and press Play.", vm.officialDoneTextProperty().get());
+        assertEquals(ToastModel.Kind.SUCCESS, ctx.toasts.toasts().get(0).kind());
+        assertEquals("Profile 'VANTA 1.21.11' is ready", ctx.toasts.toasts().get(0).title());
+        assertTrue(ctx.launcherLog.snapshot().stream().anyMatch(l -> l.text().contains("Added the Minecraft Launcher profile 'VANTA 1.21.11'")));
+        assertFalse(backend.calls.contains("install"), "the regular install is not used");
+        assertFalse(backend.calls.contains("launch"));
+    }
+
+    @Test
+    void officialLauncherNotSetUpIsExplained() {
+        backend.officialPlanFailure = new dev.vanta.launcher.core.install.OfficialLauncherNotFoundException(tmp.resolve(".minecraft"));
+        ctx.session.refreshAll();
+        final HomeViewModel vm = ctx.home();
+        final List<Object> plans = new ArrayList<>();
+        vm.prepareOfficialProfile(plans::add);
+        assertTrue(plans.isEmpty());
+        assertEquals(ToastModel.Kind.ERROR, ctx.toasts.toasts().get(0).kind());
+        assertEquals(ctx.messages.get("official.toast.failed.title"), ctx.toasts.toasts().get(0).title());
+        assertTrue(ctx.toasts.toasts().get(0).message().contains("Start the Minecraft Launcher once"), ctx.toasts.toasts().get(0).message());
+    }
+
+    @Test
+    void officialSetupFailureShowsTheError() {
+        backend.officialInstallFailure = new dev.vanta.launcher.core.install.InstallException(
+            dev.vanta.launcher.core.install.InstallStep.FABRIC_PROFILE, "Fetching Fabric Loader profile failed", new java.io.IOException("Tunnel failed, got: 403"));
+        signedInWithJava();
+        final HomeViewModel vm = ctx.home();
+        vm.installOfficialProfile();
+        assertEquals(HomeViewModel.State.ERROR, vm.state());
+        assertTrue(vm.errorTextProperty().get().contains("A proxy refused the connection (Tunnel failed, got: 403)"), vm.errorTextProperty().get());
+        assertTrue(vm.officialDoneTextProperty().get().isEmpty());
+        assertFalse(vm.officialBusyProperty().get());
+    }
+
     private void signedInWithJava() {
         backend.accounts.add(FakeBackend.microsoftAccount("Nova"));
         backend.javaInstalls.add(backend.temurin21());

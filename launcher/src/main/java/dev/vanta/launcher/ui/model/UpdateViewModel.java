@@ -30,9 +30,11 @@ import javafx.beans.property.StringProperty;
 
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 /**
  * Update checks and the update banner. Downloads are verified by the core before anything is used; a launcher
@@ -177,7 +179,10 @@ public final class UpdateViewModel {
     /**
      * Checks both manifests in the background.
      *
-     * @param interactive whether the user asked (shows an "up to date" toast and errors)
+     * <p>"Up to date" is only claimed when both release manifests were found. When a manifest is missing (HTTP 404)
+     * or lists no download, an interactive check says that no release is published instead.</p>
+     *
+     * @param interactive whether the user asked (shows an "up to date" or "not published" toast and errors)
      */
     public void check(final boolean interactive) {
         if (checking.get()) {
@@ -195,15 +200,16 @@ public final class UpdateViewModel {
         final Optional<SemVer> installed = session.instance().map(InstanceInfo::vantaClientVersion).flatMap(SemVer::tryParse);
         Async.run(executors, () -> {
             Optional<UpdateInfo> launcher = Optional.empty();
-            Throwable launcherFailure = null;
+            NotPublishedException launcherNotPublished = null;
             try {
                 launcher = backend.checkLauncherUpdate();
             } catch (NotPublishedException e) {
-                launcherFailure = e;
+                launcherNotPublished = e;
             }
             Optional<UpdateInfo> client;
             ClientAvailability availability;
             String latest = "";
+            NotPublishedException clientNotPublished = null;
             try {
                 client = backend.checkClientUpdate(installed);
                 if (client.isPresent()) {
@@ -216,8 +222,9 @@ public final class UpdateViewModel {
             } catch (NotPublishedException e) {
                 client = Optional.empty();
                 availability = ClientAvailability.NOT_PUBLISHED;
+                clientNotPublished = e;
             }
-            return new Result(launcher, client, availability, latest, launcherFailure);
+            return new Result(launcher, client, availability, latest, launcherNotPublished, clientNotPublished);
         }, result -> {
             checking.set(false);
             checkedOnce = true;
@@ -232,7 +239,14 @@ public final class UpdateViewModel {
                 dismissed.set(false);
             }
             if (interactive && result.launcher().isEmpty() && result.client().isEmpty()) {
-                toasts.success(messages.get("update.upToDate.title"), messages.format("update.upToDate.message", LauncherVersion.VERSION));
+                final List<NotPublishedException> notPublished = result.notPublished();
+                if (notPublished.isEmpty()) {
+                    toasts.success(messages.get("update.upToDate.title"), messages.format("update.upToDate.message", LauncherVersion.VERSION));
+                } else {
+                    // Without a manifest there is nothing to compare with: never claim "up to date" then.
+                    toasts.info(messages.get("update.notPublished.title"),
+                        String.join("\n", notPublished.stream().map(errors::describe).distinct().toList()));
+                }
             }
         }, error -> {
             checking.set(false);
@@ -333,6 +347,17 @@ public final class UpdateViewModel {
     }
 
     /**
+     * Where to get a launcher update the platform has no self-update file for: the release page from the manifest,
+     * else the project's releases page.
+     *
+     * @param update update
+     * @return browser URL
+     */
+    public Optional<URI> releasePage(final UpdateInfo update) {
+        return update.releasePageUri().or(links::releases);
+    }
+
+    /**
      * @param update update
      * @return localised "file · size" line
      */
@@ -343,8 +368,21 @@ public final class UpdateViewModel {
 
     // ---------------------------------------------------------------- internals
 
+    /**
+     * @param launcher             launcher update
+     * @param client               client update
+     * @param availability         client availability
+     * @param latest               latest client version
+     * @param launcherNotPublished why the launcher manifest gave no answer (null when it did)
+     * @param clientNotPublished   why the client manifest gave no answer (null when it did)
+     */
     private record Result(Optional<UpdateInfo> launcher, Optional<UpdateInfo> client, ClientAvailability availability, String latest,
-                          Throwable launcherFailure) {
+                          NotPublishedException launcherNotPublished, NotPublishedException clientNotPublished) {
+
+        /** @return the checks that found no published release, launcher first */
+        List<NotPublishedException> notPublished() {
+            return Stream.of(launcherNotPublished, clientNotPublished).filter(Objects::nonNull).toList();
+        }
     }
 
     private void startBusy(final UpdateInfo update) {

@@ -8,6 +8,9 @@ import java.util.Optional;
 public enum CliCommand {
     /** Install Minecraft, Fabric and the VANTA client. */
     INSTALL("--install", "Install Minecraft, Fabric Loader, Fabric API and VANTA Client"),
+    /** Set up VANTA as a profile of the official Minecraft Launcher. */
+    INSTALL_OFFICIAL_PROFILE("--install-official-profile",
+        "Install Fabric API + VANTA Client and add the profile 'VANTA <version>' to the official Minecraft Launcher"),
     /** Launch the game. */
     LAUNCH("--launch", "Launch the installed instance"),
     /** Detect Java runtimes. */
