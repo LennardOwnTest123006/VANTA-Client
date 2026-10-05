@@ -8,7 +8,7 @@ Minecraft to the interfaces `core` defines.
 ## What the mod does
 
 - Replaces the title screen with the VANTA main menu (switchable in Settings → General).
-- Adds the VANTA settings hub, HUD editor, Performance Center, profiles, keybind manager, crosshair editor,
+- Adds the VANTA settings screens, HUD editor, Performance Center, profiles, keybind manager, crosshair editor,
   cosmetics, statistics, resource pack manager, accessibility screen, global search and About screen — all rendered
   by `core` through a `Canvas` implemented on `GuiGraphics`.
 - Draws the VANTA HUD (FPS, coordinates, biome, clock, memory, keystrokes, armour, effects, …) and the custom
@@ -67,11 +67,11 @@ and `21_ingame_menu.png`. JVM properties: `-Dvanta.forceVanillaMenu=true` keeps 
 
 | Mapping | Default | Action |
 | --- | --- | --- |
-| `key.vanta.open_menu` | Right Shift | Opens the VANTA settings hub |
+| `key.vanta.open_menu` | Right Shift | Opens the VANTA settings |
 | `key.vanta.toggle_hud` | unbound | Shows/hides all VANTA widgets |
 | `key.vanta.hud_editor` | unbound | Opens the HUD editor |
 | `key.vanta.performance` | unbound | Opens the Performance Center |
-| `key.vanta.zoom` | C (hold) | Zoom; mouse wheel adjusts the level |
+| `key.vanta.zoom` | C (hold) | Zoom; mouse wheel adjusts the level. C is also vanilla's *Save Hotbar Activator* (Creative mode only); rebind either one if you use saved hotbars |
 | `key.vanta.screenshot_hud_free` | unbound | Screenshot without the GUI and the VANTA HUD |
 
 ## Commands

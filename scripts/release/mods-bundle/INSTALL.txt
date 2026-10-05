@@ -3,11 +3,16 @@ VANTA Client {VERSION} for Minecraft Java Edition {MINECRAFT_VERSION}
 
 Requirements
 - Minecraft Java Edition {MINECRAFT_VERSION} (exactly this version)
+- The official Minecraft Launcher, started at least once
 - Fabric Loader {LOADER_VERSION} or newer for {MINECRAFT_VERSION} (the Fabric installer from fabricmc.net)
 - Java 21 (the Fabric profile in the official Minecraft Launcher uses the bundled runtime)
 
 Install
-1. Run the Fabric installer, choose Minecraft {MINECRAFT_VERSION} and loader {LOADER_VERSION}, click Install.
+0. Install the official Minecraft Launcher and start it once, then close it. The Fabric installer needs the
+   Minecraft folder and the profile file the launcher creates there. Without them the installer stops with
+   "No launcher directory found!" (no Minecraft folder yet) or "No launcher profile.json found!".
+1. Run the Fabric installer (Client tab), choose Minecraft {MINECRAFT_VERSION} and loader {LOADER_VERSION},
+   keep "Create profile" checked, click Install.
 2. Copy BOTH files from the "mods" folder of this archive into your Minecraft "mods" folder:
      Windows: %APPDATA%\.minecraft\mods
      macOS:   ~/Library/Application Support/minecraft/mods
@@ -19,7 +24,10 @@ Install
 
 In the game
 - The VANTA main menu replaces the title screen (Settings > General lets you switch back).
-- Right Shift opens the VANTA settings; C is hold-to-zoom. Everything is in Settings > Controls.
+- Right Shift opens the VANTA settings. All VANTA key bindings are in the keybind manager (Settings > Controls).
+- C is hold-to-zoom. Vanilla Minecraft also uses C for "Save Hotbar Activator" (Creative mode only), so the
+  two share a key. If you use saved hotbars, rebind either one in Options > Controls > Key Binds (VANTA's keys
+  are in the VANTA category) or in the VANTA keybind manager (Settings > Controls).
 - Configuration lives in .minecraft/config/vanta/.
 
 VANTA is a legitimate client: no cheats, no combat automation, no packet manipulation.
@@ -27,4 +35,12 @@ VANTA is a legitimate client: no cheats, no combat automation, no packet manipul
 Verify the files before installing (run in the folder you unzipped this archive into):
   Linux:   sha256sum -c SHA256SUMS
   macOS:   shasum -a 256 -c SHA256SUMS
-  Windows: certutil -hashfile mods\vanta-client-{VERSION}.jar SHA256   (compare with the value in SHA256SUMS)
+  Windows (PowerShell):
+           Get-FileHash mods\*.jar -Algorithm SHA256 | Format-List Hash, Path
+           Get-Content SHA256SUMS
+  Windows (Command Prompt):
+           certutil -hashfile mods\vanta-client-{VERSION}.jar SHA256
+           certutil -hashfile mods\fabric-api-{FABRIC_API_VERSION}.jar SHA256
+           type SHA256SUMS
+  On Windows compare the hash of BOTH jars with the line for the same file in SHA256SUMS (PowerShell prints
+  the hash in upper case; upper and lower case mean the same). If a hash differs, do not install that file.
