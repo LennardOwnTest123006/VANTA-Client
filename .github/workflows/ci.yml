@@ -72,6 +72,9 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/client-jar"
           cp client/build/libs/*.jar "$RUNNER_TEMP/client-jar/"
+          # Fabric API (Apache-2.0) as resolved by the build, so the published set is a complete mods folder.
+          FAPI=$(find ~/.gradle/caches/modules-2 -name 'fabric-api-0.141.6+1.21.11.jar' | head -1)
+          [ -n "$FAPI" ] && cp "$FAPI" "$RUNNER_TEMP/client-jar/" || echo "::warning::Fabric API jar not found in the Gradle cache"
           (cd "$RUNNER_TEMP/client-jar" && sha256sum *.jar > SHA256SUMS && cat SHA256SUMS)
           bash scripts/ci/publish-screenshots.sh "$RUNNER_TEMP/client-jar" client-jar
 
