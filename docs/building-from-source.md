@@ -105,5 +105,5 @@ node scripts/release/check-links.mjs docs website/content                       
 ```
 
 Releases themselves are cut by the release workflow (*Run workflow* with product and version, or a pushed tag
-such as `client-v1.0.1` / `launcher-v1.0.1`); it builds, checksums, publishes the GitHub Release, verifies the public download
+such as `client-v1.0.1` / `launcher-v1.0.2`); it builds, checksums, publishes the GitHub Release, verifies the public download
 links and hands the completed manifests back — see `RELEASE.md` in the root folder of the repository.

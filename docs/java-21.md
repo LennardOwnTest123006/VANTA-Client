@@ -70,7 +70,10 @@ can use it, so if you have the official launcher installed you may already be do
 
 When you play through the official Minecraft Launcher (*Use with Minecraft Launcher* or a manual Fabric profile), the
 Minecraft Launcher downloads and uses its own Java runtime for the game. You then need an installed Java 21 only to
-start a launcher jar; the Windows installers, the Windows portable app and the Linux app image bring their own.
+start a launcher jar, or, on macOS and Linux, to run the universal Fabric installer
+(`java -jar fabric-installer-<version>.jar`) for the [manual installation](installation.md#c-manual-installation).
+The Windows installers, the Windows portable app and the Linux app image bring their own Java runtime, and the
+Windows Fabric installer (`.exe`) needs no separate Java.
 
 A JRE (runtime) is enough to play. A JDK is only needed to [build VANTA from source](building-from-source.md).
 

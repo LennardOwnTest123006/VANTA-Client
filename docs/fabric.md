@@ -41,10 +41,11 @@ Verified files are never downloaded twice; a checksum mismatch deletes the file 
 **With *Use with Minecraft Launcher*** the VANTA Launcher does steps 3 and 4 the same way (into the same
 `instances/vanta-1.21.11/mods/`), writes the Fabric profile from step 1 unchanged as
 `versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.json` (plus the empty `.jar` next to it) into the
-official Minecraft folder — the same two files the official Fabric installer writes — and, also like the Fabric
-installer, adds the profile *VANTA 1.21.11* to every profiles file of the Minecraft Launcher that exists there
-(`launcher_profiles.json` and/or `launcher_profiles_microsoft_store.json`). The Minecraft Launcher then downloads the
-Fabric libraries, Minecraft and Java itself. Details:
+official Minecraft folder — the same two files the official Fabric installer writes — and adds the profile
+*VANTA 1.21.11* to every profiles file of the Minecraft Launcher that exists there (`launcher_profiles.json` and/or
+`launcher_profiles_microsoft_store.json`). In that respect it differs from the Fabric installer, which asks which
+launcher to use when both files exist and writes only that one. The Minecraft Launcher then downloads the Fabric
+libraries, Minecraft and Java itself. Details:
 [Launcher → Use with the Minecraft Launcher](launcher.md#use-with-the-minecraft-launcher).
 
 ## Using VANTA with other Fabric mods
@@ -75,7 +76,9 @@ the client jar does not care who started the game.
 The release `client-v1.0.1` has what you need: `vanta-client-1.0.1-mods.zip` contains both mods in a `mods/` folder
 (`vanta-client-1.0.1.jar` and `fabric-api-0.141.6+1.21.11.jar`) together with `INSTALL.txt` and a `SHA256SUMS` file.
 `INSTALL.txt` lists the steps below for the official Minecraft Launcher, starting with step 0: start the official
-Minecraft Launcher once. The two jars are also published on their own; `fabric-api-0.141.6+1.21.11.jar` is the
+Minecraft Launcher once. (Which Fabric installer to take on each system and the question which launcher to use, both
+in step 1 below, are in `INSTALL.txt` from the next client release on; the one in `vanta-client-1.0.1-mods.zip` does
+not mention them yet.) The two jars are also published on their own; `fabric-api-0.141.6+1.21.11.jar` is the
 unmodified FabricMC release (Apache-2.0). Verify what you download as described in
 [Installation](installation.md#2-verify-the-checksum).
 
@@ -83,11 +86,18 @@ unmodified FabricMC release (Apache-2.0). Verify what you download as described 
 
 1. Start the official Minecraft Launcher once if you never have, then close it: the Fabric installer needs the
    Minecraft folder and the profiles file it creates and otherwise stops with "No launcher directory found!" (no
-   Minecraft folder yet) or "No launcher profile.json found!". Then run the Fabric installer from fabricmc.net
-   (*Client* tab), choose Minecraft **1.21.11** and Loader **0.19.5**, keep **Create profile** checked and install.
-   This creates a profile listed as **fabric-loader-1.21.11** (its version is `fabric-loader-0.19.5-1.21.11`) in
-   `launcher_profiles.json`, or in `launcher_profiles_microsoft_store.json` for the Minecraft Launcher from the
-   Microsoft Store or the Xbox app.
+   Minecraft folder yet) or "No launcher profile.json found!". Then download the Fabric installer from fabricmc.net
+   and start it:
+   - **Windows**: the Windows installer (`.exe`). It needs no separate Java.
+   - **macOS and Linux**: the universal installer (`.jar`). It needs Java installed, so install
+     [Java 21](java-21.md#install-options) first, then run `java -jar fabric-installer-<version>.jar`. On macOS, if
+     Gatekeeper blocks it, allow it with *Open Anyway* under *System Settings → Privacy & Security*.
+
+   In the installer (*Client* tab) choose Minecraft **1.21.11** and Loader **0.19.5**, keep **Create profile** checked
+   and install. This creates a profile listed as **fabric-loader-1.21.11** (its version is
+   `fabric-loader-0.19.5-1.21.11`) in `launcher_profiles.json`, or in `launcher_profiles_microsoft_store.json` for the
+   Minecraft Launcher from the Microsoft Store or the Xbox app. If both Minecraft Launchers are installed, the Fabric
+   installer asks which one to use: choose the one you play with; only that one gets the profile.
 2. Unzip `vanta-client-1.0.1-mods.zip` and check it with its `SHA256SUMS` (`sha256sum -c SHA256SUMS` on Linux,
    `shasum -a 256 -c SHA256SUMS` on macOS; on Windows
    `Get-FileHash mods\*.jar -Algorithm SHA256 | Format-List Hash, Path` in PowerShell, which prints the full path of
@@ -100,8 +110,9 @@ unmodified FabricMC release (Apache-2.0). Verify what you download as described 
 
 If you have the VANTA Launcher, *Use with Minecraft Launcher* does the Fabric and mods part (steps 1 to 3, apart
 from starting the Minecraft Launcher once) for you, with its own profile and game folder
-([Launcher](launcher.md#use-with-the-minecraft-launcher)). Like the Fabric installer, it adds that profile to
-`launcher_profiles.json`, to `launcher_profiles_microsoft_store.json` or to both, whichever your Minecraft folder has.
+([Launcher](launcher.md#use-with-the-minecraft-launcher)). Unlike the Fabric installer, it does not ask which
+launcher to use: it adds that profile to every profiles file your Minecraft folder has, `launcher_profiles.json`,
+`launcher_profiles_microsoft_store.json` or both.
 
 **Prism Launcher / MultiMC**
 

@@ -62,8 +62,8 @@ notarised macOS app.
 
 ## Which launcher file do I need on Linux or macOS?
 
-Linux x64: `VANTA-Launcher-1.0.1-linux-x64.tar.gz` (or `vanta-launcher-1.0.1-linux-all.jar` with Java 21). Apple
-Silicon Mac: `vanta-launcher-1.0.1-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
+Linux x64: `VANTA-Launcher-1.0.2-linux-x64.tar.gz` (or `vanta-launcher-1.0.2-linux-all.jar` with Java 21). Apple
+Silicon Mac: `vanta-launcher-1.0.2-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
 interchangeable: each contains JavaFX for one system only, so the Windows or Linux jar does not run on a Mac. Started on
 the wrong system, a jar does not open its window; it names the file to download instead (in a message window as well
 when you double-clicked it) and exits with code 1. The macOS jar is built and tested from the command line in CI; its
@@ -75,7 +75,10 @@ window has not been tested yet. Details:
 Yes. Download `vanta-client-1.0.1-mods.zip`: it contains `vanta-client-1.0.1.jar` and Fabric API
 0.141.6+1.21.11 in a `mods/` folder, plus `INSTALL.txt` with the steps. Start the official Minecraft Launcher once,
 install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer (keep *Create profile* checked) and copy both jars
-into the `mods/` folder of that profile (official launcher, Prism, MultiMC). You lose the launcher's verified updates,
+into the `mods/` folder of that profile (official launcher, Prism, MultiMC). On Windows take the Fabric installer
+`.exe`, which needs no separate Java; on macOS and Linux take the universal `.jar`, which needs Java installed (install
+Java 21 first, then run `java -jar fabric-installer-<version>.jar`). If both Minecraft Launchers are installed, the
+Fabric installer asks which one to use: choose the one you play with. You lose the launcher's verified updates,
 rollback and Java helpers, nothing else. See [Installation](installation.md#c-manual-installation) and
 [Fabric](fabric.md#manual-installation-into-an-existing-fabric-profile).
 
@@ -120,14 +123,16 @@ VANTA's off in *Settings → General*). We do not test third-party combinations;
 
 On the website's [Download page](https://vanta-client.netlify.app/download) or directly from
 [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases). The newest releases are
-`launcher-v1.0.1` and `client-v1.0.1`; both places offer the same files, built and published by the project's
-release workflow with their SHA-256 checksums. Do not take VANTA files from anywhere else.
+`launcher-v1.0.2` and `client-v1.0.1` (launcher 1.0.2 is a launcher-only release; the client stays at 1.0.1). Both
+places offer the same files, built and published by the project's release workflow with their SHA-256 checksums. Do
+not take VANTA files from anywhere else.
 
 | Your system | File |
 | --- | --- |
-| Windows 10/11 x64 | `VANTA-Launcher-1.0.1.msi` (installer with its own Java runtime), or `VANTA-Launcher-1.0.1.exe` if `.msi` files are blocked, or `VANTA-Launcher-1.0.1-windows-portable.zip` to run it without installing |
-| Linux x64 | `VANTA-Launcher-1.0.1-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.0.1-linux-all.jar` with Java 21 |
-| Mac with Apple Silicon | `vanta-launcher-1.0.1-macos-aarch64-all.jar` with Java 21 |
+| Windows 10/11 x64 | `VANTA-Launcher-1.0.2.msi` (installer with its own Java runtime), or `VANTA-Launcher-1.0.2.exe` if `.msi` files are blocked, or `VANTA-Launcher-1.0.2-windows-portable.zip` to run it without installing |
+| Linux x64 | `VANTA-Launcher-1.0.2-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.0.2-linux-all.jar` with Java 21 |
+| Mac with Apple Silicon | `vanta-launcher-1.0.2-macos-aarch64-all.jar` with Java 21 |
+| Windows 11 on ARM | `VANTA-Launcher-1.0.2.msi` or `VANTA-Launcher-1.0.2-windows-portable.zip` (x64 with their own x64 Java runtime, run under emulation; not tested on such a device; [details](troubleshooting.md#windows-on-arm-which-launcher-file)) |
 | Intel Mac, Linux on ARM, or no VANTA Launcher | `vanta-client-1.0.1-mods.zip` and the Fabric installer ([manual installation](installation.md#c-manual-installation)) |
 
 Verify the file with `SHA256SUMS.txt` from the same release before you run it

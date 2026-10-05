@@ -53,13 +53,15 @@ This is a monorepo. Each product is an independent build with its own README.
 
 ## Status
 
-The latest releases are **VANTA Client 1.0.1** and **VANTA Launcher 1.0.1**, released on 2026-10-05 as the GitHub
-Releases [`client-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.1) and
-[`launcher-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.1). They are
-maintenance releases with fixes for problems found in 1.0.0, which was released the same day as
+The latest releases are **VANTA Launcher 1.0.2** and **VANTA Client 1.0.1**, released on 2026-10-05 as the GitHub
+Releases [`launcher-v1.0.2`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.2) and
+[`client-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.1). Launcher 1.0.2
+is a launcher-only maintenance release; the client stays at 1.0.1. Client 1.0.1 and
+[`launcher-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.1) fixed problems
+found in 1.0.0, which was released the same day as
 [`client-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.0) and
-[`launcher-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.0) and stays
-available. Every release is listed at
+[`launcher-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.0). The earlier
+releases stay available. Every release is listed at
 **[github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases)**,
 the only place the files are distributed; the Download page of the website
 **[vanta-client.netlify.app](https://vanta-client.netlify.app)** lists the same files and links to them there. The
@@ -76,42 +78,51 @@ version contains is in [CHANGELOG.md](CHANGELOG.md).
 
 | Release | File | For |
 | --- | --- | --- |
-| `launcher-v1.0.1` | `VANTA-Launcher-1.0.1.msi` | Windows 10/11 x64, per-user installer with the Java 21 runtime (recommended) |
-| `launcher-v1.0.1` | `VANTA-Launcher-1.0.1.exe` | Windows 10/11 x64, the same installer as `.exe` |
-| `launcher-v1.0.1` | `VANTA-Launcher-1.0.1-windows-portable.zip` | Windows 10/11 x64, no installation: run `VANTA Launcher/VANTA Launcher.exe` |
-| `launcher-v1.0.1` | `vanta-launcher-1.0.1-windows-all.jar` | Windows x64 with Java 21 installed |
-| `launcher-v1.0.1` | `VANTA-Launcher-1.0.1-linux-x64.tar.gz` | Linux x64, app image with the Java 21 runtime: run `VANTA Launcher/bin/VANTA Launcher` |
-| `launcher-v1.0.1` | `vanta-launcher-1.0.1-linux-all.jar` | Linux x64 with Java 21 installed |
-| `launcher-v1.0.1` | `vanta-launcher-1.0.1-macos-aarch64-all.jar` | Apple Silicon macOS with Java 21 installed |
+| `launcher-v1.0.2` | `VANTA-Launcher-1.0.2.msi` | Windows 10/11 x64, per-user installer with the Java 21 runtime (recommended) |
+| `launcher-v1.0.2` | `VANTA-Launcher-1.0.2.exe` | Windows 10/11 x64, the same installer as `.exe` |
+| `launcher-v1.0.2` | `VANTA-Launcher-1.0.2-windows-portable.zip` | Windows 10/11 x64, no installation: run `VANTA Launcher/VANTA Launcher.exe` |
+| `launcher-v1.0.2` | `vanta-launcher-1.0.2-windows-all.jar` | Windows x64 with Java 21 installed |
+| `launcher-v1.0.2` | `VANTA-Launcher-1.0.2-linux-x64.tar.gz` | Linux x64, app image with the Java 21 runtime: run `VANTA Launcher/bin/VANTA Launcher` |
+| `launcher-v1.0.2` | `vanta-launcher-1.0.2-linux-all.jar` | Linux x64 with Java 21 installed |
+| `launcher-v1.0.2` | `vanta-launcher-1.0.2-macos-aarch64-all.jar` | Apple Silicon macOS with Java 21 installed |
 | `client-v1.0.1` | `vanta-client-1.0.1.jar` | the Fabric mod (the launcher installs it for you) |
 | `client-v1.0.1` | `vanta-client-1.0.1-mods.zip` | manual installation: `mods/` with the VANTA jar and Fabric API, `INSTALL.txt`, `SHA256SUMS` |
 | `client-v1.0.1` | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0), required by VANTA |
 
-Each release also has `SHA256SUMS.txt` and its manifest (`client-1.0.1.json`, `launcher-1.0.1.json`). Every launcher
+Each release also has `SHA256SUMS.txt` and its manifest (`client-1.0.1.json`, `launcher-1.0.2.json`). Every launcher
 jar contains JavaFX for one system only, so take the jar with your system in its name; started on another system it
 says which file to download and exits with code 1. From 1.0.1 on, the launcher updates itself with the file that
 matches how it was installed: the `.msi` for a launcher installed with the `.msi` or `.exe`, the portable `.zip` for
 the portable folder, the `.tar.gz` for the Linux app image and the jar for your system when it was started with
 `java -jar` ([docs/launcher.md](docs/launcher.md#updates-and-rollback)). Launcher 1.0.0 still picks the update by
-system only: on Windows it offers the `.msi` (also in the portable folder and for the jar), on Linux x64 the
-`.tar.gz`. To keep a portable or jar setup, choose *Not now*, close the 1.0.0 launcher and download
-`VANTA-Launcher-1.0.1-windows-portable.zip` or the jar for your system from the `launcher-v1.0.1` release instead
-([docs/installation.md](docs/installation.md#updating)).
+system only, also for the update to 1.0.2: on Windows it offers the `.msi` (also in the portable folder and for the
+jar), on Linux x64 the `.tar.gz` (also for the jar). To keep a portable or jar setup, choose *Not now*, close the
+1.0.0 launcher and download `VANTA-Launcher-1.0.2-windows-portable.zip` or the jar for your system from the
+`launcher-v1.0.2` release instead ([docs/installation.md](docs/installation.md#updating)). Launchers 1.0.0 and 1.0.1
+save a downloaded update as `cache/updates/<version>-<file name>` (for example
+`1.0.2-vanta-launcher-1.0.2-linux-all.jar`), the verified release file under another name; from 1.0.2 on it keeps
+its release name.
 
 ### How to install
 
 1. **VANTA Launcher → *Use with Minecraft Launcher*** (the way to play with the published builds): install the
    launcher, start the official Minecraft Launcher once, click *Use with Minecraft Launcher*, then start the profile
-   *VANTA 1.21.11* in the official Minecraft Launcher, which handles Microsoft sign-in, Minecraft and Java. Like the
-   Fabric installer, VANTA adds the profile to every profiles file the Minecraft Launcher has created:
-   `launcher_profiles.json` (Minecraft Launcher from minecraft.net) and/or `launcher_profiles_microsoft_store.json`
-   (Minecraft Launcher from the Microsoft Store or the Xbox app on Windows). CI checks the contents of both files on
-   Linux; whether the Microsoft Store / Xbox app launcher then shows the profile has not been tested on a real Windows
-   PC yet. If it does not, use the manual installation (3).
+   *VANTA 1.21.11* in the official Minecraft Launcher, which handles Microsoft sign-in, Minecraft and Java. VANTA
+   adds the profile to every profiles file the Minecraft Launcher has created: `launcher_profiles.json` (Minecraft
+   Launcher from minecraft.net) and/or `launcher_profiles_microsoft_store.json` (Minecraft Launcher from the
+   Microsoft Store or the Xbox app on Windows). The Fabric installer works differently: when both files exist, it
+   asks which launcher to use and writes only that one. CI checks the contents of both files on Linux; whether the
+   Microsoft Store / Xbox app launcher then shows the profile has not been tested on a real Windows PC yet. If it does
+   not, use the manual installation (3).
 2. **VANTA Launcher → PLAY**: installs and starts everything itself, but needs a Microsoft client id (see below).
 3. **Manual**: start the official Minecraft Launcher once, install Fabric Loader 0.19.5 for 1.21.11 with the Fabric
    installer (keep *Create profile* checked) and copy the two jars from `vanta-client-1.0.1-mods.zip` into
-   `.minecraft/mods`. `INSTALL.txt` in the zip lists these steps.
+   `.minecraft/mods`. On Windows use the Fabric installer `.exe`, which needs no separate Java. On macOS and Linux use
+   the universal `.jar`, which needs Java installed: install Java 21 first and run
+   `java -jar fabric-installer-<version>.jar` (on macOS, if Gatekeeper blocks it, choose *Open Anyway* under
+   *System Settings → Privacy & Security*). If both Minecraft Launchers are installed, the Fabric installer asks which
+   one to use; choose the one you play with. `INSTALL.txt` in the zip lists these steps; the note on which Fabric
+   installer to use and on the launcher choice is in `INSTALL.txt` from the next client release on.
 
 Step by step, with checksum verification for every system: [docs/installation.md](docs/installation.md).
 
@@ -162,6 +173,9 @@ On every release ([`release.yml`](.github/workflows/release.yml)):
 - **macOS**: the Apple Silicon jar is built and tested from the command line on a macOS runner; its window has not
   been tested. There is no build for Intel Macs, no `.dmg` and no notarization.
 - **Linux**: the app image is built for x64 only.
+- **Windows on ARM**: there is no arm64 build. Windows 11 on ARM runs x64 programs under emulation, so the x64
+  installer, the portable app or an x64 Java 21 with the Windows jar are the way there; this has not been tested on a
+  Windows on ARM device ([Troubleshooting](docs/troubleshooting.md#windows-on-arm-which-launcher-file)).
 
 ## License
 

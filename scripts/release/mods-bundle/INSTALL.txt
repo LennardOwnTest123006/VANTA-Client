@@ -5,7 +5,8 @@ Requirements
 - Minecraft Java Edition {MINECRAFT_VERSION} (exactly this version)
 - The official Minecraft Launcher, started at least once
 - Fabric Loader {LOADER_VERSION} or newer for {MINECRAFT_VERSION} (the Fabric installer from fabricmc.net)
-- Java 21 (the Fabric profile in the official Minecraft Launcher uses the bundled runtime)
+- Java: the game uses the Java 21 runtime that the Minecraft Launcher brings. On macOS and Linux the Fabric
+  installer (.jar) needs Java installed to run, so install Java 21 there first.
 
 Install
 0. Install the official Minecraft Launcher and start it once, then close it. The Fabric installer needs the
@@ -13,6 +14,13 @@ Install
    "No launcher directory found!" (no Minecraft folder yet) or "No launcher profile.json found!".
 1. Run the Fabric installer (Client tab), choose Minecraft {MINECRAFT_VERSION} and loader {LOADER_VERSION},
    keep "Create profile" checked, click Install.
+   - Windows: use the Windows installer (.exe) from fabricmc.net; it needs no separate Java.
+   - macOS and Linux: use the universal installer (.jar) and install Java 21 first. Start it with
+       java -jar fabric-installer-<version>.jar
+     On macOS, if Gatekeeper blocks it: System Settings > Privacy & Security > "Open Anyway".
+   - If both Minecraft Launchers are installed (from minecraft.net and from the Microsoft Store or the Xbox
+     app), the Fabric installer asks which one to use. Choose the one you play with; only that one gets the
+     Fabric profile.
 2. Copy BOTH files from the "mods" folder of this archive into your Minecraft "mods" folder:
      Windows: %APPDATA%\.minecraft\mods
      macOS:   ~/Library/Application Support/minecraft/mods

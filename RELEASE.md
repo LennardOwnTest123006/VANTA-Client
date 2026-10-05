@@ -97,7 +97,14 @@ without one. From that commit until the completed manifest is committed (step 7)
    `launcher/gradle.properties` (`launcher_version`), or `website/package.json`, and creates the unpublished manifest
    with exactly the release files above (`--date` sets its preliminary `releaseDate`; the workflow overwrites it).
    For 1.0.1: `--product client --to 1.0.1 --date 2026-10-05` and `--product launcher --to 1.0.1 --date 2026-10-05`.
-2. **Notes.** Write `website/content/changelog/<product>-<version>.md` and update `CHANGELOG.md`.
+   A release of one product bumps only that product, for example the launcher-only 1.0.2:
+   `--product launcher --to 1.0.2 --date 2026-10-05` (the client stays at 1.0.1).
+2. **Notes.** Write `website/content/changelog/<product>-<version>.md` and update `CHANGELOG.md`. Launchers load the
+   release notes of an update from
+   `https://raw.githubusercontent.com/LennardOwnTest123006/VANTA-Client/HEAD/<changelog path of the manifest>` when
+   they show it, so a note added later to the notes of a published version (for example for users of an older
+   launcher) reaches every running launcher that offers that version as soon as it is committed to the default
+   branch, without a new release.
 3. **Commit** to the default branch, including the unpublished manifest, and wait for CI to pass. The website keeps
    offering the previous release meanwhile (see [Release manifests](#release-manifests)).
 4. **Start the release workflow** (`.github/workflows/release.yml`), either
@@ -195,8 +202,10 @@ user's Java runtime, and a Windows installer only after the user confirmed).
 ## Launcher auto-update
 
 At startup the launcher fetches `launcher-latest.json` and `client-latest.json` from the releases URL in use, shows
-the changelog, downloads the new file to `cache/updates/` inside the launcher data directory and verifies the SHA-256
-from the manifest. The file replaces exactly the kind of installation that is running:
+the changelog, downloads the new file to `cache/updates/<version>/<file name>` inside the launcher data directory
+(under the exact name of the release file, so `sha256sum -c --ignore-missing SHA256SUMS.txt` works in that folder;
+launcher 1.0.0 and 1.0.1 save it as `cache/updates/<version>-<file name>`) and verifies the SHA-256 from the
+manifest. The file replaces exactly the kind of installation that is running:
 
 | Running launcher | Update file | After the download |
 | --- | --- | --- |
@@ -215,18 +224,21 @@ The `launcher-windows` job writes that marker (text `portable`) into the app ima
 jpackage run without it, which the job also checks. The launcher never unpacks or runs the zip, the archive or a jar.
 
 This selection exists from launcher 1.0.1 on. Launcher 1.0.0 picks the update file by system only (the `.msi` on
-Windows, also for the portable folder and a jar; the `.tar.gz` on Linux x64, also for a jar), so it offers 1.0.1
-that way. Portable and jar users of 1.0.0 are told in [Installation → Updating](docs/installation.md#updating) to
-download the portable zip or their jar from the release page instead; keep that note while 1.0.0 is in use.
+Windows, also for the portable folder and a jar; the `.tar.gz` on Linux x64, also for a jar), so it offers every
+newer version, 1.0.1 and 1.0.2 alike, that way. Portable and jar users of 1.0.0 are told in
+[Installation → Updating](docs/installation.md#updating) and in the `## Notes` of the launcher release notes to
+download the portable zip or their jar from the release page instead; keep that note in the notes of each new
+launcher version while 1.0.0 is in use.
 
 A client update is offered only when a client is installed (the `vanta-client-<version>.jar` in the instance's
 `mods/` folder); a fresh launcher installs the client through the regular installation or *Use with Minecraft
 Launcher* instead.
 
 Client updates install exactly `vanta-client-<version>.jar` (never the mods bundle or the Fabric API jar) and keep
-the last three verified jars under `versions/vanta-client/` so the Versions screen can roll back; rolling back the
-launcher itself means installing the previous release from GitHub Releases, where every version stays available with
-its checksum.
+the three newest client versions under `versions/vanta-client/` so the Versions screen can roll back (a copy kept of
+a jar put into `mods/` by hand is labelled *Local copy from mods/*: it was not downloaded from a release manifest);
+rolling back the launcher itself means installing the previous release from GitHub Releases, where every version
+stays available with its checksum.
 
 ## Signing (future)
 

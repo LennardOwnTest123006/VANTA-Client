@@ -16,9 +16,9 @@ options on top of vanilla Minecraft. It adds **no cheats** and sends **no data**
 | Fabric API | 0.141.6+1.21.11 |
 | Java | 21 |
 | VANTA Client | 1.0.1 |
-| VANTA Launcher | 1.0.1 |
+| VANTA Launcher | 1.0.2 |
 | Launcher platforms | Windows 10/11 x64 (installers, portable app, jar); Linux x64 (app image, jar); Apple Silicon macOS (jar) |
-| Downloads | GitHub Releases `client-v1.0.1` and `launcher-v1.0.1` (released 2026-10-05; 1.0.0 stays available), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
+| Downloads | GitHub Releases `client-v1.0.1` and `launcher-v1.0.2` (released 2026-10-05; the earlier releases stay available), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
 
 ## Quick start
 

@@ -77,7 +77,7 @@ describe('build-mods-bundle.sh', { skip }, () => {
     assert.equal(rendered, expected);
   });
 
-  test('INSTALL.txt walks through launcher-first install, both jar checks on Windows and the zoom key overlap', () => {
+  test('INSTALL.txt walks through launcher-first install, the Fabric installer per system, both jar checks on Windows and the zoom key overlap', () => {
     const template = readFileSync(join(REPO_ROOT, 'scripts', 'release', 'mods-bundle', 'INSTALL.txt'), 'utf8');
     assert.match(template, /^[\x09\x0a\x20-\x7e]*$/, 'plain ASCII so every editor and console shows it correctly');
     for (const line of template.split('\n')) assert.ok(line.length <= 120, `line too long: ${line}`);
@@ -89,6 +89,17 @@ describe('build-mods-bundle.sh', { skip }, () => {
     assert.match(template, /"No launcher directory found!" \(no Minecraft folder yet\) or "No launcher profile\.json found!"/);
     assert.match(template, /^1\. Run the Fabric installer[^]*keep "Create profile" checked, click Install\./m);
     assert.match(template, /\(the Fabric installer from fabricmc\.net\)/);
+    // Which Fabric installer per system: the Windows .exe needs no Java; the universal .jar (macOS, Linux) does.
+    assert.match(template, /^ {3}- Windows: use the Windows installer \(\.exe\) from fabricmc\.net; it needs no separate Java\.$/m);
+    assert.match(template, /^ {3}- macOS and Linux: use the universal installer \(\.jar\) and install Java 21 first\./m);
+    assert.match(template, /^ +java -jar fabric-installer-<version>\.jar$/m);
+    assert.match(template, /Gatekeeper blocks it: System Settings > Privacy & Security > "Open Anyway"/);
+    assert.match(template, /installer \(\.jar\) needs Java installed to run, so install Java 21 there first\./);
+    // With both profiles files the Fabric installer asks for one launcher and writes only that one.
+    assert.match(template, /If both Minecraft Launchers are installed[^]*asks which one to use\. Choose the one you play with; only that one gets the\s+Fabric profile\./);
+    // The note sits inside step 1, before step 2.
+    const step1 = template.slice(template.indexOf('\n1. '), template.indexOf('\n2. '));
+    assert.match(step1, /Windows: use the Windows installer[^]*macOS and Linux: use the universal installer[^]*asks which one to use/);
     assert.doesNotMatch(template, /https?:\/\//, 'no links in the bundle text');
     // Format-List prints Hash and the full Path of each jar; the default table cuts the path (and file name) off.
     assert.match(template, /^ +Get-FileHash mods\\\*\.jar -Algorithm SHA256 \| Format-List Hash, Path$/m);

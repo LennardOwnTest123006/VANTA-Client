@@ -38,7 +38,9 @@ Side cards:
 
 - **Account**: name, initials avatar, sign in/out. Without a Microsoft client id the card says that sign-in is not
   configured and offers **How to configure** (opens [Microsoft client id](#microsoft-client-id)) and **Settings**, one
-  under the other with their full labels and a tooltip each.
+  under the other with their full labels and a tooltip each. The account chip in the sidebar then says *Sign-in not
+  available* and offers **How to configure** instead of **Sign in**, and its tooltip explains how to play through the
+  Minecraft Launcher; with a client id it says *Sign in with Microsoft* above the **Sign in** button.
 - **Java**: detected runtimes, *Install Java 21 (Temurin)*.
 - **VANTA Client**: the installed version next to the latest release from the release manifest. The installed version
   is the `vanta-client-<version>.jar` that is actually in `instances/vanta-1.21.11/mods/` (with `instance.json`), so a
@@ -48,7 +50,13 @@ Side cards:
   **Use with Minecraft Launcher**. The update banner and the update dialog offer no client update then either.
 - a recent-log snippet.
 
-**Verify files** re-checks the installation without launching; **Open game folder** opens `instances/vanta-1.21.11`.
+**Verify files** re-checks an existing installation without launching: it compares every installed file with its
+checksum and downloads missing or damaged files again. Like PLAY it runs the regular installation, so it also replaces
+an older VANTA Client with the latest release; its tooltip says so, and its notification then names the version it
+installed instead of saying that nothing was missing or damaged. It is shown only when an installation exists
+(`instances/vanta-1.21.11/instance.json`) and never starts a first installation; PLAY and the client card's
+*Install now* do that. A client set up only with *Use with Minecraft Launcher* has no such installation, so the button
+is not shown then. **Open game folder** opens `instances/vanta-1.21.11`.
 
 ## Use with the Minecraft Launcher
 
@@ -60,7 +68,8 @@ and Java itself and signs you in with Microsoft.
 **Before you use it**, start the official Minecraft Launcher once on this computer. VANTA only adds to the profiles
 files the Minecraft Launcher has created and never creates one: `launcher_profiles.json` (Minecraft Launcher from
 minecraft.net) and `launcher_profiles_microsoft_store.json` (Minecraft Launcher from the Microsoft Store or the Xbox
-app on Windows). Like the official Fabric installer, it writes its profile into each of these files that exists.
+app on Windows). It writes its profile into every one of these files that exists. The official Fabric installer works
+differently: when both files exist, it asks which launcher to use and writes only that one.
 
 On the Home screen click **Use with Minecraft Launcher**. A confirmation lists exactly the files below that will be
 written or removed, with their full paths and the VANTA Client version resolved from the release manifest; **Add
@@ -212,9 +221,17 @@ With *Use with Minecraft Launcher* none of this is needed: the Minecraft Launche
 
 A table of the installed components with their versions and the **SHA-256 of the installed VANTA jar**:
 Minecraft 1.21.11, Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11, VANTA Client x.y.z, Java (path and version).
-Below it, **previous client versions** kept for rollback (the last three verified jars) each with a **Roll back**
-button that swaps the jar in `mods/` without downloading anything. When no release has been published, the screen
+Below it, **previous client versions** kept for rollback (the three newest client versions) each with a **Roll back**
+button that swaps the jar in `mods/` without downloading anything. A copy that an update kept of a jar put into
+`mods/` by hand is marked *Local copy from mods/*: it is that jar exactly as it was, not a downloaded release, and
+*Roll back* makes exactly that file active again. When no release has been published, the screen
 says *No release published* instead of showing empty values.
+
+While nothing is installed, the screen says how to install: with Microsoft sign-in configured or an account stored,
+*press PLAY on the Home screen*; without sign-in and without a stored account (a fresh published build), PLAY cannot
+install anything, so it points to *Use with Minecraft Launcher*, like the VANTA Client card on Home. After *Use with Minecraft Launcher* it says *Set up for the Minecraft Launcher*: the game is started from
+the official Minecraft Launcher with the profile *VANTA 1.21.11*, which downloads Minecraft and Fabric Loader itself,
+so they are not listed here.
 
 ## Logs
 
@@ -237,10 +254,14 @@ Minecraft's own `latest.log` is in the instance). The launcher log is `logs/laun
 | Check for updates automatically | on | at start, against the releases URL in use |
 | Share official Minecraft files | on | reuse verified libraries/assets from the official `.minecraft` directory read-only |
 | Developer mode | off | reveals *Offline session* only when allowed by the rules above; enables `--dev-offline` |
-| Theme | VANTA Dark | plus a high-contrast toggle |
+| Theme | VANTA Dark | the launcher has one dark theme |
+| High contrast | off | stronger borders, brighter secondary and muted text and a brighter focus outline |
 | Reset to defaults | — | restores every value in this table |
 
 Settings are stored as pretty-printed JSON with a `schemaVersion` in `settings.json`; writes are atomic.
+
+*Settings → Advanced* also shows the [data directory](#data-directory) with an **Open** button that opens it in your
+file manager. A long path is shortened with "..." in the middle, and its tooltip shows the full path.
 
 ## Releases URL
 
@@ -281,22 +302,28 @@ At start (and with `--check-update`) the launcher fetches `launcher-latest.json`
 - **Client update**: offered only when a VANTA Client is installed (see the *VANTA Client* card under [Home](#home));
   a fresh launcher installs the client with PLAY, *Install now* or *Use with Minecraft Launcher* instead. The banner
   shows the changelog; *Update* downloads exactly `vanta-client-<version>.jar` (never the `-mods.zip` bundle or the
-  Fabric API jar of the same release) to `cache/updates/`, verifies the SHA-256 from the manifest (a manifest without a
-  digest is refused), keeps a copy under `versions/vanta-client/<version>/` and activates it in `mods/`. The last three
-  versions remain for **Roll back**. The *VANTA 1.21.11* profile of the Minecraft Launcher uses the same `mods/`
-  folder, so it gets the update too.
+  Fabric API jar of the same release) into `versions/vanta-client/<version>/`, verifies the SHA-256 from the manifest
+  (a manifest without a digest is refused), keeps it there as the rollback copy and activates it in `mods/`. The three
+  newest versions remain for **Roll back**. When the jar it replaces has a release version but no rollback copy yet
+  (for example a jar put into `mods/` by hand), the launcher keeps a copy of it first, as long as it is among the three
+  newest versions afterwards. The notification *VANTA Client <version> installed* names the previous version as kept
+  for roll back only when a copy of it really exists. Otherwise it says that no copy of the replaced version is kept,
+  and either that the Versions page lists other kept versions to roll back to or that no other version is kept. The
+  *VANTA 1.21.11* profile of the Minecraft Launcher uses the same `mods/` folder, so it gets the update too.
 - **Launcher update**: the launcher picks the release file that replaces exactly the kind of installation that is
-  running, downloads it to `cache/updates/` and verifies its SHA-256 the same way:
+  running, downloads it to `cache/updates/<version>/<file name>` in the data directory, under the exact name of the
+  release file, and verifies its SHA-256 the same way. The dialog afterwards shows the full path of the file in a field
+  you can select and copy, and offers *Show in folder* (next to *Open installer* for the Windows installer):
 
   | Running launcher | Self-update file | What happens after the download |
   | --- | --- | --- |
   | Windows x64, installed with the `.msi` or `.exe` | `VANTA-Launcher-<version>.msi` (`.exe` when a release has no `.msi`) | after your confirmation the installer is handed to Windows; the launcher never runs it itself |
   | Windows x64, portable folder (from `-windows-portable.zip`) | `VANTA-Launcher-<version>-windows-portable.zip` | shown with instructions that name your folders (*Show in folder* opens the download): close the launcher, then extract the zip into the folder that **contains** your `VANTA Launcher` folder (its parent) and let it replace the existing files; the zip's top-level `VANTA Launcher` folder lands on top of the old one. Extracting it into the `VANTA Launcher` folder itself only nests a second `VANTA Launcher` folder and leaves the old version in place. For a renamed portable folder the dialog says to copy everything inside the zip's `VANTA Launcher` folder into your portable folder instead. The launcher never unpacks or runs it |
-  | Windows x64, `java -jar` | `vanta-launcher-<version>-windows-all.jar` | shown in its folder: start it with `java -jar` (Java 21) |
+  | Windows x64, `java -jar` | `vanta-launcher-<version>-windows-all.jar` | shown in its folder: start it with Java 21 using the `java -jar "<full path>"` command the dialog shows |
   | Linux x64 app image (from `-linux-x64.tar.gz`) | `VANTA-Launcher-<version>-linux-x64.tar.gz` | shown in its folder: extract it and start `VANTA Launcher/bin/VANTA Launcher` |
-  | Linux x64, `java -jar` | `vanta-launcher-<version>-linux-all.jar` | shown in its folder: start it with `java -jar` (Java 21) |
-  | macOS, Apple Silicon | `vanta-launcher-<version>-macos-aarch64-all.jar` | shown in its folder: start it with `java -jar` (Java 21) |
-  | macOS on Intel, Windows or Linux on ARM, other systems | none | the dialog opens the GitHub release page instead |
+  | Linux x64, `java -jar` | `vanta-launcher-<version>-linux-all.jar` | shown in its folder: start it with Java 21 using the `java -jar "<full path>"` command the dialog shows |
+  | macOS, Apple Silicon | `vanta-launcher-<version>-macos-aarch64-all.jar` | shown in its folder: start it with Java 21 using the `java -jar "<full path>"` command the dialog shows |
+  | macOS on Intel, Linux on ARM, an arm64 Java on Windows on ARM, other systems | none | the dialog opens the GitHub release page instead |
 
   The launcher tells these installations apart by how it was started: the installers and app images start it through
   their own launcher program (`VANTA Launcher.exe`, `bin/VANTA Launcher`), a jar is started with `java -jar`, and the
@@ -304,16 +331,23 @@ At start (and with `--check-update`) the launcher fetches `launcher-latest.json`
   contain. Rolling the launcher back means installing the previous release from GitHub Releases, where every version
   stays available with its checksum.
 
-  **Updating from launcher 1.0.0.** The table describes launcher 1.0.1 and newer. The update *to* 1.0.1 is offered by
-  the launcher you are running, and launcher 1.0.0 still picks the file by system only: on Windows it offers
-  `VANTA-Launcher-1.0.1.msi` (also in the portable folder and when started as a jar), on Linux x64
-  `VANTA-Launcher-1.0.1-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a portable folder or
-  a jar installs a second launcher and leaves the portable copy or jar at 1.0.0. To keep a portable or jar setup,
-  choose *Not now* in the 1.0.0 launcher, close it and download `VANTA-Launcher-1.0.1-windows-portable.zip` or the
-  jar for your system from the release
-  [`launcher-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.1) yourself
+  **Updating from launcher 1.0.0.** The table describes launcher 1.0.1 and newer. An update is offered by the
+  launcher you are running, and launcher 1.0.0 still picks the file by system only, for the update to 1.0.2 as it did
+  for 1.0.1: on Windows it offers `VANTA-Launcher-1.0.2.msi` (also in the portable folder and when started as a jar),
+  on Linux x64 `VANTA-Launcher-1.0.2-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a
+  portable folder or a jar installs a second launcher and leaves the portable copy or jar at 1.0.0. To keep a portable
+  or jar setup, choose *Not now* in the 1.0.0 launcher, close it and download
+  `VANTA-Launcher-1.0.2-windows-portable.zip` or the jar for your system from the release
+  [`launcher-v1.0.2`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.2) yourself
   (verify it as in [Installation → Verify the checksum](installation.md#2-verify-the-checksum) and replace the files
   as described in the table). From 1.0.1 on, the launcher picks the matching file itself.
+
+  **Update files saved by launcher 1.0.0 and 1.0.1.** They save the download as `cache/updates/<version>-<file name>`,
+  for example `1.0.2-vanta-launcher-1.0.2-linux-all.jar`. It is the verified release file under a different name:
+  *Show in folder* opens that folder and the file starts from there as it is. To check it yourself with
+  `sha256sum -c --ignore-missing SHA256SUMS.txt` from the release, rename it to the release name first
+  (`vanta-launcher-1.0.2-linux-all.jar`). From 1.0.2 on, the file keeps its release name
+  ([Installation → Updating](installation.md#updating)).
 - An announced release whose manifest still has an empty download URL is shown as *announced, not downloadable yet*.
 
 `--check-update` prints the same result, for example on a fresh launcher:
@@ -330,6 +364,14 @@ and on the About page open [vanta-client.netlify.app](https://vanta-client.netli
 and *Report a problem* open the GitHub issues, *Source code on GitHub* the repository. The environment variables
 `VANTA_WEBSITE_URL` and `VANTA_SUPPORT_URL` replace the website and support links with another `http(s)` address; an
 entry without a usable address is disabled and says *Not configured*.
+
+To open a link (Website, Support, *How to configure*, release notes) the launcher tries Java's desktop integration
+first, then the system's own opener (`xdg-open` on Linux, `open` on macOS, `rundll32 url.dll,FileProtocolHandler` on
+Windows, checked by its exit code), then JavaFX. Unless the desktop integration or the system opener confirmed that the
+browser was started, the address is shown in a notification, so a click never silently does nothing. Only when no
+opener accepted the link is the address also copied to the clipboard, so you can paste it into your browser yourself.
+After JavaFX accepted it (JavaFX cannot tell whether a browser opened) the clipboard is left alone, so a sign-in code
+you just copied stays there.
 
 ## Data directory
 
@@ -352,7 +394,7 @@ on Linux, `"VANTA Launcher/bin/VANTA Launcher"` from the app image. The command 
 every launcher jar on every system; only the window needs the jar for your system. On Windows `VANTA Launcher.exe` is a
 window program without console output; use the jar with an installed Java 21 there, or the bundled runtime:
 `"VANTA Launcher\runtime\bin\java.exe" -jar "VANTA Launcher\app\vanta-launcher-<version>-all.jar"` inside the
-unzipped portable app (for 1.0.1: `vanta-launcher-1.0.1-all.jar`).
+unzipped portable app (for 1.0.2: `vanta-launcher-1.0.2-all.jar`).
 
 ```text
 vanta-launcher --install [--client-jar <path>] [--without-client] [--no-assets]
