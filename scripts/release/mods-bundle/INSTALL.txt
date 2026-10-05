@@ -33,6 +33,7 @@ Install
 In the game
 - The VANTA main menu replaces the title screen (Settings > General lets you switch back).
 - Right Shift opens the VANTA settings. All VANTA key bindings are in the keybind manager (Settings > Controls).
+- Mods & Shaders (main menu) installs mods and shader packs from Modrinth, with a one-click Performance pack.
 - C is hold-to-zoom. Vanilla Minecraft also uses C for "Save Hotbar Activator" (Creative mode only), so the
   two share a key. If you use saved hotbars, rebind either one in Options > Controls > Key Binds (VANTA's keys
   are in the VANTA category) or in the VANTA keybind manager (Settings > Controls).

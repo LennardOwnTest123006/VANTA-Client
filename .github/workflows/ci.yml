@@ -141,6 +141,117 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/ci/publish-screenshots.sh "$RUNNER_TEMP/gametest-out" gametest
 
+  client-gametest-performance:
+    name: Client game test with the Performance pack (Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling, Iris)
+    runs-on: ubuntu-24.04
+    needs: [client]
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Resolve the newest Minecraft 1.21.11 Fabric version of each Performance pack mod on Modrinth
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gametest-performance-out"
+          VERSION=$(sed -n 's/^mod_version=//p' client/gradle.properties)
+          UA="LennardOwnTest123006/VANTA-Client/${VERSION} (https://github.com/LennardOwnTest123006/VANTA-Client)"
+          # Modrinth slug -> Fabric mod id (what the game test checks is loaded).
+          declare -A MOD_ID=([sodium]=sodium [lithium]=lithium [ferrite-core]=ferritecore
+            [immediatelyfast]=immediatelyfast [entityculling]=entityculling [iris]=iris)
+          EXTRA=""
+          EXPECT=""
+          for SLUG in sodium lithium ferrite-core immediatelyfast entityculling iris; do
+            JSON=$(curl -fsS --retry 3 --retry-delay 5 -A "$UA" \
+              "https://api.modrinth.com/v2/project/${SLUG}/version?loaders=%5B%22fabric%22%5D&game_versions=%5B%221.21.11%22%5D")
+            # Same rule as the in-game installer: newest release, else newest beta, else newest of any type.
+            PICK=$(jq -r '[.[] | select((.game_versions | index("1.21.11")) and (.loaders | index("fabric")))]
+              | sort_by(.date_published) | reverse
+              | ((map(select(.version_type == "release")) | first)
+                 // (map(select(.version_type == "beta")) | first) // first)
+              | if . == null then empty else "\(.id) \(.version_number)" end' <<< "$JSON")
+            if [ -z "$PICK" ]; then
+              echo "::warning::${SLUG} has no Minecraft 1.21.11 Fabric version on Modrinth; it is skipped"
+              echo "${SLUG}: skipped (no Minecraft 1.21.11 Fabric version)" | tee -a "$RUNNER_TEMP/gametest-performance-out/performance-pack.txt"
+              continue
+            fi
+            read -r VERSION_ID VERSION_NUMBER <<< "$PICK"
+            echo "${SLUG}: ${VERSION_NUMBER} (version id ${VERSION_ID})" | tee -a "$RUNNER_TEMP/gametest-performance-out/performance-pack.txt"
+            # The version id is unambiguous on Modrinth's Maven (some version numbers exist for several game versions).
+            EXTRA="${EXTRA:+$EXTRA,}maven.modrinth:${SLUG}:${VERSION_ID}"
+            EXPECT="${EXPECT:+$EXPECT,}${MOD_ID[$SLUG]}"
+          done
+          [ -n "$EXTRA" ] || { echo "::error::no Performance pack mod has a Minecraft 1.21.11 Fabric version"; exit 1; }
+          echo "EXTRA_PRODUCTION_MODS=$EXTRA" >> "$GITHUB_ENV"
+          echo "EXPECT_MODS=$EXPECT" >> "$GITHUB_ENV"
+      - name: Live check - resolve and download the Performance pack through VANTA's Modrinth client (SHA-512 verified)
+        working-directory: core
+        run: ./gradlew liveTest --stacktrace
+      - name: Run the production client game test under Xvfb with the Performance pack loaded
+        working-directory: client
+        env:
+          CI: 'true'
+        # Same watchdog as the client-gametest job: thread-dump every game JVM after 4 minutes and again before
+        # killing a run that is still going after 20 minutes.
+        run: |
+          mkdir -p "$RUNNER_TEMP/gametest-performance-out"
+          dump() {
+            for p in $(pgrep -f 'fabric.client.gametest' || true); do
+              jcmd "$p" Thread.print > "$RUNNER_TEMP/gametest-performance-out/thread-dump-$1-pid$p.txt" 2>&1 || true
+            done
+          }
+          echo "Extra mods: $EXTRA_PRODUCTION_MODS"
+          ./gradlew runProductionClientGametest --stacktrace \
+            "-PextraProductionMods=$EXTRA_PRODUCTION_MODS" "-PgametestExpectMods=$EXPECT_MODS" &
+          GRADLE_PID=$!
+          for i in $(seq 1 240); do
+            sleep 5
+            kill -0 "$GRADLE_PID" 2>/dev/null || break
+            [ "$i" -eq 48 ] && dump 4min
+            if [ "$i" -eq 240 ]; then
+              echo "::error::client game test still running after 20 minutes; dumping threads and killing it"
+              dump 20min
+              pkill -f 'fabric.client.gametest' || true
+              kill "$GRADLE_PID" || true
+              wait "$GRADLE_PID" || true
+              exit 124
+            fi
+          done
+          wait "$GRADLE_PID"
+      - name: Verify the game test passed with the Performance pack loaded
+        run: |
+          LOG=client/run/production-gametest/logs/latest.log
+          grep -F "[VANTA gametest] performance mods loaded:" "$LOG"
+          if ls client/run/production-gametest/crash-reports/*.txt >/dev/null 2>&1; then
+            echo "::error::the game crashed with the Performance pack loaded"; exit 1
+          fi
+          grep -qF "[VANTA gametest] done: all steps passed" "$LOG" || {
+            echo "::error::the VANTA game test did not finish with the Performance pack loaded"; exit 1; }
+      - name: Collect logs and screenshots
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/gametest-performance-out"
+          cp -r client/run/production-gametest/screenshots "$RUNNER_TEMP/gametest-performance-out/" 2>/dev/null || true
+          cp client/run/production-gametest/logs/latest.log "$RUNNER_TEMP/gametest-performance-out/" 2>/dev/null || true
+          cp -r client/run/production-gametest/crash-reports "$RUNNER_TEMP/gametest-performance-out/" 2>/dev/null || true
+          ls -laR "$RUNNER_TEMP/gametest-performance-out" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-gametest-performance
+          path: ${{ runner.temp }}/gametest-performance-out
+          if-no-files-found: ignore
+      - name: Publish screenshots to the ci-artifacts branch
+        if: always() && github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/publish-screenshots.sh "$RUNNER_TEMP/gametest-performance-out" gametest-performance
+
   website:
     name: Website (Vite/React)
     runs-on: ubuntu-24.04

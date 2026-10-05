@@ -1,5 +1,6 @@
 package dev.vanta.client;
 
+import dev.vanta.client.bridge.FabricModPlatform;
 import dev.vanta.client.bridge.MinecraftClipboardBridge;
 import dev.vanta.client.bridge.MinecraftGameBridge;
 import dev.vanta.client.bridge.MinecraftKeybindBridge;
@@ -18,6 +19,7 @@ import dev.vanta.core.VantaVersion;
 import dev.vanta.core.config.CoreLog;
 import dev.vanta.core.config.VantaPaths;
 import dev.vanta.core.i18n.Lang;
+import dev.vanta.core.modrinth.ModrinthService;
 import dev.vanta.core.screen.ScreenBootstrap;
 import dev.vanta.core.screen.VantaServices;
 import java.time.Clock;
@@ -69,6 +71,11 @@ public final class VantaClient implements ClientModInitializer {
 
         VantaRuntime runtime = new VantaRuntime(services, resourcePacks, screenshots, keys);
         VantaRuntime.install(runtime);
+
+        // Mods & Shaders: Modrinth work runs on its own daemon thread; results come back through the tick scheduler.
+        ModrinthService modrinth = ModrinthService.create(new FabricModPlatform(), services.notifications(),
+                runtime.scheduler()::nextTick, VantaVersion.CLIENT, Clock.systemUTC());
+        services.setModrinth(modrinth);
 
         GameEvents.register(runtime);
         ScreenOverlays.register(runtime);
