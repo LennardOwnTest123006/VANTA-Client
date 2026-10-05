@@ -6,9 +6,8 @@ category: Reference
 ---
 
 Everything builds from a clean checkout with a JDK 21, Node.js 22 and the Gradle wrappers in the repository. The full
-guide with explanations is
-[BUILDING.md](https://github.com/LennardOwnTest123006/VANTA-Client/blob/main/BUILDING.md); the architecture is in
-[DEVELOPMENT.md](https://github.com/LennardOwnTest123006/VANTA-Client/blob/main/DEVELOPMENT.md).
+guide with explanations is `BUILDING.md` and the architecture is in `DEVELOPMENT.md`, both in the root folder of the
+[repository](https://github.com/LennardOwnTest123006/VANTA-Client).
 
 ## Prerequisites
 
@@ -57,13 +56,17 @@ Check the target: `unzip -p build/libs/vanta-client-1.0.0.jar fabric.mod.json | 
 
 ```bash
 cd launcher
-./gradlew build fatJar     # tests + build/libs/vanta-launcher-1.0.0-all.jar (JavaFX excluded)
+./gradlew build            # tests + build/libs/vanta-launcher-1.0.0-all.jar (fat jar incl. JavaFX for this system)
 ./gradlew run              # start the launcher UI with the host JDK
 ./gradlew jlinkImage       # trimmed Java 21 + JavaFX runtime under build/runtime
 ./gradlew jpackage         # app image under build/jpackage; -PjpackageType=msi|exe on Windows (WiX), deb/rpm on Linux
 ```
 
-Packaging uses only the JDK's `jlink` and `jpackage`; installers for Windows must be built on Windows.
+The fat jar contains the JavaFX native libraries of one platform: the build host's, or the one chosen with
+`-PjavafxPlatform=win|linux|mac|mac-aarch64|linux-aarch64`. A jar built on Windows does not start on Linux or macOS.
+The release workflow therefore builds the launcher on Windows, Linux and Apple Silicon macOS and publishes renamed
+copies (`vanta-launcher-<version>-windows-all.jar`, `-linux-all.jar`, `-macos-aarch64-all.jar`). Packaging uses only
+the JDK's `jlink` and `jpackage`; installers for Windows must be built on Windows.
 
 ## Website
 
@@ -92,9 +95,10 @@ powershell -File scripts/build-all.ps1 -SkipClient   # Windows
 ```bash
 node --test scripts/release/                                                                 # release script tests
 node scripts/release/validate-json.mjs shared/schemas/release-manifest.schema.json shared/releases/*.json
+node scripts/release/release-assets.mjs check-manifest shared/releases/client-1.0.0.json            # release file names and order
 node scripts/release/check-links.mjs docs website/content                                    # markdown link check
 ```
 
-Releases themselves are cut by tagging (`client-v1.0.0`, `launcher-v1.0.0`); the release workflow builds, checksums,
-publishes and opens the manifest pull request — see
-[RELEASE.md](https://github.com/LennardOwnTest123006/VANTA-Client/blob/main/RELEASE.md).
+Releases themselves are cut by the release workflow (*Run workflow* with product and version, or a pushed tag
+`client-v1.0.0` / `launcher-v1.0.0`); it builds, checksums, publishes the GitHub Release, verifies the public download
+links and hands the completed manifests back — see `RELEASE.md` in the root folder of the repository.

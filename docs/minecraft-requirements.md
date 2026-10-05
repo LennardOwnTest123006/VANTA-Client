@@ -22,16 +22,22 @@ with another Fabric profile requires the same versions — see [Fabric](fabric.m
 
 ## Account
 
-You need a **Microsoft account that owns Minecraft Java Edition**. The launcher signs you in with Microsoft's device
-code flow, obtains Xbox Live and Minecraft tokens exactly like the official launcher, and checks the ownership
-(`entitlements`) and profile endpoints before it will start the game.
+You need a **Microsoft account that owns Minecraft Java Edition**. With *Use with Minecraft Launcher* or a manual
+Fabric installation the official Minecraft Launcher signs you in and checks ownership, as it does for vanilla
+Minecraft.
+
+The VANTA Launcher's own sign-in uses Microsoft's device code flow, obtains Xbox Live and Minecraft tokens exactly like
+the official launcher, and checks the ownership (`entitlements`) and profile endpoints before it will start the game.
+It needs a Microsoft application id approved by Mojang, which the published launcher does not include, so it is off
+until one is configured ([Launcher → Microsoft client id](launcher.md#microsoft-client-id)).
 
 - Legacy Mojang accounts no longer work anywhere; they had to be migrated to Microsoft accounts.
 - Accounts without an Xbox Live profile, child accounts without family consent and accounts in regions where Xbox
   Live is unavailable are reported with a clear message during sign-in (see [Troubleshooting](troubleshooting.md#microsoft-sign-in-errors)).
 - If you play Java Edition only through **PC Game Pass**, the ownership check used by third-party launchers may not
-  recognise the subscription. In that case install the client jar into your official launcher's Fabric profile
-  instead ([Fabric → Manual installation](fabric.md#manual-installation-into-an-existing-fabric-profile)).
+  recognise the subscription. In that case play through the official launcher: *Use with Minecraft Launcher*
+  ([Launcher](launcher.md#use-with-the-minecraft-launcher)) or a Fabric profile
+  ([Fabric → Manual installation](fabric.md#manual-installation-into-an-existing-fabric-profile)).
 - Offline play is not a way around ownership: the launcher only offers an "offline session" for an account that has
   already signed in successfully, by reusing its verified name and UUID.
 
@@ -39,10 +45,14 @@ code flow, obtains Xbox Live and Minecraft tokens exactly like the official laun
 
 | System | Support |
 | --- | --- |
-| Windows 10 / 11, 64-bit | primary platform: `.msi`/`.exe` installers, Java detection including the official launcher's bundled runtimes, DPAPI token encryption |
-| Linux (x86-64) | portable jar and app image; tested in CI on Ubuntu 24.04 (the automated game test runs there) |
-| macOS | portable jar with Java 21; no `.dmg`/notarised build yet |
+| Windows 10 / 11, 64-bit | primary platform: `.msi`/`.exe` installers and a portable app (all with the Java 21 runtime), a launcher jar for an installed Java 21; Java detection including the official launcher's bundled runtimes, DPAPI token encryption |
+| Linux (x86-64) | app image `.tar.gz` with the Java 21 runtime and a launcher jar; the automated game test and the launcher's install-and-launch test run in CI on Ubuntu 24.04 |
+| macOS, Apple Silicon | launcher jar for an installed Java 21; built and tested from the command line in CI, its window has not been tested; not signed or notarised, no `.dmg` |
+| macOS on Intel, Linux on ARM | no launcher build; use the client with the [manual installation](installation.md#c-manual-installation) in a launcher that runs Fabric 1.21.11 there |
 | 32-bit systems | not supported (Java 21 for Minecraft is 64-bit only) |
+
+Each launcher jar contains JavaFX for one system only; the Windows jar does not run on Linux or macOS and the other
+way round. The client jar (`vanta-client-1.0.0.jar`) is the same on every system.
 
 ## Graphics
 

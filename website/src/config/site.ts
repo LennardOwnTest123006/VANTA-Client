@@ -41,7 +41,8 @@ export const site = {
 
 /**
  * Name of the profile that "Use with Minecraft Launcher" adds to the official Minecraft Launcher
- * (profile key `vanta-1.21.11` in launcher_profiles.json).
+ * (profile key `vanta-1.21.11` in launcher_profiles.json and/or launcher_profiles_microsoft_store.json,
+ * whichever exist).
  */
 export const officialLauncherProfileName = `VANTA ${site.minecraft}`;
 

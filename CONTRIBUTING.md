@@ -19,7 +19,8 @@ rejected without discussion.
 
 ## Workflow
 
-- Fork, create a branch (`feat/...`, `fix/...`, `docs/...`), open a pull request against `main`.
+- Fork, create a branch (`feat/...`, `fix/...`, `docs/...`), open a pull request against the repository's default
+  branch.
 - Use conventional commit messages: `feat(client): ...`, `fix(launcher): ...`, `docs: ...`, `ci: ...`.
 - CI must be green: `core` tests, `client` build (compiles against real Minecraft 1.21.11 in CI), `launcher`
   tests, `website` build + unit + end-to-end tests.

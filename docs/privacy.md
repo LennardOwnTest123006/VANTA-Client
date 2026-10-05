@@ -41,8 +41,8 @@ To install and start the game the launcher connects to:
 | `piston-meta.mojang.com`, `piston-data.mojang.com`, `resources.download.minecraft.net`, `libraries.minecraft.net` | Minecraft version metadata, client jar, libraries and assets |
 | `meta.fabricmc.net`, `maven.fabricmc.net` | Fabric Loader profile and libraries, Fabric API |
 | `api.adoptium.net` and its download host | Eclipse Temurin 21 when you ask the launcher to install Java |
-| `login.microsoftonline.com`, `user.auth.xboxlive.com`, `xsts.auth.xboxlive.com`, `api.minecraftservices.com` | Microsoft sign-in (device code flow), Xbox Live and Minecraft tokens, ownership and profile |
-| GitHub (`github.com`, release asset hosts) and the configured releases URL | release manifests and VANTA downloads |
+| `login.microsoftonline.com`, `user.auth.xboxlive.com`, `xsts.auth.xboxlive.com`, `api.minecraftservices.com` | Microsoft sign-in (device code flow), Xbox Live and Minecraft tokens, ownership and profile — only when a Microsoft client id is configured |
+| GitHub: `raw.githubusercontent.com` (the built-in releases URL), `github.com` and its release asset hosts | release manifests (`client-latest.json`, `launcher-latest.json`) and VANTA downloads; a releases URL you configure instead is contacted in place of the built-in one |
 
 Every request identifies the launcher with the user agent `VANTA-Launcher/<version>`. The launcher sends nothing
 else and receives nothing it does not need to install or start the game. The privacy policies of Microsoft, Mojang,
@@ -64,6 +64,13 @@ you play. They stay on your computer; you decide whether to attach them to a bug
 
 **Settings.** `settings.json` holds launcher preferences only, including the Microsoft client id and releases URL if
 you configured them.
+
+**Use with Minecraft Launcher.** This writes only local files: Fabric API and the VANTA Client into the VANTA game
+folder, the Fabric Loader version files into the official Minecraft folder and the profile *VANTA 1.21.11* into
+each profiles file of the official Minecraft Launcher that exists there, `launcher_profiles.json` and/or
+`launcher_profiles_microsoft_store.json` (each with a one-time backup).
+VANTA reads these files only to keep your other profiles unchanged and sends nothing from them anywhere. Sign-in,
+downloads and play are then handled by the official Minecraft Launcher under Microsoft's and Mojang's terms.
 
 ## Website
 

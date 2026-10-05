@@ -49,11 +49,18 @@ cd launcher
 ./gradlew build          # compiles, runs unit tests, produces build/libs/vanta-launcher-1.0.0-all.jar
 ./gradlew run            # starts the launcher UI with the host JDK
 ./gradlew jlinkImage     # custom Java 21 runtime image with JavaFX under build/runtime
-./gradlew jpackage       # platform installer / app image under build/jpackage
-                         #   Windows: VANTA Launcher-1.0.0.msi and .exe (requires WiX)
-                         #   Linux: app image directory (and .deb if dpkg tooling exists)
-                         #   macOS: .app / .dmg
+./gradlew jpackage       # app image under build/jpackage ("VANTA Launcher/"); installers with -PjpackageType:
+                         #   Windows: -PjpackageType=msi or exe -> VANTA Launcher-1.0.0.msi / .exe (requires WiX)
+                         #   Linux:   -PjpackageType=deb or rpm (needs the distribution's packaging tools)
+                         #   macOS:   -PjpackageType=dmg or pkg
 ```
+
+`vanta-launcher-<version>-all.jar` is a fat jar with every dependency **including the JavaFX native libraries of one
+platform**: the build host, or the one chosen with `-PjavafxPlatform=win|linux|mac|mac-aarch64|linux-aarch64`. A jar
+built on Windows does not start on Linux or macOS and vice versa; `java -jar <jar> --version` prints the platform it
+was built for. The release workflow builds the launcher on Windows x64, Linux x64 and Apple Silicon macOS runners and
+publishes the copies as `vanta-launcher-<version>-windows-all.jar`, `-linux-all.jar` and `-macos-aarch64-all.jar`,
+next to the `.msi`, `.exe`, Windows portable `.zip` and Linux `.tar.gz` (see [RELEASE.md](RELEASE.md)).
 
 The launcher build uses only JDK tools (`jlink`, `jpackage`) — no third-party packaging plugins.
 Cross-building Windows installers from Linux is not supported by `jpackage`; the release workflow builds them

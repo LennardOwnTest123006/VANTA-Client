@@ -27,8 +27,9 @@
   with Fabric API, and contains the handful of mixins the client needs (title screen replacement, click
   counting for the CPS widget, zoom FOV).
 - **launcher** is a modular JavaFX application; everything that can be tested without a UI (manifests, rule
-  evaluation, downloads with checksums, Fabric profile merging, Java detection, auth flows) lives in
-  `dev.vanta.launcher.core` and has unit tests with recorded fixtures.
+  evaluation, downloads with checksums, Fabric profile merging, Java detection, auth flows, the official Minecraft
+  Launcher profile written by *Use with Minecraft Launcher*) lives in `dev.vanta.launcher.core` and has unit tests
+  with recorded fixtures.
 - **website** is a static SPA. Content (news, changelog, releases) is data in `website/content/` and
   `shared/releases/`, validated against `shared/schemas/` at build time.
 
@@ -64,7 +65,7 @@ Loom launches Minecraft 1.21.11 with an offline development account. Config file
 | --- | --- |
 | core | JUnit 5 unit tests; Java2D screen previews for visual review |
 | client | Compiles against real Minecraft in CI; Fabric client game tests launch the real game headlessly (Xvfb) and screenshot the main menu, settings, HUD editor, in-game HUD |
-| launcher | JUnit 5 with fixture JSON (version manifest, version json, Fabric profile); integration test for the install pipeline runs in CI against the real Mojang/Fabric endpoints and launches the game in development offline mode |
+| launcher | JUnit 5 with fixture JSON (version manifest, version json, Fabric profile); integration test for the install pipeline runs in CI against the real Mojang/Fabric endpoints and launches the game in development offline mode, and `--install-official-profile` is checked against a prepared `.minecraft` folder |
 | website | vitest + Testing Library; Playwright end-to-end against the production build; link checker |
 
 ## Conventions

@@ -38,6 +38,15 @@ Installation is fully automatic and uses the same sources the official Fabric in
 
 Verified files are never downloaded twice; a checksum mismatch deletes the file and aborts with an error.
 
+**With *Use with Minecraft Launcher*** the VANTA Launcher does steps 3 and 4 the same way (into the same
+`instances/vanta-1.21.11/mods/`), writes the Fabric profile from step 1 unchanged as
+`versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.json` (plus the empty `.jar` next to it) into the
+official Minecraft folder — the same two files the official Fabric installer writes — and, also like the Fabric
+installer, adds the profile *VANTA 1.21.11* to every profiles file of the Minecraft Launcher that exists there
+(`launcher_profiles.json` and/or `launcher_profiles_microsoft_store.json`). The Minecraft Launcher then downloads the
+Fabric libraries, Minecraft and Java itself. Details:
+[Launcher → Use with the Minecraft Launcher](launcher.md#use-with-the-minecraft-launcher).
+
 ## Using VANTA with other Fabric mods
 
 VANTA is an ordinary Fabric mod and coexists with others:
@@ -63,23 +72,34 @@ Report incompatibilities with the mod list included; see [Troubleshooting → Mo
 You can use VANTA without the VANTA Launcher. Any launcher that runs Fabric 0.19.5 on Minecraft 1.21.11 works;
 the client jar does not care who started the game.
 
+The release `client-v1.0.0` has what you need: `vanta-client-1.0.0-mods.zip` contains both mods in a `mods/` folder
+(`vanta-client-1.0.0.jar` and `fabric-api-0.141.6+1.21.11.jar`) together with `INSTALL.txt` and a `SHA256SUMS` file.
+The two jars are also published on their own; `fabric-api-0.141.6+1.21.11.jar` is the unmodified FabricMC release
+(Apache-2.0). Verify what you download as described in [Installation](installation.md#2-verify-the-checksum).
+
 **Official Minecraft Launcher**
 
-1. Run the Fabric installer from fabricmc.net, choose Minecraft **1.21.11** and Loader **0.19.5**, keep *Create
-   profile* checked and install. This creates a "fabric-loader-0.19.5-1.21.11" profile.
-2. Download **Fabric API 0.141.6+1.21.11** (from the Fabric API project page or Modrinth/CurseForge) and
-   `vanta-client-<version>.jar` (VANTA Download page). Verify VANTA's SHA-256 as described in
-   [Installation](installation.md#2-verify-the-checksum).
-3. Put both jars into the `mods/` folder of the game directory (`%APPDATA%\.minecraft\mods` on Windows,
-   `~/.minecraft/mods` on Linux, `~/Library/Application Support/minecraft/mods` on macOS). Create the folder if it
-   does not exist.
+1. Start the Minecraft Launcher once if you never have. Then run the Fabric installer from fabricmc.net, choose
+   Minecraft **1.21.11** and Loader **0.19.5**, keep *Create profile* checked and install. This creates a profile
+   listed as **fabric-loader-1.21.11** (its version is `fabric-loader-0.19.5-1.21.11`) in `launcher_profiles.json`,
+   or in `launcher_profiles_microsoft_store.json` for the Minecraft Launcher from the Microsoft Store or the Xbox app.
+2. Unzip `vanta-client-1.0.0-mods.zip` and check it with its `SHA256SUMS` (`sha256sum -c SHA256SUMS` on Linux,
+   `shasum -a 256 -c SHA256SUMS` on macOS, `certutil -hashfile mods\vanta-client-1.0.0.jar SHA256` on Windows).
+3. Copy both jars from its `mods/` folder into the `mods/` folder of the game directory (`%APPDATA%\.minecraft\mods` on
+   Windows, `~/.minecraft/mods` on Linux, `~/Library/Application Support/minecraft/mods` on macOS). Create the folder
+   if it does not exist.
 4. Select the Fabric profile in the official launcher and play. VANTA writes its files to `config/vanta/` inside
    that game directory.
+
+If you have the VANTA Launcher, *Use with Minecraft Launcher* does the Fabric and mods part (steps 1 to 3, apart
+from starting the Minecraft Launcher once) for you, with its own profile and game folder
+([Launcher](launcher.md#use-with-the-minecraft-launcher)). Like the Fabric installer, it adds that profile to
+`launcher_profiles.json`, to `launcher_profiles_microsoft_store.json` or to both, whichever your Minecraft folder has.
 
 **Prism Launcher / MultiMC**
 
 1. Create a 1.21.11 instance, open *Edit → Version → Install Fabric* and pick Loader 0.19.5.
-2. *Mods → Add file* (or download via the built-in browser): Fabric API 0.141.6+1.21.11 and the VANTA jar.
+2. *Mods → Add file*: the two jars from the mods bundle (Fabric API 0.141.6+1.21.11 and the VANTA jar).
 3. Launch the instance.
 
 **Without the VANTA Launcher you lose**: automatic updates with checksum verification, rollback to previous client

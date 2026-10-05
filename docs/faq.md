@@ -1,6 +1,6 @@
 ---
 title: FAQ
-description: Frequently asked questions about VANTA Client and Launcher — servers, Sodium and OptiFine, supported versions, price, data, accounts, mods and more.
+description: Frequently asked questions about VANTA Client and Launcher — servers, supported versions, downloads, sign-in, the Minecraft Launcher profile, price, data and mods.
 order: 41
 category: Help
 ---
@@ -54,14 +54,55 @@ No. Bedrock Edition cannot load Fabric mods.
 
 ## Does it work on Linux or macOS?
 
-The client jar works wherever Fabric 1.21.11 runs. The launcher ships as a Windows installer, a portable jar
-(Linux, macOS, Windows with Java 21) and a Linux app image. There is no notarised macOS build yet.
+The client jar works wherever Fabric runs Minecraft 1.21.11. The launcher is published for Linux x64 (an app image
+with its own Java runtime, and a jar that needs Java 21) and for Macs with Apple Silicon (a jar that needs Java 21).
+There is no launcher build for Intel Macs or Linux on ARM; install VANTA there with the mods bundle and the Fabric
+installer ([Installation → Manual installation](installation.md#c-manual-installation)). There is no signed or
+notarised macOS app.
+
+## Which launcher file do I need on Linux or macOS?
+
+Linux x64: `VANTA-Launcher-1.0.0-linux-x64.tar.gz` (or `vanta-launcher-1.0.0-linux-all.jar` with Java 21). Apple
+Silicon Mac: `vanta-launcher-1.0.0-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
+interchangeable: each contains JavaFX for one system only, so the Windows or Linux jar does not run on a Mac. The macOS
+jar is built and tested from the command line in CI; its window has not been tested yet. Details:
+[Troubleshooting → Which launcher file](troubleshooting.md#linux-and-macos-which-launcher-file).
 
 ## Can I use VANTA without the VANTA Launcher?
 
-Yes. Put `vanta-client-<version>.jar` and Fabric API into the `mods/` folder of any Fabric 0.19.5 / 1.21.11 profile
-(official launcher, Prism, MultiMC). You lose the launcher's verified updates, rollback and Java helpers, nothing
-else. See [Fabric](fabric.md#manual-installation-into-an-existing-fabric-profile).
+Yes. Download `vanta-client-1.0.0-mods.zip`: it contains `vanta-client-1.0.0.jar` and Fabric API
+0.141.6+1.21.11 in a `mods/` folder. Install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer and copy both
+jars into the `mods/` folder of that profile (official launcher, Prism, MultiMC). You lose the launcher's verified
+updates, rollback and Java helpers, nothing else. See [Installation](installation.md#c-manual-installation) and
+[Fabric](fabric.md#manual-installation-into-an-existing-fabric-profile).
+
+## What does "Use with Minecraft Launcher" do?
+
+It is a button on the VANTA Launcher's Home screen (and the command `--install-official-profile`). It installs Fabric
+API and the VANTA Client into VANTA's game folder, adds the Fabric Loader 0.19.5 version to the official Minecraft
+folder and adds the profile **VANTA 1.21.11** to the official Minecraft Launcher, whether you have the one from
+minecraft.net or the one from the Microsoft Store or the Xbox app. All your other profiles are kept, and each profiles
+file it changes is backed up once (for example as `launcher_profiles.json.vanta-backup`). You then choose that
+profile in the Minecraft Launcher and press Play; the Minecraft Launcher downloads the game and Java and signs you
+in. Exactly what is written:
+[Launcher → Use with the Minecraft Launcher](launcher.md#use-with-the-minecraft-launcher).
+
+## Why can't I sign in with Microsoft in the VANTA Launcher?
+
+Microsoft sign-in for Minecraft only works with an application id that Mojang has approved for the Minecraft API. The
+project does not have one, so the published launcher has sign-in switched off and PLAY stays disabled with *Sign-in
+unavailable: play through the Minecraft Launcher*. Use *Use with Minecraft Launcher* instead, or configure an approved
+id of your own ([Launcher → Microsoft client id](launcher.md#microsoft-client-id)). VANTA offers no offline workaround.
+
+## Why does "Use with Minecraft Launcher" say the Minecraft Launcher is not set up?
+
+*Use with Minecraft Launcher* adds its profile to the profiles files the official Minecraft Launcher keeps in your
+Minecraft folder and never creates one: `launcher_profiles.json` (Minecraft Launcher from minecraft.net) and
+`launcher_profiles_microsoft_store.json` (Minecraft Launcher from the Microsoft Store or the Xbox app). The message
+means that neither file is there. The Minecraft Launcher creates its file the first time it starts: start it, sign
+in, close it and try again. If your Minecraft folder is not in the default place, pass `--minecraft-dir <path>` on the
+command line. More in
+[Troubleshooting](troubleshooting.md#use-with-minecraft-launcher-says-the-profiles-file-is-missing).
 
 ## Can I use VANTA together with other mods?
 
@@ -71,20 +112,28 @@ VANTA's off in *Settings → General*). We do not test third-party combinations;
 
 ## Why is there no download yet?
 
-Downloads are produced by the public release workflow, which builds the files, computes SHA-256 checksums, creates a
-GitHub Release and updates the release manifests the website reads. Until that has run, the Download page honestly
-says "not published yet" instead of linking to something that does not exist.
+VANTA Client 1.0.0 and VANTA Launcher 1.0.0 are distributed only as the GitHub Releases `client-v1.0.0` and
+`launcher-v1.0.0` on [github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases).
+The public release workflow builds the files, computes their SHA-256 checksums, uploads them and checks every public
+download link; the website's Download page is then rebuilt from the completed release manifests. If the Download page
+says **"Not published yet"**, look at GitHub Releases: when the release is listed there, the page was built before
+the manifests were updated, so take the files from the GitHub release page and verify them with `SHA256SUMS.txt`
+([Troubleshooting](troubleshooting.md#the-download-page-says-not-published-yet)). When GitHub Releases does not list
+it either, the release has not been published yet — the Download page never links to something that is not there.
 
 ## How do I verify a download?
 
-Compare the SHA-256 shown on the Download page (and in `SHA256SUMS.txt`) with `certutil -hashfile <file> SHA256`
-(Windows), `shasum -a 256 <file>` (macOS) or `sha256sum <file>` (Linux). The launcher does this automatically for
-everything it downloads. [Installation](installation.md#2-verify-the-checksum).
+Compare the SHA-256 shown on the Download page (and in `SHA256SUMS.txt` on the release page) with
+`Get-FileHash <file> -Algorithm SHA256` or `certutil -hashfile <file> SHA256` (Windows), `shasum -a 256 <file>` (macOS)
+or `sha256sum -c --ignore-missing SHA256SUMS.txt` (Linux). The launcher does this automatically for everything it
+downloads. [Installation](installation.md#2-verify-the-checksum).
 
-## Windows says the installer is from an unknown publisher. Is that normal?
+## Windows says "Windows protected your PC". Is that normal?
 
-Yes, for now: the installers are not code-signed, which requires a paid certificate. Verify the checksum first,
-then choose *More info → Run anyway*. Signing is planned when the project has a certificate.
+Yes, for now: the installers and the portable app are not code-signed, which requires a paid certificate the project
+does not have. Verify the checksum first; only if it matches choose *More info → Run anyway*. If it does not match,
+do not run the file.
+[Troubleshooting](troubleshooting.md#windows-protected-your-pc).
 
 ## Where are my settings, and can I back them up?
 

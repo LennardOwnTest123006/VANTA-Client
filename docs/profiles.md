@@ -9,6 +9,12 @@ A profile is a complete, switchable configuration: your settings, HUD layout, VA
 cosmetics. Switching profiles changes all of them at once, which is handy when you alternate between building,
 PvP and recording.
 
+VANTA profiles are not the profile *VANTA 1.21.11* that *Use with Minecraft Launcher* adds to the official Minecraft
+Launcher. That launcher profile only tells the Minecraft Launcher which version and game folder to start
+([Launcher → Use with the Minecraft Launcher](launcher.md#use-with-the-minecraft-launcher)). VANTA profiles are stored
+in the game folder under `config/vanta/profiles/`, so PLAY in the VANTA Launcher and the *VANTA 1.21.11* profile in
+the Minecraft Launcher use the same VANTA profiles.
+
 ## Built-in profiles
 
 Five profiles are created on first run. They are ordinary profiles afterwards: rename, change, duplicate or delete

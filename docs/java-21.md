@@ -68,6 +68,10 @@ Common ways to install Java 21:
 The official Minecraft Launcher also ships a Java 21 runtime ("java-runtime-delta"); the VANTA Launcher finds and
 can use it, so if you have the official launcher installed you may already be done.
 
+When you play through the official Minecraft Launcher (*Use with Minecraft Launcher* or a manual Fabric profile), the
+Minecraft Launcher downloads and uses its own Java runtime for the game. You then need an installed Java 21 only to
+start a launcher jar; the Windows installers, the Windows portable app and the Linux app image bring their own.
+
 A JRE (runtime) is enough to play. A JDK is only needed to [build VANTA from source](building-from-source.md).
 
 ## Choosing a specific Java in the launcher
@@ -81,8 +85,8 @@ is not Java 21 is flagged. Leave the field empty to return to automatic detectio
 **`java` is not recognized / command not found.** Java is installed but its `bin` folder is not on `PATH`. On
 Windows: *Settings → System → About → Advanced system settings → Environment Variables*, edit `Path` for your user
 and add e.g. `C:\Program Files\Eclipse Adoptium\jre-21.0.4.7-hotspot\bin`. Reopen the terminal afterwards. The VANTA
-Launcher does not need `PATH` to be correct — it scans the directories above — so this only matters for the
-portable jar and for building.
+Launcher does not need `PATH` to be correct — it scans the directories above — so this only matters for starting a
+launcher jar (`java -jar vanta-launcher-1.0.0-<system>-all.jar`) and for building.
 
 **`java -version` shows 8 or 17 although 21 is installed.** Several Javas are installed and an older `bin` comes
 first on `PATH`. Either move the Java 21 entry above it, or set `JAVA_HOME` to the Java 21 directory and put

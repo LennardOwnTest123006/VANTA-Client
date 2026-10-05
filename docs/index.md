@@ -17,14 +17,17 @@ options on top of vanilla Minecraft. It adds **no cheats** and sends **no data**
 | Java | 21 |
 | VANTA Client | 1.0.0 |
 | VANTA Launcher | 1.0.0 |
-| Platform | Windows 10/11 (installer); Linux and macOS with the portable jar |
+| Launcher platforms | Windows 10/11 x64 (installers, portable app, jar); Linux x64 (app image, jar); Apple Silicon macOS (jar) |
+| Downloads | GitHub Releases `client-v1.0.0` and `launcher-v1.0.0` |
 
 ## Quick start
 
 1. Check the [requirements](minecraft-requirements.md): a Microsoft account that owns Minecraft Java Edition, a
    64-bit system with OpenGL 3.2 and Java 21 (the launcher can install it).
-2. Follow the [installation guide](installation.md): download the launcher, verify the SHA-256, install, sign in,
-   press **PLAY**.
+2. Follow the [installation guide](installation.md): download the launcher for your system, verify the SHA-256,
+   install it and click **Use with Minecraft Launcher**, then start the profile *VANTA 1.21.11* in the official
+   Minecraft Launcher. (PLAY inside the VANTA Launcher needs a Microsoft client id that the published builds do not
+   include; the guide explains this and the manual alternative with the mods bundle.)
 3. In the game, open the VANTA menu with **Right Shift** (or the OPTIONS button in the main menu) and start with
    [Settings](settings.md) and the [HUD editor](hud.md).
 
@@ -32,15 +35,16 @@ options on top of vanilla Minecraft. It adds **no cheats** and sends **no data**
 
 ### Getting started
 
-- [Installation](installation.md) — download, verify, install, first launch, where files live
+- [Installation](installation.md) — the three ways to install, downloads per system, verify, first start, where
+  files live
 - [Minecraft requirements](minecraft-requirements.md) — version, account, operating system, GPU, memory
 - [Java 21](java-21.md) — why Java 21, how to check and install it, PATH and JAVA_HOME problems
 - [Fabric](fabric.md) — what Fabric Loader and Fabric API are, using VANTA with other mods, manual installation
 
 ### Launcher
 
-- [VANTA Launcher](launcher.md) — Play, Microsoft sign-in, Java detection, Versions, Logs, Settings, updates,
-  command line reference
+- [VANTA Launcher](launcher.md) — Play, Use with the Minecraft Launcher, Microsoft sign-in, Java detection,
+  Versions, Logs, Settings, the releases URL, updates, command line reference
 
 ### Client
 
@@ -63,8 +67,8 @@ options on top of vanilla Minecraft. It adds **no cheats** and sends **no data**
 
 ### Help
 
-- [Troubleshooting](troubleshooting.md) — Java not found, checksum mismatch, Microsoft sign-in errors, crashes, mod
-  conflicts, where the logs are, how to report
+- [Troubleshooting](troubleshooting.md) — "Not published yet", SmartScreen, which launcher file, disabled PLAY,
+  the Minecraft Launcher profile, Java not found, checksum mismatch, sign-in errors, crashes, mod conflicts, logs
 - [FAQ](faq.md) — servers, Sodium/OptiFine, supported versions, price, data
 
 ## Getting help
@@ -76,7 +80,9 @@ Please read [Troubleshooting](troubleshooting.md) first and include the informat
 
 ## A note on honesty
 
-Downloads only exist once the release workflow has published them with SHA-256 checksums. Until then the website
-shows "not published yet" rather than a link. Screenshots on the website are real captures from the automated game
+Downloads exist only as files the release workflow has published on GitHub Releases, with SHA-256 checksums it
+computed from the uploaded files and checked against the public links. A product the workflow has not published yet
+shows "not published yet" on the website rather than a link. The files are not code-signed, and Microsoft sign-in
+inside the VANTA Launcher needs a client id the project does not have; both are documented where they matter. Screenshots on the website are real captures from the automated game
 test; if there are none yet, the page says so. Everything described in these pages is implemented in the version
 named above; features that do not exist are not documented as if they did.
