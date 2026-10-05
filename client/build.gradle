@@ -12,6 +12,19 @@ base {
 
 repositories {
     // Loom adds the Mojang and Fabric repositories automatically.
+    // Modrinth's Maven repository, used only for the optional extra mods of the production game test
+    // (-PextraProductionMods, e.g. the Performance pack in CI). Only group maven.modrinth is resolved there.
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Modrinth'
+                url = 'https://api.modrinth.com/maven'
+            }
+        }
+        filter {
+            includeGroup 'maven.modrinth'
+        }
+    }
 }
 
 // The pure-Java core library lives in ../core and is compiled into the common source set so that
@@ -69,7 +82,18 @@ dependencies {
     // fat jar (Maven resolves it through the POM). Without it nothing starts the tests in a production run and the
     // game simply idles on the title screen. In the dev run (runClientGametest) Loom provides it automatically.
     productionMods fabricApi.module("fabric-client-gametest-api-v1", project.fabric_api_version)
+
+    // Extra mods for a compatibility run, comma-separated dependency notations, for example
+    //   -PextraProductionMods=maven.modrinth:sodium:<version id or number>,maven.modrinth:iris:<version>
+    // CI resolves the newest Minecraft 1.21.11 Fabric versions from the Modrinth API; nothing is pinned here.
+    def extraMods = (project.findProperty('extraProductionMods') ?: '').toString()
+    extraMods.split(',').collect { it.trim() }.findAll { !it.isEmpty() }.each { notation ->
+        project.dependencies.add('productionMods', notation)
+    }
 }
+
+// Fabric mod ids the production game test must find loaded (-PgametestExpectMods=sodium,iris); passed to the test.
+def gametestExpectMods = (project.findProperty('gametestExpectMods') ?: '').toString().trim()
 
 tasks.register('runProductionClientGametest', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
     description = "Launches Minecraft ${project.minecraft_version} with the built VANTA jar and runs the client game tests."
@@ -79,6 +103,9 @@ tasks.register('runProductionClientGametest', net.fabricmc.loom.task.prod.Client
         "-Dfabric.client.gametest.disableNetworkSynchronizer=true",
         "-Dvanta.gametest=true"
     ])
+    if (!gametestExpectMods.isEmpty()) {
+        jvmArgs.add("-Dvanta.gametest.expectMods=" + gametestExpectMods)
+    }
     runDir = file("run/production-gametest")
 }
 
