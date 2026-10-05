@@ -162,7 +162,8 @@ class OfficialLauncherTest {
         host.files.add(Path.of("/usr/bin/minecraft-launcher"));
         final Map<String, String> env = Map.of("PATH", "/usr/local/bin" + java.io.File.pathSeparator + "/usr/bin");
         assertEquals(OfficialLauncher.Outcome.OPENED, launcher(LINUX, env, host).open(HOME).outcome());
-        assertEquals(List.of(List.of("/usr/bin/minecraft-launcher")), host.started);
+        // The PATH entry is resolved with java.nio, so the expected string uses the separator of the machine running the test.
+        assertEquals(List.of(List.of(Path.of("/usr/bin", "minecraft-launcher").toString())), host.started);
         assertEquals(OfficialLauncher.Outcome.NOT_FOUND, launcher(LINUX, Map.of("PATH", "/usr/local/bin"), new FakeHost()).open(HOME).outcome());
     }
 
