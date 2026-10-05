@@ -57,7 +57,7 @@ class ReleaseTest {
 
     @Test
     void realManifestsInSharedReleasesParse() throws IOException {
-        Path dir = Path.of("/home/user/VANTA-Client/shared/releases");
+        Path dir = Path.of("..", "shared", "releases");
         if (!Files.isDirectory(dir)) {
             return;
         }

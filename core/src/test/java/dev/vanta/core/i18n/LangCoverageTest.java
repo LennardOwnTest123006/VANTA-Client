@@ -126,7 +126,7 @@ class LangCoverageTest {
 
     @Test
     void everyLiteralKeyInDomainSourcesExists() throws IOException {
-        Path root = Path.of("/home/user/VANTA-Client/core/src/main/java/dev/vanta/core");
+        Path root = Path.of("src", "main", "java", "dev", "vanta", "core");
         if (!Files.isDirectory(root)) {
             return;
         }
