@@ -224,6 +224,13 @@ class LauncherAppSmokeTest {
             return null;
         });
         waitUntil(() -> app.window().dialogs().isOpen());
+        // The file list sits in a ScrollPane, whose content joins the scene graph only once the pane's skin exists
+        // (the next CSS/layout pulse), so wait for the listing instead of looking it up right after opening.
+        waitUntil(() -> {
+            final Node plan = app.window().dialogs().lookup(".official-plan");
+            return plan != null && plan.lookupAll(".mono").stream().map(n -> ((Label) n).getText())
+                .anyMatch(t -> t.endsWith("launcher_profiles.json"));
+        });
         fx(() -> {
             final Node plan = app.window().dialogs().lookup(".official-plan");
             assertNotNull(plan, "the confirmation lists what is written");

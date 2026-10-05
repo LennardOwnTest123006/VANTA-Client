@@ -153,9 +153,13 @@ public final class SignInViewModel {
             code = issued;
             userCode.set(issued.userCode());
             verificationUri.set(issued.verificationUri());
-            state.set(State.WAITING);
+            final Duration left = Duration.between(Instant.now(backend.clock()), issued.expiresAt());
+            countdownText.set(left.isNegative() || left.isZero() ? "" : messages.format("signin.expiresIn", formats.countdown(left)));
             statusText.set(messages.get("signin.waiting"));
-            tick(Instant.now(backend.clock()));
+            // WAITING is published last, once the code, countdown and status are complete: a view or timer that reacts
+            // to WAITING (and calls tick) never has its countdown overwritten by this initial value afterwards. An
+            // already expired code is reported by the first tick.
+            state.set(State.WAITING);
             poll(t, issued);
         }, this::fail);
     }
