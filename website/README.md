@@ -4,6 +4,11 @@ Official website of VANTA Client — a static single-page application built with
 TypeScript 5.9 and Tailwind CSS 4, deployed to Netlify (configuration in the repository root
 `netlify.toml`, `base = "website"`).
 
+`public/_redirects` (SPA fallback) and `public/_headers` (the security and caching headers, copied
+verbatim from the `[[headers]]` blocks in `netlify.toml`) are shipped inside `dist/`. Netlify's manual
+drag-and-drop deploys do not read `netlify.toml`, so these two files make a manual deploy of `dist/`
+behave like a git-connected deploy. Keep them in sync when `netlify.toml` changes.
+
 ## Commands
 
 | Command                           | What it does                                                                                                                                                     |
