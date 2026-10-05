@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "product": "client",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "minecraftVersion": "1.21.11",
   "fabricVersion": "0.19.5",
   "fabricApiVersion": "0.141.6+1.21.11",
@@ -10,23 +10,23 @@
   "channel": "stable",
   "files": [
     {
-      "name": "vanta-client-1.0.1.jar",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.0.1/vanta-client-1.0.1.jar",
-      "size": 1437316,
-      "sha256": "3a07eaa5ad7ddd8c7447c869f461a4253ce22c645bdf74e38b6e853a51592a24"
+      "name": "vanta-client-1.1.0.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.1.0/vanta-client-1.1.0.jar",
+      "size": 1592098,
+      "sha256": "df209b47251ed9dbcafa64238dcff8ac0fc454457564e93099c6c34f66ef087d"
     },
     {
-      "name": "vanta-client-1.0.1-mods.zip",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.0.1/vanta-client-1.0.1-mods.zip",
-      "size": 3794435,
-      "sha256": "e05625ce538e0a6051ad5ca916491a504778f59722f7a7c8c9facc02385f4cb0"
+      "name": "vanta-client-1.1.0-mods.zip",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.1.0/vanta-client-1.1.0-mods.zip",
+      "size": 3942317,
+      "sha256": "2f1c6f5bfd059e7e8c9069efeb0e74370f4c8009fc4edd01d2789e6cc410e480"
     },
     {
       "name": "fabric-api-0.141.6+1.21.11.jar",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.0.1/fabric-api-0.141.6+1.21.11.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.1.0/fabric-api-0.141.6+1.21.11.jar",
       "size": 2426039,
       "sha256": "bdff7fd7e220085cfad2ff9b1f40dde6534ae0b96cf378f97a374bc54cb9ed0f"
     }
   ],
-  "changelog": "website/content/changelog/client-1.0.1.md"
+  "changelog": "website/content/changelog/client-1.1.0.md"
 }
