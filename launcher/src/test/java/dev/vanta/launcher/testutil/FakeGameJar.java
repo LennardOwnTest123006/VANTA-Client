@@ -13,7 +13,9 @@ import java.util.jar.Manifest;
 
 /**
  * Compiles a tiny stand-in for Fabric's {@code KnotClient} into a jar. Its {@code main} prints every argument and
- * the {@code vanta.launcher} system property on one line each and exits with 0, so launch tests can exercise the
+ * the {@code vanta.launcher} and {@code vanta.launcher.restartable} system properties on one line each and exits with 0
+ * (when {@code config/vanta/restart-once.test} exists in the game directory it deletes it and writes
+ * {@code config/vanta/restart.request} first, like the in-game "Restart game" button), so launch tests can exercise the
  * real {@link ProcessBuilder} path with the host JDK without Minecraft.
  */
 public final class FakeGameJar {
@@ -43,7 +45,18 @@ public final class FakeGameJar {
                         System.out.println("ARG " + a);
                     }
                     System.out.println("PROP vanta.launcher=" + System.getProperty("vanta.launcher"));
+                    System.out.println("PROP vanta.launcher.restartable=" + System.getProperty("vanta.launcher.restartable"));
                     System.out.println("CWD " + System.getProperty("user.dir"));
+                    // Stand-in for the in-game "Restart game" button: config/vanta/restart-once.test asks for one restart.
+                    try {
+                        java.nio.file.Path dir = java.nio.file.Path.of(System.getProperty("user.dir"), "config", "vanta");
+                        if (java.nio.file.Files.deleteIfExists(dir.resolve("restart-once.test"))) {
+                            java.nio.file.Files.writeString(dir.resolve("restart.request"), "restart");
+                            System.out.println("FAKE_GAME_RESTART_REQUESTED");
+                        }
+                    } catch (java.io.IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
                     System.err.println("FAKE_GAME_STDERR");
                     System.out.println("FAKE_GAME_END");
                 }

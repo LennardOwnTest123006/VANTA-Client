@@ -126,7 +126,12 @@ public final class SettingsPage extends VBox {
         keepOpen.selectedProperty().bindBidirectional(vm.keepLauncherOpenProperty());
         final VBox keep = row(ctx.t("settings.keepOpen.label"), ctx.t("settings.keepOpen.help"), keepOpen);
 
-        return section(ctx.t("settings.section.game"), memoryBlock, resolution, keep);
+        final Switch pack = new Switch();
+        pack.getStyleClass().add("performance-pack-switch");
+        pack.selectedProperty().bindBidirectional(vm.performancePackProperty());
+        final VBox packRow = row(ctx.t("settings.performancePack.label"), ctx.t("settings.performancePack.help", LauncherVersion.MINECRAFT), pack);
+
+        return section(ctx.t("settings.section.game"), memoryBlock, resolution, keep, packRow);
     }
 
     private VBox javaSection() {

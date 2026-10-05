@@ -64,6 +64,8 @@ public final class JvmArgsBuilder {
         out.add("-Dstdout.encoding=UTF-8");
         out.add("-Dstderr.encoding=UTF-8");
         out.add("-D" + LAUNCHER_PROPERTY + "=" + launcherVersion);
+        // The launcher starts this game itself and restarts it when the game asks (RestartRequest).
+        out.add("-D" + RestartRequest.PROPERTY + "=true");
 
         final List<String> fromJson = expander.expandAll(version.arguments().jvm(), evaluator);
         if (fromJson.stream().noneMatch(a -> a.equals("-cp") || a.equals("-classpath"))) {

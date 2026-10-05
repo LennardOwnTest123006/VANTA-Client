@@ -21,7 +21,8 @@ public record CliArgs(CliCommand command, Map<String, String> options, Set<Strin
     public static final Set<String> VALUE_OPTIONS = Set.of("client-jar", "username", "data-dir", "java", "memory", "releases-url",
         "world", "server", "exit-after", "resolution", "minecraft-dir");
     /** Boolean flags. */
-    public static final Set<String> BOOLEAN_FLAGS = Set.of("dev-offline", "without-client", "no-assets", "verbose", "ui");
+    public static final Set<String> BOOLEAN_FLAGS = Set.of("dev-offline", "without-client", "no-assets", "verbose", "ui",
+        "without-performance-pack");
 
     public CliArgs {
         options = options == null ? Map.of() : Map.copyOf(options);

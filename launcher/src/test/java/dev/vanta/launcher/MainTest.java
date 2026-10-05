@@ -41,6 +41,9 @@ class MainTest {
         int uiLaunches;
         final List<String> dialogs = new ArrayList<>();
         final List<String[]> cliRuns = new ArrayList<>();
+        final List<String> recorded = new ArrayList<>();
+        java.nio.file.Path report;
+        RuntimeException osFailure;
 
         FakeHost(final OsInfo os) {
             this.os = os;
@@ -48,7 +51,16 @@ class MainTest {
 
         @Override
         public OsInfo os() {
+            if (osFailure != null) {
+                throw osFailure;
+            }
             return os;
+        }
+
+        @Override
+        public Optional<java.nio.file.Path> recordFailure(final String message, final Throwable cause) {
+            recorded.add(message + (cause == null ? "" : " | " + cause));
+            return Optional.ofNullable(report);
         }
 
         @Override
@@ -259,6 +271,32 @@ class MainTest {
         assertTrue(missing.err().contains("JavaFX is not available"), missing.err());
         assertEquals(0, noJavaFx.uiLaunches);
         assertEquals(1, noJavaFx.dialogs.size());
+    }
+
+    @Test
+    void everyFailedStartIsRecordedAndTheDialogNamesTheReport() {
+        final FakeHost broken = new FakeHost(WINDOWS);
+        broken.uiFailure = new IllegalStateException("Graphics Device initialization failed for :  d3d, sw");
+        broken.report = java.nio.file.Path.of("C:/Users/p/AppData/Roaming/VANTA Launcher/logs/startup-error.txt");
+        final Outcome r = start("win", broken);
+        assertEquals(OptionalInt.of(1), r.code());
+        assertEquals(1, broken.recorded.size());
+        assertTrue(broken.recorded.get(0).contains("Graphics Device initialization failed"), broken.recorded.get(0));
+        assertTrue(broken.dialogs.get(0).contains("Details were saved to " + broken.report), broken.dialogs.get(0));
+        assertTrue(r.err().contains("at dev.vanta.launcher") || r.err().contains("IllegalStateException"), "the stack trace is printed too");
+
+        final FakeHost mismatch = new FakeHost(LINUX);
+        mismatch.headless = true;
+        start("win", mismatch);
+        assertEquals(1, mismatch.recorded.size(), "a wrong-platform jar is recorded as well");
+
+        // Anything that goes wrong before JavaFX (here: reading the platform) still ends with 1 and an explanation.
+        final FakeHost early = new FakeHost(LINUX);
+        early.osFailure = new SecurityException("os.arch is not readable");
+        final Outcome e = start("linux", early);
+        assertEquals(OptionalInt.of(1), e.code());
+        assertTrue(e.err().contains("os.arch is not readable"), e.err());
+        assertEquals(0, early.uiLaunches);
     }
 
     @Test

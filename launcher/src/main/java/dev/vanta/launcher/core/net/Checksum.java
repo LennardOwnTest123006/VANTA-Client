@@ -39,6 +39,14 @@ public record Checksum(HashAlgorithm algorithm, String hex) {
     }
 
     /**
+     * @param hex hex SHA-512
+     * @return checksum
+     */
+    public static Checksum sha512(final String hex) {
+        return new Checksum(HashAlgorithm.SHA512, hex);
+    }
+
+    /**
      * Computes the digest of a file and compares.
      *
      * @param file file

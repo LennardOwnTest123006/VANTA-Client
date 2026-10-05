@@ -82,6 +82,8 @@ public final class Icons {
         ERASER("M20 20H7L3 16c-.8-.8-.8-2.1 0-2.9L13.1 3.1c.8-.8 2.1-.8 2.9 0L21 8.1c.8.8.8 2.1 0 2.9L12.3 19.8 M6.5 11.5l6 6"),
         /** Stop square. */
         STOP("M6 6h12v12H6z"),
+        /** Waste bin. */
+        TRASH("M3 6h18 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6 M10 11v6 M14 11v6"),
         /** Chevron down. */
         CHEVRON_DOWN("M6 9l6 6 6-6"),
         /** Heart. */

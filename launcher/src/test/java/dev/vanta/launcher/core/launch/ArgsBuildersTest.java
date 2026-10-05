@@ -54,6 +54,7 @@ class ArgsBuildersTest {
         assertTrue(args.contains("-XX:+UseG1GC"));
         assertTrue(args.contains("-Dfile.encoding=UTF-8"));
         assertTrue(args.contains("-Dvanta.launcher=1.0.0"));
+        assertTrue(args.contains("-Dvanta.launcher.restartable=true"), "the launcher can restart a game it started");
         assertTrue(args.contains("-Djava.library.path=/data/instances/vanta-1.21.11/natives"));
         assertTrue(args.contains("-Dminecraft.launcher.brand=VANTA-Launcher"));
         assertTrue(args.contains("-DFabricMcEmu= net.minecraft.client.main.Main "));

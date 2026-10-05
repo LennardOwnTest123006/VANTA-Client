@@ -124,4 +124,18 @@ class SettingsTest {
         assertFalse(loaded.hasReleasesBaseUrl());
         assertEquals(LauncherSettings.DEFAULT_RELEASES_BASE_URL, loaded.effectiveReleasesBaseUrl(java.util.Map.of()).url());
     }
+
+    @Test
+    void thePerformancePackIsOnUnlessSwitchedOff() throws IOException {
+        assertTrue(LauncherSettings.defaults(0).performancePack());
+        final SettingsStore store = new SettingsStore(tmp.resolve("pack-settings.json"), 16384);
+        // A settings.json written by launcher 1.0.x has no installPerformancePack key.
+        Files.writeString(store.file(), "{\"schemaVersion\":1,\"memoryMb\":4096,\"keepLauncherOpen\":true}");
+        assertTrue(store.load().performancePack());
+        store.save(store.load().withInstallPerformancePack(false));
+        assertTrue(Files.readString(store.file()).contains("\"installPerformancePack\": false"), Files.readString(store.file()));
+        assertFalse(store.load().performancePack());
+        assertTrue(store.load().keepLauncherOpen(), "other values survive");
+        assertFalse(store.load().withMemoryMb(2048).performancePack(), "withers keep it");
+    }
 }

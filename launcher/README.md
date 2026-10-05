@@ -1,7 +1,8 @@
 # VANTA Launcher
 
 The VANTA Launcher installs and starts **Minecraft Java Edition 1.21.11** with **Fabric Loader 0.19.5**,
-**Fabric API 0.141.6+1.21.11** and the **VANTA Client** mod, using only legitimate sources:
+**Fabric API 0.141.6+1.21.11**, the **VANTA Client** mod and an optional **performance pack** from Modrinth, using only
+legitimate sources:
 
 | Component | Source | Verification |
 | --- | --- | --- |
@@ -10,6 +11,7 @@ The VANTA Launcher installs and starts **Minecraft Java Edition 1.21.11** with *
 | Fabric API | `maven.fabricmc.net` | SHA-256 sidecar |
 | VANTA Client | release manifest (`<releasesBaseUrl>/client-latest.json`, see [Releases URL](#releases-url)); exactly `vanta-client-<version>.jar` | SHA-256 from the manifest |
 | Java 21 runtime (optional) | Adoptium API (`api.adoptium.net`, Eclipse Temurin JRE) | SHA-256 from the API |
+| Performance pack, Mods page (mods, shaders, resource packs) | Modrinth API (`api.modrinth.com/v2`), each file from the URL in its Modrinth version | SHA-512 + size from the Modrinth version |
 | Sign-in | Microsoft OAuth device code flow → Xbox Live → XSTS → Minecraft services | — |
 
 Every download is written to a temporary file, verified while streaming and moved into place atomically. A file that
@@ -112,8 +114,9 @@ Minecraft API. It is configuration, never a constant in the code:
 3. Provide the id to the launcher either in `settings.json` (`"msClientId": "..."`) or through the environment
    variable `VANTA_MS_CLIENT_ID`.
 
-Without a client id the launcher explains exactly this and does not offer a fake login. The project does not have an
-approved id, so released builds play through the official Minecraft Launcher instead: see
+Without a client id the launcher explains exactly this and does not offer a fake login, and it never uses another
+launcher's client id. The project does not have an approved id, so released builds play through the official Minecraft
+Launcher instead: PLAY becomes "PLAY via Minecraft Launcher", see
 [Use with the Minecraft Launcher](#use-with-the-minecraft-launcher).
 
 ### Releases URL
@@ -179,6 +182,7 @@ the zip's `VANTA Launcher` folder into it (`UpdateViewModel.portableUpdateInstru
 | `developerMode` | enables development features (see offline accounts) | `false` |
 | `shareOfficialMinecraftFiles` | reuse verified libraries/assets from the official `.minecraft` (read-only) | `true` |
 | `theme` | UI theme id | `vanta-dark` |
+| `installPerformancePack` | install the [performance pack](#performance-pack-and-mods-page) with every install | `true` (also when the key is missing) |
 
 ### Offline accounts
 
@@ -189,9 +193,13 @@ only — with `developerMode` (or `--dev-offline`) **and** the environment varia
 ## Use with the Minecraft Launcher
 
 Microsoft sign-in inside VANTA needs an application id that Mojang has approved, which the project does not have (see
-above). "Use with Minecraft Launcher" on the Home screen (offered prominently while sign-in is not configured) and
-`--install-official-profile` on the command line make VANTA playable through the **official Minecraft Launcher**
-instead; it downloads Minecraft, its libraries, assets and Java and signs you in with Microsoft. VANTA writes exactly:
+above). "Use with Minecraft Launcher" on the Home screen and `--install-official-profile` on the command line make VANTA
+playable through the **official Minecraft Launcher** instead; it downloads Minecraft, its libraries, assets and Java and
+signs you in with Microsoft. While PLAY cannot sign in (`SessionModel.playPossible()` is false) the main button is
+**PLAY via Minecraft Launcher**: one click checks for a running Minecraft Launcher, adds or updates the profile (the
+first time after the confirmation below, "Add profile and open"; afterwards directly) and opens the Minecraft Launcher.
+Verified files that are already in place are not downloaded again, and the progress names each step and file. VANTA
+writes exactly:
 
 | File | Content |
 | --- | --- |
@@ -199,6 +207,7 @@ instead; it downloads Minecraft, its libraries, assets and Java and signs you in
 | `<data>/instances/vanta-1.21.11/mods/vanta-client-<v>.jar` | the published VANTA Client (SHA-256 from the manifest) or `--client-jar` |
 | `<data>/versions/vanta-client/<v>/vanta-client-<v>.jar` and `manifest.json` | rollback copy of a published release, or a local copy of a jar that was in `mods/` (see below); not for `--client-jar` |
 | `<data>/instances/vanta-1.21.11/instance.json` | the installed client version, only when the instance file exists |
+| `<data>/instances/vanta-1.21.11/mods/<file>` and `config/vanta/modrinth.json` | the [performance pack](#performance-pack-and-mods-page) (when switched on), SHA-512 verified |
 | `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.json` | the Fabric Loader version JSON exactly as `meta.fabricmc.net` serves it |
 | `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.jar` | empty, as the official Fabric installer writes it |
 | `<minecraft>/launcher_profiles.json` | profile `vanta-1.21.11` ("VANTA 1.21.11", custom, VANTA icon, `lastVersionId` above, `gameDir` = the VANTA instance, `javaArgs` `-Xmx<memoryMb>M`), only when that file exists (launcher from minecraft.net) |
@@ -223,6 +232,95 @@ When neither `launcher_profiles.json` nor `launcher_profiles_microsoft_store.jso
 never been started there: the command stops with "Start the Minecraft Launcher once, then try again" (exit code 3)
 and changes nothing. Afterwards: open the Minecraft Launcher, choose the profile 'VANTA 1.21.11' and press Play (restart it first
 if it was open).
+
+**A running Minecraft Launcher** reads its profiles files only when it starts, so a profile written while it runs only
+appears after it was closed completely and started again. `OfficialLauncher` therefore looks for it before anything is
+written (`ProcessHandle.allProcesses()`, plus `tasklist` on Windows for processes whose path is hidden, such as the
+Microsoft Store app): `MinecraftLauncher.exe` (minecraft.net) and `Minecraft.exe` (Microsoft Store / Xbox app, package
+`Microsoft.4297127D64EC6_8wekyb3d8bbwe`; Bedrock's `Minecraft.Windows.exe` does not count), `Minecraft.app/Contents/MacOS/launcher`
+or a `Minecraft Launcher` executable on macOS and `minecraft-launcher` on Linux; the sources are documented in its Javadoc. The UI then names the processes, explains how to
+close the launcher completely (on Windows also from the system tray) and offers "Check again" and "Continue anyway";
+`--install-official-profile` prints the same as a warning and continues. VANTA never stops another process.
+
+**Opening it** ("Open Minecraft Launcher" on Home, `--open-official-launcher`): on Windows
+`%ProgramFiles(x86)%\Minecraft Launcher\MinecraftLauncher.exe` when it exists, else the Microsoft Store app with
+`explorer.exe shell:AppsFolder\Microsoft.4297127D64EC6_8wekyb3d8bbwe!Minecraft` when its package folder exists; on macOS
+`open -a Minecraft`; on Linux `minecraft-launcher` from the `PATH`. When none is found the launcher says so (exit code 3
+on the command line) and starts nothing; a launcher that is already running is left alone.
+
+## Performance pack and Mods page
+
+**Performance pack** (`PerformancePack`, on by default, `installPerformancePack` in settings.json,
+`--without-performance-pack` for one run): Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling and Iris
+Shaders (Modrinth slugs `sodium`, `lithium`, `ferrite-core`, `immediatelyfast`, `entityculling`, `iris`) are installed by
+PLAY, `--install` and "Use with Minecraft Launcher" into `instances/vanta-1.21.11/mods/`. Nothing is pinned in the
+code: at install time `ModrinthService` asks `GET /v2/project/<slug>/version?loaders=["fabric"]&game_versions=["1.21.11"]`
+and takes the newest listed release (a beta or alpha only when no release exists) that has a primary file with a URL
+and a SHA-512. Required dependencies are added the same way, a dependency pinned to a version id is honoured (Iris
+names the Sodium version it needs), and Fabric API is skipped because the launcher installs it from the Fabric Maven.
+Each file is downloaded from the URL Modrinth returned and verified against Modrinth's SHA-512 and size; a newer version
+replaces the older file. A jar in `mods/` that the launcher did not install but that contains the same Fabric mod id is
+left alone and the pack mod is skipped, so Fabric never sees two copies. When Modrinth is unreachable or a mod has no
+version for 1.21.11, the install continues without it and lists a warning (also in the confirmation of "Use with
+Minecraft Launcher"). The resolution is cached for 10 minutes, so the confirmation and the install ask Modrinth once.
+Every request sends the User-Agent `LennardOwnTest123006/VANTA-Client/<launcher version>
+(https://github.com/LennardOwnTest123006/VANTA-Client)`; HTTP 429 waits for `X-Ratelimit-Reset` (or `Retry-After`, at
+most 60 s) and a request that fails with a server error is tried up to 4 times.
+
+**Mods page**: searches Modrinth (`GET /v2/search`, facets `project_type:<mod|shader|resourcepack>`, `versions:1.21.11`
+and `categories:fabric` for mods or `categories:iris` for shaders; most downloaded first while the search is empty) and
+installs the newest compatible version with its required dependencies into `mods/`, `shaderpacks/` or `resourcepacks/`
+of the instance, with the same checks as the pack. The installed list shows every file in these folders, including
+files added by hand. Switching an entry off renames it to `<file>.disabled` (switching it on again also enables the
+projects it needs); Remove deletes it after a confirmation. A project that an enabled project requires cannot be
+switched off or removed on its own, and Fabric API and the VANTA Client (marked "VANTA") stay managed by the launcher;
+Fabric API search results show "Included". "Update all" resolves every project installed from Modrinth again and
+replaces older files. Changes take effect at the next game start, also in the Minecraft Launcher profile, which uses the
+same folder.
+
+**`config/vanta/modrinth.json`** (`ModrinthIndex`) in the instance records what was installed from Modrinth; the VANTA
+Client reads the same file:
+
+```json
+{
+  "schemaVersion": 1,
+  "installed": [
+    {
+      "projectId": "AANobbMI", "slug": "sodium", "title": "Sodium",
+      "versionId": "<Modrinth version id>", "versionNumber": "<version number>",
+      "type": "mod", "file": "mods/<file name>", "sha512": "<128 hex digits>",
+      "enabled": true, "requiredBy": ["<project id that needs it>"], "installedAt": "<ISO-8601 time>"
+    }
+  ]
+}
+```
+
+`type` is `mod`, `shader` or `resourcepack`; `file` is always the enabled name (a disabled file carries `.disabled`
+on disk and `"enabled": false`). Keys the launcher does not know are kept on every write, the file is replaced
+atomically, and an unreadable file is moved aside as `modrinth.json.corrupt` instead of being overwritten.
+
+## Restart from the game
+
+Games started by the launcher get `-Dvanta.launcher.restartable=true`. When the game exits and
+`<instance>/config/vanta/restart.request` exists (`RestartRequest`), the launcher deletes the file and starts the game
+again with the same Java and account (its token refreshed when it expired), without running the install check again,
+at most 5 times per PLAY. `--launch` does the same on the command line. Without the file an exit is an ordinary exit.
+
+## Start-up diagnostics
+
+Every start of the user interface opens `logs/launcher-0.log` before JavaFX is loaded and records the launcher, Java,
+JavaFX build platform and system (`StartupDiagnostics`). When the start fails anywhere (wrong platform, JavaFX cannot
+load, the window cannot be built), the error with its stack trace and these details is written to
+`logs/startup-error.txt` in the data directory (`%APPDATA%\VANTA Launcher\logs\startup-error.txt` on Windows; the
+previous one is kept as `startup-error.previous.txt`, and the temporary directory is used when the data directory cannot
+be written), shown in a dialog (JavaFX, or Swing when JavaFX itself could not start) and the launcher exits with code 1.
+
+For CI, `UiSmoke` reads two environment variables: `VANTA_UI_SMOKE_SCREENSHOT=<png>` writes a snapshot of the main
+window once it is shown and the first refresh finished (at most 15 s later), and `VANTA_UI_SMOKE_EXIT_AFTER=<seconds>`
+closes the launcher that long after the window was shown, with exit code 0 (2 when the screenshot could not be
+written). The CI job "Launcher starts on Windows" installs the `.msi` (`msiexec /qn`), unpacks the portable zip and runs
+the Windows jar with these variables on `windows-latest`, and fails unless each of them shows its window and exits with
+0; screenshots, logs and the msiexec log are published to the `ci-artifacts` branch under `launcher-windows-gui`.
 
 ## Installed client and update checks
 
@@ -258,14 +356,15 @@ Data directory: Windows `%APPDATA%\VANTA Launcher`, macOS `~/Library/Application
 
 ```
 <data>/
-├── instances/vanta-1.21.11/     game directory: mods/ (fabric-api, vanta-client), config/, saves/, instance.json
+├── instances/vanta-1.21.11/     game directory: mods/ (fabric-api, vanta-client, performance pack), shaderpacks/,
+│                                resourcepacks/, config/vanta/modrinth.json, saves/, instance.json
 ├── libraries/                   Maven layout shared by vanilla and Fabric
 ├── assets/indexes/, objects/, log_configs/
 ├── versions/1.21.11/            1.21.11.json + 1.21.11.jar
 ├── versions/fabric-loader-0.19.5-1.21.11/   Fabric profile JSON
 ├── versions/vanta-client/<v>/   rollback copies of the 3 newest client versions + manifests
 ├── runtimes/                    Java runtimes installed by the launcher (temurin-21-<release>)
-├── logs/                        launcher-N.log (rotating), game-<timestamp>.log
+├── logs/                        launcher-N.log (rotating), game-<timestamp>.log, startup-error.txt (failed start)
 ├── cache/updates/<v>/<file>      downloaded launcher updates under their release file names (verified before use)
 ├── settings.json
 ├── accounts.dat                 encrypted accounts (DPAPI on Windows, AES-256-GCM elsewhere)
@@ -281,10 +380,12 @@ named after the system whose JavaFX they contain; the command line itself runs w
 java -jar vanta-launcher-<version>-<system>-all.jar <command> [options]      system = windows | linux | macos-aarch64
 
 Commands
-  --install          install Minecraft, Fabric Loader, Fabric API and VANTA Client
+  --install          install Minecraft, Fabric Loader, Fabric API, VANTA Client and the performance pack
   --install-official-profile
-                     install Fabric API + VANTA Client and add the profile 'VANTA 1.21.11' to the official
-                     Minecraft Launcher (see "Use with the Minecraft Launcher")
+                     install Fabric API + VANTA Client (+ performance pack) and add the profile 'VANTA 1.21.11' to
+                     the official Minecraft Launcher (see "Use with the Minecraft Launcher"); warns when it is running
+  --open-official-launcher
+                     start the official Minecraft Launcher (left alone when it already runs)
   --launch           launch the installed instance
   --check-java       list detected Java runtimes and the one that would be used
   --install-java     download and install Eclipse Temurin 21 (verified) into runtimes/
@@ -297,8 +398,11 @@ Options
   --data-dir <path>        launcher data directory
   --client-jar <path>      --install / --install-official-profile: install a local VANTA client jar instead of the
                            published release
-  --minecraft-dir <path>   --install-official-profile: the official Minecraft directory (default: platform .minecraft)
+  --minecraft-dir <path>   --install-official-profile / --open-official-launcher: the official Minecraft directory
+                           (default: platform .minecraft)
   --without-client         --install: plain Fabric instance without the VANTA client
+  --without-performance-pack
+                           --install / --install-official-profile: skip the performance pack for this run
   --no-assets              --install: skip assets (development only)
   --dev-offline            --launch/--print-command: development offline account (needs VANTA_DEV_OFFLINE=1)
   --username <name>        player name for --dev-offline (default Dev)
@@ -329,13 +433,17 @@ java -jar build/libs/vanta-launcher-<version>-all.jar --install-official-profile
 ```
 
 Once a client release is published, CI also runs `--install` without `--client-jar` to prove the launcher finds the
-published jar through the built-in releases URL.
+published jar through the built-in releases URL. The integration job installs the performance pack from the live
+Modrinth API and checks every jar against `modrinth.json` (`sha512sum`) and against Modrinth itself
+(`/v2/version_file/<sha512>?algorithm=sha512`), and the headless game run must load all six mods next to the VANTA
+client and reach its main menu.
 
 ## Code map
 
 ```
 dev.vanta.launcher.Main                 bootstrap: CLI for any flag, else wrong-platform check (PlatformCheck), then the
-                                        JavaFX UI reflectively; a failed UI start exits with 1
+                                        JavaFX UI reflectively; a failed UI start is reported and exits with 1
+dev.vanta.launcher.StartupDiagnostics   early launcher log, logs/startup-error.txt
 dev.vanta.launcher.LauncherVersion      pinned versions (generated from gradle.properties)
 dev.vanta.launcher.cli                  LauncherCli, CliArgs, CliCommand, ExitCode
 dev.vanta.launcher.core.LauncherServices  composition root used by UI and CLI
@@ -343,19 +451,23 @@ dev.vanta.launcher.core.paths           LauncherPaths
 dev.vanta.launcher.core.model           Gson models: VersionManifest, VersionJson, AssetIndexJson, FabricProfileJson,
                                         FabricLoaderVersion, MavenCoordinate, ReleaseManifest, InstanceInfo, AdoptiumAsset
 dev.vanta.launcher.core.launch          RuleEvaluator, ArgumentExpander, LibraryResolver, ClasspathBuilder,
-                                        JvmArgsBuilder, GameArgsBuilder, LaunchService, GameProcess
+                                        JvmArgsBuilder, GameArgsBuilder, LaunchService, GameProcess, RestartRequest
 dev.vanta.launcher.core.net             HttpTransport (+JdkHttpTransport), Downloader, Checksums, CancellationToken,
                                         NetworkErrors (transport failure classification)
 dev.vanta.launcher.core.install         MojangService, FabricService, FabricApiService, VantaClientService,
                                         Installer, InstallPlan, InstallProgress, SharedFileSource,
-                                        OfficialProfileService ("Use with the Minecraft Launcher")
+                                        OfficialProfileService ("Use with the Minecraft Launcher"),
+                                        OfficialLauncher (detect / open the official launcher, never stops it)
+dev.vanta.launcher.core.modrinth        ModrinthApi (v2 client, User-Agent, 429), ModrinthService (resolve, install,
+                                        enable/disable, remove, update), ModrinthIndex (modrinth.json), PerformancePack,
+                                        ContentType, ModrinthModels
 dev.vanta.launcher.core.java            JavaDetector, ProcessJavaProbe, AdoptiumService, ArchiveExtractor
 dev.vanta.launcher.core.auth            MicrosoftAuthService, AccountStore (DPAPI / AES-GCM), OfflineAccountPolicy
 dev.vanta.launcher.core.settings        LauncherSettings, SettingsStore, ReleasesBaseUrl (URL in effect + source)
 dev.vanta.launcher.core.update          UpdateService (+ClientCheck), UpdateInfo, SemVer
 dev.vanta.launcher.core.util            OsInfo, LauncherPackaging (jar / installed / portable), ByteSizes (decimal sizes), ...
 dev.vanta.launcher.core.log             LauncherLog (java.util.logging, rotating), Redactor
-dev.vanta.launcher.ui                   JavaFX user interface (loaded reflectively by Main), see below
+dev.vanta.launcher.ui                   JavaFX user interface (loaded reflectively by Main), see below; UiSmoke (CI hook)
 ```
 
 ## User interface
@@ -368,8 +480,9 @@ dev.vanta.launcher.ui.backend   LauncherBackend (the single seam between UI and 
 dev.vanta.launcher.ui.model     view models: SessionModel (account, Java, instance, settings), HomeViewModel
                                 (NOT_READY → READY → INSTALLING/VERIFYING → RUNNING → READY/ERROR), SignInViewModel
                                 (device code flow), SettingsViewModel, VersionsViewModel, LogsViewModel + LogBuffer,
-                                UpdateViewModel, ToastModel, NavigationModel, ErrorMessages (core exceptions → text)
-dev.vanta.launcher.ui.view      MainWindow, Sidebar, pages (Home, Versions, Logs, Settings, About), in-window dialogs
+                                UpdateViewModel, ModsViewModel, ToastModel, NavigationModel, ErrorMessages (core
+                                exceptions → text)
+dev.vanta.launcher.ui.view      MainWindow, Sidebar, pages (Home, Mods, Versions, Logs, Settings, About), in-window dialogs
                                 (sign-in, update/changelog, accounts, confirm), toasts, custom controls
 dev.vanta.launcher.ui.prefs     ui-preferences.json (reduced motion, window size, last page) — presentation only
 resources .../ui/               theme/vanta.css (design tokens), i18n/launcher_en.properties (every UI string),

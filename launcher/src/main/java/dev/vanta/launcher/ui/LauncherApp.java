@@ -1,6 +1,7 @@
 package dev.vanta.launcher.ui;
 
 import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.StartupDiagnostics;
 import dev.vanta.launcher.core.LauncherServices;
 import dev.vanta.launcher.core.log.LauncherLog;
 import dev.vanta.launcher.ui.backend.CoreBackend;
@@ -18,14 +19,22 @@ import dev.vanta.launcher.ui.view.Typography;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.TextArea;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,6 +46,11 @@ import java.util.logging.Logger;
  * <p>Lifecycle: {@link #init()} builds the core services on the launcher thread, {@link #start(Stage)} loads fonts,
  * builds the window and kicks off the first refresh; {@link #stop()} closes the services. {@code Platform.exit()}
  * is only ever requested through {@link #shutdown()}, after the services are closed.</p>
+ *
+ * <p>Anything that fails in {@link #init()} or {@link #start(Stage)} is logged, written to
+ * {@code <data>/logs/startup-error.txt} ({@link StartupDiagnostics}) and shown in an error window that names that file;
+ * the process then exits with code 1. {@link UiSmoke} adds the CI screenshot / exit hook when its environment variables
+ * are set.</p>
  */
 public final class LauncherApp extends Application {
 
@@ -56,6 +70,7 @@ public final class LauncherApp extends Application {
 
     private static volatile Supplier<LauncherBackend> backendOverride;
     private static volatile Consumer<LauncherApp> readyHook;
+    private static volatile IntConsumer exitHandler = System::exit;
 
     private LauncherBackend backend;
     private UiExecutors executors;
@@ -64,6 +79,7 @@ public final class LauncherApp extends Application {
     private Stage stage;
     private JulLogBridge logBridge;
     private boolean closed;
+    private Throwable initFailure;
 
     /**
      * Entry point used by {@link dev.vanta.launcher.Main}.
@@ -86,16 +102,42 @@ public final class LauncherApp extends Application {
         readyHook = onReady;
     }
 
+    /**
+     * Test hook: what ends the process after a failed start or a finished UI smoke run (default {@link System#exit}).
+     *
+     * @param handler receives the exit code (null restores {@link System#exit})
+     */
+    public static void setExitHandlerForTesting(final IntConsumer handler) {
+        exitHandler = handler == null ? System::exit : handler;
+    }
+
     @Override
     public void init() {
-        final Supplier<LauncherBackend> override = backendOverride;
-        backend = override != null ? Objects.requireNonNull(override.get(), "backend") : new CoreBackend(LauncherServices.createDefault());
-        executors = UiExecutors.javafx();
+        try {
+            final Supplier<LauncherBackend> override = backendOverride;
+            backend = override != null ? Objects.requireNonNull(override.get(), "backend") : new CoreBackend(LauncherServices.createDefault());
+            executors = UiExecutors.javafx();
+        } catch (Throwable t) {
+            // Shown by start(), where the toolkit can display a window.
+            initFailure = t;
+        }
     }
 
     @Override
     public void start(final Stage primaryStage) {
         this.stage = primaryStage;
+        if (initFailure != null) {
+            reportFatal("The launcher services could not be created", initFailure);
+            return;
+        }
+        try {
+            startWindow();
+        } catch (Throwable t) {
+            reportFatal("The launcher window could not be built", t);
+        }
+    }
+
+    private void startWindow() {
         Thread.currentThread().setUncaughtExceptionHandler((t, e) -> LOG.log(Level.SEVERE, "Uncaught exception on the UI thread", e));
         final List<String> fonts = Typography.load();
         LOG.log(Level.FINE, "Loaded fonts: {0}", fonts);
@@ -142,6 +184,11 @@ public final class LauncherApp extends Application {
         wireGameWindowBehaviour();
         stage.show();
         window.requestFocus();
+        LOG.log(Level.INFO, "Main window shown ({0} x {1})", new Object[] {(int) scene.getWidth(), (int) scene.getHeight()});
+        UiSmoke.fromEnvironment(backend.env()).ifPresent(smoke -> smoke.start(scene, context.session().loadedProperty(), code -> {
+            shutdown();
+            exitHandler.accept(code);
+        }));
 
         context.session().refreshAll();
         context.session().loadedProperty().addListener((obs, old, now) -> {
@@ -152,6 +199,36 @@ public final class LauncherApp extends Application {
         final Consumer<LauncherApp> ready = readyHook;
         if (ready != null) {
             ready.accept(this);
+        }
+    }
+
+    /**
+     * A failed start: log it, write {@code startup-error.txt}, show it in a window, exit with 1.
+     */
+    private void reportFatal(final String what, final Throwable error) {
+        final Path logs = backend != null ? backend.paths().logsDir() : StartupDiagnostics.forDefaultDataDir().logsDir();
+        final String message = "VANTA Launcher " + LauncherVersion.VERSION + " could not start: " + what + ".\n" + error;
+        final Optional<Path> report = new StartupDiagnostics(logs).writeError(message, error);
+        try {
+            final Alert alert = new Alert(Alert.AlertType.ERROR, "", ButtonType.CLOSE);
+            alert.setTitle("VANTA Launcher");
+            alert.setHeaderText("VANTA Launcher could not start");
+            alert.setContentText(message + report.map(p -> "\n\nDetails were saved to " + p).orElse(""));
+            final StringWriter trace = new StringWriter();
+            try (PrintWriter pw = new PrintWriter(trace)) {
+                error.printStackTrace(pw);
+            }
+            final TextArea details = new TextArea(trace.toString());
+            details.setEditable(false);
+            details.setWrapText(false);
+            alert.getDialogPane().setExpandableContent(details);
+            alert.showAndWait();
+        } catch (Throwable dialogFailure) {
+            LOG.log(Level.SEVERE, "The error window could not be shown either", dialogFailure);
+        } finally {
+            closed = true;
+            closeResources();
+            exitHandler.accept(1);
         }
     }
 

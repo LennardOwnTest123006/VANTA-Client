@@ -87,7 +87,7 @@ class HomeViewModelTest {
         assertFalse(vm.playEnabledProperty().get());
         assertEquals(ctx.messages.get("home.block.running"), vm.blockReasonProperty().get());
         assertNotNull(vm.gameProperty().get());
-        assertTrue(steps.stream().anyMatch(s -> s.contains("Step 4 of 10 \u00B7 Downloading libraries")), steps.toString());
+        assertTrue(steps.stream().anyMatch(s -> s.contains("Step 4 of 11 \u00B7 Downloading libraries")), steps.toString());
         assertTrue(steps.contains(ctx.messages.get("home.status.refreshingAccount")));
         assertEquals(List.of("install", "refreshIfExpired", "launch"), backend.calls.stream()
             .filter(c -> c.equals("install") || c.equals("refreshIfExpired") || c.equals("launch")).toList());
@@ -280,19 +280,24 @@ class HomeViewModelTest {
         ctx.session.refreshAll();
         final HomeViewModel vm = ctx.home();
         assertEquals(HomeViewModel.State.NOT_READY, vm.state());
-        assertEquals(ctx.messages.get("home.block.noSignIn"), vm.blockReasonProperty().get(), "no 'sign in first' when sign-in is impossible");
-        assertEquals(ctx.messages.get("home.lead.noSignIn"), vm.leadTextProperty().get());
+        assertEquals(ctx.messages.format("home.block.viaOfficial", "VANTA 1.21.11"), vm.blockReasonProperty().get(),
+            "no 'sign in first' when sign-in is impossible: the button plays through the Minecraft Launcher");
+        assertEquals(ctx.messages.format("home.lead.noSignIn", "VANTA 1.21.11"), vm.leadTextProperty().get());
+        assertTrue(vm.officialPlayModeProperty().get(), "PLAY becomes 'PLAY via Minecraft Launcher'");
 
         final List<dev.vanta.launcher.core.install.OfficialProfileService.Plan> plans = new ArrayList<>();
         vm.prepareOfficialProfile(plans::add);
         assertEquals(1, plans.size());
         assertEquals("VANTA 1.21.11", plans.get(0).profileName());
-        assertEquals(5, plans.get(0).files().size());
+        assertEquals(9, plans.get(0).files().size(), "5 files plus 4 performance pack mods (on by default)");
         for (var f : plans.get(0).files()) {
-            assertFalse(vm.officialPlanLabel(f.kind()).isBlank());
+            assertFalse(vm.officialPlanLabel(f).isBlank());
         }
+        assertTrue(plans.get(0).files().stream().anyMatch(f -> vm.officialPlanLabel(f).startsWith("Sodium mc1.21.11-0.8.14-fabric from Modrinth")));
         for (var kind : dev.vanta.launcher.core.install.OfficialProfileService.Kind.values()) {
-            assertFalse(vm.officialPlanLabel(kind).contains("{"), kind + " label is fully formatted");
+            final var file = new dev.vanta.launcher.core.install.OfficialProfileService.PlannedFile(kind, "/x", "Sodium 0.8.14");
+            assertFalse(vm.officialPlanLabel(file).contains("{"), kind + " label is fully formatted");
+            assertFalse(vm.officialPlanLabel(new dev.vanta.launcher.core.install.OfficialProfileService.PlannedFile(kind, "/x")).contains("{"));
         }
         assertFalse(backend.calls.contains("installOfficialProfile"), "preparing only reads the plan");
 
@@ -353,6 +358,86 @@ class HomeViewModelTest {
         assertTrue(vm.errorTextProperty().get().contains("A proxy refused the connection (Tunnel failed, got: 403)"), vm.errorTextProperty().get());
         assertTrue(vm.officialDoneTextProperty().get().isEmpty());
         assertFalse(vm.officialBusyProperty().get());
+    }
+
+    @Test
+    void playViaMinecraftLauncherSetsUpThenOpensTheOfficialLauncher() {
+        backend.signInConfigured = false;
+        ctx.session.refreshAll();
+        final HomeViewModel vm = ctx.home();
+        assertTrue(vm.officialPlayModeProperty().get());
+        assertEquals(ctx.messages.get("home.title.viaOfficial"), vm.titleTextProperty().get());
+        assertEquals(ctx.messages.get("home.status.viaOfficial"), vm.statusTextProperty().get(), "not 'Not ready'");
+
+        backend.runningLaunchers.add("MinecraftLauncher.exe (process 1234)");
+        final List<List<String>> checks = new ArrayList<>();
+        vm.checkOfficialLauncher(checks::add);
+        assertEquals(List.of(List.of("MinecraftLauncher.exe (process 1234)")), checks, "the view asks the player to close it");
+        assertTrue(ctx.launcherLog.snapshot().stream().anyMatch(l -> l.text().contains("The Minecraft Launcher is running")));
+        backend.runningLaunchers.clear();
+        vm.checkOfficialLauncher(checks::add);
+        assertEquals(List.of(), checks.get(1));
+
+        vm.installOfficialProfile(true);
+        assertEquals(List.of("installOfficialProfile", "openOfficialLauncher"), backend.calls.stream()
+            .filter(c -> c.equals("installOfficialProfile") || c.equals("openOfficialLauncher")).toList());
+        assertEquals(ctx.messages.format("official.opened.message", "VANTA 1.21.11"), vm.officialDoneTextProperty().get());
+        assertEquals(ctx.messages.get("official.opened.title"), ctx.toasts.toasts().get(ctx.toasts.toasts().size() - 1).title());
+        assertFalse(backend.calls.contains("install"), "no sign-in, no regular install");
+    }
+
+    @Test
+    void openingTheOfficialLauncherReportsWhatHappened() {
+        ctx.session.refreshAll();
+        final HomeViewModel vm = ctx.home();
+        backend.openResult = new dev.vanta.launcher.core.install.OfficialLauncher.OpenResult(
+            dev.vanta.launcher.core.install.OfficialLauncher.Outcome.NOT_FOUND, "", "No Minecraft Launcher was found");
+        vm.openOfficialLauncher();
+        assertEquals(ToastModel.Kind.ERROR, ctx.toasts.toasts().get(0).kind());
+        assertEquals(ctx.messages.get("official.open.notFound"), ctx.toasts.toasts().get(0).message());
+        backend.openResult = new dev.vanta.launcher.core.install.OfficialLauncher.OpenResult(
+            dev.vanta.launcher.core.install.OfficialLauncher.Outcome.FAILED, "x", "Could not start x: Access is denied");
+        vm.openOfficialLauncher();
+        assertTrue(ctx.toasts.toasts().get(1).message().contains("Access is denied"));
+        assertTrue(vm.officialDoneTextProperty().get().isEmpty());
+    }
+
+    @Test
+    void theGameIsStartedAgainWhenItAsksForARestart() {
+        signedInWithJava();
+        final HomeViewModel vm = ctx.home();
+        final List<Integer> exits = new ArrayList<>();
+        final List<Long> started = new ArrayList<>();
+        vm.onGameExited(exits::add);
+        vm.onGameStarted(g -> started.add(g.pid()));
+        vm.play();
+        final FakeBackend.FakeGame first = backend.game;
+        backend.restartRequests = 1;
+        first.exit(0);
+        assertEquals(HomeViewModel.State.RUNNING, vm.state(), "restarted, still running");
+        assertTrue(backend.game != first, "a new process");
+        assertEquals(2, started.size());
+        assertTrue(exits.isEmpty(), "the window is not told about an exit in between");
+        assertEquals(2, backend.calls.stream().filter("launch"::equals).count());
+        assertEquals(1, backend.calls.stream().filter("install"::equals).count(), "a restart does not install again");
+        assertEquals(ctx.messages.get("home.toast.gameRestarted.title"), ctx.toasts.toasts().get(ctx.toasts.toasts().size() - 1).title());
+
+        backend.game.exit(0);
+        assertEquals(List.of(0), exits);
+        assertEquals(HomeViewModel.State.READY, vm.state());
+    }
+
+    @Test
+    void restartsInARowAreLimited() {
+        signedInWithJava();
+        final HomeViewModel vm = ctx.home();
+        vm.play();
+        backend.restartRequests = 100;
+        for (int i = 0; i <= HomeViewModel.MAX_RESTARTS; i++) {
+            backend.game.exit(0);
+        }
+        assertEquals(HomeViewModel.MAX_RESTARTS + 1, backend.calls.stream().filter("launch"::equals).count());
+        assertEquals(HomeViewModel.State.READY, vm.state(), "a client asking on every start does not loop forever");
     }
 
     private void signedInWithJava() {

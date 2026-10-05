@@ -43,7 +43,9 @@ public final class MainWindow extends StackPane {
         this.ctx = ctx;
         getStyleClass().add("app-shell");
 
-        factories.put(NavigationModel.Page.HOME, () -> new HomePage(ctx, this::showSignIn, this::showClientUpdate, this::showOfficialProfile));
+        factories.put(NavigationModel.Page.HOME, () -> new HomePage(ctx, this::showSignIn, this::showClientUpdate, this::showOfficialProfile,
+            this::playViaOfficialLauncher));
+        factories.put(NavigationModel.Page.MODS, () -> new ModsPage(ctx, dialogs));
         factories.put(NavigationModel.Page.VERSIONS, () -> new VersionsPage(ctx));
         factories.put(NavigationModel.Page.LOGS, () -> new LogsPage(ctx));
         factories.put(NavigationModel.Page.SETTINGS, () -> new SettingsPage(ctx, this::applyTheme));
@@ -96,9 +98,10 @@ public final class MainWindow extends StackPane {
             final ScrollPane scroll = new ScrollPane(content);
             scroll.setFitToWidth(true);
             // Pages that fill the window (hero layout, inner scrolling) stretch to the viewport but never below
-            // their preferred height; the Versions page simply flows and scrolls.
-            scroll.setFitToHeight(p != NavigationModel.Page.VERSIONS);
-            if (content instanceof Region region && p != NavigationModel.Page.VERSIONS) {
+            // their preferred height; the Versions and Mods pages simply flow and scroll.
+            final boolean flows = p == NavigationModel.Page.VERSIONS || p == NavigationModel.Page.MODS;
+            scroll.setFitToHeight(!flows);
+            if (content instanceof Region region && !flows) {
                 region.setMinHeight(Region.USE_PREF_SIZE);
             }
             scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
@@ -206,20 +209,77 @@ public final class MainWindow extends StackPane {
     }
 
     /**
-     * "Use with the Minecraft Launcher": reads what would be written, lists it in a confirmation dialog and runs the
-     * setup only after the user confirmed.
+     * "Use with the Minecraft Launcher": checks that the official launcher is closed (it reads profiles only when it
+     * starts), reads what would be written, lists it in a confirmation dialog and runs the setup only after the user
+     * confirmed.
      */
     public void showOfficialProfile() {
-        ctx.home().prepareOfficialProfile(plan -> dialogs.show(new ConfirmDialog(ctx.t("official.confirm.title", plan.profileName()),
-            ctx.t("official.confirm.text", plan.profileName(), plan.minecraftDir().toString(), plan.vantaClientVersion()), officialPlanDetails(plan),
-            ctx.t("official.confirm.install"), ctx.t("official.confirm.cancel"), () -> ctx.home().installOfficialProfile(), () -> { },
-            dialogs::close)));
+        startOfficialFlow(false);
+    }
+
+    /**
+     * "PLAY via Minecraft Launcher": the same checks, then the profile is set up or updated (confirmation only the first
+     * time, when the profile does not exist yet) and the official launcher is opened.
+     */
+    public void playViaOfficialLauncher() {
+        startOfficialFlow(true);
+    }
+
+    private void startOfficialFlow(final boolean play) {
+        ctx.home().checkOfficialLauncher(running -> {
+            if (running.isEmpty()) {
+                continueOfficialFlow(play);
+                return;
+            }
+            showOfficialLauncherRunning(running, play);
+        });
+    }
+
+    /**
+     * The official launcher is open: ask the player to close it completely. "Check again" looks again; "Continue anyway"
+     * writes the profile now (it appears after the next start of the Minecraft Launcher). Nothing is ever closed for them.
+     *
+     * @param running running launcher processes
+     * @param play    whether the flow ends by opening the Minecraft Launcher
+     */
+    void showOfficialLauncherRunning(final java.util.List<String> running, final boolean play) {
+        final String profile = OfficialProfileService.profileName(dev.vanta.launcher.LauncherVersion.MINECRAFT);
+        final VBox processes = new VBox(4);
+        for (String process : running) {
+            processes.getChildren().add(Ui.label(process, "mono", "text-secondary"));
+        }
+        final VBox details = new VBox(10, processes, Ui.paragraph(ctx.t(ctx.backend().os().isWindows() ? "official.running.tip.windows"
+            : ctx.backend().os().isMac() ? "official.running.tip.mac" : "official.running.tip"), "field-help"));
+        details.getStyleClass().add("official-running-details");
+        final ConfirmDialog dialog = new ConfirmDialog(ctx.t("official.running.title"),
+            ctx.t("official.running.text", String.join(", ", running), profile), details,
+            ctx.t("official.running.checkAgain"), ctx.t("official.confirm.cancel"), () -> startOfficialFlow(play), () -> { }, dialogs::close);
+        dialog.withExtraAction(ctx.t("official.running.continue"), Icons.Icon.ALERT, () -> {
+            dialogs.close();
+            continueOfficialFlow(play);
+        });
+        dialog.node().getStyleClass().add("official-running");
+        dialogs.show(dialog);
+    }
+
+    private void continueOfficialFlow(final boolean play) {
+        ctx.home().prepareOfficialProfile(plan -> {
+            if (play && plan.profileExists()) {
+                // Already set up once and confirmed then: update it (only changed files are downloaded) and open the launcher.
+                ctx.home().installOfficialProfile(true);
+                return;
+            }
+            dialogs.show(new ConfirmDialog(ctx.t("official.confirm.title", plan.profileName()),
+                ctx.t("official.confirm.text", plan.profileName(), plan.minecraftDir().toString(), plan.vantaClientVersion()), officialPlanDetails(plan),
+                ctx.t(play ? "official.confirm.installAndOpen" : "official.confirm.install"), ctx.t("official.confirm.cancel"),
+                () -> ctx.home().installOfficialProfile(play), () -> { }, dialogs::close));
+        });
     }
 
     private Node officialPlanDetails(final OfficialProfileService.Plan plan) {
         final VBox list = new VBox(8);
         for (OfficialProfileService.PlannedFile file : plan.files()) {
-            final String label = ctx.home().officialPlanLabel(file.kind());
+            final String label = ctx.home().officialPlanLabel(file);
             final javafx.scene.control.Label what = Ui.paragraph(file.removal() ? ctx.t("official.plan.removedPrefix", label) : label, "field-label");
             final javafx.scene.control.Label where = Ui.paragraph(file.location(), "mono", "text-secondary");
             where.setStyle("-fx-font-size: 11px;");
@@ -230,7 +290,11 @@ public final class MainWindow extends StackPane {
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setPrefViewportHeight(310);
         scroll.setMaxHeight(330);
-        final VBox box = new VBox(10, scroll, Ui.paragraph(ctx.t("official.confirm.note"), "text-muted", "text-small"));
+        final VBox box = new VBox(10, scroll);
+        for (String note : plan.notes()) {
+            box.getChildren().add(Ui.paragraph(ctx.t("official.confirm.packNote", note), "field-error", "text-small"));
+        }
+        box.getChildren().add(Ui.paragraph(ctx.t("official.confirm.note"), "text-muted", "text-small"));
         box.getStyleClass().add("official-plan");
         return box;
     }

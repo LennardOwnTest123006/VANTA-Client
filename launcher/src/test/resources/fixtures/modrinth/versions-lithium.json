@@ -1,0 +1,76 @@
+[
+  {
+    "game_versions": [
+      "1.21.11"
+    ],
+    "loaders": [
+      "fabric",
+      "quilt"
+    ],
+    "environment": "client_or_server_prefers_both",
+    "id": "Ow7wA0kG",
+    "project_id": "gvQqBUqZ",
+    "author_id": "uhPSqlnd",
+    "featured": false,
+    "name": "Lithium 0.21.4 for Fabric",
+    "version_number": "mc1.21.11-0.21.4-fabric",
+    "changelog_url": null,
+    "date_published": "2026-03-11T00:39:03.618667Z",
+    "downloads": 9210204,
+    "version_type": "release",
+    "status": "listed",
+    "requested_status": null,
+    "files": [
+      {
+        "id": "2bf9a5eb",
+        "hashes": {
+          "sha1": "203bdcb26e97b3217b045e1182651a7d7b6462ec",
+          "sha512": "f14a5c3d2fad786347ca25083f902139694f618b7c103947f2fd067a7c5ee88a63e1ef8926f7d693ea79ed7d00f57317bae77ef9c2d630bf5ed01ac97a752b94"
+        },
+        "url": "https://cdn.modrinth.com/data/gvQqBUqZ/versions/Ow7wA0kG/lithium-fabric-0.21.4%2Bmc1.21.11.jar",
+        "filename": "lithium-fabric-0.21.4+mc1.21.11.jar",
+        "primary": true,
+        "size": 900462,
+        "file_type": null
+      }
+    ],
+    "dependencies": []
+  },
+  {
+    "game_versions": [
+      "1.21.11"
+    ],
+    "loaders": [
+      "fabric",
+      "quilt"
+    ],
+    "environment": "client_or_server_prefers_both",
+    "id": "qvNsoO3l",
+    "project_id": "gvQqBUqZ",
+    "author_id": "uhPSqlnd",
+    "featured": false,
+    "name": "Lithium 0.21.3 for Fabric",
+    "version_number": "mc1.21.11-0.21.3-fabric",
+    "changelog_url": null,
+    "date_published": "2026-02-07T01:19:41.863308Z",
+    "downloads": 2552251,
+    "version_type": "release",
+    "status": "listed",
+    "requested_status": null,
+    "files": [
+      {
+        "id": "XM7pSAB0",
+        "hashes": {
+          "sha1": "7733e091bebe5f68aaa4e13cfb6f1eaf3a192379",
+          "sha512": "2883739303f0bb602d3797cc601ed86ce6833e5ec313ddce675f3d6af3ee6a40b9b0a06dafe39d308d919669325e95c0aafd08d78c97acd976efde899c7810fd"
+        },
+        "url": "https://cdn.modrinth.com/data/gvQqBUqZ/versions/qvNsoO3l/lithium-fabric-0.21.3%2Bmc1.21.11.jar",
+        "filename": "lithium-fabric-0.21.3+mc1.21.11.jar",
+        "primary": true,
+        "size": 888874,
+        "file_type": null
+      }
+    ],
+    "dependencies": []
+  }
+]

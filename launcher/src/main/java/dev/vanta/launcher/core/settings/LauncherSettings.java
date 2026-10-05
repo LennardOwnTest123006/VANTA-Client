@@ -21,10 +21,13 @@ import java.util.Optional;
  * @param developerMode               enables development features (offline accounts with {@code VANTA_DEV_OFFLINE=1})
  * @param shareOfficialMinecraftFiles reuse verified libraries/assets from the official {@code .minecraft} directory
  * @param theme                       UI theme id
+ * @param installPerformancePack      install the performance pack (Sodium, Lithium, FerriteCore, ImmediatelyFast,
+ *                                    Entity Culling, Iris) from Modrinth with every install; {@code null} (a
+ *                                    {@code settings.json} written before launcher 1.1.0) means {@code true}
  */
 public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath, List<String> jvmArgs, Resolution resolution,
                                boolean keepLauncherOpen, String msClientId, String releasesBaseUrl, boolean autoUpdateCheck,
-                               boolean developerMode, boolean shareOfficialMinecraftFiles, String theme) {
+                               boolean developerMode, boolean shareOfficialMinecraftFiles, String theme, Boolean installPerformancePack) {
 
     /** Current schema version. */
     public static final int SCHEMA_VERSION = 1;
@@ -57,6 +60,32 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
         msClientId = msClientId == null ? "" : msClientId.trim();
         releasesBaseUrl = releasesBaseUrl == null ? "" : releasesBaseUrl.trim();
         theme = theme == null || theme.isBlank() ? DEFAULT_THEME : theme;
+        // Missing in settings.json files written before 1.1.0: the performance pack is on by default.
+        installPerformancePack = installPerformancePack == null ? Boolean.TRUE : installPerformancePack;
+    }
+
+    /**
+     * Settings without the performance pack component (it is on).
+     *
+     * @param schemaVersion               schema version
+     * @param memoryMb                    heap in MiB
+     * @param javaPath                    Java path
+     * @param jvmArgs                     extra JVM arguments
+     * @param resolution                  resolution
+     * @param keepLauncherOpen            keep the launcher open
+     * @param msClientId                  client id
+     * @param releasesBaseUrl             releases base URL
+     * @param autoUpdateCheck             check for updates
+     * @param developerMode               developer mode
+     * @param shareOfficialMinecraftFiles share official files
+     * @param theme                       theme
+     */
+    public LauncherSettings(final int schemaVersion, final int memoryMb, final String javaPath, final List<String> jvmArgs,
+                            final Resolution resolution, final boolean keepLauncherOpen, final String msClientId, final String releasesBaseUrl,
+                            final boolean autoUpdateCheck, final boolean developerMode, final boolean shareOfficialMinecraftFiles,
+                            final String theme) {
+        this(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId, releasesBaseUrl, autoUpdateCheck,
+            developerMode, shareOfficialMinecraftFiles, theme, Boolean.TRUE);
     }
 
     /**
@@ -67,7 +96,7 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
      */
     public static LauncherSettings defaults(final long totalRamMb) {
         return new LauncherSettings(SCHEMA_VERSION, defaultMemoryMb(totalRamMb), "", List.of(), null, false, "", "",
-            true, false, true, DEFAULT_THEME);
+            true, false, true, DEFAULT_THEME, Boolean.TRUE);
     }
 
     /**
@@ -94,6 +123,11 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
         return Optional.ofNullable(resolution);
     }
 
+    /** @return whether installs add the performance pack (never null after construction) */
+    public boolean performancePack() {
+        return installPerformancePack;
+    }
+
     /**
      * @return whether {@code settings.json} stores an explicit releases base URL; when it does not, the environment
      *     variable or the built-in default applies (see {@link #effectiveReleasesBaseUrl(Map)})
@@ -116,66 +150,72 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
     /** @return copy */
     public LauncherSettings withMemoryMb(final int value) {
         return new LauncherSettings(schemaVersion, value, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
     }
 
     /** @return copy */
     public LauncherSettings withJavaPath(final String value) {
         return new LauncherSettings(schemaVersion, memoryMb, value, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
     }
 
     /** @return copy */
     public LauncherSettings withJvmArgs(final List<String> value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, value, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
     }
 
     /** @return copy */
     public LauncherSettings withResolution(final Resolution value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, value, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
     }
 
     /** @return copy */
     public LauncherSettings withKeepLauncherOpen(final boolean value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, value, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
     }
 
     /** @return copy */
     public LauncherSettings withMsClientId(final String value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, value,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
     }
 
     /** @return copy */
     public LauncherSettings withReleasesBaseUrl(final String value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            value, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme);
+            value, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
     }
 
     /** @return copy */
     public LauncherSettings withAutoUpdateCheck(final boolean value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, value, developerMode, shareOfficialMinecraftFiles, theme);
+            releasesBaseUrl, value, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
     }
 
     /** @return copy */
     public LauncherSettings withDeveloperMode(final boolean value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, value, shareOfficialMinecraftFiles, theme);
+            releasesBaseUrl, autoUpdateCheck, value, shareOfficialMinecraftFiles, theme, installPerformancePack);
     }
 
     /** @return copy */
     public LauncherSettings withShareOfficialMinecraftFiles(final boolean value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, value, theme);
+            releasesBaseUrl, autoUpdateCheck, developerMode, value, theme, installPerformancePack);
     }
 
     /** @return copy */
     public LauncherSettings withTheme(final String value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, value);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, value, installPerformancePack);
+    }
+
+    /** @return copy */
+    public LauncherSettings withInstallPerformancePack(final boolean value) {
+        return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, value);
     }
 }

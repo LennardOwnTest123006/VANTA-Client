@@ -437,6 +437,137 @@ class LauncherAppSmokeTest {
         }
     }
 
+    @Test
+    void modsPageSearchesAndInstalls() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        backend.modrinthHits.put(dev.vanta.launcher.core.modrinth.ContentType.MOD, List.of(
+            FakeBackend.hit("AANobbMI", "sodium", "Sodium", "jellysquid3", dev.vanta.launcher.core.modrinth.ContentType.MOD, 236_787_190L,
+                "The fastest and most compatible rendering optimization mod for Minecraft.")));
+        try {
+            fx(() -> {
+                app.context().navigation().navigate(NavigationModel.Page.MODS);
+                app.context().mods().search();
+                return null;
+            });
+            waitUntil(() -> app.window().page(NavigationModel.Page.MODS).lookup(".mods-install") != null);
+            fx(() -> {
+                final Node page = app.window().page(NavigationModel.Page.MODS);
+                assertEquals("Sodium", ((Label) page.lookup(".mods-result-title")).getText());
+                ((Button) page.lookup(".mods-install")).fire();
+                return null;
+            });
+            waitUntil(() -> app.window().page(NavigationModel.Page.MODS).lookup(".mods-installed-row") != null);
+            fx(() -> {
+                final Node page = app.window().page(NavigationModel.Page.MODS);
+                assertTrue(backend.calls.contains("installFromModrinth:AANobbMI"));
+                assertNull(page.lookup(".mods-install"), "an installed project is not offered again");
+                assertTrue(page.lookup(".mods-restart-hint").isVisible(), "says the game picks it up on its next start");
+                return null;
+            });
+        } finally {
+            backend.modrinthHits.clear();
+            backend.content.clear();
+            fx(() -> {
+                app.context().navigation().navigate(NavigationModel.Page.HOME);
+                return null;
+            });
+        }
+        assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+    }
+
+    @Test
+    void aRunningMinecraftLauncherIsNamedAndNeverClosedForThePlayer() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        backend.runningLaunchers.add("MinecraftLauncher.exe (process 1234)");
+        try {
+            fx(() -> {
+                app.context().navigation().navigate(NavigationModel.Page.HOME);
+                app.window().showOfficialProfile();
+                return null;
+            });
+            waitUntil(() -> app.window().dialogs().lookup(".official-running-details") != null);
+            final long checks = backend.calls.stream().filter("runningOfficialLaunchers"::equals).count();
+            fx(() -> {
+                final Node details = app.window().dialogs().lookup(".official-running-details");
+                assertTrue(details.lookupAll(".mono").stream().anyMatch(n -> "MinecraftLauncher.exe (process 1234)".equals(((Label) n).getText())));
+                backend.runningLaunchers.clear();
+                dialogButton(app.context().t("official.running.checkAgain")).fire();
+                return null;
+            });
+            waitUntil(() -> app.window().dialogs().lookup(".official-plan") != null);
+            assertTrue(backend.calls.stream().filter("runningOfficialLaunchers"::equals).count() > checks, "'Check again' looked again");
+            fx(() -> {
+                app.window().dialogs().close();
+                return null;
+            });
+        } finally {
+            backend.runningLaunchers.clear();
+        }
+        assertFalse(backend.calls.contains("installOfficialProfile"), "nothing was written");
+        assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+    }
+
+    @Test
+    void withoutSignInPlayGoesThroughTheMinecraftLauncher() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        final boolean wasConfigured = backend.signInConfigured;
+        final var accounts = List.copyOf(backend.accounts);
+        try {
+            backend.signInConfigured = false;
+            backend.accounts.clear();
+            fx(() -> {
+                app.context().navigation().navigate(NavigationModel.Page.HOME);
+                app.context().session().refreshAll();
+                return null;
+            });
+            waitUntil(() -> app.context().home().officialPlayModeProperty().get());
+            fx(() -> {
+                final Button play = (Button) app.window().lookup(".play-button");
+                assertEquals(app.context().t("home.play.official"), play.getText());
+                assertTrue(play.getStyleClass().contains("official-play"));
+                assertFalse(play.isDisabled(), "playing via the Minecraft Launcher needs no sign-in here");
+                return null;
+            });
+        } finally {
+            backend.signInConfigured = wasConfigured;
+            backend.accounts.addAll(accounts);
+            fx(() -> {
+                app.context().session().refreshAll();
+                return null;
+            });
+            waitUntil(() -> app.context().session().account().isPresent() && !app.context().home().officialPlayModeProperty().get());
+        }
+        fx(() -> {
+            final Button play = (Button) app.window().lookup(".play-button");
+            assertFalse(play.getStyleClass().contains("official-play"));
+            return null;
+        });
+    }
+
+    @Test
+    void smokeHookWritesAScreenshotAndExitsCleanly() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        final Path png = Files.createTempDirectory("vanta-ui-smoke").resolve("smoke.png");
+        final dev.vanta.launcher.ui.UiSmoke smoke = dev.vanta.launcher.ui.UiSmoke.fromEnvironment(java.util.Map.of(
+            dev.vanta.launcher.ui.UiSmoke.SCREENSHOT_ENV, png.toString(), dev.vanta.launcher.ui.UiSmoke.EXIT_AFTER_ENV, "1")).orElseThrow();
+        final AtomicReference<Integer> exit = new AtomicReference<>();
+        fx(() -> {
+            smoke.start(app.stage().getScene(), app.context().session().loadedProperty(), exit::set);
+            return null;
+        });
+        waitUntil(() -> exit.get() != null);
+        assertEquals(0, exit.get(), "exit code 0 when the screenshot was written");
+        final java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(png.toFile());
+        assertNotNull(image, "a readable PNG");
+        assertEquals((int) Math.round(app.stage().getScene().getWidth()), image.getWidth());
+    }
+
+    private Button dialogButton(final String text) {
+        return app.window().dialogs().lookupAll(".button").stream()
+            .filter(n -> n instanceof Button b && text.equals(b.getText())).map(n -> (Button) n).findFirst()
+            .orElseThrow(() -> new AssertionError("no dialog button '" + text + "'"));
+    }
+
     private static <T> T fx(final Callable<T> action) throws Exception {
         final CountDownLatch latch = new CountDownLatch(1);
         final AtomicReference<T> result = new AtomicReference<>();

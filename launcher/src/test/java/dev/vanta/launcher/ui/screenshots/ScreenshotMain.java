@@ -1,7 +1,10 @@
 package dev.vanta.launcher.ui.screenshots;
 
+import dev.vanta.launcher.LauncherVersion;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.model.ReleaseManifest;
+import dev.vanta.launcher.core.modrinth.ContentType;
+import dev.vanta.launcher.core.modrinth.ModrinthService;
 import dev.vanta.launcher.ui.LauncherApp;
 import dev.vanta.launcher.ui.model.LogsViewModel;
 import dev.vanta.launcher.ui.model.NavigationModel;
@@ -24,6 +27,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -100,6 +104,7 @@ public final class ScreenshotMain {
             Instant.parse("2026-09-12T09:15:00Z")));
         backend.kept.add(new VantaClientService.KeptVersion("0.9.1", kept, null, Instant.parse("2026-08-30T20:03:00Z")));
         backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true));
+        modrinth(backend);
         backend.documents.put(URI.create("https://raw.githubusercontent.com/LennardOwnTest123006/VANTA-Client/HEAD/website/content/changelog/client-1.1.0.md"),
             """
             ---
@@ -121,6 +126,66 @@ public final class ScreenshotMain {
             - Requires Fabric API 0.141.6+1.21.11 or newer
             """);
         return backend;
+    }
+
+    /**
+     * Modrinth search results as Modrinth listed them for Minecraft 1.21.11 (sorted by downloads; recorded 2026-10-05)
+     * and an instance with the performance pack installed (versions from the test fixtures).
+     */
+    private static void modrinth(final FakeBackend backend) {
+        backend.searchPageSize = 20;
+        backend.modrinthHits.put(ContentType.MOD, List.of(
+            FakeBackend.hit("P7dR8mSH", "fabric-api", "Fabric API", "modmuss50", ContentType.MOD, 268_199_555L,
+                "Lightweight and modular API providing common hooks and intercompatibility measures utilized by mods using the Fabric toolchain."),
+            FakeBackend.hit("AANobbMI", "sodium", "Sodium", "jellysquid3", ContentType.MOD, 236_787_190L,
+                "A high-performance rendering engine replacement for Minecraft, which greatly improves frame rates and reduces micro-stutter."),
+            FakeBackend.hit("YL57xq9U", "iris", "Iris Shaders", "coderbot", ContentType.MOD, 184_174_507L,
+                "A modern shader pack loader for Minecraft intended to be compatible with existing OptiFine shader packs"),
+            FakeBackend.hit("NNAgCjsB", "entityculling", "Entity Culling", "tr7zw", ContentType.MOD, 174_814_150L,
+                "Using async path-tracing to hide Block-/Entities that are not visible"),
+            FakeBackend.hit("9s6osm5g", "cloth-config", "Cloth Config API", "shedaniel", ContentType.MOD, 174_186_525L,
+                "Configuration Library for Minecraft Mods"),
+            FakeBackend.hit("uXXizFIs", "ferrite-core", "FerriteCore", "malte0811", ContentType.MOD, 155_853_518L, "Memory usage optimizations"),
+            FakeBackend.hit("mOgUt4GM", "modmenu", "Mod Menu", "Prospector", ContentType.MOD, 150_014_581L,
+                "Adds a mod menu to view the list of mods you have installed."),
+            FakeBackend.hit("gvQqBUqZ", "lithium", "Lithium", "jellysquid3", ContentType.MOD, 132_326_304L,
+                "No-compromises game logic optimization mod, useful for both single-player games and multi-player servers.")));
+        backend.modrinthHits.put(ContentType.SHADER, List.of(
+            FakeBackend.hit("HVnmMxH1", "complementary-reimagined", "Complementary Shaders - Reimagined", "EminGT", ContentType.SHADER, 68_409_474L,
+                "Preserving the elements of Minecraft with exceptional quality, detail, and performance."),
+            FakeBackend.hit("R6NEzAwj", "complementary-unbound", "Complementary Shaders - Unbound", "EminGT", ContentType.SHADER, 44_523_363L,
+                "Transforming the visuals of Minecraft with exceptional quality, detail, and performance."),
+            FakeBackend.hit("Q1vvjJYV", "bsl-shaders", "BSL Shaders", "CaptTatsu", ContentType.SHADER, 30_055_865L,
+                "Shaderpack for Minecraft: Java Edition. It's bright, colorful, and distinct."),
+            FakeBackend.hit("lLqFfGNs", "photon-shader", "Photon Shaders", "sixthsurge", ContentType.SHADER, 27_640_765L,
+                "A gameplay-focused shader pack with a semi-realistic style"),
+            FakeBackend.hit("EpQFjzrQ", "solas-shader", "Solas Shader", "Septonious", ContentType.SHADER, 17_530_051L,
+                "A modern fantasy stylized shaderpack with colored lighting and stunning visuals"),
+            FakeBackend.hit("ZvMtQlho", "bliss-shader", "Bliss Shaders", "Xonk", ContentType.SHADER, 14_906_195L,
+                "A well performing fantasy styled shaderpack with emphasis on scene variation and customization.")));
+        backend.modrinthHits.put(ContentType.RESOURCE_PACK, List.of(
+            FakeBackend.hit("50dA9Sha", "fresh-animations", "Fresh Animations", "FreshLX", ContentType.RESOURCE_PACK, 48_514_056L,
+                "Make your game like the trailers! Dynamic animated entities to freshen your Minecraft experience."),
+            FakeBackend.hit("yfDziwn1", "translations-for-sodium", "Translations for Sodium", "robotkoer", ContentType.RESOURCE_PACK, 21_727_879L,
+                "Unofficial translations for the Sodium Minecraft mod"),
+            FakeBackend.hit("uvpymuxq", "better-leaves", "Motschen's Better Leaves", "Motschen", ContentType.RESOURCE_PACK, 20_556_064L,
+                "Improves the appearance of leaves with high mod compatibility and performance!")));
+        final Path mods = backend.paths().modsDir();
+        backend.content.add(new ModrinthService.InstalledContent(ContentType.MOD, "fabric-api-" + LauncherVersion.FABRIC_API + ".jar", "",
+            mods.resolve("fabric-api-" + LauncherVersion.FABRIC_API + ".jar"), true, false, true, "", List.of(), false));
+        backend.content.add(new ModrinthService.InstalledContent(ContentType.MOD, "vanta-client-1.0.0.jar", "",
+            mods.resolve("vanta-client-1.0.0.jar"), true, false, true, "", List.of(), false));
+        backend.content.add(pack(mods, "Sodium", "mc1.21.11-0.8.14-fabric", "sodium-fabric-0.8.14+mc1.21.11.jar", "AANobbMI", List.of("Iris Shaders")));
+        backend.content.add(pack(mods, "Lithium", "mc1.21.11-0.21.4-fabric", "lithium-fabric-0.21.4+mc1.21.11.jar", "gvQqBUqZ", List.of()));
+        backend.content.add(pack(mods, "FerriteCore", "8.2.0-fabric", "ferritecore-8.2.0-fabric.jar", "uXXizFIs", List.of()));
+        backend.content.add(pack(mods, "ImmediatelyFast", "1.14.3+1.21.11-fabric", "ImmediatelyFast-Fabric-1.14.3+1.21.11.jar", "5ZwdcRci", List.of()));
+        backend.content.add(pack(mods, "Entity Culling", "1.11.2", "entityculling-fabric-1.11.2-mc1.21.11.jar", "NNAgCjsB", List.of()));
+        backend.content.add(pack(mods, "Iris Shaders", "1.10.8+1.21.11-fabric", "iris-fabric-1.10.8+mc1.21.11.jar", "YL57xq9U", List.of()));
+    }
+
+    private static ModrinthService.InstalledContent pack(final Path mods, final String title, final String version, final String file,
+                                                         final String projectId, final List<String> requiredBy) {
+        return new ModrinthService.InstalledContent(ContentType.MOD, title, version, mods.resolve(file), true, true, false, projectId, requiredBy, false);
     }
 
     /** Sequential screenshot steps on the FX thread. */
@@ -312,6 +377,61 @@ public final class ScreenshotMain {
                 app.stage().setHeight(LauncherApp.MIN_HEIGHT);
                 window.page(NavigationModel.Page.VERSIONS).lookupAll(".scroll-pane").forEach(n -> ((javafx.scene.control.ScrollPane) n).setVvalue(1.0));
             }, 900);
+            // Mods page: Modrinth search (titles, authors, downloads and descriptions as Modrinth listed them for
+            // Minecraft 1.21.11) and the installed performance pack.
+            step("34-mods", () -> {
+                app.stage().setWidth(LauncherApp.DEFAULT_WIDTH);
+                app.stage().setHeight(LauncherApp.DEFAULT_HEIGHT);
+                ctx.navigation().navigate(NavigationModel.Page.MODS);
+                ctx.mods().search();
+            }, 900);
+            step("35-mods-shaders", () -> ctx.mods().tabProperty().set(ContentType.SHADER), 700);
+            step("36-mods-resourcepacks", () -> ctx.mods().tabProperty().set(ContentType.RESOURCE_PACK), 700);
+            step("37-mods-installed", () -> ctx.mods().tabProperty().set(ContentType.MOD), 500);
+            step("38-mods-installed-scrolled", () -> window.page(NavigationModel.Page.MODS).lookupAll(".scroll-pane")
+                .forEach(n -> ((javafx.scene.control.ScrollPane) n).setVvalue(1.0)), 700);
+            step("39-mods-min-size", () -> {
+                ctx.toasts().clear();
+                app.stage().setWidth(LauncherApp.MIN_WIDTH);
+                app.stage().setHeight(LauncherApp.MIN_HEIGHT);
+                window.page(NavigationModel.Page.MODS).lookupAll(".scroll-pane").forEach(n -> ((javafx.scene.control.ScrollPane) n).setVvalue(0));
+            }, 900);
+            // No Microsoft sign-in: PLAY goes through the official Minecraft Launcher.
+            step("40-home-play-via-official", () -> {
+                app.stage().setWidth(LauncherApp.DEFAULT_WIDTH);
+                app.stage().setHeight(LauncherApp.DEFAULT_HEIGHT);
+                backend.signInConfigured = false;
+                backend.accounts.clear();
+                backend.officialProfileExists = false;
+                ctx.session().refreshAll();
+                ctx.navigation().navigate(NavigationModel.Page.HOME);
+            }, 900);
+            step("41-official-running", () -> {
+                backend.runningLaunchers.add("MinecraftLauncher.exe (process 8124)");
+                window.playViaOfficialLauncher();
+            }, 900);
+            step("42-official-confirm-pack", () -> {
+                window.dialogs().close();
+                backend.runningLaunchers.clear();
+                window.playViaOfficialLauncher();
+            }, 900);
+            step("43-home-official-installing", () -> {
+                window.dialogs().close();
+                backend.officialGate = new CountDownLatch(1);
+                ctx.home().installOfficialProfile(true);
+            }, 900);
+            step("44-home-official-opened", () -> backend.officialGate.countDown(), 1200);
+            step("45-home-play-via-official-min-size", () -> {
+                ctx.toasts().clear();
+                app.stage().setWidth(LauncherApp.MIN_WIDTH);
+                app.stage().setHeight(LauncherApp.MIN_HEIGHT);
+            }, 900);
+            step("46-settings-pack", () -> {
+                app.stage().setWidth(LauncherApp.DEFAULT_WIDTH);
+                app.stage().setHeight(LauncherApp.DEFAULT_HEIGHT);
+                ctx.navigation().navigate(NavigationModel.Page.SETTINGS);
+                window.page(NavigationModel.Page.SETTINGS).lookupAll(".scroll-pane").forEach(n -> ((javafx.scene.control.ScrollPane) n).setVvalue(0.15));
+            }, 700);
             next();
         }
 

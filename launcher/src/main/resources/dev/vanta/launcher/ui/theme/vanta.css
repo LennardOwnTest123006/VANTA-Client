@@ -1536,3 +1536,47 @@
     -fx-stroke-line-cap: round;
     -fx-stroke-line-join: round;
 }
+
+/* ------------------------------------------------------------------ PLAY via Minecraft Launcher */
+
+/* The longer label keeps the hero layout at the minimum window size. */
+.play-button.official-play {
+    -fx-font-size: 16px;
+    -fx-padding: 0 28 0 26;
+    -fx-graphic-text-gap: 12;
+}
+
+.official-running-details {
+    -fx-background-color: -vanta-surface-2;
+    -fx-background-radius: 10;
+    -fx-border-color: -vanta-border-subtle;
+    -fx-border-radius: 10;
+    -fx-padding: 12 14 12 14;
+}
+
+/* ------------------------------------------------------------------ Mods page */
+
+.mods-result {
+    -fx-padding: 12 0 12 0;
+}
+
+.mods-result-title {
+    -fx-font-family: "Inter SemiBold";
+    -fx-font-size: 13.5px;
+}
+
+.mods-result-description {
+    -fx-text-fill: -vanta-text-secondary;
+}
+
+.mods-status {
+    -fx-padding: 0 0 0 2;
+}
+
+.mods-installed-row {
+    -fx-padding: 9 0 9 0;
+}
+
+.mods-loading {
+    -fx-padding: 12 0 12 0;
+}

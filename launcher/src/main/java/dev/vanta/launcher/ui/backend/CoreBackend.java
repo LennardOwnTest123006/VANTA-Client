@@ -10,6 +10,7 @@ import dev.vanta.launcher.core.install.InstallException;
 import dev.vanta.launcher.core.install.InstallListener;
 import dev.vanta.launcher.core.install.InstalledClient;
 import dev.vanta.launcher.core.install.InstallRequest;
+import dev.vanta.launcher.core.install.OfficialLauncher;
 import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaDetector;
@@ -17,7 +18,11 @@ import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.launch.GameProcess;
 import dev.vanta.launcher.core.launch.LaunchCommand;
 import dev.vanta.launcher.core.launch.LaunchRequest;
+import dev.vanta.launcher.core.launch.RestartRequest;
 import dev.vanta.launcher.core.model.InstanceInfo;
+import dev.vanta.launcher.core.modrinth.ContentType;
+import dev.vanta.launcher.core.modrinth.ModrinthModels;
+import dev.vanta.launcher.core.modrinth.ModrinthService;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.Checksums;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
@@ -255,6 +260,57 @@ public final class CoreBackend implements LauncherBackend {
         throws IOException, InterruptedException {
         return services.officialProfiles().install(services.officialProfileRequest(services.officialMinecraftDirCandidate(), null),
             listener, token);
+    }
+
+    @Override
+    public List<String> runningOfficialLaunchers() {
+        return services.officialLauncher().running().stream().map(OfficialLauncher.Running::describe).toList();
+    }
+
+    @Override
+    public OfficialLauncher.OpenResult openOfficialLauncher() throws InterruptedException {
+        return services.officialLauncher().open(services.officialMinecraftDirCandidate());
+    }
+
+    @Override
+    public ModrinthModels.SearchPage searchModrinth(final ContentType type, final String query, final int offset)
+        throws IOException, InterruptedException {
+        return services.modrinth().search(type, query, offset);
+    }
+
+    @Override
+    public ModrinthService.ApplyResult installFromModrinth(final ContentType type, final String projectId, final DownloadProgressListener downloads,
+                                                           final Consumer<String> log, final CancellationToken token)
+        throws IOException, InterruptedException {
+        final ModrinthService.Resolution resolution = services.modrinth().resolve(List.of(new ModrinthService.Root(projectId, type)), false, token);
+        return services.modrinth().apply(resolution, downloads, log, false, token);
+    }
+
+    @Override
+    public List<ModrinthService.InstalledContent> installedContent() throws IOException {
+        return services.modrinth().installed();
+    }
+
+    @Override
+    public void setContentEnabled(final ModrinthService.InstalledContent item, final boolean enabled) throws IOException {
+        services.modrinth().setEnabled(item, enabled);
+    }
+
+    @Override
+    public void removeContent(final ModrinthService.InstalledContent item) throws IOException {
+        services.modrinth().remove(item);
+    }
+
+    @Override
+    public ModrinthService.ApplyResult updateAllContent(final DownloadProgressListener downloads, final Consumer<String> log,
+                                                        final CancellationToken token) throws IOException, InterruptedException {
+        services.performancePack().invalidate();
+        return services.modrinth().updateAll(downloads, log, token);
+    }
+
+    @Override
+    public boolean consumeRestartRequest() throws IOException {
+        return RestartRequest.consume(services.paths().instanceDir());
     }
 
     @Override

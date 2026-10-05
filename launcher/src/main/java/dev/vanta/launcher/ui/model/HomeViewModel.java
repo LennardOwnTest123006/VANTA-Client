@@ -6,6 +6,7 @@ import dev.vanta.launcher.core.auth.AccountType;
 import dev.vanta.launcher.core.install.InstallListener;
 import dev.vanta.launcher.core.install.InstallProgress;
 import dev.vanta.launcher.core.install.InstallRequest;
+import dev.vanta.launcher.core.install.OfficialLauncher;
 import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
@@ -32,6 +33,7 @@ import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Future;
@@ -52,11 +54,20 @@ import java.util.function.Consumer;
  * stream its output into the game log → {@code RUNNING} → exit code notification. Every blocking step runs on the
  * background executor; properties change only on the UI thread.</p>
  *
- * <p>"Use with the Minecraft Launcher" ({@link #prepareOfficialProfile} → confirmation in the view →
- * {@link #installOfficialProfile}) runs through {@code INSTALLING} as well and needs neither an account nor Java:
- * the official Minecraft Launcher signs in and provides Java itself.</p>
+ * <p>"Use with the Minecraft Launcher" ({@link #checkOfficialLauncher} → {@link #prepareOfficialProfile} → confirmation
+ * in the view → {@link #installOfficialProfile}) runs through {@code INSTALLING} as well and needs neither an account
+ * nor Java: the official Minecraft Launcher signs in and provides Java itself. While PLAY cannot work here
+ * ({@link #officialPlayModeProperty()}) the primary button is "PLAY via Minecraft Launcher": the same flow, followed by
+ * {@link #openOfficialLauncher()}.</p>
+ *
+ * <p>When the game the launcher started exits after writing {@code config/vanta/restart.request} ("Restart game" in
+ * VANTA), it is started again right away with the same instance, account and Java (at most {@value #MAX_RESTARTS} times
+ * per PLAY).</p>
  */
 public final class HomeViewModel {
+
+    /** Restarts in a row after one PLAY (a client that asks on every start must not loop forever). */
+    public static final int MAX_RESTARTS = 5;
 
     /** Screen state. */
     public enum State {
@@ -97,6 +108,7 @@ public final class HomeViewModel {
     private final BooleanProperty officialBusy = new SimpleBooleanProperty(false);
     private final StringProperty officialDoneText = new SimpleStringProperty("");
     private final BooleanBinding playEnabled;
+    private final BooleanBinding officialPlayMode;
     private final BooleanBinding verifyAvailable;
     private final StringBinding blockReason;
     private final StringBinding idleBlockReason;
@@ -109,6 +121,9 @@ public final class HomeViewModel {
     private Future<?> running;
     private Consumer<RunningGame> gameStartedHook = g -> { };
     private Consumer<Integer> gameExitedHook = code -> { };
+    private Launched lastLaunch;
+    private JavaInstall lastJava;
+    private int restarts;
 
     /**
      * @param session     shared session state
@@ -134,13 +149,16 @@ public final class HomeViewModel {
 
         playEnabled = Bindings.createBooleanBinding(() -> (state.get() == State.READY || state.get() == State.ERROR)
             && session.account().isPresent() && session.java().isPresent(), state, session.accountProperty(), session.javaProperty());
+        officialPlayMode = Bindings.createBooleanBinding(() -> session.loadedProperty().get() && !session.playPossible(),
+            session.loadedProperty(), session.accountProperty(), session.signInConfiguredProperty());
         verifyAvailable = Bindings.createBooleanBinding(() -> session.instance().isPresent(), session.instanceProperty());
         blockReason = Bindings.createStringBinding(this::computeBlockReason, state, session.accountProperty(), session.javaProperty(),
             session.detectingJavaProperty(), session.signInConfiguredProperty());
         idleBlockReason = Bindings.createStringBinding(() -> isBusy() ? "" : idleBlockReason(), state, session.accountProperty(),
-            session.javaProperty(), session.detectingJavaProperty(), session.signInConfiguredProperty());
-        statusText = Bindings.createStringBinding(this::computeStatusText, state, phaseText);
-        titleText = Bindings.createStringBinding(this::computeTitle, state, session.accountProperty(), session.javaProperty());
+            session.javaProperty(), session.detectingJavaProperty(), session.signInConfiguredProperty(), session.loadedProperty());
+        statusText = Bindings.createStringBinding(this::computeStatusText, state, phaseText, officialPlayMode);
+        titleText = Bindings.createStringBinding(this::computeTitle, state, session.accountProperty(), session.javaProperty(),
+            session.signInConfiguredProperty(), session.loadedProperty());
         leadText = Bindings.createStringBinding(this::computeLead, state, session.accountProperty(), session.javaProperty(),
             session.instanceProperty(), session.signInConfiguredProperty());
         factsText = Bindings.createStringBinding(this::computeFacts, session.javaProperty());
@@ -165,6 +183,16 @@ public final class HomeViewModel {
     /** @return whether PLAY is enabled */
     public BooleanBinding playEnabledProperty() {
         return playEnabled;
+    }
+
+    /**
+     * PLAY cannot sign in here (no stored account and no Microsoft client id): the primary button becomes "PLAY via
+     * Minecraft Launcher", which sets the profile up (or updates it) and opens the official launcher.
+     *
+     * @return whether the primary button plays through the official Minecraft Launcher
+     */
+    public BooleanBinding officialPlayModeProperty() {
+        return officialPlayMode;
     }
 
     /**
@@ -294,7 +322,7 @@ public final class HomeViewModel {
         }
         final Account account = session.account().orElseThrow();
         final JavaInstall java = session.java().orElseThrow();
-        final InstallRequest request = InstallRequest.standard();
+        final InstallRequest request = standardRequest();
         final CancellationToken token = new CancellationToken();
         cancellation.set(token);
         errorText.set("");
@@ -325,6 +353,9 @@ public final class HomeViewModel {
             endProgress();
             game.set(launched.game());
             state.set(State.RUNNING);
+            lastLaunch = launched;
+            lastJava = java;
+            restarts = 0;
             launcherLog.append(LogLevel.INFO, "Game started (pid " + launched.game().pid() + "), log " + launched.game().logFile());
             toasts.info(messages.get("home.toast.gameStarted.title"), messages.format("home.toast.gameStarted.message",
                 Long.toString(launched.game().pid())));
@@ -370,7 +401,7 @@ public final class HomeViewModel {
         beginProgress(session.instance().isPresent() ? State.VERIFYING : State.INSTALLING);
         final boolean hadInstance = session.instance().isPresent();
         final String clientBefore = session.instance().map(InstanceInfo::vantaClientVersion).orElse("");
-        running = Async.run(executors, () -> backend.install(InstallRequest.standard(), installListener(), token), installed -> {
+        running = Async.run(executors, () -> backend.install(standardRequest(), installListener(), token), installed -> {
             session.setInstance(installed);
             endProgress();
             settle();
@@ -381,6 +412,11 @@ public final class HomeViewModel {
                     installed.minecraftVersion(), installed.fabricLoaderVersion()));
             }
         }, this::fail);
+    }
+
+    /** @return the standard install, with the performance pack as Settings say */
+    private InstallRequest standardRequest() {
+        return InstallRequest.standard().withPerformancePack(backend.settings().performancePack());
     }
 
     /**
@@ -397,6 +433,25 @@ public final class HomeViewModel {
     }
 
     /**
+     * Before the profile is written: is the official Minecraft Launcher running? It reads its profiles only when it starts,
+     * so a running one (often only in the system tray) would not show "VANTA 1.21.11" until it is restarted. The view
+     * asks the player to close it ("Check again" / "Continue anyway"); the launcher never closes it.
+     *
+     * @param onResult receives the running launcher processes on the UI thread (empty: none runs)
+     */
+    public void checkOfficialLauncher(final Consumer<List<String>> onResult) {
+        Async.run(executors, backend::runningOfficialLaunchers, running -> {
+            if (!running.isEmpty()) {
+                launcherLog.append(LogLevel.INFO, "The Minecraft Launcher is running: " + String.join(", ", running));
+            }
+            onResult.accept(running);
+        }, error -> {
+            launcherLog.append(LogLevel.WARN, "Could not check whether the Minecraft Launcher runs: " + errors.describe(error));
+            onResult.accept(List.of());
+        });
+    }
+
+    /**
      * First half of "Use with the Minecraft Launcher": reads what would be written into the official Minecraft
      * directory (nothing is changed) and hands it to the view, which asks for confirmation. A missing or unreadable
      * {@code launcher_profiles.json} is reported as an error toast instead.
@@ -407,7 +462,21 @@ public final class HomeViewModel {
         if (isBusy()) {
             return;
         }
-        Async.run(executors, backend::officialProfilePlan, onPlan, error -> {
+        // Reading the release manifest and asking Modrinth for the performance pack takes a moment: show it.
+        errorText.set("");
+        beginProgress(State.INSTALLING);
+        stepText.set(messages.get("official.preparing"));
+        phaseText.set(messages.get("home.status.official"));
+        running = Async.run(executors, backend::officialProfilePlan, plan -> {
+            endProgress();
+            settle();
+            onPlan.accept(plan);
+        }, error -> {
+            endProgress();
+            settle();
+            if (Async.isCancellation(error)) {
+                return;
+            }
             final String text = errors.describe(error);
             launcherLog.append(LogLevel.WARN, text);
             toasts.error(messages.get("official.toast.failed.title"), text);
@@ -419,6 +488,17 @@ public final class HomeViewModel {
      * client into the instance and adds the profile to the official launcher. Needs neither an account nor Java.
      */
     public void installOfficialProfile() {
+        installOfficialProfile(false);
+    }
+
+    /**
+     * Installs Fabric API, the VANTA client and (when enabled) the performance pack into the instance and adds the
+     * profile to the official launcher; with {@code openAfter} ("PLAY via Minecraft Launcher") the official launcher
+     * is started afterwards.
+     *
+     * @param openAfter whether to open the Minecraft Launcher when the profile is ready
+     */
+    public void installOfficialProfile(final boolean openAfter) {
         if (isBusy()) {
             return;
         }
@@ -439,7 +519,14 @@ public final class HomeViewModel {
             officialDoneText.set(done);
             launcherLog.append(LogLevel.INFO, (result.created() ? "Added" : "Updated") + " the Minecraft Launcher profile '"
                 + result.profileName() + "' (" + result.versionId() + ", game directory " + result.gameDir() + ")");
-            toasts.success(messages.format("official.toast.done.title", result.profileName()), done);
+            for (String note : result.notes()) {
+                launcherLog.append(LogLevel.WARN, "Performance pack: " + note);
+            }
+            if (openAfter) {
+                openOfficialLauncher();
+            } else {
+                toasts.success(messages.format("official.toast.done.title", result.profileName()), done);
+            }
         }, error -> {
             officialBusy.set(false);
             fail(error);
@@ -447,17 +534,37 @@ public final class HomeViewModel {
     }
 
     /**
-     * @param kind kind of a file the official launcher setup writes
+     * Starts the official Minecraft Launcher and tells the player which profile to pick. Never stops a running one.
+     */
+    public void openOfficialLauncher() {
+        final String profile = OfficialProfileService.profileName(LauncherVersion.MINECRAFT);
+        Async.run(executors, backend::openOfficialLauncher, result -> {
+            launcherLog.append(result.started() ? LogLevel.INFO : LogLevel.WARN, result.detail());
+            switch (result.outcome()) {
+                case OPENED, STARTED_UNCONFIRMED -> {
+                    officialDoneText.set(messages.format("official.opened.message", profile));
+                    toasts.success(messages.get("official.opened.title"), messages.format("official.opened.message", profile));
+                }
+                case NOT_FOUND -> toasts.error(messages.get("official.open.failed.title"), messages.get("official.open.notFound"));
+                default -> toasts.error(messages.get("official.open.failed.title"), messages.format("official.open.failed", result.detail()));
+            }
+        }, error -> toasts.error(messages.get("official.open.failed.title"), errors.describe(error)));
+    }
+
+    /**
+     * @param file a file the official launcher setup writes or removes
      * @return localised description for the confirmation dialog
      */
-    public String officialPlanLabel(final OfficialProfileService.Kind kind) {
-        return switch (kind) {
+    public String officialPlanLabel(final OfficialProfileService.PlannedFile file) {
+        return switch (file.kind()) {
             case FABRIC_API -> messages.format("official.plan.fabricApi", LauncherVersion.FABRIC_API);
             case VANTA_CLIENT -> messages.get("official.plan.vantaClient");
             case VANTA_CLIENT_LOCAL -> messages.get("official.plan.vantaClientLocal");
+            case PERFORMANCE_MOD -> messages.format("official.plan.performanceMod", file.detail());
             case CLIENT_ROLLBACK_COPY -> messages.get("official.plan.rollbackCopy");
             case INSTANCE_RECORD -> messages.get("official.plan.instanceRecord");
-            case REPLACED_JAR -> messages.get("official.plan.replacedJar");
+            case REPLACED_JAR -> file.detail().isEmpty() ? messages.get("official.plan.replacedJar")
+                : messages.format("official.plan.replacedJar.named", file.detail());
             case PRUNED_ROLLBACK_COPY -> messages.format("official.plan.prunedRollbackCopy", Integer.toString(VantaClientService.KEEP_VERSIONS));
             case VERSION_JSON -> messages.format("official.plan.versionJson", LauncherVersion.FABRIC_LOADER);
             case VERSION_JAR -> messages.get("official.plan.versionJar");
@@ -608,6 +715,54 @@ public final class HomeViewModel {
 
     private void onExit(final int code) {
         game.set(null);
+        final Launched previous = lastLaunch;
+        if (previous != null && lastJava != null && restarts < MAX_RESTARTS) {
+            // "Restart game" in VANTA writes config/vanta/restart.request before the game closes itself.
+            Async.run(executors, backend::consumeRestartRequest, restart -> {
+                if (restart) {
+                    restarts++;
+                    relaunch(previous);
+                } else {
+                    finishExit(code);
+                }
+            }, error -> {
+                launcherLog.append(LogLevel.WARN, "Could not read the restart request: " + errors.describe(error));
+                finishExit(code);
+            });
+            return;
+        }
+        finishExit(code);
+    }
+
+    /** Starts the game again after a restart request, with the same instance, account and Java. */
+    private void relaunch(final Launched previous) {
+        final JavaInstall java = lastJava;
+        launcherLog.append(LogLevel.INFO, "The game asked for a restart; starting it again");
+        phaseText.set(messages.get("home.status.restarting"));
+        Async.run(executors, () -> {
+            final Account fresh = backend.refreshIfExpired(previous.account());
+            final RunningGame started = backend.launch(LaunchRequest.of(previous.instance(), fresh, java.executable(), backend.settings()),
+                line -> gameLog.append(line.text()));
+            return new Launched(previous.instance(), fresh, started);
+        }, launched -> {
+            phaseText.set("");
+            lastLaunch = launched;
+            game.set(launched.game());
+            launcherLog.append(LogLevel.INFO, "Game restarted (pid " + launched.game().pid() + "), log " + launched.game().logFile());
+            toasts.info(messages.get("home.toast.gameRestarted.title"), messages.format("home.toast.gameStarted.message",
+                Long.toString(launched.game().pid())));
+            gameStartedHook.accept(launched.game());
+            launched.game().exitCode().whenComplete((c, failure) -> executors.onUi(() -> onExit(c == null ? -1 : c)));
+        }, error -> {
+            phaseText.set("");
+            lastLaunch = null;
+            fail(error);
+            gameExitedHook.accept(-1);
+        });
+    }
+
+    private void finishExit(final int code) {
+        lastLaunch = null;
         if (code == 0) {
             launcherLog.append(LogLevel.INFO, "Game exited normally");
             toasts.success(messages.get("home.toast.gameExited.title"), messages.get("home.toast.gameExited.message"));
@@ -648,6 +803,10 @@ public final class HomeViewModel {
 
     /** @return why PLAY is disabled in an idle state ("" when it is enabled); shown under the button */
     public String idleBlockReason() {
+        if (session.loadedProperty().get() && !session.playPossible()) {
+            // The button plays through the official Minecraft Launcher: say what it does instead of what is missing.
+            return messages.format("home.block.viaOfficial", OfficialProfileService.profileName(LauncherVersion.MINECRAFT));
+        }
         if (session.account().isEmpty()) {
             return session.signInConfiguredProperty().get() ? messages.get("home.block.noAccount") : messages.get("home.block.noSignIn");
         }
@@ -668,7 +827,7 @@ public final class HomeViewModel {
             return phaseText.get();
         }
         return switch (state.get()) {
-            case NOT_READY -> messages.get("home.status.notReady");
+            case NOT_READY -> officialPlayMode.get() ? messages.get("home.status.viaOfficial") : messages.get("home.status.notReady");
             case READY -> messages.get("home.status.ready");
             case INSTALLING -> messages.get("home.status.installing");
             case VERIFYING -> messages.get("home.status.verifying");
@@ -679,7 +838,8 @@ public final class HomeViewModel {
 
     private String computeTitle() {
         return switch (state.get()) {
-            case NOT_READY -> messages.get("home.title.notReady");
+            case NOT_READY -> session.loadedProperty().get() && !session.playPossible() ? messages.get("home.title.viaOfficial")
+                : messages.get("home.title.notReady");
             case READY -> messages.get("home.title.ready");
             case INSTALLING -> messages.get("home.title.installing");
             case VERIFYING -> messages.get("home.title.verifying");
@@ -691,7 +851,8 @@ public final class HomeViewModel {
     private String computeLead() {
         return switch (state.get()) {
             case NOT_READY -> session.account().isEmpty()
-                ? session.signInConfiguredProperty().get() ? messages.get("home.lead.noAccount") : messages.get("home.lead.noSignIn")
+                ? session.signInConfiguredProperty().get() ? messages.get("home.lead.noAccount")
+                    : messages.format("home.lead.noSignIn", OfficialProfileService.profileName(LauncherVersion.MINECRAFT))
                 : messages.format("home.lead.noJava", LauncherVersion.MINECRAFT, Integer.toString(LauncherVersion.JAVA_MAJOR));
             case READY -> session.instance().isPresent() ? messages.get("home.lead.ready")
                 : messages.format("home.lead.readyNotInstalled", LauncherVersion.MINECRAFT);
