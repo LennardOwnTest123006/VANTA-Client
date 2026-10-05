@@ -8,15 +8,169 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 ## [Unreleased]
 
-### VANTA Client (next release)
+No changes yet.
+
+## [1.1.0] - 2026-10-05
+
+Feature release of both products. VANTA Client 1.1.0 and VANTA Launcher 1.1.0 are published on
+[GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases) as `client-v1.1.0` and
+`launcher-v1.1.0` by the release workflow, with the same file names as before and the new version number
+(`vanta-client-1.1.0.jar`, `vanta-client-1.1.0-mods.zip`, `fabric-api-0.141.6+1.21.11.jar`;
+`VANTA-Launcher-1.1.0.msi`, `.exe`, `-windows-portable.zip`, `-linux-x64.tar.gz` and
+`vanta-launcher-1.1.0-windows-all.jar`, `-linux-all.jar`, `-macos-aarch64-all.jar`). Minecraft 1.21.11, Fabric
+Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged. The mods of the new Performance pack are not part
+of any VANTA release: they are third-party projects that VANTA downloads from Modrinth when they are installed.
+
+### VANTA Client 1.1.0
+
+#### Added
+- **Mods & Shaders** screen, opened from the new *Mods & Shaders* button of the VANTA main menu, from Settings > Video
+  and Settings > Performance, from the Performance Center and from the global search: browse and search Modrinth for
+  Fabric mods, shader packs for Iris and resource packs for Minecraft 1.21.11, in the tabs Mods, Shaders, Resource
+  packs and Installed. With an empty search each tab lists the most downloaded projects; each row shows title, author,
+  downloads, description and whether the project is installed, and the panel on the right offers Install, Remove,
+  Disable, Enable and *View on Modrinth*.
+- **Performance pack**: one click installs Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling and Iris
+  Shaders. The newest stable Minecraft 1.21.11 Fabric build of each is looked up on Modrinth at install time (no
+  version is fixed in VANTA); a mod without a 1.21.11 version is skipped with a message while the others install.
+  Unticked mods are left out; installed ones show as *Installed* or, when loaded, *Active*.
+- Required dependencies are installed automatically, in the exact version a mod asks for when it names one. Fabric
+  API is not downloaded again, and an install is refused with a message when the project is marked incompatible with
+  something already installed.
+- Every download comes from the file address Modrinth publishes, over HTTPS, and is checked against the SHA-512
+  Modrinth publishes; a file that does not match is deleted. A mod is only put into `mods/` when it and all of its
+  dependencies were downloaded and checked.
+- Installed tab: everything in `mods/`, `shaderpacks/` and `resourcepacks/`. Mods VANTA installed can be removed and
+  switched off and on (renamed between `.jar` and `.jar.disabled`). Files added by hand are listed by file name and
+  never changed or deleted by VANTA.
+- `config/vanta/modrinth.json` records every installed project (project, version, file, SHA-512, enabled, which
+  project needs it); the VANTA Launcher reads and writes the same file.
+- After mods change, a *Restart required* banner with *Quit game*, or *Restart game* when the VANTA Launcher started
+  the game: VANTA writes `config/vanta/restart.request` and quits, and the launcher starts the game again.
+- *Open shader settings* opens the Iris shader pack screen after a shader pack was installed (otherwise VANTA tells
+  you to press O, the Iris shader key); without Iris the Shaders tab offers *Install Iris*. *Open resource packs*
+  opens the resource pack screen after a resource pack was installed.
+- Download progress, results and errors appear as VANTA notifications; downloads run in the background.
 
 #### Changed
+- The Performance Center points to the Performance pack (*Want much more FPS?* with *Open Mods & Shaders*): VANTA's
+  own presets only change vanilla video options.
 - `INSTALL.txt` of the mods bundle (template `scripts/release/mods-bundle/INSTALL.txt`) says which Fabric installer
   to use: on Windows the `.exe`, which needs no separate Java; on macOS and Linux the universal `.jar`, which needs
   Java installed (install Java 21 first, `java -jar fabric-installer-<version>.jar`, on macOS *Open Anyway* under
   System Settings > Privacy & Security if Gatekeeper blocks it). It also says that the Fabric installer asks which
-  launcher to use when both Minecraft Launchers are installed, and to choose the one you play with. This ships with the
-  next client release; `vanta-client-1.0.1-mods.zip` does not contain it.
+  launcher to use when both Minecraft Launchers are installed, and to choose the one you play with, and it mentions
+  Mods & Shaders and the Performance pack. First shipped in `vanta-client-1.1.0-mods.zip`.
+
+#### Fixed
+- With no worlds yet, *Singleplayer* opens Create New World; leaving it with *Cancel* or Escape showed the vanilla
+  title screen instead of the VANTA main menu. Every way back to the title screen while no world is loaded now ends on
+  the VANTA main menu (`Minecraft.setScreen(null)` without a world is handled like `setScreen(new TitleScreen())`).
+
+#### Privacy
+- Mods & Shaders talks to Modrinth's public API (`api.modrinth.com`, files from `cdn.modrinth.com`) only while it is
+  used: when the screen opens, when you search and when you install. It sends the search text, project and version
+  ids, when installing the SHA-512 checksums of mod files VANTA did not install (to recognise them), and a User-Agent
+  naming VANTA Client; no account or personal data. See [Privacy](docs/privacy.md#modrinth-mods-shaders-and-the-performance-pack).
+
+### VANTA Launcher 1.1.0
+
+#### Added
+- **PLAY via Minecraft Launcher**: when PLAY cannot sign you in (no Microsoft sign-in in this build and no stored
+  account), the main button adds or updates the profile "VANTA 1.21.11" in the official Minecraft Launcher and opens
+  it. The first time it shows the list of files ("Add profile and open"); afterwards it updates the profile directly.
+  Verified files are not downloaded again, and the progress names the step and the file being downloaded.
+- **Open Minecraft Launcher** on Home after the profile was set up, and `--open-official-launcher` on the command
+  line: starts `MinecraftLauncher.exe` from `Program Files (x86)\Minecraft Launcher` or the Microsoft Store / Xbox app
+  version on Windows, `open -a Minecraft` on macOS and `minecraft-launcher` from the `PATH` on Linux; says so when none
+  was found (exit code 3) or it could not be started. A running Minecraft Launcher is left alone.
+- **Running Minecraft Launcher check**: before *Use with Minecraft Launcher* and *PLAY via Minecraft Launcher* write
+  the profile, the launcher looks for a running Minecraft Launcher. If it runs, a dialog names its process and explains
+  how to close it completely (on Windows also from the system tray), with *Check again* and *Continue anyway*. VANTA
+  never closes it. `--install-official-profile` prints the same warning.
+- **Performance pack, on by default**: PLAY, `--install`, *Use with Minecraft Launcher* and
+  `--install-official-profile` install the newest Minecraft 1.21.11 Fabric versions of Sodium, Lithium, FerriteCore,
+  ImmediatelyFast, Entity Culling and Iris Shaders with their required dependencies (Fabric API is installed by the
+  launcher itself, as before), each downloaded from the address Modrinth returns and checked against Modrinth's
+  SHA-512; a newer version replaces the older file. If Modrinth cannot be reached or a mod has no 1.21.11 version, the
+  install continues without it and says so. Settings > Game: "Install the performance pack" (`installPerformancePack`);
+  `--without-performance-pack` skips it once.
+- **Mods page**: searches Modrinth for mods (Fabric), shaders (Iris) and resource packs for Minecraft 1.21.11 and
+  installs the newest version with its required dependencies into `mods/`, `shaderpacks/` or `resourcepacks/` of the
+  VANTA game folder, verified with SHA-512. The installed list shows everything in these folders, including files
+  added by hand: switch an entry off (renamed to `<name>.disabled`) or remove it; "Update all" updates every project
+  installed from Modrinth. Fabric API and the VANTA Client are marked "VANTA" and stay managed by the launcher; a
+  project another one needs cannot be removed or switched off on its own.
+- `config/vanta/modrinth.json` in the game folder records every project installed from Modrinth, shared with the VANTA
+  Client; keys the launcher does not know are kept.
+- **Restart from the game**: games are started with `-Dvanta.launcher.restartable=true`; when the game exits after
+  leaving `config/vanta/restart.request`, the launcher removes the file and starts the game again, at most 5 times per
+  PLAY (also with `--launch`).
+- For automated tests: `VANTA_UI_SMOKE_SCREENSHOT=<png>` and `VANTA_UI_SMOKE_EXIT_AFTER=<seconds>`; without them
+  nothing changes.
+
+#### Changed
+- Home without Microsoft sign-in reads "Ready to play" and "Ready via the Minecraft Launcher" instead of "Not ready",
+  and the box *Why the Minecraft Launcher?* explains why the Minecraft Launcher signs you in.
+- *Use with Minecraft Launcher* shows its progress on Home (preparing, each step, the file being downloaded).
+- Every start writes the launcher log from its first line, with the Java, JavaFX and system details.
+- Requests to Modrinth send a User-Agent that names the project, and the launcher waits and retries when Modrinth
+  answers HTTP 429.
+
+#### Fixed
+- The official Minecraft Launcher did not show the profile "VANTA 1.21.11" until it was restarted, because it reads
+  its profiles only when it starts. The launcher now asks you to close it completely first, and *Open Minecraft
+  Launcher* starts it afterwards.
+- When the launcher could not start (for example because its window could not be created), it closed without any
+  message. Any start-up error is now shown in a dialog with the details (a plain system dialog when JavaFX itself
+  could not start), saved to `logs/startup-error.txt` in the launcher data directory
+  (`%APPDATA%\VANTA Launcher\logs\startup-error.txt` on Windows; the previous one is kept as
+  `startup-error.previous.txt`) and the launcher exits with code 1.
+
+#### Updating to 1.1.0
+- Launcher 1.0.0 still picks the update by system only: the `.msi` on Windows (also for the portable folder or a
+  jar) and the `.tar.gz` on Linux x64 (also for a jar). Portable and jar users choose *Not now* (or *Close* before
+  downloading) and download `VANTA-Launcher-1.1.0-windows-portable.zip` or the jar for their system from the release
+  `launcher-v1.1.0` instead ([Installation → Updating](docs/installation.md#updating)).
+- Launcher 1.0.0 and 1.0.1 save the update as `cache/updates/1.1.0-<file name>`: the verified release file under a
+  different name. Rename it to the release name before checking it with
+  `sha256sum -c --ignore-missing SHA256SUMS.txt`. Launcher 1.0.2 keeps the release name.
+
+### CI
+- **Client game test with the Performance pack**: a second run of the headless production game test with the newest
+  Minecraft 1.21.11 Fabric versions of the six Performance pack mods on Modrinth at the time of the run; it fails when
+  one of them is not loaded, the game crashes or the test does not finish. Before it, a live check
+  (`./gradlew liveTest` in `core/`) resolves and downloads the pack through VANTA's Modrinth client and verifies every
+  SHA-512.
+- **Launcher integration**: `--install` now installs the Performance pack from the live Modrinth API; every jar is
+  checked against `modrinth.json` with `sha512sum` and against Modrinth itself (`/v2/version_file/<sha512>`), Fabric API
+  must not be added a second time, and the headless game must load all six mods next to the VANTA Client and reach
+  its main menu.
+- **Launcher starts on Windows**: a job on a Windows runner installs the CI-built `.msi` (`msiexec /qn`), unpacks the
+  portable zip and runs the Windows jar, and fails unless each of them shows the launcher window and exits with 0;
+  screenshots and logs go to the `ci-artifacts` branch.
+
+### Website
+- Features page and home page: *Mods & Shaders* (Modrinth) and the *Performance pack*. The Download page's *How to
+  install* describes *PLAY via Minecraft Launcher* and the Performance pack installed by default. A news post announces
+  1.1.0. Texts that said the client opens no connections of its own name the Modrinth exception.
+
+### Documentation
+- New page [Mods & Shaders](docs/mods-and-shaders.md): the in-game screen, the launcher's Mods page, the Performance
+  pack, shaders with Iris, resource packs, disabling and removing, restart, where files go and what is sent to
+  Modrinth.
+- [Installation](docs/installation.md), [Launcher](docs/launcher.md), [FAQ](docs/faq.md), [Fabric](docs/fabric.md),
+  the documentation index and the README describe *PLAY via Minecraft Launcher*, closing the Minecraft Launcher first,
+  *Open Minecraft Launcher*, the Performance pack and the 1.1.0 file names. [Launcher](docs/launcher.md) has sections
+  for the Mods page, the Performance pack setting, restart from the game, start-up errors and the new command line
+  flags.
+- [Troubleshooting](docs/troubleshooting.md): *The profile VANTA 1.21.11 does not show up in the Minecraft Launcher*,
+  *The launcher does not start or Windows blocks it* (SmartScreen, Smart App Control, `startup-error.txt`), the vanilla
+  title screen after *Create New World* (fixed in 1.1.0) and *Mods & Shaders problems*.
+- [Privacy](docs/privacy.md), [Statistics and privacy](docs/statistics-and-privacy.md) and `SECURITY.md` describe the
+  Modrinth requests; [Performance Center](docs/performance.md) describes the Performance pack.
+- The setting that switches the VANTA main menu off is called *VANTA main menu* (Settings > General); some pages
+  called it "Replace the title screen".
 
 ## [Launcher 1.0.2] - 2026-10-05
 

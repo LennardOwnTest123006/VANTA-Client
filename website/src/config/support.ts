@@ -72,7 +72,8 @@ export const supportCategories: readonly SupportCategory[] = [
     id: 'launcher',
     title: 'Launcher',
     icon: Monitor,
-    summary: 'Play, Versions, Logs, Settings, updates and the command line.',
+    summary:
+      'PLAY, the Minecraft Launcher profile, Mods, Versions, Logs, Settings, updates and the command line.',
     guides: [
       {
         label: 'VANTA Launcher',
@@ -92,9 +93,19 @@ export const supportCategories: readonly SupportCategory[] = [
     ],
     troubleshooting: [
       {
+        label: 'The launcher does not start or Windows blocks it',
+        to: '/documentation/troubleshooting#the-launcher-does-not-start-or-windows-blocks-it',
+        note: 'SmartScreen, Smart App Control and startup-error.txt.',
+      },
+      {
+        label: 'The profile does not show up in the Minecraft Launcher',
+        to: '/documentation/troubleshooting#the-profile-vanta-12111-does-not-show-up-in-the-minecraft-launcher',
+        note: 'Close the Minecraft Launcher completely, also from the system tray.',
+      },
+      {
         label: 'Launcher problems',
         to: '/documentation/troubleshooting#launcher-problems',
-        note: 'PLAY stays disabled, "Not published yet", the window does not open.',
+        note: 'PLAY via Minecraft Launcher, "Not published yet", updates and links.',
       },
       {
         label: 'Where the logs are',
@@ -167,12 +178,22 @@ export const supportCategories: readonly SupportCategory[] = [
     id: 'performance',
     title: 'Performance',
     icon: Gauge,
-    summary: 'The Performance Center, presets and honest limits.',
+    summary: 'The Performance Center, presets, the Performance pack, shaders and honest limits.',
     guides: [
       {
         label: 'Performance Center',
         to: '/documentation/performance',
         note: 'What it measures and the exact vanilla values of each preset.',
+      },
+      {
+        label: 'Performance pack',
+        to: '/documentation/mods-and-shaders#the-performance-pack',
+        note: 'Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling and Iris from Modrinth.',
+      },
+      {
+        label: 'Mods & Shaders',
+        to: '/documentation/mods-and-shaders',
+        note: 'Mods, shader packs and resource packs from Modrinth, in game and in the launcher.',
       },
       {
         label: 'Render distance suggestions',
@@ -190,6 +211,11 @@ export const supportCategories: readonly SupportCategory[] = [
         label: 'Does the Performance Center make the game faster?',
         to: '/faq#does-the-performance-center-make-the-game-faster',
         note: 'The short answer, in the FAQ.',
+      },
+      {
+        label: 'Mods & Shaders problems',
+        to: '/documentation/troubleshooting#mods--shaders-problems',
+        note: 'Modrinth unreachable, a mod that breaks the game, shaders that do nothing.',
       },
     ],
   },

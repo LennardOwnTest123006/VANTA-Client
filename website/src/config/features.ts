@@ -9,10 +9,12 @@ import {
   Package,
   Palette,
   ChartColumn,
+  Puzzle,
   Search,
   SlidersHorizontal,
   Sparkles,
   UserRound,
+  Zap,
   ZoomIn,
   Layers,
 } from 'lucide-react';
@@ -30,7 +32,11 @@ export interface FeatureHighlight {
   readonly summary: string;
 }
 
-/** The eight cards on the home page. Titles are uppercase labels by design. */
+/**
+ * The ten cards on the home page. Titles are uppercase labels by design. Mods & Shaders and the
+ * Performance pack exist from VANTA Client 1.1.0 / VANTA Launcher 1.1.0 on, so their summaries say so:
+ * the copy stays true while the Download page still offers an older published release.
+ */
 export const featureHighlights: readonly FeatureHighlight[] = [
   {
     id: 'performance',
@@ -38,6 +44,20 @@ export const featureHighlights: readonly FeatureHighlight[] = [
     icon: Gauge,
     summary:
       'Live FPS, frame time, memory and distance readouts with four presets built from vanilla video options.',
+  },
+  {
+    id: 'performance-pack',
+    title: 'Performance pack',
+    icon: Zap,
+    summary:
+      'New in 1.1.0: Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling and Iris from Modrinth in one click, checked with SHA-512.',
+  },
+  {
+    id: 'mods',
+    title: 'Mods & Shaders',
+    icon: Puzzle,
+    summary:
+      'New in 1.1.0: search Modrinth in game for Fabric mods, Iris shader packs and resource packs for 1.21.11, with their dependencies.',
   },
   {
     id: 'hud',
@@ -139,7 +159,8 @@ export const featureFamilies: readonly FeatureFamily[] = [
     description:
       'A redesigned title screen that keeps every vanilla destination one click away and shows exactly what you are running.',
     bullets: [
-      'PLAY, SINGLEPLAYER, MULTIPLAYER, OPTIONS, LANGUAGE, RESOURCE PACKS, ACCESSIBILITY and QUIT',
+      'PLAY, SINGLEPLAYER, MULTIPLAYER, OPTIONS, LANGUAGE, RESOURCE PACKS, MODS & SHADERS (from 1.1.0), ACCESSIBILITY and QUIT',
+      'Returning from any vanilla screen ends on the VANTA menu, since 1.1.0 also when you cancel Create New World',
       'Version label with VANTA Client, Minecraft 1.21.11 and Fabric Loader versions',
       'Setting to fall back to the vanilla title screen at any time',
       'Menu backgrounds and particles from the cosmetics module, blur-aware and reduced-motion safe',
@@ -180,9 +201,44 @@ export const featureFamilies: readonly FeatureFamily[] = [
       'LOW, BALANCED, HIGH and ULTRA presets that only set vanilla video options, plus quick FPS-limit choices',
       'Detects which preset matches your current options and shows "Custom" when you changed anything',
       'Render-distance advisor that suggests ±2 chunks from measured frame rate — applied only when you say so',
-      'No renderer replacement and no unverified performance claims',
+      'No renderer replacement of its own and no unverified performance claims; for more, it points to the Performance pack',
     ],
     link: { to: '/performance', label: 'How the presets work' },
+  },
+  {
+    id: 'performance-pack',
+    title: 'Performance pack',
+    icon: Zap,
+    eyebrow: 'New in 1.1.0',
+    description:
+      'Six well-known optimisation mods from Modrinth, installed in one step. They are independent projects by their own authors; VANTA downloads them for you and does not ship them in its files.',
+    bullets: [
+      'Sodium (rendering engine), Lithium (game logic), FerriteCore (memory), ImmediatelyFast (HUD, text and entity rendering), EntityCulling (skips what you cannot see) and Iris Shaders (shader packs)',
+      'The newest Fabric version of each for Minecraft 1.21.11 is looked up on Modrinth when you install; nothing is pinned in VANTA',
+      'Every file is checked against the SHA-512 Modrinth publishes; a mod without a 1.21.11 version is skipped with a message',
+      'In game: one click on the Mods & Shaders screen, with a tick box per mod. In the VANTA Launcher 1.1.0: installed by default, switchable in Settings',
+      'No FPS promises: how much faster the game runs depends on your computer',
+    ],
+    link: {
+      to: '/documentation/mods-and-shaders#the-performance-pack',
+      label: 'About the Performance pack',
+    },
+  },
+  {
+    id: 'mods',
+    title: 'Mods & Shaders',
+    icon: Puzzle,
+    eyebrow: 'New in 1.1.0',
+    description:
+      'An in-game browser for Modrinth, and the same on the Mods page of the VANTA Launcher. Search, install, switch off and remove without leaving VANTA.',
+    bullets: [
+      'Tabs for Fabric mods, shader packs for Iris and resource packs, all with a version for Minecraft 1.21.11; the most downloaded first while the search is empty',
+      'Required dependencies are installed with a project; every download is checked with SHA-512 and only then moved into place',
+      'Disable, enable and remove what VANTA installed; files you added yourself are never changed in game',
+      'A restart banner after mod changes, “Restart game” when the VANTA Launcher started the game, and “Open shader settings” for Iris',
+      'Talks to Modrinth only while you use it; no account data is sent',
+    ],
+    link: { to: '/documentation/mods-and-shaders', label: 'How Mods & Shaders works' },
   },
   {
     id: 'settings',

@@ -11,13 +11,13 @@ const steps = [
   },
   {
     icon: <LogIn />,
-    title: 'Add it to the Minecraft Launcher',
-    text: `Signing in inside VANTA needs a Microsoft application id the project does not ship yet. Until then, “Use with Minecraft Launcher” adds the profile “${officialLauncherProfileName}” to the official Minecraft Launcher, where you sign in with Microsoft as usual.`,
+    title: 'PLAY via Minecraft Launcher',
+    text: `Signing in inside VANTA needs a Microsoft application id the project does not ship yet, so the main button adds the profile “${officialLauncherProfileName}” to the official Minecraft Launcher and opens it; you sign in there as usual. Close the Minecraft Launcher first: it reads new profiles only when it starts. (In launcher 1.0.x: “Use with Minecraft Launcher”.)`,
   },
   {
     icon: <Play />,
     title: `Play ${site.minecraft}`,
-    text: `Choose the profile “${officialLauncherProfileName}” in the Minecraft Launcher and press Play. The game starts with the VANTA main menu.`,
+    text: `Choose the profile “${officialLauncherProfileName}” in the Minecraft Launcher and press Play. The game starts with the VANTA main menu; from 1.1.0 on, the Performance pack is installed with it by default and Mods & Shaders adds more from Modrinth.`,
   },
 ] as const;
 
@@ -28,7 +28,7 @@ export function HowItWorks() {
       id="how-it-works"
       eyebrow="How it works"
       title="From download to the main menu in three steps."
-      lead="Everything the launcher installs comes from Mojang, Fabric and Eclipse Temurin with checksum verification. You can also drop the client jar into an existing Fabric setup."
+      lead="Everything the launcher installs comes from Mojang, Fabric, Eclipse Temurin and, for the Performance pack, Modrinth, with checksum verification. You can also drop the client jar into an existing Fabric setup."
       className="border-t border-border-subtle bg-bg-void/40"
     >
       <ol className="grid gap-4 lg:grid-cols-3" aria-label="Steps">

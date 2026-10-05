@@ -2,7 +2,7 @@
 
 VANTA Client is a legitimate, client-side Minecraft client. We take the security of the people who install it
 seriously: the launcher downloads and runs software, stores Microsoft account tokens and talks to Mojang,
-Microsoft and Fabric services, so bugs there matter.
+Microsoft, Fabric and Modrinth services, and the client downloads mods from Modrinth, so bugs there matter.
 
 ## Reporting a vulnerability
 
@@ -26,17 +26,20 @@ volunteer open-source project and we cannot promise payments or deadlines.
 
 In scope:
 
-- **VANTA Launcher** — download verification (SHA-1/SHA-256), archive extraction, Microsoft/Xbox/Minecraft
-  authentication flow, storage of account tokens (`accounts.dat`, DPAPI / AES-GCM key file), log redaction,
+- **VANTA Launcher** — download verification (SHA-1/SHA-256, SHA-512 for Modrinth files), archive extraction, the
+  Performance pack and Mods page (Modrinth downloads, `modrinth.json`, renaming and deleting files in the game
+  folder), Microsoft/Xbox/Minecraft authentication flow, storage of account tokens (`accounts.dat`, DPAPI / AES-GCM key file), log redaction,
   construction of the game command line, update and rollback logic.
 - **VANTA Client** (Fabric mod) — configuration parsing (`config/vanta/*.json`), profile import, cosmetic pack
-  loading, anything that reads files or user input.
+  loading, Mods & Shaders (Modrinth downloads, SHA-512 checks, file names and paths it writes, `modrinth.json`),
+  anything that reads files or user input.
 - **Website** — content rendering (markdown), security headers, build and deployment configuration.
 - **Release pipeline** — `scripts/release/*`, `.github/workflows/*`, manifests and checksums.
 
 Out of scope:
 
-- Minecraft, Mojang/Microsoft services, Fabric Loader/API and other third-party mods (report to their maintainers).
+- Minecraft, Mojang/Microsoft services, Modrinth, Fabric Loader/API and other third-party mods, including the
+  Performance pack mods (report to their maintainers).
 - Reports that require a compromised machine or physical access.
 - Server-side anti-cheat decisions about the client (VANTA contains no cheats; whether a server allows client mods
   is the server's policy).
@@ -56,8 +59,8 @@ targets Minecraft Java Edition 1.21.11 exclusively.
 
 ## Design notes for reviewers
 
-- Every file the launcher downloads is verified against a checksum from Mojang/Fabric metadata or from our release
-  manifest before it is used; a file that fails verification is deleted and never used. Apart from the verified Java
+- Every file the launcher downloads is verified against a checksum from Mojang/Fabric metadata, from Modrinth
+  (SHA-512) or from our release manifest before it is used; a file that fails verification is deleted and never used. Apart from the verified Java
   runtime it installs, the only downloaded file the launcher hands to the operating system is a verified launcher
   installer (Windows `.msi`/`.exe`), and only after the user confirms. Every other self-update file (the Windows
   portable `.zip`, the Linux `.tar.gz`, a launcher jar) is verified and then only shown in its folder; the launcher
@@ -65,5 +68,7 @@ targets Minecraft Java Edition 1.21.11 exclusively.
 - Archive extraction rejects path traversal. Writes are atomic (temp file + rename).
 - Account tokens are encrypted at rest; passwords are never seen (OAuth device code flow). Tokens are redacted from
   all logs.
-- Nothing is sent anywhere by the client; statistics are local files. The website has no analytics or cookies.
+- The client sends nothing anywhere except requests to Modrinth while Mods & Shaders is used (no account data);
+  every file it downloads there is checked against Modrinth's SHA-512 and files it did not install are never changed
+  or deleted. Statistics are local files. The website has no analytics or cookies.
 - The Microsoft client id is configuration, never a constant in the repository.

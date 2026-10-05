@@ -5,14 +5,14 @@ import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Section } from '../ui/Section';
 
-/** Eight feature cards, each linking to its section of the features page. */
+/** Ten feature cards, each linking to its section of the features page. */
 export function FeatureGrid() {
   return (
     <Section
       id="features"
       eyebrow="What's inside"
       title="Everything you reach for, nothing you have to hide."
-      lead="Eight modules that cover performance, interface and workflow — all configurable, all client-side."
+      lead="Ten modules that cover performance, mods, interface and workflow — all configurable, all client-side."
       className="border-t border-border-subtle bg-bg-void/40"
       aside={
         <Button to="/features" variant="secondary" trailingIcon={<ArrowRight />}>
@@ -20,11 +20,11 @@ export function FeatureGrid() {
         </Button>
       }
     >
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Feature modules">
+      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Feature modules">
         {featureHighlights.map((feature, index) => {
           const Icon = feature.icon;
           return (
-            <Reveal as="li" key={feature.id} delay={(index % 4) * 60} className="flex">
+            <Reveal as="li" key={feature.id} delay={(index % 5) * 60} className="flex">
               <Card
                 icon={<Icon />}
                 title={<span className="tracking-label uppercase">{feature.title}</span>}

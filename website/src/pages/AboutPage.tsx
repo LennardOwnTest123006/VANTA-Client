@@ -34,7 +34,7 @@ const principles = [
   {
     icon: <Lock />,
     title: 'Your data stays yours',
-    text: 'Statistics live in a JSON file on your computer. The client opens no connections of its own, the website has no analytics, and account tokens are encrypted locally.',
+    text: 'Statistics live in a JSON file on your computer. The client opens no connections of its own except to Modrinth while you use Mods & Shaders, the website has no analytics, and account tokens are encrypted locally.',
   },
   {
     icon: <Code />,
@@ -60,7 +60,7 @@ const parts = [
   },
   {
     title: 'VANTA Launcher',
-    text: 'A JavaFX desktop application that installs Minecraft, Fabric and the client from the official sources with checksum verification. Until Microsoft sign-in is available inside VANTA, it adds a VANTA profile to the official Minecraft Launcher, which signs you in and starts the game.',
+    text: 'A JavaFX desktop application that installs Minecraft, Fabric and the client from the official sources with checksum verification, and from version 1.1.0 on the Performance pack and other mods from Modrinth. Until Microsoft sign-in is available inside VANTA, it adds a VANTA profile to the official Minecraft Launcher, which signs you in and starts the game.',
   },
   {
     title: 'This website',

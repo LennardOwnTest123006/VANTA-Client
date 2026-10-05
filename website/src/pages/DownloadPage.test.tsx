@@ -111,13 +111,19 @@ describe('DownloadPage', () => {
     const howTo = within(client).getByRole('region', { name: 'How to install' });
     const ways = within(howTo).getAllByRole('listitem');
     expect(ways).toHaveLength(3);
-    expect(ways[0]).toHaveTextContent('VANTA Launcher');
+    // The way that works with the published builds comes first: the launcher's main button sets up
+    // the official Minecraft Launcher profile (launcher 1.1.0), called "Use with Minecraft Launcher" in 1.0.x.
+    expect(ways[0]).toHaveTextContent('PLAY via Minecraft Launcher');
     expect(ways[0]).toHaveTextContent(/Microsoft application id that the project does not ship/);
-    expect(ways[1]).toHaveTextContent('Use with Minecraft Launcher');
-    expect(ways[1]).toHaveTextContent('VANTA 1.21.11');
+    expect(ways[0]).toHaveTextContent('VANTA 1.21.11');
+    expect(ways[0]).toHaveTextContent(/Close the Minecraft Launcher first/);
+    expect(ways[0]).toHaveTextContent(/performance pack .* is installed with it by default/);
+    expect(ways[0]).toHaveTextContent('Use with Minecraft Launcher');
     // The Microsoft Store / Xbox app launcher case is written but untested: never claimed to work.
-    expect(ways[1]).toHaveTextContent(/Microsoft Store or the Xbox app it writes the profile/);
-    expect(ways[1]).toHaveTextContent(/has not been tested on Windows yet/);
+    expect(ways[0]).toHaveTextContent(/Microsoft Store or the Xbox app it writes the profile/);
+    expect(ways[0]).toHaveTextContent(/has not been tested on Windows yet/);
+    expect(ways[1]).toHaveTextContent('VANTA Launcher → PLAY');
+    expect(ways[1]).toHaveTextContent(/needs Microsoft sign-in inside\s+VANTA/);
     // Step 0 of INSTALL.txt and the README: without a first start of the official launcher the Fabric installer stops.
     expect(ways[2]).toHaveTextContent(
       /Manual\s*Start the official Minecraft Launcher once, then install Fabric/,
@@ -125,6 +131,7 @@ describe('DownloadPage', () => {
     expect(ways[2]).toHaveTextContent(/Fabric installer/);
     expect(ways[2]).toHaveTextContent('keep “Create profile” checked');
     expect(ways[2]).toHaveTextContent('.minecraft/mods');
+    expect(ways[2]).toHaveTextContent(/From client 1\.1\.0 on, “Mods & Shaders” in the game/);
     expect(
       within(howTo).getByRole('link', { name: 'Step-by-step installation guide' }),
     ).toHaveAttribute('href', '/documentation/installation');

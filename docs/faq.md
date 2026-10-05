@@ -1,6 +1,6 @@
 ---
 title: FAQ
-description: Frequently asked questions about VANTA Client and Launcher — servers, supported versions, downloads, sign-in, the Minecraft Launcher profile, price, data and mods.
+description: Frequently asked questions about VANTA Client and Launcher — servers, versions, downloads, sign-in, the Minecraft Launcher profile, the Performance pack, shaders, price, data and mods.
 order: 41
 category: Help
 ---
@@ -16,9 +16,21 @@ We cannot promise that any particular server accepts VANTA.
 
 ## Does it include Sodium, OptiFine or other performance mods?
 
-No. VANTA bundles no third-party mods. The Performance Center changes **vanilla** video options (render distance,
-particles, clouds, …) and shows you exactly which ones before applying. If you want renderer-level optimisation,
-install such mods yourself; VANTA does not require, configure or test them.
+VANTA ships no third-party mods in its own files. From client 1.1.0 and launcher 1.1.0 on it can **install** the
+**Performance pack** for you: Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling and Iris Shaders, downloaded
+from Modrinth in their newest Fabric versions for 1.21.11 and checked with the SHA-512 Modrinth publishes. The VANTA
+Launcher installs it by default (*Settings → Game → Install the performance pack* turns it off); in the game it is one
+click on the Mods & Shaders screen. OptiFine is not part of it; shader packs run with Iris. The mods are made by their
+own authors under their own licences. VANTA's own Performance Center still changes only **vanilla** video options and
+shows you exactly which ones before applying. See [Mods & Shaders](mods-and-shaders.md#the-performance-pack).
+
+## How do I use shaders?
+
+Shader packs need Iris, which is part of the Performance pack. In the game open **Mods & Shaders** from the VANTA main
+menu, install Iris (or the Performance pack) and restart the game. Then pick a pack in the **Shaders** tab, install
+it and choose **Open shader settings** (or press **O**) to turn it on. Shader packs cost much more graphics power than
+vanilla rendering, so start with a lighter one. More in
+[Mods & Shaders → Shaders with Iris](mods-and-shaders.md#shaders-with-iris).
 
 ## Which Minecraft versions are supported?
 
@@ -33,9 +45,10 @@ subscription, no paid tier and nothing to unlock. Badges and themes are visual l
 
 ## Does it collect data?
 
-No. The client keeps optional **local** statistics in a JSON file on your computer and sends nothing anywhere. The
-launcher talks only to Mojang, Microsoft/Xbox, Fabric, Adoptium (Java) and GitHub (releases) to do its job. The
-website has no analytics, cookies or third-party scripts. Details: [Statistics and privacy](statistics-and-privacy.md),
+No. The client keeps optional **local** statistics in a JSON file on your computer and sends them nowhere. The only
+service the client contacts itself is Modrinth, and only while you use Mods & Shaders (search text, project ids, no
+account data). The launcher talks only to Mojang, Microsoft/Xbox, Fabric, Adoptium (Java), GitHub (releases) and
+Modrinth (Performance pack, Mods page) to do its job. The website has no analytics, cookies or third-party scripts. Details: [Statistics and privacy](statistics-and-privacy.md),
 [Privacy](privacy.md).
 
 ## Do I need to buy Minecraft?
@@ -62,8 +75,8 @@ notarised macOS app.
 
 ## Which launcher file do I need on Linux or macOS?
 
-Linux x64: `VANTA-Launcher-1.0.2-linux-x64.tar.gz` (or `vanta-launcher-1.0.2-linux-all.jar` with Java 21). Apple
-Silicon Mac: `vanta-launcher-1.0.2-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
+Linux x64: `VANTA-Launcher-1.1.0-linux-x64.tar.gz` (or `vanta-launcher-1.1.0-linux-all.jar` with Java 21). Apple
+Silicon Mac: `vanta-launcher-1.1.0-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
 interchangeable: each contains JavaFX for one system only, so the Windows or Linux jar does not run on a Mac. Started on
 the wrong system, a jar does not open its window; it names the file to download instead (in a message window as well
 when you double-clicked it) and exits with code 1. The macOS jar is built and tested from the command line in CI; its
@@ -72,20 +85,29 @@ window has not been tested yet. Details:
 
 ## Can I use VANTA without the VANTA Launcher?
 
-Yes. Download `vanta-client-1.0.1-mods.zip`: it contains `vanta-client-1.0.1.jar` and Fabric API
+Yes. Download `vanta-client-1.1.0-mods.zip`: it contains `vanta-client-1.1.0.jar` and Fabric API
 0.141.6+1.21.11 in a `mods/` folder, plus `INSTALL.txt` with the steps. Start the official Minecraft Launcher once,
 install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer (keep *Create profile* checked) and copy both jars
 into the `mods/` folder of that profile (official launcher, Prism, MultiMC). On Windows take the Fabric installer
 `.exe`, which needs no separate Java; on macOS and Linux take the universal `.jar`, which needs Java installed (install
 Java 21 first, then run `java -jar fabric-installer-<version>.jar`). If both Minecraft Launchers are installed, the
 Fabric installer asks which one to use: choose the one you play with. You lose the launcher's verified updates,
-rollback and Java helpers, nothing else. See [Installation](installation.md#c-manual-installation) and
+rollback and Java helpers, nothing else; the Performance pack and other mods can be installed in the game from
+*Mods & Shaders*. See [Installation](installation.md#c-manual-installation) and
 [Fabric](fabric.md#manual-installation-into-an-existing-fabric-profile).
+
+## What does "PLAY via Minecraft Launcher" do?
+
+It is the main button of the VANTA Launcher when Microsoft sign-in is not available, which is the case in the
+published builds (from launcher 1.1.0 on). One click checks that the official Minecraft Launcher is closed, sets up or
+updates the profile **VANTA 1.21.11** in it (the first time after a confirmation that lists every file) and then
+opens the Minecraft Launcher, where you choose that profile and press Play. The setup is the same as *Use with
+Minecraft Launcher*, described in the next answer, including the Performance pack.
 
 ## What does "Use with Minecraft Launcher" do?
 
 It is a button on the VANTA Launcher's Home screen (and the command `--install-official-profile`). It installs Fabric
-API and the VANTA Client into VANTA's game folder, adds the Fabric Loader 0.19.5 version to the official Minecraft
+API, the VANTA Client and (from launcher 1.1.0 on, unless switched off) the Performance pack into VANTA's game folder, adds the Fabric Loader 0.19.5 version to the official Minecraft
 folder and writes the profile **VANTA 1.21.11** into the profiles files of the official Minecraft Launcher that exist
 there: `launcher_profiles.json` (Minecraft Launcher from minecraft.net) and/or
 `launcher_profiles_microsoft_store.json` (Minecraft Launcher from the Microsoft Store or the Xbox app). All your other
@@ -96,12 +118,21 @@ whether the Minecraft Launcher from the Microsoft Store or the Xbox app then sho
 real Windows PC yet; if it does not, use the [manual installation](installation.md#c-manual-installation). Exactly
 what is written: [Launcher → Use with the Minecraft Launcher](launcher.md#use-with-the-minecraft-launcher).
 
+## Why does the profile "VANTA 1.21.11" not show up in the Minecraft Launcher?
+
+The Minecraft Launcher reads its profiles only when it starts. If it was running while VANTA added the profile, close
+it completely (on Windows also from the system tray: right-click its icon next to the clock, *Exit*) and start it
+again. From launcher 1.1.0 on, VANTA checks for a running Minecraft Launcher first and asks you to close it. More in
+[Troubleshooting](troubleshooting.md#the-profile-vanta-12111-does-not-show-up-in-the-minecraft-launcher).
+
 ## Why can't I sign in with Microsoft in the VANTA Launcher?
 
 Microsoft sign-in for Minecraft only works with an application id that Mojang has approved for the Minecraft API. The
-project does not have one, so the published launcher has sign-in switched off and PLAY stays disabled with *Sign-in
-unavailable: play through the Minecraft Launcher*. Use *Use with Minecraft Launcher* instead, or configure an approved
-id of your own ([Launcher → Microsoft client id](launcher.md#microsoft-client-id)). VANTA offers no offline workaround.
+project does not have one, so the published launcher has sign-in switched off and its main button is *PLAY via
+Minecraft Launcher*: the official Minecraft Launcher signs you in. (Launcher 1.0.x showed a disabled PLAY with
+*Sign-in unavailable: play through the Minecraft Launcher*; use *Use with Minecraft Launcher* there.) You can also
+configure an approved id of your own ([Launcher → Microsoft client id](launcher.md#microsoft-client-id)). VANTA
+offers no offline workaround.
 
 ## Why does "Use with Minecraft Launcher" say the Minecraft Launcher is not set up?
 
@@ -115,25 +146,25 @@ command line. More in
 
 ## Can I use VANTA together with other mods?
 
-Yes, VANTA is an ordinary Fabric mod. Mods that also replace the title screen compete with VANTA's main menu (turn
-VANTA's off in *Settings → General*). We do not test third-party combinations; see
-[Fabric](fabric.md#using-vanta-with-other-fabric-mods).
+Yes, VANTA is an ordinary Fabric mod, and *Mods & Shaders* (in the game) and the launcher's Mods page install other
+mods from Modrinth for you. Mods that also replace the title screen compete with VANTA's main menu (turn VANTA's off in
+*Settings → General*). Apart from the Performance pack, which CI loads in one of its game tests, we do not test
+third-party combinations; see [Fabric](fabric.md#using-vanta-with-other-fabric-mods).
 
 ## Where do I download VANTA?
 
 On the website's [Download page](https://vanta-client.netlify.app/download) or directly from
 [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases). The newest releases are
-`launcher-v1.0.2` and `client-v1.0.1` (launcher 1.0.2 is a launcher-only release; the client stays at 1.0.1). Both
-places offer the same files, built and published by the project's release workflow with their SHA-256 checksums. Do
+`launcher-v1.1.0` and `client-v1.1.0`. Both places offer the same files, built and published by the project's release workflow with their SHA-256 checksums. Do
 not take VANTA files from anywhere else.
 
 | Your system | File |
 | --- | --- |
-| Windows 10/11 x64 | `VANTA-Launcher-1.0.2.msi` (installer with its own Java runtime), or `VANTA-Launcher-1.0.2.exe` if `.msi` files are blocked, or `VANTA-Launcher-1.0.2-windows-portable.zip` to run it without installing |
-| Linux x64 | `VANTA-Launcher-1.0.2-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.0.2-linux-all.jar` with Java 21 |
-| Mac with Apple Silicon | `vanta-launcher-1.0.2-macos-aarch64-all.jar` with Java 21 |
-| Windows 11 on ARM | `VANTA-Launcher-1.0.2.msi` or `VANTA-Launcher-1.0.2-windows-portable.zip` (x64 with their own x64 Java runtime, run under emulation; not tested on such a device; [details](troubleshooting.md#windows-on-arm-which-launcher-file)) |
-| Intel Mac, Linux on ARM, or no VANTA Launcher | `vanta-client-1.0.1-mods.zip` and the Fabric installer ([manual installation](installation.md#c-manual-installation)) |
+| Windows 10/11 x64 | `VANTA-Launcher-1.1.0.msi` (installer with its own Java runtime), or `VANTA-Launcher-1.1.0.exe` if `.msi` files are blocked, or `VANTA-Launcher-1.1.0-windows-portable.zip` to run it without installing |
+| Linux x64 | `VANTA-Launcher-1.1.0-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.1.0-linux-all.jar` with Java 21 |
+| Mac with Apple Silicon | `vanta-launcher-1.1.0-macos-aarch64-all.jar` with Java 21 |
+| Windows 11 on ARM | `VANTA-Launcher-1.1.0.msi` or `VANTA-Launcher-1.1.0-windows-portable.zip` (x64 with their own x64 Java runtime, run under emulation; not tested on such a device; [details](troubleshooting.md#windows-on-arm-which-launcher-file)) |
+| Intel Mac, Linux on ARM, or no VANTA Launcher | `vanta-client-1.1.0-mods.zip` and the Fabric installer ([manual installation](installation.md#c-manual-installation)) |
 
 Verify the file with `SHA256SUMS.txt` from the same release before you run it
 ([Installation → Verify the checksum](installation.md#2-verify-the-checksum)). Older versions stay available on
@@ -160,7 +191,9 @@ downloads. [Installation](installation.md#2-verify-the-checksum).
 Yes, for now: the installers and the portable app are not code-signed, which requires a paid certificate the project
 does not have. Verify the checksum first; only if it matches choose *More info → Run anyway*. If it does not match,
 do not run the file.
-[Troubleshooting](troubleshooting.md#windows-protected-your-pc).
+[Troubleshooting](troubleshooting.md#windows-protected-your-pc). If Windows blocks it with no *Run anyway* at all,
+Smart App Control may be on; see
+[Troubleshooting → Smart App Control](troubleshooting.md#smart-app-control-windows-11).
 
 ## Where are my settings, and can I back them up?
 
@@ -174,7 +207,8 @@ cosmetics, and imports are validated so a bad file cannot do harm.
 
 ## How do I go back to the vanilla main menu?
 
-*Settings → General → Replace the title screen* → off. Everything else in VANTA keeps working.
+*Settings → General → VANTA main menu* → off. Everything else in VANTA keeps working. (In client 1.0.x, *Cancel* on
+*Create New World* also showed the vanilla title screen by mistake; that is fixed in 1.1.0.)
 
 ## How do I hide the HUD?
 
@@ -203,7 +237,8 @@ behave as in the game without VANTA and can be ignored. The C conflict is the on
 ## Does the Performance Center make the game faster?
 
 It can, by making Minecraft render less (lower render distance, fewer particles, …). It does not change the renderer
-and we make no FPS claims. See [Performance Center → Honest limits](performance.md#honest-limits).
+and we make no FPS claims. For more, it points to the Performance pack, separate mods such as Sodium that VANTA
+installs from Modrinth on request. See [Performance Center → Honest limits](performance.md#honest-limits).
 
 ## Why Java 21 and not the Java I already have?
 

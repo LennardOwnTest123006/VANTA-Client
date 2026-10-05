@@ -10,24 +10,30 @@ export interface InstallOptionsProps {
 
 const options: readonly { readonly title: string; readonly text: ReactNode }[] = [
   {
-    title: 'VANTA Launcher',
+    title: 'VANTA Launcher → “PLAY via Minecraft Launcher”',
     text: (
       <>
-        Installs Minecraft, Fabric Loader, Fabric API and VANTA and verifies every file. Signing in
-        inside VANTA needs a Microsoft application id that the project does not ship yet — until
-        then, use option 2.
+        Signing in inside VANTA needs a Microsoft application id that the project does not ship yet,
+        so from launcher 1.1.0 on the main button adds the profile “{officialLauncherProfileName}”
+        to the official Minecraft Launcher and opens it; you sign in there with Microsoft. Close the
+        Minecraft Launcher first, also from the system tray: it reads new profiles only when it
+        starts. The performance pack (Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling,
+        Iris from Modrinth) is installed with it by default. In launcher 1.0.x the same setup is the
+        button “Use with Minecraft Launcher”. For the Minecraft Launcher from the Microsoft Store or
+        the Xbox app it writes the profile into that launcher’s profiles file too; whether the
+        profile then shows up there has not been tested on Windows yet — if it does not, use option
+        3.
       </>
     ),
   },
   {
-    title: 'VANTA Launcher → “Use with Minecraft Launcher”',
+    title: 'VANTA Launcher → PLAY',
     text: (
       <>
-        Adds the profile “{officialLauncherProfileName}” to the official Minecraft Launcher, which
-        signs you in with Microsoft and starts the game with VANTA. For the Minecraft Launcher from
-        the Microsoft Store or the Xbox app it writes the profile into that launcher’s profiles file
-        too; whether the profile then shows up there has not been tested on Windows yet — if it does
-        not, use option 3.
+        Installs Minecraft, Fabric Loader, Fabric API, VANTA and (from launcher 1.1.0 on) the
+        performance pack, verifies every file and starts the game. It needs Microsoft sign-in inside
+        VANTA, which requires a Microsoft application id that the project does not ship yet — until
+        then, use option 1.
       </>
     ),
   },
@@ -40,13 +46,14 @@ const options: readonly { readonly title: string; readonly text: ReactNode }[] =
         profile” checked) and copy the two jars from the mods bundle into{' '}
         <code className="font-mono text-[12px] text-text-primary">.minecraft/mods</code>.{' '}
         <code className="font-mono text-[12px] text-text-primary">INSTALL.txt</code> in the bundle
-        lists these steps.
+        lists these steps. From client 1.1.0 on, “Mods & Shaders” in the game installs the
+        performance pack and more.
       </>
     ),
   },
 ];
 
-/** The three ways to install the client, shortest first, with a link to the full guide. */
+/** The three ways to install the client, the one that works with the published builds first, with a link to the full guide. */
 export function InstallOptions({ idPrefix }: InstallOptionsProps) {
   const headingId = `${idPrefix}-install`;
   return (

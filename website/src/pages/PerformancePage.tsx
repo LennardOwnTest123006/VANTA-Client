@@ -193,10 +193,12 @@ export default function PerformancePage() {
               own machine with the Performance Center and keep what works.
             </p>
           </Callout>
-          <Callout tone="info" title="Rendering mods are not bundled">
+          <Callout tone="info" title="Rendering mods are optional, not bundled">
             <p>
-              Mods such as Sodium-style renderers are not part of VANTA. You may install them in the
-              same Fabric profile; VANTA only touches vanilla options and stays out of their way.
+              Sodium and the other mods of the Performance pack are not part of VANTA’s files. From
+              client 1.1.0 on, Mods & Shaders installs them from Modrinth when you ask for it (the
+              VANTA Launcher 1.1.0 does so by default); the presets keep changing vanilla options
+              only.
             </p>
           </Callout>
         </div>

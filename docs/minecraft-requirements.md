@@ -22,8 +22,8 @@ with another Fabric profile requires the same versions — see [Fabric](fabric.m
 
 ## Account
 
-You need a **Microsoft account that owns Minecraft Java Edition**. With *Use with Minecraft Launcher* or a manual
-Fabric installation the official Minecraft Launcher signs you in and checks ownership, as it does for vanilla
+You need a **Microsoft account that owns Minecraft Java Edition**. With *PLAY via Minecraft Launcher* / *Use with
+Minecraft Launcher* or a manual Fabric installation the official Minecraft Launcher signs you in and checks ownership, as it does for vanilla
 Minecraft.
 
 The VANTA Launcher's own sign-in uses Microsoft's device code flow, obtains Xbox Live and Minecraft tokens exactly like
@@ -35,8 +35,8 @@ until one is configured ([Launcher → Microsoft client id](launcher.md#microsof
 - Accounts without an Xbox Live profile, child accounts without family consent and accounts in regions where Xbox
   Live is unavailable are reported with a clear message during sign-in (see [Troubleshooting](troubleshooting.md#microsoft-sign-in-errors)).
 - If you play Java Edition only through **PC Game Pass**, the ownership check used by third-party launchers may not
-  recognise the subscription. In that case play through the official launcher: *Use with Minecraft Launcher*
-  ([Launcher](launcher.md#use-with-the-minecraft-launcher)) or a Fabric profile
+  recognise the subscription. In that case play through the official launcher: *PLAY via Minecraft Launcher* or
+  *Use with Minecraft Launcher* ([Launcher](launcher.md#use-with-the-minecraft-launcher)) or a Fabric profile
   ([Fabric → Manual installation](fabric.md#manual-installation-into-an-existing-fabric-profile)).
 - Offline play is not a way around ownership: the launcher only offers an "offline session" for an account that has
   already signed in successfully, by reusing its verified name and UUID.
@@ -53,7 +53,7 @@ until one is configured ([Launcher → Microsoft client id](launcher.md#microsof
 
 Each launcher jar contains JavaFX for one system only; the Windows jar does not run on Linux or macOS and the other
 way round (started on the wrong system it names the right file and exits with code 1). The client jar
-(`vanta-client-<version>.jar`, for example `vanta-client-1.0.1.jar`) is the same on every system.
+(`vanta-client-<version>.jar`, for example `vanta-client-1.1.0.jar`) is the same on every system.
 
 ## Graphics
 

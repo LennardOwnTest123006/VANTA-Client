@@ -68,7 +68,8 @@ Common ways to install Java 21:
 The official Minecraft Launcher also ships a Java 21 runtime ("java-runtime-delta"); the VANTA Launcher finds and
 can use it, so if you have the official launcher installed you may already be done.
 
-When you play through the official Minecraft Launcher (*Use with Minecraft Launcher* or a manual Fabric profile), the
+When you play through the official Minecraft Launcher (*PLAY via Minecraft Launcher*, *Use with Minecraft Launcher*
+or a manual Fabric profile), the
 Minecraft Launcher downloads and uses its own Java runtime for the game. You then need an installed Java 21 only to
 start a launcher jar, or, on macOS and Linux, to run the universal Fabric installer
 (`java -jar fabric-installer-<version>.jar`) for the [manual installation](installation.md#c-manual-installation).

@@ -37,6 +37,11 @@ or other mods, does not include AI features, and never sends data anywhere. Whet
 all is that server's decision; VANTA gives you nothing a server could reasonably object to, but it cannot speak for
 server rules.
 
+**Update, 2026-10-05:** from version 1.1.0 on, VANTA can download optional mods such as Sodium and Iris from Modrinth
+when you ask for it (the Performance pack), and the Mods & Shaders screen talks to Modrinth while you use it. VANTA
+still ships no third-party mods in its own files and sends no account data or statistics; see
+[VANTA 1.1](https://vanta-client.netlify.app/news/vanta-1-1).
+
 ## How releases will work
 
 **Update, 2026-10-05:** VANTA Client 1.0.0 and VANTA Launcher 1.0.0 are published. The

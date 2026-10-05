@@ -22,7 +22,7 @@ export default function FeaturesPage() {
     <>
       <PageMeta
         title="Features"
-        description={`Everything VANTA Client adds on top of vanilla Minecraft ${site.minecraft}: main menu, HUD widgets and editor, Performance Center, settings search, keybind manager, crosshair, cosmetics, profiles, notifications, resource packs, statistics, accessibility and zoom.`}
+        description={`Everything VANTA Client adds on top of vanilla Minecraft ${site.minecraft}: main menu, HUD widgets and editor, Performance Center, Performance pack, Mods & Shaders, settings search, keybind manager, crosshair, cosmetics, profiles, notifications, resource packs, statistics, accessibility and zoom.`}
       />
       <PageHero
         eyebrow="Features"
@@ -31,7 +31,7 @@ export default function FeaturesPage() {
             Everything on your side of the screen, <span className="text-gradient">refined</span>.
           </>
         }
-        lead={`A complete tour of what VANTA Client ${site.clientVersion} adds to Minecraft ${site.minecraft} — and the lines it never crosses.`}
+        lead={`A complete tour of what VANTA Client adds to Minecraft ${site.minecraft} — and the lines it never crosses. Features marked “New in 1.1.0” need VANTA Client 1.1.0 or newer.`}
       >
         <TocNav items={toc} />
       </PageHero>

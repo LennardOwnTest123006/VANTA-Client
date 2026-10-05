@@ -109,8 +109,9 @@ installed, so Fabric never sees two copies.
 - Turn it off in *Settings → Game → Install the performance pack* (`installPerformancePack` in `settings.json`), or
   skip it once on the command line with `--without-performance-pack`. Turning it off stops installing and updating
   the pack; mods that are already in the game folder stay until you switch them off or remove them on the Mods page.
-- While the setting is on, a pack mod you **remove** is installed again by the next PLAY. To keep one of them out,
-  **disable** it instead (it stays disabled across installs), or turn the setting off.
+- While the setting is on, a pack mod you **remove** is installed again by the launcher's next installation (PLAY,
+  *PLAY via Minecraft Launcher*, *Use with Minecraft Launcher*). To keep one of them out, **disable** it instead (it
+  stays disabled across installations), or turn the setting off.
 
 CI runs VANTA's headless game test with the newest 1.21.11 Fabric versions of these six mods loaded, and fails when
 one of them is not loaded, the game crashes or a step of the test fails. Other mod combinations are not tested.
@@ -122,8 +123,8 @@ need Iris* and offers **Install Iris** (with Sodium, which Iris requires). Iris 
 
 Once Iris is loaded, install a shader pack from the Shaders tab. VANTA then asks whether to open the shader settings;
 **Open shader settings** opens the Iris shader pack screen, where you choose the pack. If VANTA cannot open it, press
-**O** (the Iris shader key) or go to *Options → Video Settings → Shader Packs*. A new shader pack works without a
-restart. Choose a pack in that screen, or turn shaders off there again.
+**O** (the Iris shader key) or go to *Options → Video Settings → Shader Packs*. A new shader pack needs no restart.
+The same screen is where you switch to another pack or turn shaders off again.
 
 **Picking a shader pack.** Shader packs change lighting, shadows, water and sky, and they cost much more graphics
 power than vanilla rendering. Some tips:

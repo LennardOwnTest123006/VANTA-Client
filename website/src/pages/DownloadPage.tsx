@@ -114,7 +114,7 @@ export default function DownloadPage() {
             icon={Monitor}
             eyebrow="Launcher"
             title="VANTA Launcher"
-            description={`Installs Minecraft ${site.minecraft}, Fabric Loader ${site.fabricLoader}, Fabric API and the VANTA Client with checksum verification. Until Microsoft sign-in is available inside VANTA, it adds the profile “${officialLauncherProfileName}” to the official Minecraft Launcher, which signs you in and starts the game. Windows installer (.msi) with Java ${site.java} included.`}
+            description={`Installs Minecraft ${site.minecraft}, Fabric Loader ${site.fabricLoader}, Fabric API and the VANTA Client with checksum verification. Until Microsoft sign-in is available inside VANTA, it adds the profile “${officialLauncherProfileName}” to the official Minecraft Launcher, which signs you in and starts the game. From launcher 1.1.0 on it also installs the Performance pack from Modrinth by default and has a Mods page. Windows installer (.msi) with Java ${site.java} included.`}
             cta="Download launcher"
             upcoming={upcomingRelease(releases, 'launcher')}
             primary
@@ -168,8 +168,9 @@ export default function DownloadPage() {
             <p>
               Minecraft needs it whichever way you play. Signing in inside the VANTA Launcher needs
               a Microsoft application id approved by Mojang, which the project does not have yet, so
-              “Use with Minecraft Launcher” adds a VANTA profile to the official Minecraft Launcher
-              and you sign in there. There is no VANTA account.
+              “PLAY via Minecraft Launcher” (“Use with Minecraft Launcher” in launcher 1.0.x) adds a
+              VANTA profile to the official Minecraft Launcher and you sign in there. There is no
+              VANTA account.
             </p>
           </Card>
           <Card icon={<Coffee />} title={`Java ${site.java}`} padding="sm">
@@ -250,7 +251,9 @@ export default function DownloadPage() {
           <p>
             Every file the launcher downloads — Minecraft, libraries, Fabric, Fabric API, the VANTA
             jar and the Java runtime — is checked against the SHA-1 or SHA-256 published by its
-            source before it is used. Files that fail verification are deleted, never executed.
+            source before it is used; from launcher 1.1.0 on, the Performance pack mods from
+            Modrinth are checked against Modrinth’s SHA-512. Files that fail verification are
+            deleted, never executed.
           </p>
         </Callout>
         <div className="mt-10 grid gap-4 lg:grid-cols-3" aria-label="After downloading">
