@@ -1,10 +1,25 @@
-# Release workflow: builds one tagged product, publishes a GitHub Release with SHA-256 checksums and opens
-# a pull request with the completed release manifest (shared/releases). Documented in RELEASE.md.
+# Release workflow: builds one product, publishes a GitHub Release whose assets are exactly the files named in
+# scripts/release/release-assets.mjs, proves every public download link works, and hands the completed manifest back.
+# Documented in RELEASE.md and shared/releases/README.md.
 #
 # Triggers   push a tag `client-v<version>` or `launcher-v<version>`, or "Run workflow" with product + version.
+#            Client and launcher releases may run at the same time (the concurrency group includes the product).
 # Secrets    none beyond the automatic GITHUB_TOKEN. Code signing is out of scope (RELEASE.md, "Signing (future)").
-# Settings   Settings > Actions > General > Workflow permissions must allow GitHub Actions to create pull requests;
-#            otherwise the last step fails and the manifest PR has to be opened by hand from the workflow artifact.
+# Outputs    1. GitHub Release <product>-v<version>: the manifest files in manifest order, SHA256SUMS.txt and
+#               <product>-<version>.json. After the upload the runner downloads every public URL and re-hashes it.
+#            2. Branch ci-artifacts, folder release-<tag>/: <product>-<version>.json, latest/<product>-latest.json
+#               (stable releases only), SHA256SUMS.txt and RELEASE-INFO.txt (client releases also carry the three
+#               client files). Copy the JSON files to shared/releases/ and shared/releases/latest/ on the default
+#               branch.
+#            3. Optionally a pull request with shared/releases/. It needs Settings > Actions > General > "Allow GitHub
+#               Actions to create and approve pull requests"; when that is off the step fails without failing the run.
+# Latest     GitHub has one "latest release" per repository and both products share this one. Stable launcher
+#            releases are marked latest (the launcher is what most people download first, and .../releases/latest
+#            should open it); client releases never are, so publishing a client fix does not hide the launcher.
+# Channels   Only stable releases write shared/releases/latest/<product>-latest.json, which installed launchers read
+#            for their update check (they compare versions only). A beta release is a GitHub pre-release: its
+#            manifest is built with --no-latest, the run fails if latest/ changed anyway, and the hand-back carries no
+#            latest/ folder, so no launcher is ever offered a pre-release.
 name: Release
 
 on:
@@ -29,22 +44,24 @@ on:
         options: [stable, beta]
         default: stable
       draft:
-        description: Create the GitHub Release as a draft
+        description: Create the GitHub Release as a draft (its links are not public, so URL verification is skipped)
         type: boolean
         default: false
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  # workflow_dispatch runs share github.ref, so the group is per product: a client and a launcher release can run
+  # side by side, two releases of the same product queue.
+  group: release-${{ inputs.product || (startsWith(github.ref_name, 'client-v') && 'client' || 'launcher') }}
   cancel-in-progress: false
 
 jobs:
   prepare:
     name: Resolve product and version
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
       product: ${{ steps.resolve.outputs.product }}
       version: ${{ steps.resolve.outputs.version }}
@@ -82,6 +99,15 @@ jobs:
             if [[ "$VERSION" == *-* ]]; then CHANNEL=beta; else CHANNEL=stable; fi
             DRAFT=false
           fi
+          case "$PRODUCT" in
+            client|launcher) ;;
+            *) echo "::error::Unknown product '$PRODUCT'"; exit 1 ;;
+          esac
+          case "$CHANNEL" in
+            stable|beta) ;;
+            *) echo "::error::Unknown channel '$CHANNEL'"; exit 1 ;;
+          esac
+          [ "$DRAFT" = true ] || DRAFT=false
           SEMVER='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$'
           if ! [[ "$VERSION" =~ $SEMVER ]]; then
             echo "::error::'$VERSION' is not a SemVer version"; exit 1
@@ -100,20 +126,32 @@ jobs:
             exit 1
           fi
           node scripts/release/validate-json.mjs shared/schemas/release-manifest.schema.json "$MANIFEST"
+          # The manifest must list exactly the files this workflow uploads, in order (no stale template entries).
+          node scripts/release/release-assets.mjs check-manifest "$MANIFEST"
+          # The release tag must name the commit that is built. "Run workflow" creates the tag at this commit; a tag
+          # that already exists elsewhere would leave the release pointing at other source code.
+          TAG="${PRODUCT}-v${VERSION}"
+          REMOTE_TAG="$(git ls-remote --tags origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | awk '{print $1}' | tail -n 1)"
+          if [ -n "$REMOTE_TAG" ] && [ "$REMOTE_TAG" != "$GITHUB_SHA" ]; then
+            echo "::error::Tag $TAG already exists at $REMOTE_TAG but this run builds $GITHUB_SHA. Delete the old release and tag first (gh release delete $TAG --cleanup-tag --yes) or release a new version."
+            exit 1
+          fi
           {
             echo "product=$PRODUCT"
             echo "version=$VERSION"
-            echo "tag=${PRODUCT}-v${VERSION}"
+            echo "tag=$TAG"
             echo "channel=$CHANNEL"
             echo "draft=$DRAFT"
           } >> "$GITHUB_OUTPUT"
-          echo "Releasing $PRODUCT $VERSION ($CHANNEL) as ${PRODUCT}-v${VERSION}"
+          echo "Releasing $PRODUCT $VERSION ($CHANNEL) as $TAG from $GITHUB_SHA; files:"
+          node scripts/release/release-assets.mjs list --product "$PRODUCT" --version "$VERSION"
 
   client:
-    name: Client jar (Minecraft 1.21.11, Fabric)
+    name: Client files (Minecraft 1.21.11, Fabric)
     needs: prepare
     if: needs.prepare.outputs.product == 'client'
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
     steps:
@@ -123,6 +161,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - uses: gradle/actions/setup-gradle@v4
       - name: Build and test
         working-directory: client
@@ -132,34 +173,71 @@ jobs:
         run: |
           set -euo pipefail
           JAR="build/libs/vanta-client-${VERSION}.jar"
-          test -f "$JAR" || { echo "::error::$JAR was not produced (version mismatch?)"; ls -la build/libs; exit 1; }
-          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": "~1.21.11"'
-          unzip -p "$JAR" META-INF/MANIFEST.MF | grep -q 'Minecraft-Version: 1.21.11'
+          test -s "$JAR" || { echo "::error::$JAR was not produced (version mismatch?)"; ls -la build/libs; exit 1; }
+          MOD_JSON="$(unzip -p "$JAR" fabric.mod.json)"
+          JAR_MANIFEST="$(unzip -p "$JAR" META-INF/MANIFEST.MF)"
+          grep -qF '"minecraft": "~1.21.11"' <<< "$MOD_JSON" || { echo "::error::fabric.mod.json does not depend on Minecraft ~1.21.11"; exit 1; }
+          grep -qF "\"version\": \"${VERSION}\"" <<< "$MOD_JSON" || { echo "::error::fabric.mod.json version is not ${VERSION}"; exit 1; }
+          grep -qF 'Minecraft-Version: 1.21.11' <<< "$JAR_MANIFEST" || { echo "::error::MANIFEST.MF has no Minecraft-Version: 1.21.11"; exit 1; }
           echo "ok: $JAR"
-      - name: Install Xvfb for the headless game test
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
-      - name: Smoke test the built jar (production client game test, real Minecraft under Xvfb)
+      - name: Headless production game test (built jar + Fabric API in a real Minecraft 1.21.11 under Xvfb)
         working-directory: client
         env:
           CI: 'true'
-        run: ./gradlew runProductionClientGametest --stacktrace
+        # Same watchdog as ci.yml: thread-dump every game JVM after 4 minutes (kept as a diagnostic even when the test
+        # passes) and again before killing a run that is still going after 20 minutes.
+        run: |
+          mkdir -p "$RUNNER_TEMP/gametest-out"
+          dump() {
+            for p in $(pgrep -f 'fabric.client.gametest' || true); do
+              jcmd "$p" Thread.print > "$RUNNER_TEMP/gametest-out/thread-dump-$1-pid$p.txt" 2>&1 || true
+            done
+          }
+          ./gradlew runProductionClientGametest --stacktrace &
+          GRADLE_PID=$!
+          for i in $(seq 1 240); do
+            sleep 5
+            kill -0 "$GRADLE_PID" 2>/dev/null || break
+            [ "$i" -eq 48 ] && dump 4min
+            if [ "$i" -eq 240 ]; then
+              echo "::error::client game test still running after 20 minutes; dumping threads and killing it"
+              dump 20min
+              pkill -f 'fabric.client.gametest' || true
+              kill "$GRADLE_PID" || true
+              wait "$GRADLE_PID" || true
+              exit 124
+            fi
+          done
+          wait "$GRADLE_PID"
       - name: Collect game test screenshots and logs
         if: always()
         run: |
-          mkdir -p gametest-out
-          cp -r client/run/production-gametest/screenshots gametest-out/ 2>/dev/null || true
-          cp client/run/production-gametest/logs/latest.log gametest-out/ 2>/dev/null || true
-          ls -la gametest-out || true
+          mkdir -p "$RUNNER_TEMP/gametest-out"
+          cp -r client/run/production-gametest/screenshots "$RUNNER_TEMP/gametest-out/" 2>/dev/null || true
+          cp client/run/production-gametest/logs/latest.log "$RUNNER_TEMP/gametest-out/" 2>/dev/null || true
+          cp -r client/run/production-gametest/crash-reports "$RUNNER_TEMP/gametest-out/" 2>/dev/null || true
+          ls -laR "$RUNNER_TEMP/gametest-out" || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          # Not "release-*": the publish job merges every release-* artifact into the release.
           name: client-gametest
-          path: gametest-out
+          path: ${{ runner.temp }}/gametest-out
           if-no-files-found: ignore
-      - name: Stage release files
+      - name: Stage the release files (client jar, verified Fabric API jar, mods bundle)
         run: |
+          set -euo pipefail
+          rm -rf dist
           mkdir -p dist
           cp "client/build/libs/vanta-client-${VERSION}.jar" dist/
+          # Exactly one fabric-api-<version>.jar in the Gradle cache, SHA-1 equal to the checksum Gradle recorded for
+          # the download, fabric.mod.json id/version/license and LICENSE-fabric-api checked; copied byte for byte.
+          FAPI="$(node scripts/release/fabric-api-jar.mjs --copy-to dist | tee /dev/stderr | tail -n 1)"
+          test -s "$FAPI" || { echo "::error::Fabric API jar was not staged"; exit 1; }
+          # INSTALL.txt + SHA256SUMS + mods/; verified with sha256sum -c before and after zipping.
+          bash scripts/release/build-mods-bundle.sh --version "$VERSION" \
+            --client-jar "dist/vanta-client-${VERSION}.jar" --fabric-api-jar "$FAPI" --out dist
+          node scripts/release/release-assets.mjs check-dir dist --product client --version "$VERSION"
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:
@@ -168,15 +246,17 @@ jobs:
           if-no-files-found: error
 
   launcher-windows:
-    name: Launcher installers (Windows)
+    name: Launcher files (Windows x64)
     needs: prepare
     if: needs.prepare.outputs.product == 'launcher'
     runs-on: windows-latest
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
+      JAVAFX_PLATFORM: win
     steps:
       - uses: actions/checkout@v4
       - uses: gradle/actions/wrapper-validation@v4
@@ -184,28 +264,62 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - uses: gradle/actions/setup-gradle@v4
       - name: Build and test
         working-directory: launcher
-        run: ./gradlew build fatJar --stacktrace
-      - name: MSI installer (jlink runtime + jpackage, WiX preinstalled on the runner)
-        working-directory: launcher
+        run: ./gradlew build fatJar "-PjavafxPlatform=$JAVAFX_PLATFORM" --stacktrace
+      - name: Check and smoke test the fat jar (JavaFX natives for Windows x64 only)
         run: |
           set -euo pipefail
-          ./gradlew jlinkImage jpackage -PjpackageType=msi --stacktrace
-          mkdir -p ../dist
-          cp build/jpackage/*.msi "../dist/VANTA-Launcher-${VERSION}.msi"
+          JAR="launcher/build/libs/vanta-launcher-${VERSION}-all.jar"
+          test -s "$JAR" || { echo "::error::$JAR was not produced"; ls -la launcher/build/libs; exit 1; }
+          node scripts/release/check-launcher-jar.mjs "$JAR" --platform "$JAVAFX_PLATFORM" --version "$VERSION"
+          java -jar "$JAR" --version
+          mkdir -p dist
+          cp "$JAR" "dist/vanta-launcher-${VERSION}-windows-all.jar"
+      - name: App image with the jlink runtime, zipped as the portable build (before an installer build replaces it)
+        run: |
+          set -euo pipefail
+          (cd launcher && ./gradlew jlinkImage jpackage "-PjavafxPlatform=$JAVAFX_PLATFORM" -PjpackageType=app-image --stacktrace)
+          APP="launcher/build/jpackage/VANTA Launcher"
+          for f in "VANTA Launcher.exe" "app/vanta-launcher-${VERSION}-all.jar" "runtime/bin/java.exe"; do
+            test -s "$APP/$f" || { echo "::error::the app image has no $f"; find launcher/build/jpackage -maxdepth 3 | head -50; exit 1; }
+          done
+          # The bundled runtime runs the bundled jar (the .exe itself is a GUI program without a console).
+          "$APP/runtime/bin/java.exe" -jar "$APP/app/vanta-launcher-${VERSION}-all.jar" --version
+          ZIP="VANTA-Launcher-${VERSION}-windows-portable.zip"
+          (cd launcher/build/jpackage && 7z a -tzip -mx=9 "../../../dist/$ZIP" "VANTA Launcher" > /dev/null)
+          node scripts/release/check-zip.mjs "dist/$ZIP" "VANTA Launcher/VANTA Launcher.exe" \
+            "VANTA Launcher/app/vanta-launcher-${VERSION}-all.jar" "VANTA Launcher/runtime/bin/java.exe"
+      - name: MSI installer (per-user, WiX on the runner)
+        run: |
+          set -euo pipefail
+          (cd launcher && ./gradlew jpackage "-PjavafxPlatform=$JAVAFX_PLATFORM" -PjpackageType=msi --stacktrace)
+          shopt -s nullglob
+          files=(launcher/build/jpackage/*.msi)
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one .msi, found ${#files[@]}"; ls -la launcher/build/jpackage; exit 1; }
+          cp "${files[0]}" "dist/VANTA-Launcher-${VERSION}.msi"
       - name: EXE installer
-        working-directory: launcher
         run: |
           set -euo pipefail
-          ./gradlew jpackage -PjpackageType=exe --stacktrace
-          cp build/jpackage/*.exe "../dist/VANTA-Launcher-${VERSION}.exe"
-      - name: Portable jar and smoke test
+          (cd launcher && ./gradlew jpackage "-PjavafxPlatform=$JAVAFX_PLATFORM" -PjpackageType=exe --stacktrace)
+          shopt -s nullglob
+          files=(launcher/build/jpackage/*.exe)
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one .exe, found ${#files[@]}"; ls -la launcher/build/jpackage; exit 1; }
+          cp "${files[0]}" "dist/VANTA-Launcher-${VERSION}.exe"
+      - name: Check the staged Windows files
         run: |
           set -euo pipefail
-          cp "launcher/build/libs/vanta-launcher-${VERSION}-all.jar" dist/
-          java -jar "dist/vanta-launcher-${VERSION}-all.jar" --version
+          for f in "VANTA-Launcher-${VERSION}.msi" "VANTA-Launcher-${VERSION}.exe" \
+                   "VANTA-Launcher-${VERSION}-windows-portable.zip" "vanta-launcher-${VERSION}-windows-all.jar"; do
+            test -s "dist/$f" || { echo "::error::dist/$f is missing or empty"; exit 1; }
+          done
+          shopt -s nullglob
+          staged=(dist/*)
+          [ "${#staged[@]}" -eq 4 ] || { echo "::error::expected 4 files in dist, found ${#staged[@]}"; ls -la dist; exit 1; }
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:
@@ -214,12 +328,14 @@ jobs:
           if-no-files-found: error
 
   launcher-linux:
-    name: Launcher app image (Linux)
+    name: Launcher files (Linux x64)
     needs: prepare
     if: needs.prepare.outputs.product == 'launcher'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
+      JAVAFX_PLATFORM: linux
     steps:
       - uses: actions/checkout@v4
       - uses: gradle/actions/wrapper-validation@v4
@@ -227,17 +343,47 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build, test, jlink and app image
+      - name: Build and test
         working-directory: launcher
-        run: ./gradlew build fatJar jlinkImage jpackage --stacktrace
-      - name: Package app image and smoke test the CLI
+        run: ./gradlew build fatJar "-PjavafxPlatform=$JAVAFX_PLATFORM" --stacktrace
+      - name: Check and smoke test the fat jar (JavaFX natives for Linux x64 only)
         run: |
           set -euo pipefail
+          JAR="launcher/build/libs/vanta-launcher-${VERSION}-all.jar"
+          test -s "$JAR" || { echo "::error::$JAR was not produced"; ls -la launcher/build/libs; exit 1; }
+          node scripts/release/check-launcher-jar.mjs "$JAR" --platform "$JAVAFX_PLATFORM" --version "$VERSION"
+          java -jar "$JAR" --version
+          java -jar "$JAR" --check-java
           mkdir -p dist
-          tar -C launcher/build/jpackage -czf "dist/VANTA-Launcher-${VERSION}-linux-x64.tar.gz" "VANTA Launcher"
-          java -jar "launcher/build/libs/vanta-launcher-${VERSION}-all.jar" --version
-          java -jar "launcher/build/libs/vanta-launcher-${VERSION}-all.jar" --check-java
+          cp "$JAR" "dist/vanta-launcher-${VERSION}-linux-all.jar"
+      - name: App image with the jlink runtime, packed as tar.gz
+        run: |
+          set -euo pipefail
+          (cd launcher && ./gradlew jlinkImage jpackage "-PjavafxPlatform=$JAVAFX_PLATFORM" -PjpackageType=app-image --stacktrace)
+          APP="launcher/build/jpackage/VANTA Launcher"
+          for f in "bin/VANTA Launcher" "lib/app/vanta-launcher-${VERSION}-all.jar" "lib/runtime/bin/java"; do
+            test -s "$APP/$f" || { echo "::error::the app image has no $f"; find launcher/build/jpackage -maxdepth 3 | head -50; exit 1; }
+          done
+          "$APP/bin/VANTA Launcher" --version
+          TAR="dist/VANTA-Launcher-${VERSION}-linux-x64.tar.gz"
+          tar -C launcher/build/jpackage -czf "$TAR" "VANTA Launcher"
+          tar -tzf "$TAR" > "$RUNNER_TEMP/tar-list.txt"
+          for f in "VANTA Launcher/bin/VANTA Launcher" "VANTA Launcher/lib/app/vanta-launcher-${VERSION}-all.jar" "VANTA Launcher/lib/runtime/bin/java"; do
+            grep -Fxq "$f" "$RUNNER_TEMP/tar-list.txt" || { echo "::error::$TAR does not contain $f"; exit 1; }
+          done
+      - name: Check the staged Linux files
+        run: |
+          set -euo pipefail
+          for f in "VANTA-Launcher-${VERSION}-linux-x64.tar.gz" "vanta-launcher-${VERSION}-linux-all.jar"; do
+            test -s "dist/$f" || { echo "::error::dist/$f is missing or empty"; exit 1; }
+          done
+          shopt -s nullglob
+          staged=(dist/*)
+          [ "${#staged[@]}" -eq 2 ] || { echo "::error::expected 2 files in dist, found ${#staged[@]}"; ls -la dist; exit 1; }
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:
@@ -245,24 +391,80 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  launcher-macos:
+    name: Launcher files (macOS Apple Silicon jar)
+    needs: prepare
+    if: needs.prepare.outputs.product == 'launcher'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      JAVAFX_PLATFORM: mac-aarch64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Runner is Apple Silicon
+        run: |
+          set -euo pipefail
+          ARCH="$(uname -m)"
+          [ "$ARCH" = arm64 ] || { echo "::error::expected an arm64 (Apple Silicon) runner, got $ARCH"; exit 1; }
+          sw_vers
+          java -version
+      - name: Build the fat jar
+        working-directory: launcher
+        run: ./gradlew fatJar "-PjavafxPlatform=$JAVAFX_PLATFORM" --stacktrace
+      - name: Check and smoke test the fat jar (JavaFX natives for Apple Silicon macOS only)
+        run: |
+          set -euo pipefail
+          JAR="launcher/build/libs/vanta-launcher-${VERSION}-all.jar"
+          test -s "$JAR" || { echo "::error::$JAR was not produced"; ls -la launcher/build/libs; exit 1; }
+          # Fails unless libglass.dylib and every other JavaFX native at the jar root is an arm64 Mach-O library.
+          node scripts/release/check-launcher-jar.mjs "$JAR" --platform "$JAVAFX_PLATFORM" --version "$VERSION"
+          java -jar "$JAR" --version
+          java -jar "$JAR" --check-java --java "$JAVA_HOME/bin/java"
+          mkdir -p dist
+          cp "$JAR" "dist/vanta-launcher-${VERSION}-macos-aarch64-all.jar"
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-launcher-macos
+          path: dist/*
+          if-no-files-found: error
+      - name: Unit tests on macOS (informational; Linux and Windows runs gate the release)
+        continue-on-error: true
+        timeout-minutes: 15
+        working-directory: launcher
+        run: ./gradlew test "-PjavafxPlatform=$JAVAFX_PLATFORM" --stacktrace
+
   publish:
     name: Publish GitHub Release and manifest
-    needs: [prepare, client, launcher-windows, launcher-linux]
+    needs: [prepare, client, launcher-windows, launcher-linux, launcher-macos]
     if: >-
       ${{ !cancelled() && needs.prepare.result == 'success' &&
           ((needs.prepare.outputs.product == 'client' && needs.client.result == 'success') ||
-           (needs.prepare.outputs.product == 'launcher' && needs.launcher-windows.result == 'success' && needs.launcher-linux.result == 'success')) }}
+           (needs.prepare.outputs.product == 'launcher' && needs.launcher-windows.result == 'success' &&
+            needs.launcher-linux.result == 'success' && needs.launcher-macos.result == 'success')) }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
     env:
       PRODUCT: ${{ needs.prepare.outputs.product }}
       VERSION: ${{ needs.prepare.outputs.version }}
       TAG: ${{ needs.prepare.outputs.tag }}
       CHANNEL: ${{ needs.prepare.outputs.channel }}
     steps:
+      # The commit that was built, so the manifest template is the one the prepare job validated.
       - uses: actions/checkout@v4
-        with:
-          # The manifest pull request targets the default branch, so build it from there.
-          ref: ${{ github.event.repository.default_branch }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -271,31 +473,65 @@ jobs:
           pattern: release-*
           path: dist
           merge-multiple: true
-      - name: Build the manifest from the real artifacts
+      - name: The downloaded files are exactly the release files
+        run: node scripts/release/release-assets.mjs check-dir dist --product "$PRODUCT" --version "$VERSION"
+      - name: Build the manifest from the real files (manifest order, primary first)
+        id: manifest
         run: |
           set -euo pipefail
-          ls -la dist
-          rm -f dist/SHA256SUMS.txt
-          for file in dist/*; do
-            name=$(basename "$file")
-            node scripts/release/build-manifest.mjs \
-              --product "$PRODUCT" --version "$VERSION" \
-              --file "$file" --name "$name" \
+          MANIFEST="shared/releases/${PRODUCT}-${VERSION}.json"
+          node scripts/release/release-assets.mjs check-manifest "$MANIFEST"
+          DATE="$(date -u +%Y-%m-%d)"
+          LIST="$(node scripts/release/release-assets.mjs list --product "$PRODUCT" --version "$VERSION")"
+          mapfile -t ASSETS <<< "$LIST"
+          [ -n "${ASSETS[0]:-}" ] || { echo "::error::no release files listed"; exit 1; }
+          # latest/ follows stable releases only (see "Channels" in the header).
+          LATEST_FLAG=()
+          [ "$CHANNEL" = stable ] || LATEST_FLAG=(--no-latest)
+          for name in "${ASSETS[@]}"; do
+            node scripts/release/build-manifest.mjs --product "$PRODUCT" --version "$VERSION" \
+              --file "dist/$name" --name "$name" \
               --url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${name}" \
-              --date "$(date -u +%Y-%m-%d)" --channel "$CHANNEL" \
-              --sums dist/SHA256SUMS.txt
+              --date "$DATE" --channel "$CHANNEL" --sums dist/SHA256SUMS.txt "${LATEST_FLAG[@]}"
           done
-      - name: Validate and verify the manifest against the artifacts
+          # Upload list for the release step: manifest files in order, then the checksums and the manifest itself.
+          {
+            echo 'files<<VANTA_RELEASE_FILES_EOF'
+            for name in "${ASSETS[@]}"; do echo "dist/$name"; done
+            echo 'dist/SHA256SUMS.txt'
+            echo "dist/${PRODUCT}-${VERSION}.json"
+            echo 'VANTA_RELEASE_FILES_EOF'
+          } >> "$GITHUB_OUTPUT"
+      - name: Validate the manifest and verify it against the files
         run: |
           set -euo pipefail
-          node scripts/release/validate-json.mjs shared/schemas/release-manifest.schema.json shared/releases/*.json shared/releases/latest/*.json
-          node scripts/release/verify-manifest.mjs "shared/releases/${PRODUCT}-${VERSION}.json" --local dist
-          echo "SHA256SUMS.txt:"; cat dist/SHA256SUMS.txt
-          cp "shared/releases/${PRODUCT}-${VERSION}.json" dist/
+          MANIFEST="shared/releases/${PRODUCT}-${VERSION}.json"
+          LATEST="shared/releases/latest/${PRODUCT}-latest.json"
+          # nullglob: shared/releases/latest/ does not exist before the first stable release is committed.
+          shopt -s nullglob
+          JSON_FILES=(shared/releases/*.json shared/releases/latest/*.json)
+          shopt -u nullglob
+          node scripts/release/validate-json.mjs shared/schemas/release-manifest.schema.json "${JSON_FILES[@]}"
+          node scripts/release/release-assets.mjs check-manifest "$MANIFEST" --published --repo "$GITHUB_REPOSITORY" --tag "$TAG"
+          if [ "$CHANNEL" = stable ]; then
+            cmp "$MANIFEST" "$LATEST" || { echo "::error::$LATEST differs from $MANIFEST"; exit 1; }
+          elif [ -n "$(git status --porcelain -- shared/releases/latest)" ]; then
+            echo "::error::a $CHANNEL release changed shared/releases/latest/; only stable releases may (installed launchers would offer the pre-release as an update)"
+            git status --porcelain -- shared/releases/latest
+            exit 1
+          fi
+          node scripts/release/verify-manifest.mjs "$MANIFEST" --local dist
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+          cp "$MANIFEST" "dist/${PRODUCT}-${VERSION}.json"
+          node scripts/release/release-assets.mjs check-dir dist --product "$PRODUCT" --version "$VERSION" --with-extras
+          echo "SHA256SUMS.txt:"
+          cat dist/SHA256SUMS.txt
       - name: Compose release notes
         run: |
           set -euo pipefail
           NOTES="website/content/changelog/${PRODUCT}-${VERSION}.md"
+          MC=$(sed -n 's/^minecraft_version=//p' client/gradle.properties)
+          LOADER=$(sed -n 's/^loader_version=//p' client/gradle.properties)
           {
             if [ -f "$NOTES" ]; then
               # Drop the front matter block.
@@ -304,45 +540,137 @@ jobs:
               echo "Release notes: see CHANGELOG.md in the repository."
             fi
             echo
+            echo "## Files"
+            echo
+            node scripts/release/release-assets.mjs notes --product "$PRODUCT" --version "$VERSION" --dir dist
+            echo
+            echo "Also attached: \`SHA256SUMS.txt\` (SHA-256 of the files above) and \`${PRODUCT}-${VERSION}.json\` (the release manifest the website and the launcher read)."
+            echo
             echo "## Verify your download"
             echo
             echo '```'
             cat dist/SHA256SUMS.txt
             echo '```'
             echo
-            echo 'Windows: `certutil -hashfile <file> SHA256` · macOS: `shasum -a 256 <file>` · Linux: `sha256sum -c SHA256SUMS.txt`'
-            echo
-            echo "Minecraft 1.21.11 · Fabric Loader 0.19.5 · Java 21. Not affiliated with Mojang or Microsoft."
+            cat <<'VANTA_NOTES_EOF'
+          Windows: `certutil -hashfile <file> SHA256` · macOS: `shasum -a 256 <file>` · Linux: `sha256sum -c --ignore-missing SHA256SUMS.txt`
+
+          The files are not code-signed yet, so Windows SmartScreen or macOS may warn before opening them. Compare the SHA-256 first.
+
+          VANTA_NOTES_EOF
+            echo "Minecraft ${MC} · Fabric Loader ${LOADER} · Java 21. Not affiliated with Mojang or Microsoft."
           } > release-notes.md
           cat release-notes.md
       - name: Create the GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.TAG }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: ${{ env.PRODUCT == 'client' && 'VANTA Client' || 'VANTA Launcher' }} ${{ env.VERSION }}
+          name: ${{ needs.prepare.outputs.product == 'client' && 'VANTA Client' || 'VANTA Launcher' }} ${{ needs.prepare.outputs.version }}
           body_path: release-notes.md
           draft: ${{ needs.prepare.outputs.draft == 'true' }}
-          prerelease: ${{ env.CHANNEL == 'beta' }}
-          make_latest: ${{ env.CHANNEL == 'stable' }}
-          files: dist/*
+          prerelease: ${{ needs.prepare.outputs.channel == 'beta' }}
+          # See "Latest" in the header: only stable launcher releases become the repository's latest release.
+          make_latest: ${{ (needs.prepare.outputs.product == 'launcher' && needs.prepare.outputs.channel == 'stable') && 'true' || 'false' }}
+          files: ${{ steps.manifest.outputs.files }}
+          preserve_order: true
+          overwrite_files: true
           fail_on_unmatched_files: true
-      - name: Open a pull request with the completed manifest (never pushes to the default branch directly)
+      - name: Verify the public download links (downloads every release file and re-hashes it)
+        id: verify
+        if: needs.prepare.outputs.draft != 'true'
+        run: |
+          set -euo pipefail
+          MANIFEST="shared/releases/${PRODUCT}-${VERSION}.json"
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            if node scripts/release/verify-manifest.mjs "$MANIFEST"; then ok=1; break; fi
+            echo "Attempt $attempt failed; retrying in $((attempt * 15)) s (release files can take a moment to become public)."
+            sleep $((attempt * 15))
+          done
+          [ "$ok" -eq 1 ] || { echo "::error::the public release files do not match $MANIFEST"; exit 1; }
+          BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+          curl -fsSL --retry 5 --retry-delay 10 -o "$RUNNER_TEMP/SHA256SUMS.txt" "$BASE/SHA256SUMS.txt"
+          cmp "$RUNNER_TEMP/SHA256SUMS.txt" dist/SHA256SUMS.txt || { echo "::error::the published SHA256SUMS.txt differs"; exit 1; }
+          curl -fsSL --retry 5 --retry-delay 10 -o "$RUNNER_TEMP/manifest.json" "$BASE/${PRODUCT}-${VERSION}.json"
+          cmp "$RUNNER_TEMP/manifest.json" "$MANIFEST" || { echo "::error::the published ${PRODUCT}-${VERSION}.json differs"; exit 1; }
+          echo "verified=true" >> "$GITHUB_OUTPUT"
+      - name: Draft release (links are not public yet)
+        if: needs.prepare.outputs.draft == 'true'
+        run: |
+          echo "::warning::Draft release: its files are not public, so the download links were not verified. After publishing the draft run: node scripts/release/verify-manifest.mjs shared/releases/${PRODUCT}-${VERSION}.json"
+      - name: Hand the manifest back through the ci-artifacts branch (folder release-<tag>)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERIFIED: ${{ steps.verify.outputs.verified || 'false' }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/release-out"
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          cp "shared/releases/${PRODUCT}-${VERSION}.json" "$OUT/"
+          if [ "$CHANNEL" = stable ]; then
+            mkdir -p "$OUT/latest"
+            cp "shared/releases/latest/${PRODUCT}-latest.json" "$OUT/latest/"
+            APPLY="cp ${PRODUCT}-${VERSION}.json <repo>/shared/releases/ && cp latest/${PRODUCT}-latest.json <repo>/shared/releases/latest/"
+          else
+            # A pre-release never reaches latest/ (see "Channels" in the header).
+            APPLY="cp ${PRODUCT}-${VERSION}.json <repo>/shared/releases/ (${CHANNEL} release: leave shared/releases/latest/ unchanged)"
+          fi
+          cp dist/SHA256SUMS.txt "$OUT/"
+          if [ "$PRODUCT" = client ]; then
+            # The client files are small; the exact released bytes travel with the manifest.
+            LIST="$(node scripts/release/release-assets.mjs list --product client --version "$VERSION")"
+            while IFS= read -r name; do cp "dist/$name" "$OUT/"; done <<< "$LIST"
+          fi
+          {
+            echo "tag=${TAG}"
+            echo "channel=${CHANNEL}"
+            echo "commit=${GITHUB_SHA}"
+            echo "release=https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+            echo "run=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "public_urls_verified=${VERIFIED}"
+            echo "apply=${APPLY}"
+          } > "$OUT/RELEASE-INFO.txt"
+          (cd "$OUT" && find . -type f | sort)
+          bash scripts/ci/publish-screenshots.sh "$OUT" "release-${TAG}"
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## ${PRODUCT} ${VERSION} (${TAG}, ${CHANNEL})"
+            echo
+            echo "- Release: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+            echo "- Manifest hand-back: branch \`ci-artifacts\`, folder \`release-${TAG}/\`"
+            if [ "$CHANNEL" != stable ]; then
+              echo "- ${CHANNEL} release (GitHub pre-release): \`shared/releases/latest/\` was not written; installed launchers are not offered it."
+            fi
+            echo
+            if [ -f dist/SHA256SUMS.txt ]; then
+              echo '```'
+              cat dist/SHA256SUMS.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Open a pull request with the completed manifest (optional; never pushes to the default branch)
+        # Needs "Allow GitHub Actions to create and approve pull requests"; the release is complete without it.
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v7
         with:
-          branch: release/${{ env.TAG }}-manifest
+          branch: release/${{ needs.prepare.outputs.tag }}-manifest
           base: ${{ github.event.repository.default_branch }}
           delete-branch: true
           add-paths: shared/releases/**
-          commit-message: 'chore(release): publish manifest for ${{ env.TAG }}'
-          title: 'chore(release): publish manifest for ${{ env.TAG }}'
+          commit-message: 'chore(release): publish manifest for ${{ needs.prepare.outputs.tag }}'
+          title: 'chore(release): publish manifest for ${{ needs.prepare.outputs.tag }}'
           labels: release
           body: |
-            Completed release manifest for **${{ env.TAG }}**, generated by the release workflow from the uploaded
-            GitHub Release assets (`downloadUrl`, `size`, `sha256`) and verified with `scripts/release/verify-manifest.mjs`.
+            Completed release manifest for **${{ needs.prepare.outputs.tag }}**, generated by the release workflow from the
+            files uploaded to the GitHub Release (`downloadUrl`, `size`, `sha256`) and verified by downloading every public
+            URL with `scripts/release/verify-manifest.mjs`.
 
-            - Release: https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG }}
+            - Release: https://github.com/${{ github.repository }}/releases/tag/${{ needs.prepare.outputs.tag }}
             - Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            Merging publishes the manifest to the website (Netlify redeploys) and to `shared/releases/latest/`
-            for the launcher update check. Do not edit the values by hand; re-run the workflow instead.
+            ${{ needs.prepare.outputs.channel == 'stable' && 'Merging publishes the manifest to the website (Netlify redeploys) and to `shared/releases/latest/`, which the launcher''s update check reads.' || 'This is a beta (GitHub pre-release) manifest. Merging adds it to `shared/releases/` (the website reads it at build time); `shared/releases/latest/`, which the launcher''s update check reads, is not changed, so installed launchers are not offered the pre-release.' }}
+            Do not edit the values by hand; re-run the workflow instead.

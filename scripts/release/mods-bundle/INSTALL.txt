@@ -1,0 +1,30 @@
+VANTA Client {VERSION} for Minecraft Java Edition {MINECRAFT_VERSION}
+=====================================================
+
+Requirements
+- Minecraft Java Edition {MINECRAFT_VERSION} (exactly this version)
+- Fabric Loader {LOADER_VERSION} or newer for {MINECRAFT_VERSION} (the Fabric installer from fabricmc.net)
+- Java 21 (the Fabric profile in the official Minecraft Launcher uses the bundled runtime)
+
+Install
+1. Run the Fabric installer, choose Minecraft {MINECRAFT_VERSION} and loader {LOADER_VERSION}, click Install.
+2. Copy BOTH files from the "mods" folder of this archive into your Minecraft "mods" folder:
+     Windows: %APPDATA%\.minecraft\mods
+     macOS:   ~/Library/Application Support/minecraft/mods
+     Linux:   ~/.minecraft/mods
+   - vanta-client-{VERSION}.jar           (VANTA Client, MIT)
+   - fabric-api-{FABRIC_API_VERSION}.jar   (Fabric API, Apache-2.0, required dependency)
+3. In the Minecraft Launcher start the profile the Fabric installer created. It is listed as
+   "fabric-loader-{MINECRAFT_VERSION}" (its version id is fabric-loader-{LOADER_VERSION}-{MINECRAFT_VERSION}).
+
+In the game
+- The VANTA main menu replaces the title screen (Settings > General lets you switch back).
+- Right Shift opens the VANTA settings; C is hold-to-zoom. Everything is in Settings > Controls.
+- Configuration lives in .minecraft/config/vanta/.
+
+VANTA is a legitimate client: no cheats, no combat automation, no packet manipulation.
+
+Verify the files before installing (run in the folder you unzipped this archive into):
+  Linux:   sha256sum -c SHA256SUMS
+  macOS:   shasum -a 256 -c SHA256SUMS
+  Windows: certutil -hashfile mods\vanta-client-{VERSION}.jar SHA256   (compare with the value in SHA256SUMS)

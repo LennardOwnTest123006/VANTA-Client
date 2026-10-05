@@ -15,6 +15,9 @@
  *   3. Upserts the file entry (matched by file name), sets releaseDate/channel/changelog/notes.
  *   4. Validates the result against shared/schemas/release-manifest.schema.json and writes it atomically,
  *      plus a copy at shared/releases/latest/<product>-latest.json (what the launcher's update check reads).
+ *      The copy is only written for stable manifests: latest/ follows stable releases only, because the launcher
+ *      offers whatever version it finds there as an update. A beta manifest (channel "beta", a GitHub pre-release)
+ *      never touches latest/; --no-latest skips the copy for stable manifests too.
  *   5. Appends/updates `<sha256>  <name>` in SHA256SUMS.txt (sha256sum -c compatible).
  *
  * Run it once per artifact; the launcher release calls it for the .msi, .exe, jar and tar.gz in turn.
@@ -111,10 +114,11 @@ export function updateSums(existing, name, sha256) {
  * @param {string} [params.notes]
  * @param {string} [params.outDir]     manifest directory (default <root>/shared/releases)
  * @param {string} [params.sumsPath]   SHA256SUMS.txt path (default next to the artifact)
- * @param {boolean} [params.latest]    also write latest/<product>-latest.json (default true)
+ * @param {boolean} [params.latest]    also write latest/<product>-latest.json (default true; never for a beta manifest)
  * @param {boolean} [params.dryRun]    do not write anything
  * @param {string} [params.root]       repository root
- * @returns {Promise<{ manifest: object, manifestPath: string, latestPath: string|null, sumsPath: string, entry: object, created: boolean }>}
+ * @returns {Promise<{ manifest: object, manifestPath: string, latestPath: string|null, latestSkipped: string|null, sumsPath: string, entry: object, created: boolean }>}
+ *          latestSkipped says why latest/ was not written (null when it was)
  */
 export async function buildManifest(params) {
   const root = params.root ?? REPO_ROOT;
@@ -147,7 +151,10 @@ export async function buildManifest(params) {
     throw new Error(`resulting manifest is invalid:\n${details}`);
   }
 
-  const latestPath = params.latest === false ? null : join(outDir, 'latest', `${product}-latest.json`);
+  let latestSkipped = null;
+  if (params.latest === false) latestSkipped = '--no-latest';
+  else if (manifest.channel !== 'stable') latestSkipped = `channel is '${manifest.channel}'; latest/ only follows stable releases`;
+  const latestPath = latestSkipped ? null : join(outDir, 'latest', `${product}-latest.json`);
   const sumsPath = params.sumsPath ?? join(dirname(resolve(file)), 'SHA256SUMS.txt');
   if (!params.dryRun) {
     writeJsonAtomic(loaded.path, manifest);
@@ -155,7 +162,7 @@ export async function buildManifest(params) {
     const existing = existsSync(sumsPath) ? readFileSync(sumsPath, 'utf8') : '';
     writeTextAtomic(sumsPath, updateSums(existing, name, sha256));
   }
-  return { manifest, manifestPath: loaded.path, latestPath, sumsPath, entry, created: loaded.created };
+  return { manifest, manifestPath: loaded.path, latestPath, latestSkipped, sumsPath, entry, created: loaded.created };
 }
 
 /** CLI entry point. */
@@ -200,6 +207,7 @@ export async function main(argv, log = console.log, logError = console.error) {
     log(`${result.entry.name}: ${result.entry.size} bytes, sha256 ${result.entry.sha256}`);
     log(`${verb} ${result.manifestPath}${result.created ? ' (new)' : ''}`);
     if (result.latestPath) log(`${verb} ${result.latestPath}`);
+    else log(`not writing latest/${result.manifest.product}-latest.json (${result.latestSkipped})`);
     log(`${verb} ${result.sumsPath}`);
     if (parsed.flags.has('dry-run')) log(JSON.stringify(result.manifest, null, 2));
     return 0;

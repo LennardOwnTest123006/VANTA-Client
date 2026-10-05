@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://github.com/LennardOwnTest123006/VANTA-Client/tree/main/docs
+    url: https://github.com/LennardOwnTest123006/VANTA-Client/tree/HEAD/docs
     about: Installation, launcher, settings, HUD, profiles, troubleshooting and FAQ. Please read the troubleshooting guide before filing a bug.
   - name: Security vulnerability
     url: https://github.com/LennardOwnTest123006/VANTA-Client/security/policy

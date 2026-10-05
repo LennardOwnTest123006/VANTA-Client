@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for taking the time to report a problem. VANTA Client targets **Minecraft Java Edition 1.21.11** with
         **Fabric Loader 0.19.5** and **Java 21** only; reports about other Minecraft versions are closed as out of scope.
-        Please check [docs/troubleshooting.md](https://github.com/LennardOwnTest123006/VANTA-Client/blob/main/docs/troubleshooting.md)
+        Please check [docs/troubleshooting.md](https://github.com/LennardOwnTest123006/VANTA-Client/blob/HEAD/docs/troubleshooting.md)
         and search existing issues first.
   - type: dropdown
     id: component

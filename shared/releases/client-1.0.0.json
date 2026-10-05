@@ -14,6 +14,18 @@
       "downloadUrl": "",
       "size": 0,
       "sha256": ""
+    },
+    {
+      "name": "vanta-client-1.0.0-mods.zip",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "fabric-api-0.141.6+1.21.11.jar",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
     }
   ],
   "changelog": "website/content/changelog/client-1.0.0.md"

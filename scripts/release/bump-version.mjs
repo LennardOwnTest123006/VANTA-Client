@@ -11,7 +11,8 @@
  * launcher -> launcher/gradle.properties (launcher_version), new shared/releases/launcher-<to>.json
  * website  -> website/package.json and website/package-lock.json (version fields)
  *
- * The new manifest has empty downloadUrl/sha256 and size 0: the release workflow fills them. The script
+ * The new manifest lists the release files from release-assets.mjs (the names the release workflow uploads) with
+ * empty downloadUrl/sha256 and size 0: the release workflow fills them. The script
  * never touches CHANGELOG.md or website/content/changelog/ — release notes are written by a person; it
  * prints a checklist of what still has to be done.
  */
@@ -19,7 +20,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from './lib/args.mjs';
-import { REPO_ROOT, compareSemVer, isSemVer, readJson, todayUtc, writeJsonAtomic, writeTextAtomic } from './lib/repo.mjs';
+import { REPO_ROOT, compareSemVer, isSemVer, readJson, readToolchain, todayUtc, writeJsonAtomic, writeTextAtomic } from './lib/repo.mjs';
+import { releaseAssetNames } from './release-assets.mjs';
 
 const USAGE = `Usage: node scripts/release/bump-version.mjs --product <client|launcher|website> --to <semver> [--date YYYY-MM-DD] [--dry-run] [--root <repo root>]`;
 
@@ -49,16 +51,18 @@ export function newestManifest(releasesDir, product) {
 }
 
 /**
- * Derives an unpublished manifest for `to` from `template` (file names get the new version, URLs/hashes reset).
+ * Derives an unpublished manifest for `to` from `template` (URLs/hashes reset). The file names are `names` when
+ * given (planBump passes the release-assets.mjs list), otherwise the template's names with the version replaced.
  */
-export function nextManifest(template, to, date) {
+export function nextManifest(template, to, date, names) {
   const from = template.version;
   const renamed = (name) => name.split(from).join(to);
+  const fileNames = names ?? (template.files ?? []).map((f) => renamed(f.name));
   return {
     ...template,
     version: to,
     releaseDate: date,
-    files: (template.files ?? []).map((f) => ({ name: renamed(f.name), downloadUrl: '', size: 0, sha256: '' })),
+    files: fileNames.map((name) => ({ name, downloadUrl: '', size: 0, sha256: '' })),
     changelog: `website/content/changelog/${template.product}-${to}.md`,
   };
 }
@@ -114,7 +118,9 @@ export function planBump({ root, product, to, date = todayUtc() }) {
     }
     const target = join(releasesDir, `${product}-${to}.json`);
     if (existsSync(target)) throw new Error(`${relative(root, target)} already exists`);
-    const manifest = nextManifest(readJson(newest.file), to, date);
+    const toolchain = readToolchain(root);
+    const manifest = nextManifest(readJson(newest.file), to, date, releaseAssetNames(product, to, toolchain));
+    for (const key of ['minecraftVersion', 'fabricVersion', 'fabricApiVersion', 'javaVersion']) manifest[key] = toolchain[key];
     changes.push({ path: target, kind: 'create', after: `${JSON.stringify(manifest, null, 2)}\n` });
   }
   return changes;

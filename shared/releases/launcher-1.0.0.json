@@ -22,7 +22,31 @@
       "sha256": ""
     },
     {
-      "name": "vanta-launcher-1.0.0-all.jar",
+      "name": "VANTA-Launcher-1.0.0-windows-portable.zip",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "vanta-launcher-1.0.0-windows-all.jar",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "VANTA-Launcher-1.0.0-linux-x64.tar.gz",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "vanta-launcher-1.0.0-linux-all.jar",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "vanta-launcher-1.0.0-macos-aarch64-all.jar",
       "downloadUrl": "",
       "size": 0,
       "sha256": ""

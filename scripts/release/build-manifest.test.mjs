@@ -159,7 +159,42 @@ describe('buildManifest()', () => {
     assert.equal(existsSync(dry.sumsPath), false);
     const noLatest = await buildManifest({ root: fixture.root, product: 'client', version: '1.0.0', file, url: `${URL_BASE}/x.jar`, latest: false });
     assert.equal(noLatest.latestPath, null);
+    assert.equal(noLatest.latestSkipped, '--no-latest');
     assert.equal(existsSync(join(fixture.root, 'shared', 'releases', 'latest')), false);
+  });
+
+  test('a beta manifest never writes latest/ (the launcher would offer it as an update); stable does again', async () => {
+    const file = join(fixture.root, 'dist', 'vanta-client-1.0.0.jar');
+    const latestDir = join(fixture.root, 'shared', 'releases', 'latest');
+    const latestFile = join(latestDir, 'client-latest.json');
+    // A stable manifest already published to latest/ must stay exactly as it is.
+    mkdirSync(latestDir, { recursive: true });
+    const stableLatest = '{"product":"client","version":"0.9.0","channel":"stable"}\n';
+    writeFileSync(latestFile, stableLatest);
+    const beta = await buildManifest({ root: fixture.root, product: 'client', version: '1.0.0', file, url: `${URL_BASE}/client-v1.0.0/x.jar`, channel: 'beta' });
+    assert.equal(beta.manifest.channel, 'beta');
+    assert.equal(beta.latestPath, null);
+    assert.match(beta.latestSkipped, /channel is 'beta'; latest\/ only follows stable releases/);
+    assert.equal(readFileSync(latestFile, 'utf8'), stableLatest, 'latest/ untouched');
+    assert.ok(existsSync(beta.manifestPath), 'the versioned manifest is still written');
+    // A later run without --channel keeps the manifest's beta channel and still skips latest/.
+    const again = await buildManifest({ root: fixture.root, product: 'client', version: '1.0.0', file, url: `${URL_BASE}/client-v1.0.0/x.jar` });
+    assert.equal(again.manifest.channel, 'beta');
+    assert.equal(again.latestPath, null);
+    assert.equal(readFileSync(latestFile, 'utf8'), stableLatest);
+    // CLI says why.
+    const out = [];
+    assert.equal(await main([
+      '--product', 'client', '--version', '1.0.0', '--file', file, '--url', `${URL_BASE}/client-v1.0.0/x.jar`,
+      '--root', fixture.root, '--channel', 'beta',
+    ], (m) => out.push(m), () => {}), 0);
+    assert.match(out.join('\n'), /not writing latest\/client-latest\.json \(channel is 'beta'/);
+    assert.equal(readFileSync(latestFile, 'utf8'), stableLatest);
+    // Promoting the same manifest to stable writes latest/ again.
+    const stable = await buildManifest({ root: fixture.root, product: 'client', version: '1.0.0', file, url: `${URL_BASE}/client-v1.0.0/x.jar`, channel: 'stable' });
+    assert.equal(stable.latestPath, latestFile);
+    assert.equal(stable.latestSkipped, null);
+    assert.deepEqual(JSON.parse(readFileSync(latestFile, 'utf8')), stable.manifest);
   });
 
   test('CLI: parses arguments and reports usage errors', async () => {

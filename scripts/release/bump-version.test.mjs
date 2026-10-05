@@ -72,19 +72,42 @@ describe('planBump()', () => {
     assert.equal(manifest.version, '1.0.1');
     assert.equal(manifest.product, 'client');
     assert.equal(manifest.minecraftVersion, '1.21.11');
-    assert.deepEqual(manifest.files, [{ name: 'vanta-client-1.0.1.jar', downloadUrl: '', size: 0, sha256: '' }]);
+    assert.deepEqual(manifest.files, [
+      { name: 'vanta-client-1.0.1.jar', downloadUrl: '', size: 0, sha256: '' },
+      { name: 'vanta-client-1.0.1-mods.zip', downloadUrl: '', size: 0, sha256: '' },
+      { name: 'fabric-api-0.141.6+1.21.11.jar', downloadUrl: '', size: 0, sha256: '' },
+    ]);
     assert.equal(manifest.changelog, 'website/content/changelog/client-1.0.1.md');
     assert.equal(manifest.releaseDate, '2026-10-04');
     assert.ok(existsSync(join(root, 'shared/releases/client-1.0.0.json')), 'old manifest kept');
   });
 
-  test('launcher: gradle.properties and manifest with all three file names renamed', () => {
+  test('launcher: gradle.properties and a manifest listing every release file of the new version', () => {
     const root = makeRepo();
     const changes = planBump({ root, product: 'launcher', to: '1.1.0', date: '2026-10-04' });
     applyChanges(changes);
     assert.match(readFileSync(join(root, 'launcher/gradle.properties'), 'utf8'), /^launcher_version=1\.1\.0$/m);
     const manifest = JSON.parse(readFileSync(join(root, 'shared/releases/launcher-1.1.0.json'), 'utf8'));
-    assert.deepEqual(manifest.files.map((f) => f.name), ['VANTA-Launcher-1.1.0.msi', 'VANTA-Launcher-1.1.0.exe', 'vanta-launcher-1.1.0-all.jar']);
+    assert.deepEqual(manifest.files.map((f) => f.name), [
+      'VANTA-Launcher-1.1.0.msi',
+      'VANTA-Launcher-1.1.0.exe',
+      'VANTA-Launcher-1.1.0-windows-portable.zip',
+      'vanta-launcher-1.1.0-windows-all.jar',
+      'VANTA-Launcher-1.1.0-linux-x64.tar.gz',
+      'vanta-launcher-1.1.0-linux-all.jar',
+      'vanta-launcher-1.1.0-macos-aarch64-all.jar',
+    ]);
+    assert.ok(manifest.files.every((f) => f.downloadUrl === '' && f.size === 0 && f.sha256 === ''));
+  });
+
+  test('the new manifest takes the toolchain from client/gradle.properties and fresh asset names', () => {
+    const root = makeRepo();
+    writeFileSync(join(root, 'client/gradle.properties'),
+      readFileSync(join(root, 'client/gradle.properties'), 'utf8').replace(/^fabric_api_version=.*$/m, 'fabric_api_version=0.142.0+1.21.11'));
+    applyChanges(planBump({ root, product: 'client', to: '1.0.1', date: '2026-10-04' }));
+    const manifest = JSON.parse(readFileSync(join(root, 'shared/releases/client-1.0.1.json'), 'utf8'));
+    assert.equal(manifest.fabricApiVersion, '0.142.0+1.21.11');
+    assert.equal(manifest.files[2].name, 'fabric-api-0.142.0+1.21.11.jar');
   });
 
   test('website: package.json and package-lock.json only', () => {
