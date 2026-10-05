@@ -213,6 +213,13 @@ jobs:
         run: |
           java -jar build/libs/vanta-launcher-*-all.jar --version
           java -jar build/libs/vanta-launcher-*-all.jar --check-java
+      - name: Zip the Windows app image (portable build) before the installer replaces it
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/launcher-windows"
+          (cd launcher/build/jpackage && 7z a -tzip -mx=9 "$RUNNER_TEMP/launcher-windows/VANTA-Launcher-1.0.0-windows-portable.zip" "VANTA Launcher" >/dev/null)
+          ls -la "$RUNNER_TEMP/launcher-windows"
       - name: Windows installer (msi, WiX on the runner)
         if: matrix.os == 'windows-latest'
         working-directory: launcher
@@ -226,6 +233,18 @@ jobs:
             launcher/build/libs/*-all.jar
             launcher/build/jpackage/**
           if-no-files-found: ignore
+      - name: Publish the Linux build to the ci-artifacts branch (with SHA-256)
+        if: matrix.os == 'ubuntu-24.04' && github.event_name == 'push'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OUT="$RUNNER_TEMP/launcher-linux"
+          mkdir -p "$OUT"
+          cp launcher/build/libs/*-all.jar "$OUT/"
+          (cd launcher/build/jpackage && tar -czf "$OUT/VANTA-Launcher-1.0.0-linux-x64.tar.gz" "VANTA Launcher")
+          (cd "$OUT" && sha256sum * > SHA256SUMS && cat SHA256SUMS && ls -la)
+          bash scripts/ci/publish-screenshots.sh "$OUT" launcher-linux
       - name: Publish the Windows build to the ci-artifacts branch (with SHA-256)
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
         shell: bash
@@ -235,9 +254,6 @@ jobs:
           OUT="$RUNNER_TEMP/launcher-windows"
           mkdir -p "$OUT"
           cp launcher/build/libs/*-all.jar "$OUT/"
-          if [ -d "launcher/build/jpackage/VANTA Launcher" ]; then
-            (cd launcher/build/jpackage && 7z a -tzip -mx=9 "$OUT/VANTA-Launcher-1.0.0-windows-portable.zip" "VANTA Launcher" >/dev/null)
-          fi
           cp launcher/build/jpackage/*.msi "$OUT/" 2>/dev/null || echo "no msi produced"
           (cd "$OUT" && sha256sum * > SHA256SUMS && cat SHA256SUMS && ls -la)
           bash scripts/ci/publish-screenshots.sh "$OUT" launcher-windows
