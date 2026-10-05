@@ -10,8 +10,10 @@ import net.minecraft.client.gui.screens.TitleScreen;
 /**
  * Decides whether a vanilla {@link TitleScreen} about to be shown is swapped for the VANTA main menu.
  * <p>
- * The swap happens in {@code MinecraftMixin} on every {@code Minecraft.setScreen(TitleScreen)} call, so returning from
- * any vanilla sub-screen lands on the VANTA menu too. It is skipped when the setting
+ * The swap happens in {@code MinecraftMixin} on every {@code Minecraft.setScreen} call that would end on the vanilla
+ * title screen: {@code setScreen(TitleScreen)}, and {@code setScreen(null)} while no world is loaded (vanilla turns that
+ * into a new title screen, e.g. after Cancel / Escape on the Create World screen Singleplayer opens when there are no
+ * worlds). So returning from any vanilla sub-screen lands on the VANTA menu too. It is skipped when the setting
  * {@code menu.customMainMenu} is off, when the JVM property {@code vanta.forceVanillaMenu} is {@code true}, when the
  * client game test asks for the vanilla screen (the Fabric test runner requires every test to finish on the vanilla
  * title screen), or when the main menu screen is not registered.
@@ -39,11 +41,23 @@ public final class MainMenuReplacement {
     }
 
     /**
-     * @param screen the screen about to be shown (may be {@code null})
+     * True when {@code Minecraft.setScreen(screen)} would show the vanilla title screen: an explicit
+     * {@link TitleScreen}, or {@code null} while no world is loaded (vanilla replaces that with a new title screen).
+     *
+     * @param screen  the screen about to be shown (may be {@code null})
+     * @param noLevel true when no client world is loaded
+     */
+    public static boolean leadsToTitleScreen(Screen screen, boolean noLevel) {
+        return screen instanceof TitleScreen || (screen == null && noLevel);
+    }
+
+    /**
+     * @param screen  the screen about to be shown (may be {@code null})
+     * @param noLevel true when no client world is loaded ({@code Minecraft.level == null})
      * @return the VANTA main menu that should be shown instead, or {@code null} to keep {@code screen}
      */
-    public static Screen replacementFor(Screen screen) {
-        if (!(screen instanceof TitleScreen) || isSuppressed()) {
+    public static Screen replacementFor(Screen screen, boolean noLevel) {
+        if (!leadsToTitleScreen(screen, noLevel) || isSuppressed()) {
             return null;
         }
         VantaRuntime runtime = VantaRuntime.get();
@@ -59,6 +73,9 @@ public final class MainMenuReplacement {
         if (!LOGGED_FIRST.getAndSet(true)) {
             // One line per game session so headless runs (CI) can verify the menu actually came up.
             VantaClient.LOGGER.info("VANTA main menu shown (replacing the vanilla title screen)");
+        }
+        if (screen == null) {
+            VantaClient.LOGGER.debug("Closing the last screen without a world: showing the VANTA main menu");
         }
         return VantaScreens.create(ScreenId.MAIN_MENU, null);
     }

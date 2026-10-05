@@ -1,6 +1,7 @@
 package dev.vanta.client.gametest;
 
 import com.google.gson.JsonElement;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.vanta.client.VantaClient;
@@ -15,21 +16,35 @@ import dev.vanta.core.hud.HudStore;
 import dev.vanta.core.hud.HudWidgetState;
 import dev.vanta.core.hud.HudWidgetType;
 import dev.vanta.core.keybinds.VantaKeys;
+import dev.vanta.core.modrinth.PerformancePack;
 import dev.vanta.core.perf.PerformancePreset;
 import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaServices;
+import dev.vanta.core.screen.mods.ModsScreen;
 import dev.vanta.core.settings.VantaSettings;
+import dev.vanta.core.ui.UiNode;
+import dev.vanta.core.ui.widget.Button;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 
 /**
@@ -39,13 +54,20 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  * Steps (every check throws on failure, which fails the Gradle task):
  * <ol>
  *   <li>the VANTA main menu replaced the title screen → {@code 01_main_menu};</li>
- *   <li>every VANTA screen opens through the registry → {@code 02_settings} … {@code 13_about};</li>
+ *   <li>before any world exists, every way back from the vanilla screens the menu opens ends on the VANTA menu again:
+ *       Singleplayer opens Create New World (no worlds yet) → Escape, and → Cancel; Multiplayer → Escape, and → Back;
+ *       {@code setScreen(null)} without a world;</li>
+ *   <li>every VANTA screen opens through the registry → {@code 02_settings} … {@code 14_mods} (Mods &amp; Shaders
+ *       waits for its first Modrinth answer);</li>
+ *   <li>the Performance pack mods the run was started with are loaded ({@code -Dvanta.gametest.expectMods}); with Iris
+ *       loaded its shader pack screen opens from VANTA → {@code 15_iris_shader_packs};</li>
  *   <li>a setting written through the core API is persisted to {@code settings.json};</li>
  *   <li>a profile can be created and activated and exists on disk;</li>
  *   <li>the keybind model lists mappings (including VANTA's) and the conflict detector runs;</li>
  *   <li>the resource pack bridge lists the vanilla "Default" pack as enabled;</li>
  *   <li>in a fresh creative world: HUD widgets enabled → {@code 20_hud_ingame}, the BALANCED preset sets render
  *       distance 10, the in-game VANTA menu → {@code 21_ingame_menu};</li>
+ *   <li>with a world on disk, Singleplayer opens the world list → Escape, and → Back, both back on the VANTA menu;</li>
  *   <li>the test ends on the vanilla title screen as the Fabric runner requires.</li>
  * </ol>
  */
@@ -63,11 +85,20 @@ public final class VantaClientGameTest implements FabricClientGameTest {
             Map.entry(ScreenId.RESOURCE_PACKS, "10_resource_packs"),
             Map.entry(ScreenId.ACCESSIBILITY, "11_accessibility"),
             Map.entry(ScreenId.SEARCH, "12_search"),
-            Map.entry(ScreenId.ABOUT, "13_about"));
+            Map.entry(ScreenId.ABOUT, "13_about"),
+            Map.entry(ScreenId.MODS, "14_mods"));
 
     private static final List<ScreenId> SCREEN_ORDER = List.of(ScreenId.SETTINGS, ScreenId.HUD_EDITOR,
             ScreenId.PERFORMANCE, ScreenId.PROFILES, ScreenId.KEYBINDS, ScreenId.CROSSHAIR, ScreenId.COSMETICS,
-            ScreenId.STATISTICS, ScreenId.RESOURCE_PACKS, ScreenId.ACCESSIBILITY, ScreenId.SEARCH, ScreenId.ABOUT);
+            ScreenId.STATISTICS, ScreenId.RESOURCE_PACKS, ScreenId.ACCESSIBILITY, ScreenId.SEARCH, ScreenId.ABOUT,
+            ScreenId.MODS);
+
+    /** Ticks a vanilla screen may take to appear (Create New World loads the data packs first). */
+    private static final int SCREEN_TIMEOUT_TICKS = 600;
+    /** Ticks the Mods &amp; Shaders screen may wait for Modrinth before the screenshot is taken anyway. */
+    private static final int MODRINTH_TIMEOUT_TICKS = 400;
+    /** JVM property with the Fabric mod ids that must be loaded (set by the Performance pack CI job). */
+    private static final String EXPECT_MODS_PROPERTY = "vanta.gametest.expectMods";
 
     private static final int CAPTURE_WIDTH = 1920;
     private static final int CAPTURE_HEIGHT = 1080;
@@ -98,14 +129,17 @@ public final class VantaClientGameTest implements FabricClientGameTest {
                 + " → " + guiWidth + " logical px wide");
 
         mainMenu(context);
+        backPathsBeforeAnyWorld(context);
         for (ScreenId id : SCREEN_ORDER) {
             openAndCapture(context, services, id, SCREENSHOTS.get(id));
         }
+        performanceMods(context, services);
         settingsRoundTrip(context, services);
         profiles(context, services);
         keybinds(context, services);
         resourcePacks(context, runtime);
         inWorld(context, services);
+        backPathsWithAWorld(context);
         finishOnVanillaTitleScreen(context);
         step("done: all steps passed");
     }
@@ -131,8 +165,109 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         context.waitFor(client -> client.screen instanceof VantaScreen vanta && vanta.screenId() == id);
         parkCursor(context);
         context.waitTicks(10);
+        if (id == ScreenId.MODS) {
+            // The first list comes from Modrinth; capture it once it arrived (or failed: the test does not depend on
+            // the network, the error state is a valid screen too).
+            boolean answered = pollFor(context, client -> client.screen instanceof VantaScreen vanta
+                    && vanta.ui() instanceof ModsScreen mods && !mods.isSearching(), MODRINTH_TIMEOUT_TICKS);
+            String state = context.computeOnClient(client -> client.screen instanceof VantaScreen vanta
+                    && vanta.ui() instanceof ModsScreen mods
+                    ? mods.searchError().map(e -> "Modrinth error " + e.kind())
+                    .orElse(mods.results().hits().size() + " Modrinth results") : "not the Mods screen");
+            step("Mods & Shaders: " + (answered ? state : "Modrinth did not answer in time"));
+            context.waitTicks(5);
+        }
         Path shot = context.takeScreenshot(screenshot);
         step("screen " + id.id() + " → " + shot.getFileName());
+    }
+
+    /**
+     * The flow players reported: with no world yet, Singleplayer on the VANTA menu opens Create New World; leaving it
+     * with Escape or Cancel used to end on the vanilla title screen. Multiplayer's Escape / Back and a plain
+     * {@code setScreen(null)} without a world must also land on the VANTA menu.
+     */
+    private static void backPathsBeforeAnyWorld(ClientGameTestContext context) {
+        int worlds = countWorlds(context);
+        Class<? extends Screen> singleplayer = worlds == 0 ? CreateWorldScreen.class : SelectWorldScreen.class;
+        step(worlds == 0 ? "no worlds yet: Singleplayer must open Create New World"
+                : worlds + " world(s) already on disk (reused run directory): Singleplayer opens the world list");
+
+        clickMainMenuButton(context, "menu.singleplayer");
+        waitForScreen(context, singleplayer, "Singleplayer");
+        context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+        expectVantaMainMenu(context, "Singleplayer → " + singleplayer.getSimpleName() + " → Escape");
+
+        clickMainMenuButton(context, "menu.singleplayer");
+        waitForScreen(context, singleplayer, "Singleplayer");
+        pressBackButton(context, worlds == 0 ? "gui.cancel" : "gui.back", "gui.cancel", "gui.back");
+        expectVantaMainMenu(context, "Singleplayer → " + singleplayer.getSimpleName() + " → Cancel");
+
+        clickMainMenuButton(context, "menu.multiplayer");
+        waitForScreen(context, JoinMultiplayerScreen.class, "Multiplayer");
+        context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+        expectVantaMainMenu(context, "Multiplayer → JoinMultiplayerScreen → Escape");
+
+        clickMainMenuButton(context, "menu.multiplayer");
+        waitForScreen(context, JoinMultiplayerScreen.class, "Multiplayer");
+        pressBackButton(context, "gui.back", "gui.cancel", "gui.done");
+        expectVantaMainMenu(context, "Multiplayer → JoinMultiplayerScreen → Back");
+
+        context.setScreen(() -> null);
+        expectVantaMainMenu(context, "setScreen(null) without a world");
+    }
+
+    /** With a world on disk Singleplayer opens the world list; Escape and Back return to the VANTA menu. */
+    private static void backPathsWithAWorld(ClientGameTestContext context) {
+        expectVantaMainMenu(context, "leaving the world");
+        check(countWorlds(context) > 0, "the game test world was not saved to disk");
+        clickMainMenuButton(context, "menu.singleplayer");
+        waitForScreen(context, SelectWorldScreen.class, "Singleplayer (with a world)");
+        context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+        expectVantaMainMenu(context, "Singleplayer → SelectWorldScreen → Escape");
+
+        clickMainMenuButton(context, "menu.singleplayer");
+        waitForScreen(context, SelectWorldScreen.class, "Singleplayer (with a world)");
+        pressBackButton(context, "gui.back", "gui.cancel");
+        expectVantaMainMenu(context, "Singleplayer → SelectWorldScreen → Back");
+    }
+
+    /**
+     * Logs which Performance pack mods are loaded, checks the ones the run was started with
+     * ({@value #EXPECT_MODS_PROPERTY}) and, when Iris is loaded, opens its shader pack screen the way the Mods &amp;
+     * Shaders "Open shader settings" button does.
+     */
+    private static void performanceMods(ClientGameTestContext context, VantaServices services) {
+        FabricLoader loader = FabricLoader.getInstance();
+        List<String> loaded = new ArrayList<>();
+        for (PerformancePack.Item item : PerformancePack.ITEMS) {
+            if (loader.isModLoaded(item.modId())) {
+                loaded.add(item.modId());
+            }
+        }
+        step("performance mods loaded: " + (loaded.isEmpty() ? "none" : String.join(", ", loaded)));
+        String expected = System.getProperty(EXPECT_MODS_PROPERTY, "");
+        for (String modId : expected.split(",")) {
+            String id = modId.trim().toLowerCase(Locale.ROOT);
+            if (!id.isEmpty()) {
+                check(loader.isModLoaded(id), "expected mod " + id + " is not loaded");
+            }
+        }
+        if (!loader.isModLoaded("iris")) {
+            return;
+        }
+        context.setScreen(() -> VantaScreens.create(ScreenId.MAIN_MENU, null));
+        expectVantaMainMenu(context, "VANTA main menu before opening Iris");
+        boolean opened = context.computeOnClient(client -> services.modrinth()
+                .map(modrinth -> modrinth.platform().openShaderPackScreen()).orElse(false));
+        check(opened, "Iris is loaded but its shader pack screen could not be opened from VANTA");
+        waitForScreen(context, client -> client.screen != null
+                && client.screen.getClass().getName().startsWith("net.irisshaders."), "the Iris shader pack screen");
+        parkCursor(context);
+        context.waitTicks(10);
+        Path shot = context.takeScreenshot("15_iris_shader_packs");
+        step("Iris shader pack screen opened from VANTA → " + shot.getFileName());
+        context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+        expectVantaMainMenu(context, "Iris shader pack screen → Escape");
     }
 
     private static void settingsRoundTrip(ClientGameTestContext context, VantaServices services) {
@@ -241,6 +376,80 @@ public final class VantaClientGameTest implements FabricClientGameTest {
     }
 
     // ---- helpers -----------------------------------------------------------------------------------------------
+
+    /** Presses a button of the VANTA main menu through the core widget (the same code path as a mouse click). */
+    private static void clickMainMenuButton(ClientGameTestContext context, String id) {
+        expectVantaMainMenu(context, "before pressing " + id);
+        boolean clicked = context.computeOnClient(client -> {
+            if (!(client.screen instanceof VantaScreen vanta) || vanta.screenId() != ScreenId.MAIN_MENU) {
+                return false;
+            }
+            UiNode node = vanta.ui().root().findById(id);
+            if (!(node instanceof Button button)) {
+                return false;
+            }
+            button.click(vanta.ui().context());
+            return true;
+        });
+        check(clicked, "VANTA main menu button " + id + " was not found");
+    }
+
+    /** Polls once per tick; true when the predicate held within {@code timeoutTicks}. */
+    private static boolean pollFor(ClientGameTestContext context, Predicate<Minecraft> predicate, int timeoutTicks) {
+        for (int i = 0; i < timeoutTicks; i++) {
+            if (context.computeOnClient(predicate::test)) {
+                return true;
+            }
+            context.waitTick();
+        }
+        return context.computeOnClient(predicate::test);
+    }
+
+    private static String currentScreen(ClientGameTestContext context) {
+        return context.computeOnClient(client -> client.screen == null ? "no screen"
+                : client.screen instanceof VantaScreen vanta ? "VantaScreen(" + vanta.screenId().id() + ")"
+                : client.screen.getClass().getName());
+    }
+
+    private static void waitForScreen(ClientGameTestContext context, Class<? extends Screen> type, String after) {
+        waitForScreen(context, client -> type.isInstance(client.screen), after + " → " + type.getSimpleName());
+    }
+
+    private static void waitForScreen(ClientGameTestContext context, Predicate<Minecraft> predicate, String what) {
+        boolean shown = pollFor(context, predicate, SCREEN_TIMEOUT_TICKS);
+        check(shown, "expected " + what + " but the screen is " + currentScreen(context));
+    }
+
+    /** The current screen must become the VANTA main menu (never the vanilla title screen). */
+    private static void expectVantaMainMenu(ClientGameTestContext context, String path) {
+        boolean shown = pollFor(context, client -> client.screen instanceof VantaScreen vanta
+                && vanta.screenId() == ScreenId.MAIN_MENU, 100);
+        check(shown, path + " ended on " + currentScreen(context) + " instead of the VANTA main menu");
+        step(path + " → VANTA main menu");
+    }
+
+    /** Presses the first vanilla button found with one of the translation keys. */
+    private static void pressBackButton(ClientGameTestContext context, String... translationKeys) {
+        for (String key : translationKeys) {
+            if (context.tryClickScreenButton(key)) {
+                return;
+            }
+        }
+        check(false, "no button " + String.join(" / ", translationKeys) + " on " + currentScreen(context));
+    }
+
+    /** Worlds in the saves folder (directories with a level.dat). */
+    private static int countWorlds(ClientGameTestContext context) {
+        Path saves = context.computeOnClient(client -> client.getLevelSource().getBaseDir());
+        if (saves == null || !Files.isDirectory(saves)) {
+            return 0;
+        }
+        try (Stream<Path> dirs = Files.list(saves)) {
+            return (int) dirs.filter(dir -> Files.isRegularFile(dir.resolve("level.dat"))).count();
+        } catch (IOException e) {
+            return 0;
+        }
+    }
 
     /** Moves the mouse into the bottom-right corner so captures show no hover highlight or tooltip. */
     private static void parkCursor(ClientGameTestContext context) {
