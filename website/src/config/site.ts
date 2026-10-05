@@ -3,8 +3,10 @@ import { latestRelease, releases } from '../lib/releases';
 
 /**
  * Product facts shown across the website. Versions and toolchain values come from the release
- * manifests in `shared/releases/` (the single source of truth); the constants below are the
- * fallbacks for a checkout without manifests and must match `core/.../VantaVersion.java`.
+ * manifests in `shared/releases/` (the single source of truth): the release each product offers on
+ * the download page ({@link latestRelease} — the newest published one, so a version that is committed
+ * but not published yet does not appear here before its files exist). The constants below are only
+ * the fallbacks for a checkout without any manifest.
  */
 const clientRelease = latestRelease(releases, 'client');
 const launcherRelease = latestRelease(releases, 'launcher');

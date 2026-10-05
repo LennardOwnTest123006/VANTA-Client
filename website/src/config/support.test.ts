@@ -25,6 +25,17 @@ describe('supportCategories', () => {
     }
   });
 
+  it('sends download questions to the FAQ answer about where to download', () => {
+    const website = supportCategories.find((category) => category.id === 'website');
+    expect(website?.summary).toContain('Not published yet');
+    expect(website?.guides[0]).toMatchObject({
+      label: 'Where do I download VANTA?',
+      to: '/documentation/faq#where-do-i-download-vanta',
+    });
+    const all = supportCategories.flatMap((c) => [c.summary, ...c.guides.map((g) => g.label)]);
+    expect(all.join('\n')).not.toMatch(/no download yet|not there yet/i);
+  });
+
   it('links only to documentation pages, FAQ questions and anchors that exist', async () => {
     const pages = await loadDocs();
     const byRoute = new Map(pages.map((page) => [page.route, page]));

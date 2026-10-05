@@ -1,10 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { trackConsoleErrors, waitForApp } from './helpers';
+import { offeredRelease, upcomingRelease } from './repo-state';
 
-/** A release asset of this repository: the only place the download page may link files to. */
-const releaseAsset = (product: string) =>
+/**
+ * A release asset of this repository for one version: the only place the download page may link
+ * files to.
+ */
+const releaseAsset = (product: string, version: string) =>
   new RegExp(
-    `^https://github\\.com/LennardOwnTest123006/VANTA-Client/releases/download/${product}-v[^/]+/[^/]+$`,
+    `^https://github\\.com/LennardOwnTest123006/VANTA-Client/releases/download/${product}-v${version.replace(/\./g, '\\.')}/[^/]+$`,
   );
 
 test.describe('navigation', () => {
@@ -70,7 +74,7 @@ test.describe('navigation', () => {
     expect(errors()).toEqual([]);
   });
 
-  test('download page shows the honest empty state while unpublished, otherwise every file of the GitHub release', async ({
+  test('download page offers the newest published release, or the honest empty state while nothing is published', async ({
     page,
   }) => {
     const errors = trackConsoleErrors(page);
@@ -83,16 +87,25 @@ test.describe('navigation', () => {
     for (const { name, cta, product } of cards) {
       const card = page.getByRole('article', { name });
       await expect(card).toBeVisible();
+      // Expectations come from shared/releases: a committed but unpublished newer version (e.g.
+      // 1.0.1 before the release workflow ran) must not hide the published one (1.0.0).
+      const offered = offeredRelease(product);
+      const upcoming = upcomingRelease(product);
+      expect(offered, `a ${product} manifest in shared/releases`).toBeDefined();
+      if (!offered) continue;
+      await expect(card.getByText(offered.version, { exact: true }).first()).toBeVisible();
       const files = card.getByRole('list', { name: 'All files in this release' });
-      if ((await files.count()) === 0) {
+      if (!offered.published) {
         // Not published: a disabled button, the notice, and no download link anywhere on the card.
+        await expect(files).toHaveCount(0);
         await expect(card.getByRole('button', { name: cta })).toBeDisabled();
         await expect(card.getByText('Not published yet — release pending')).toBeVisible();
         expect(await card.locator('a[href*="/releases/download/"]').count()).toBe(0);
         await expect(card.getByRole('link', { name: 'Release page on GitHub' })).toHaveCount(0);
       } else {
-        // Published: the main button and every listed file point at a GitHub release asset.
-        const asset = releaseAsset(product);
+        // Published: the main button and every listed file point at an asset of that release.
+        const asset = releaseAsset(product, offered.version);
+        await expect(card.getByText('Not published yet — release pending')).toHaveCount(0);
         await expect(card.getByRole('link', { name: cta })).toHaveAttribute('href', asset);
         const links = files.getByRole('link');
         expect(await links.count()).toBeGreaterThan(0);
@@ -101,11 +114,19 @@ test.describe('navigation', () => {
         )) {
           expect(href).toMatch(asset);
         }
-        await expect(files.getByRole('listitem')).toHaveCount(await links.count());
+        await expect(files.getByRole('listitem')).toHaveCount(offered.fileNames.length);
         await expect(card.getByRole('link', { name: 'Release page on GitHub' })).toHaveAttribute(
           'href',
-          new RegExp(`/releases/tag/${product}-v[^/]+$`),
+          new RegExp(`/releases/tag/${product}-v${offered.version.replace(/\./g, '\\.')}$`),
         );
+      }
+      const note = card.getByRole('note', { name: /^Upcoming version/ });
+      if (upcoming) {
+        await expect(note).toHaveAccessibleName(`Upcoming version ${upcoming.version}`);
+        await expect(note).toContainText('is not published yet');
+        expect(await card.locator(`a[href*="-v${upcoming.version}/"]`).count()).toBe(0);
+      } else {
+        await expect(note).toHaveCount(0);
       }
     }
     await expect(page.getByRole('region', { name: 'How to install' })).toBeVisible();

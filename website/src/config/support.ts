@@ -252,12 +252,12 @@ export const supportCategories: readonly SupportCategory[] = [
     id: 'website',
     title: 'Website',
     icon: Globe,
-    summary: 'Downloads that are not there yet, this site and its sources.',
+    summary: 'Where to download VANTA, what "Not published yet" means, this site and its sources.',
     guides: [
       {
-        label: 'Why is there no download yet?',
-        to: '/faq#why-is-there-no-download-yet',
-        note: 'Releases exist only after the release workflow has published them.',
+        label: 'Where do I download VANTA?',
+        to: '/documentation/faq#where-do-i-download-vanta',
+        note: 'The Download page and GitHub Releases. "Not published yet" marks a version whose files are not out yet; the current release stays available.',
       },
       {
         label: 'Privacy',

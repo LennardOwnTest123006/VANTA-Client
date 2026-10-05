@@ -45,6 +45,8 @@ describe('parseFaq', () => {
       expect(item.question.endsWith('?')).toBe(true);
       expect(item.answer.length).toBeGreaterThan(20);
     }
-    expect(faq.items.map((item) => item.id)).toContain('why-is-there-no-download-yet');
+    // Linked from the support page (src/config/support.ts).
+    expect(faq.items.map((item) => item.id)).toContain('where-do-i-download-vanta');
+    expect(faq.items.map((item) => item.id)).not.toContain('why-is-there-no-download-yet');
   });
 });

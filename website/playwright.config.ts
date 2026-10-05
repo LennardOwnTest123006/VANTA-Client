@@ -6,9 +6,9 @@ import { defineConfig, devices } from '@playwright/test';
  * Runs against the production build served by `vite preview`. Uses the preinstalled Chromium when
  * `PLAYWRIGHT_CHROMIUM_PATH` is set (CI / sandbox), otherwise the browser Playwright installed itself.
  *
- * A second build (`dist-e2e-support`) is produced with support channels configured through
- * `VITE_*` variables so the support page can be tested in both states; it is served on its own
- * port and used only by the `support-configured` project.
+ * A second build (`dist-e2e-support`) is produced with support channels and a site URL configured
+ * through `VITE_*` variables so the support page and the absolute social images of `index.html` can
+ * be tested; it is served on its own port and used only by the `support-configured` project.
  */
 const PORT = 4173;
 const SUPPORT_PORT = 4174;
@@ -76,6 +76,7 @@ export default defineConfig({
       env: {
         VITE_SUPPORT_EMAIL: 'help@example.org',
         VITE_DISCORD_URL: 'https://discord.example/invite',
+        VITE_SITE_URL: 'https://vanta.example',
       },
     },
   ],

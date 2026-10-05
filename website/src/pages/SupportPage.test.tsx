@@ -36,6 +36,11 @@ describe('SupportPage', () => {
     ]) {
       expect(within(topics).getByRole('heading', { level: 2, name: title })).toBeInTheDocument();
     }
+    expect(screen.getByRole('link', { name: /Where do I download VANTA\?/ })).toHaveAttribute(
+      'href',
+      '/documentation/faq#where-do-i-download-vanta',
+    );
+    expect(screen.queryByText(/Why is there no download yet/)).toBeNull();
     expect(screen.getByRole('link', { name: /Open an issue/ })).toHaveAttribute(
       'href',
       'https://github.com/LennardOwnTest123006/VANTA-Client/issues',

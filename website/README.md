@@ -11,18 +11,18 @@ behave like a git-connected deploy. Keep them in sync when `netlify.toml` change
 
 ## Commands
 
-| Command                           | What it does                                                                                                                                                     |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm install`                     | Installs dependencies (Node 22, npm 10). `.npmrc` pins `legacy-peer-deps` so `npm install` and `npm ci` resolve identically.                                     |
-| `npm run dev`                     | Vite dev server with HMR.                                                                                                                                        |
-| `npm run build`                   | `tsc -b`, production build into `dist/`, then `scripts/check-bundle-size.mjs` enforces the 180 kB gzip budget for the initial JavaScript and prints every chunk. |
-| `npm run preview`                 | Serves `dist/` (used by the end-to-end tests).                                                                                                                   |
-| `npm test` / `npm run test:watch` | Unit tests (Vitest + Testing Library, jsdom).                                                                                                                    |
-| `npm run test:e2e`                | Playwright end-to-end tests against the production build. Set `PLAYWRIGHT_CHROMIUM_PATH` to use a preinstalled Chromium.                                         |
-| `npm run lint`                    | ESLint (type-aware) + `tsc --noEmit` for the app and tooling projects.                                                                                           |
-| `npm run format` / `format:check` | Prettier.                                                                                                                                                        |
-| `npm run tokens`                  | Regenerates `src/styles/tokens.css` from `shared/design/tokens.json`. The output is committed.                                                                   |
-| `npm run check`                   | The full acceptance run: `lint`, `test`, `build`, `test:e2e`.                                                                                                    |
+| Command                           | What it does                                                                                                                                                                                                                       |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm install`                     | Installs dependencies (Node 22, npm 10). `.npmrc` pins `legacy-peer-deps` so `npm install` and `npm ci` resolve identically.                                                                                                       |
+| `npm run dev`                     | Vite dev server with HMR.                                                                                                                                                                                                          |
+| `npm run build`                   | `tsc -b`, production build into `dist/`, then `scripts/check-bundle-size.mjs` enforces the 180 kB gzip budget for the initial JavaScript, prints every chunk and deletes the build manifest `dist/.vite/` so it is never deployed. |
+| `npm run preview`                 | Serves `dist/` (used by the end-to-end tests).                                                                                                                                                                                     |
+| `npm test` / `npm run test:watch` | Unit tests (Vitest + Testing Library, jsdom).                                                                                                                                                                                      |
+| `npm run test:e2e`                | Playwright end-to-end tests against the production build. Set `PLAYWRIGHT_CHROMIUM_PATH` to use a preinstalled Chromium.                                                                                                           |
+| `npm run lint`                    | ESLint (type-aware) + `tsc --noEmit` for the app and tooling projects.                                                                                                                                                             |
+| `npm run format` / `format:check` | Prettier.                                                                                                                                                                                                                          |
+| `npm run tokens`                  | Regenerates `src/styles/tokens.css` from `shared/design/tokens.json`. The output is committed.                                                                                                                                     |
+| `npm run check`                   | The full acceptance run: `lint`, `test`, `build`, `test:e2e`.                                                                                                                                                                      |
 
 Acceptance locally:
 
@@ -31,8 +31,10 @@ npm install && PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium npm run check
 ```
 
 The end-to-end run starts two servers: `vite preview` on port 4173 serving `dist/`, and a second
-build in `dist-e2e-support/` (port 4174) made with `VITE_SUPPORT_EMAIL` and `VITE_DISCORD_URL` set,
-so the support page is tested with and without configured channels. Every route is checked for
+build in `dist-e2e-support/` (port 4174) made with `VITE_SUPPORT_EMAIL`, `VITE_DISCORD_URL` and
+`VITE_SITE_URL` set, so the support page is tested with and without configured channels and the
+absolute social images of `index.html` are checked (the raw HTML of deep routes must not carry a
+canonical or `og:url` for `/`). Every route is checked for
 status, title, h1, a clean console, canonical/Open Graph tags and an `@axe-core/playwright` scan
 with zero serious or critical violations; a crawler follows every internal link.
 
@@ -40,19 +42,23 @@ with zero serious or critical violations; a crawler follows every internal link.
 
 All optional; see `.env.example`. Read through the typed, validated accessor in `src/lib/env.ts`.
 
-| Variable                     | Purpose                                                                                                                                  |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `VITE_DOWNLOAD_LAUNCHER_URL` | Overrides the launcher download URL from the release manifest.                                                                           |
-| `VITE_DOWNLOAD_CLIENT_URL`   | Overrides the client jar download URL from the release manifest.                                                                         |
-| `VITE_RELEASES_BASE_URL`     | Base URL of the published release manifests (link on the download page).                                                                 |
-| `VITE_SUPPORT_EMAIL`         | Support address shown in the footer (hidden when empty).                                                                                 |
-| `VITE_DISCORD_URL`           | Community Discord link (hidden when empty).                                                                                              |
-| `VITE_GITHUB_URL`            | Source repository. Defaults to `https://github.com/LennardOwnTest123006/VANTA-Client`; set to an empty string to hide every GitHub link. |
-| `VITE_SITE_URL`              | Public origin of the deployment (no trailing slash). Used for canonical URLs, Open Graph tags and absolute sitemap URLs; Netlify's `URL` is used when unset. |
+| Variable                     | Purpose                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_DOWNLOAD_LAUNCHER_URL` | Overrides the launcher download URL from the release manifest.                                                                                                                                                                                                                                                                                                                                          |
+| `VITE_DOWNLOAD_CLIENT_URL`   | Overrides the client jar download URL from the release manifest.                                                                                                                                                                                                                                                                                                                                        |
+| `VITE_RELEASES_BASE_URL`     | Base URL of the published release manifests (link on the download page).                                                                                                                                                                                                                                                                                                                                |
+| `VITE_SUPPORT_EMAIL`         | Support address shown in the footer (hidden when empty).                                                                                                                                                                                                                                                                                                                                                |
+| `VITE_DISCORD_URL`           | Community Discord link (hidden when empty).                                                                                                                                                                                                                                                                                                                                                             |
+| `VITE_GITHUB_URL`            | Source repository. Defaults to `https://github.com/LennardOwnTest123006/VANTA-Client`; set to an empty string to hide every GitHub link.                                                                                                                                                                                                                                                                |
+| `VITE_SITE_URL`              | Public origin of the deployment (no trailing slash). Used for the canonical URLs and Open Graph tags `PageMeta` sets, absolute sitemap URLs (Netlify's `URL` is used when unset) and the absolute `og:image`/`twitter:image` of the static `index.html` (only with `VITE_SITE_URL`; without it they stay relative). `index.html` never gets `og:url` or a canonical link: it is served for every route. |
 
-Download URLs are never hardcoded. A release manifest in `shared/releases/` with an empty
-`downloadUrl` (or a missing environment override) renders the download page in its honest
-"Not published yet — release pending" state while keeping version, date and file facts visible.
+Download URLs are never hardcoded. Each card offers the newest **published** release of its product
+(`latestRelease` in `src/lib/releases.ts`: the newest manifest with at least one `downloadUrl`). A new
+version is committed with an unpublished manifest before the release workflow fills it; until then
+the card keeps offering the previous release and mentions the upcoming version (`upcomingRelease`),
+and the changelog shows that version's notes with a "Release pending" badge. Only when no manifest of
+a product is published (or an environment override is missing) does the card show its honest
+"Not published yet — release pending" state, keeping version, date and file facts visible.
 Once the release workflow has filled a manifest, its card keeps the main button (launcher: the
 `.msi`; client: exactly `vanta-client-<version>.jar`, plus the mods bundle) and lists every file of
 the manifest with a label derived from the file name (`describeReleaseFile` in `src/lib/downloads.ts`),
@@ -60,7 +66,8 @@ size, SHA-256 and its own link. The GitHub release page is linked only when it c
 manifest URL of the form `https://github.com/<owner>/<repo>/releases/download/<tag>/<file>`
 (`githubReleasePageUrl` in `src/lib/releases.ts`). The unit tests render both states from the fixture
 manifests in `src/test/fixtures/releases.ts` (fake values, test-only), so they do not depend on the
-state of the repository manifests; the end-to-end test checks whichever state the build has.
+state of the repository manifests; the end-to-end tests read `shared/releases/` and
+`content/changelog/` (`e2e/repo-state.ts`) and check whichever state the build has.
 
 ## Project layout
 
@@ -105,13 +112,13 @@ All content is markdown with a flat front matter block, parsed by the dependency
 in `src/lib/front-matter.ts` (strings, integers, booleans, inline arrays). Unit tests load every
 real file and fail the build when a required field is missing.
 
-| Source                              | Loader                 | Loading                                        | Rendered at                                   |
-| ----------------------------------- | ---------------------- | ---------------------------------------------- | --------------------------------------------- |
-| `../docs/*.md` (repository root)    | `src/lib/docs.ts`      | lazy, one `docs-content` chunk                 | `/documentation`, `/documentation/:slug`, `/faq` (from `faq.md`), `/privacy`, `/terms` |
-| `content/news/<date>-<slug>.md`     | `src/lib/news.ts`      | lazy, one `news-content` chunk, drafts skipped | `/news`, `/news/:slug`                        |
-| `content/changelog/<product>-<v>.md`| `src/lib/content.ts`   | eager (the download page shows excerpts)       | `/changelog`, Download page                   |
-| `../shared/releases/*.json`         | `src/lib/releases.ts`  | eager                                          | Download page, footer, site facts             |
-| `../assets/screenshots/*.png` (+ `captions.json`) | `src/lib/screenshots.ts` | eager asset URLs                  | `/screenshots` (honest empty state when none) |
+| Source                                            | Loader                   | Loading                                        | Rendered at                                                                            |
+| ------------------------------------------------- | ------------------------ | ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `../docs/*.md` (repository root)                  | `src/lib/docs.ts`        | lazy, one `docs-content` chunk                 | `/documentation`, `/documentation/:slug`, `/faq` (from `faq.md`), `/privacy`, `/terms` |
+| `content/news/<date>-<slug>.md`                   | `src/lib/news.ts`        | lazy, one `news-content` chunk, drafts skipped | `/news`, `/news/:slug`                                                                 |
+| `content/changelog/<product>-<v>.md`              | `src/lib/content.ts`     | eager (the download page shows excerpts)       | `/changelog`, Download page                                                            |
+| `../shared/releases/*.json`                       | `src/lib/releases.ts`    | eager                                          | Download page, footer, site facts                                                      |
+| `../assets/screenshots/*.png` (+ `captions.json`) | `src/lib/screenshots.ts` | eager asset URLs                               | `/screenshots` (honest empty state when none)                                          |
 
 Markdown is rendered by react-markdown + remark-gfm in a lazy chunk with raw HTML skipped and
 links/images sanitised. Two small remark plugins (`src/lib/markdown-plugins.ts`) add GitHub-style
@@ -148,3 +155,12 @@ React, the markdown renderer, MiniSearch and each content collection are separat
 initial JavaScript stays well under the 180 kB gzip budget. Per-route `<title>`, description,
 canonical URL, Open Graph/Twitter tags and `robots` directives are set by `PageMeta`;
 `sitemap.xml` and `robots.txt` are generated at build time.
+
+After a redeploy, a tab that is still open asks for page chunks whose hashed names no longer exist.
+`src/lib/stale-chunks.ts` records the chunks Vite reports with `vite:preloadError`; when one of them
+keeps a page from rendering, the page error boundary in `Layout.tsx` reloads the page once per browser
+session and build (guarded in `sessionStorage`, never while `navigator.onLine` is false). A failed
+hover/focus prefetch never reloads the page being read. If the chunk still fails, the boundary shows
+the error for that page only and clears it on the next navigation. Deep links to
+an anchor (`/changelog#launcher-1.0.0`) keep the target in place while lazily rendered markdown above
+it settles, until the user scrolls (`src/lib/scroll.ts`).

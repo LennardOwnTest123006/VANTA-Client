@@ -11,12 +11,43 @@ import { site } from '../config/site';
 import {
   CHANGELOG_PRODUCTS,
   changelog,
+  type ChangelogEntry,
   type ChangelogProduct,
   changelogProducts,
   productLabel,
 } from '../lib/content';
 import { cn } from '../lib/cn';
 import { formatDate } from '../lib/format';
+import { isPublished, isReleasePending, latestRelease, releases } from '../lib/releases';
+
+/** True when the release manifest of this entry exists but nothing of it is published yet. */
+function isPending(entry: ChangelogEntry): boolean {
+  return isReleasePending(releases, entry.product, entry.version);
+}
+
+/**
+ * The published version of the entry's product that the download page offers instead of this one,
+ * or `undefined` when no version of the product is published yet (nothing to point to).
+ */
+function availableVersion(entry: ChangelogEntry): string | undefined {
+  if (entry.product === 'website') return undefined;
+  const offered = latestRelease(releases, entry.product);
+  if (!offered || !isPublished(offered) || offered.version === entry.version) return undefined;
+  return offered.version;
+}
+
+/**
+ * The entry the "Latest …" stat shows: the newest version that is not waiting for its release, so the
+ * stat matches the download page; while every version is pending, the newest one.
+ */
+function latestEntry(product: ChangelogProduct): ChangelogEntry | undefined {
+  const ofProduct = changelog.filter((entry) => entry.product === product);
+  return ofProduct.find((entry) => !isPending(entry)) ?? ofProduct[0];
+}
+
+function latestHint(entry: ChangelogEntry): string {
+  return isPending(entry) ? 'Release pending' : (formatDate(entry.date) ?? entry.date);
+}
 
 function isProduct(value: string | null): value is ChangelogProduct {
   return value !== null && (CHANGELOG_PRODUCTS as readonly string[]).includes(value);
@@ -29,8 +60,8 @@ export default function ChangelogPage() {
   const filter = isProduct(productParam) ? productParam : null;
   const products = useMemo(() => changelogProducts(changelog), []);
   const entries = filter ? changelog.filter((entry) => entry.product === filter) : changelog;
-  const latestClient = changelog.find((entry) => entry.product === 'client');
-  const latestLauncher = changelog.find((entry) => entry.product === 'launcher');
+  const latestClient = latestEntry('client');
+  const latestLauncher = latestEntry('launcher');
 
   const setFilter = (product: ChangelogProduct | null) => {
     const next = new URLSearchParams(params);
@@ -67,15 +98,13 @@ export default function ChangelogPage() {
             label="Latest client"
             value={latestClient ? `v${latestClient.version}` : '—'}
             size="sm"
-            {...(latestClient ? { hint: formatDate(latestClient.date) ?? latestClient.date } : {})}
+            {...(latestClient ? { hint: latestHint(latestClient) } : {})}
           />
           <Stat
             label="Latest launcher"
             value={latestLauncher ? `v${latestLauncher.version}` : '—'}
             size="sm"
-            {...(latestLauncher
-              ? { hint: formatDate(latestLauncher.date) ?? latestLauncher.date }
-              : {})}
+            {...(latestLauncher ? { hint: latestHint(latestLauncher) } : {})}
           />
           <Stat label="Minecraft" value={site.minecraft} size="sm" />
           <Stat label="Releases" value={String(changelog.length)} size="sm" />
@@ -129,7 +158,11 @@ export default function ChangelogPage() {
               <ol className="flex flex-col gap-6" aria-label="Releases">
                 {entries.map((entry) => (
                   <li key={entry.id}>
-                    <ChangelogEntryCard entry={entry} />
+                    <ChangelogEntryCard
+                      entry={entry}
+                      pending={isPending(entry)}
+                      availableVersion={isPending(entry) ? availableVersion(entry) : undefined}
+                    />
                   </li>
                 ))}
               </ol>
@@ -161,7 +194,9 @@ export default function ChangelogPage() {
                                 className="block border-l border-transparent py-1 pl-3.5 font-mono text-xs text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
                               >
                                 v{entry.version}{' '}
-                                <span className="text-text-muted">· {entry.date}</span>
+                                <span className="text-text-muted">
+                                  · {isPending(entry) ? 'pending' : entry.date}
+                                </span>
                               </a>
                             </li>
                           ))}

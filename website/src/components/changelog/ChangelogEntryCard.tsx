@@ -1,4 +1,5 @@
 import { CalendarDays, Hash } from 'lucide-react';
+import { Link } from 'react-router';
 import {
   type ChangelogEntry,
   type ChangelogProduct,
@@ -29,10 +30,25 @@ const sectionStyles: Record<SectionKind, { label: string; className: string }> =
 
 export interface ChangelogEntryCardProps {
   readonly entry: ChangelogEntry;
+  /**
+   * The release manifest of this version exists but none of its files is published yet: the notes
+   * are shown with a "Release pending" badge and a pointer to the download page.
+   */
+  readonly pending?: boolean;
+  /**
+   * While pending: the published version of the same product the download page offers in the
+   * meantime. Omitted when nothing of the product is published, so the note does not promise a
+   * previous version that does not exist.
+   */
+  readonly availableVersion?: string | undefined;
 }
 
 /** One release in the changelog: product, version, date and Minecraft pills, then the sections. */
-export function ChangelogEntryCard({ entry }: ChangelogEntryCardProps) {
+export function ChangelogEntryCard({
+  entry,
+  pending = false,
+  availableVersion,
+}: ChangelogEntryCardProps) {
   const date = formatDate(entry.date) ?? entry.date;
   return (
     <article
@@ -51,6 +67,11 @@ export function ChangelogEntryCard({ entry }: ChangelogEntryCardProps) {
             <time dateTime={entry.date}>{date}</time>
           </Tag>
           {entry.minecraftVersion ? <Tag>Minecraft {entry.minecraftVersion}</Tag> : null}
+          {pending ? (
+            <Badge tone="warning" dot>
+              Release pending
+            </Badge>
+          ) : null}
         </div>
         <h2
           id={`${entry.id}-title`}
@@ -67,6 +88,21 @@ export function ChangelogEntryCard({ entry }: ChangelogEntryCardProps) {
             />
           </a>
         </h2>
+        {pending ? (
+          <p className="text-sm text-text-muted">
+            Not published yet: the files of this version appear on the{' '}
+            <Link
+              to="/download"
+              className="text-accent-violet-hover underline decoration-accent-violet/40 underline-offset-4 hover:text-text-primary"
+            >
+              Download page
+            </Link>{' '}
+            once the release workflow has published them.
+            {availableVersion
+              ? ` Until then version ${availableVersion} stays available there.`
+              : null}
+          </p>
+        ) : null}
       </header>
       {entry.intro ? (
         <MarkdownBlock

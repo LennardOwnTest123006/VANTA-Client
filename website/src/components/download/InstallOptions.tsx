@@ -24,7 +24,10 @@ const options: readonly { readonly title: string; readonly text: ReactNode }[] =
     text: (
       <>
         Adds the profile “{officialLauncherProfileName}” to the official Minecraft Launcher, which
-        signs you in with Microsoft and starts the game with VANTA.
+        signs you in with Microsoft and starts the game with VANTA. For the Minecraft Launcher from
+        the Microsoft Store or the Xbox app it writes the profile into that launcher’s profiles file
+        too; whether the profile then shows up there has not been tested on Windows yet — if it does
+        not, use option 3.
       </>
     ),
   },
@@ -32,9 +35,12 @@ const options: readonly { readonly title: string; readonly text: ReactNode }[] =
     title: 'Manual',
     text: (
       <>
-        Install Fabric Loader {site.fabricLoader} for Minecraft {site.minecraft} with the Fabric
-        installer from fabricmc.net, then copy the two jars from the mods bundle into{' '}
-        <code className="font-mono text-[12px] text-text-primary">.minecraft/mods</code>.
+        Start the official Minecraft Launcher once, then install Fabric Loader {site.fabricLoader}{' '}
+        for Minecraft {site.minecraft} with the Fabric installer from fabricmc.net (keep “Create
+        profile” checked) and copy the two jars from the mods bundle into{' '}
+        <code className="font-mono text-[12px] text-text-primary">.minecraft/mods</code>.{' '}
+        <code className="font-mono text-[12px] text-text-primary">INSTALL.txt</code> in the bundle
+        lists these steps.
       </>
     ),
   },

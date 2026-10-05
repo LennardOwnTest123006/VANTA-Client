@@ -23,7 +23,7 @@ import { Stat, StatGroup } from '../components/ui/Stat';
 import { githubLinks, officialLauncherProfileName, site, specFacts } from '../config/site';
 import { modsBundleFile, resolveDownload } from '../lib/downloads';
 import { env } from '../lib/env';
-import { latestRelease, releases } from '../lib/releases';
+import { latestRelease, releases, upcomingRelease } from '../lib/releases';
 
 const requirements = [
   {
@@ -69,7 +69,11 @@ const verification = [
   },
 ] as const;
 
-/** Download center: launcher and client cards from the release manifests, requirements, verification. */
+/**
+ * Download center: launcher and client cards from the release manifests, requirements, verification.
+ * Each card offers the newest published release; a newer version that is committed but not
+ * published yet is mentioned on the card instead of replacing the working downloads.
+ */
 export default function DownloadPage() {
   const launcher = latestRelease(releases, 'launcher');
   const client = latestRelease(releases, 'client');
@@ -112,6 +116,7 @@ export default function DownloadPage() {
             title="VANTA Launcher"
             description={`Installs Minecraft ${site.minecraft}, Fabric Loader ${site.fabricLoader}, Fabric API and the VANTA Client with checksum verification. Until Microsoft sign-in is available inside VANTA, it adds the profile “${officialLauncherProfileName}” to the official Minecraft Launcher, which signs you in and starts the game. Windows installer (.msi) with Java ${site.java} included.`}
             cta="Download launcher"
+            upcoming={upcomingRelease(releases, 'launcher')}
             primary
             footnote={`Also published: the same installer as .exe, portable apps for Windows x64 and Linux x64 that include Java ${site.java}, and launcher jars for Windows x64, Linux x64 and Apple Silicon macOS that need Java ${site.java} installed. Each jar runs only on the system it was built for. Nothing is code-signed yet, so check the SHA-256 first.`}
           />
@@ -123,6 +128,7 @@ export default function DownloadPage() {
             title="VANTA Client (jar)"
             description={`The Fabric mod for Minecraft ${site.minecraft} with Fabric Loader ${site.fabricLoader}. It needs Fabric API ${site.fabricApi}, which is included in the mods bundle (VANTA + Fabric API) and also published as its own file.`}
             cta="Download client jar"
+            upcoming={upcomingRelease(releases, 'client')}
             secondaryDownload={{ file: modsBundle, label: 'Download mods bundle' }}
             footnote={`Requires Fabric API ${site.fabricApi}. Other mods such as rendering optimisers can be installed alongside.`}
           >

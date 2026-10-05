@@ -20,6 +20,32 @@ describe('formatBytes', () => {
     expect(formatBytes(-1)).toBeUndefined();
     expect(formatBytes(Number.NaN)).toBeUndefined();
     expect(formatBytes(Number.POSITIVE_INFINITY)).toBeUndefined();
+    expect(formatBytes(1.5)).toBeUndefined();
+  });
+  // The same vectors are in scripts/release/release-assets.test.mjs (formatSize, the release notes) and the
+  // launcher's ByteSizesTest, so a size reads the same in the release notes, on the download page and in the launcher.
+  it('rounds half up in integer arithmetic and never prints 1000.0 of a unit', () => {
+    const vectors: [number, string][] = [
+      [999, '999 B'],
+      [1_049, '1.0 kB'],
+      [1_050, '1.1 kB'],
+      [1_150, '1.2 kB'], // 1.15 is 1.149999... as a double; toFixed(1) would print 1.1
+      [1_450_000, '1.5 MB'], // 1.45 is 1.4499999... as a double; toFixed(1) would print 1.4
+      [2_450_000, '2.5 MB'],
+      [999_949, '999.9 kB'],
+      [999_950, '1.0 MB'], // not "1000.0 kB"
+      [999_999, '1.0 MB'],
+      [1_000_000, '1.0 MB'],
+      [1_437_322, '1.4 MB'],
+      [66_900_000, '66.9 MB'],
+      [999_949_999, '999.9 MB'],
+      [999_950_000, '1.0 GB'],
+      [999_950_000_000, '1.0 TB'],
+      [1_000_000_000_000_000, '1000.0 TB'], // largest unit: no unit to move up to
+      [Number.MAX_SAFE_INTEGER, '9007.2 TB'],
+    ];
+    for (const [bytes, expected] of vectors)
+      expect(formatBytes(bytes), `${bytes} bytes`).toBe(expected);
   });
 });
 

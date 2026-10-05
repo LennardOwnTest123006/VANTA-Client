@@ -9,21 +9,31 @@ import { type ReleaseManifest, parseReleaseManifest } from '../../lib/releases';
 
 export const FIXTURE_REPO = 'https://github.com/LennardOwnTest123006/VANTA-Client';
 
-export const CLIENT_FILE_NAMES = [
-  'vanta-client-1.0.0.jar',
-  'vanta-client-1.0.0-mods.zip',
-  'fabric-api-0.141.6+1.21.11.jar',
-] as const;
+/** Client release file names of a version (release contract). */
+export function clientFileNames(version: string): readonly string[] {
+  return [
+    `vanta-client-${version}.jar`,
+    `vanta-client-${version}-mods.zip`,
+    'fabric-api-0.141.6+1.21.11.jar',
+  ];
+}
 
-export const LAUNCHER_FILE_NAMES = [
-  'VANTA-Launcher-1.0.0.msi',
-  'VANTA-Launcher-1.0.0.exe',
-  'VANTA-Launcher-1.0.0-windows-portable.zip',
-  'vanta-launcher-1.0.0-windows-all.jar',
-  'VANTA-Launcher-1.0.0-linux-x64.tar.gz',
-  'vanta-launcher-1.0.0-linux-all.jar',
-  'vanta-launcher-1.0.0-macos-aarch64-all.jar',
-] as const;
+/** Launcher release file names of a version (release contract). */
+export function launcherFileNames(version: string): readonly string[] {
+  return [
+    `VANTA-Launcher-${version}.msi`,
+    `VANTA-Launcher-${version}.exe`,
+    `VANTA-Launcher-${version}-windows-portable.zip`,
+    `vanta-launcher-${version}-windows-all.jar`,
+    `VANTA-Launcher-${version}-linux-x64.tar.gz`,
+    `vanta-launcher-${version}-linux-all.jar`,
+    `vanta-launcher-${version}-macos-aarch64-all.jar`,
+  ];
+}
+
+export const CLIENT_FILE_NAMES = clientFileNames('1.0.0');
+
+export const LAUNCHER_FILE_NAMES = launcherFileNames('1.0.0');
 
 /** Fake, deterministic 64-hex "checksum" for the n-th fixture file. */
 export function fakeSha(index: number): string {
@@ -44,6 +54,8 @@ export function fixtureDownloadUrl(tag: string, name: string): string {
 interface FixtureOptions {
   /** Fill every file with a fake URL, size and checksum. */
   readonly published: boolean;
+  /** Release version; file names, tag and changelog path follow it. Defaults to `1.0.0`. */
+  readonly version?: string;
   /** Names of files that stay unpublished even when `published` is true. */
   readonly unpublished?: readonly string[];
   /** Replaces the URL builder, e.g. for a mirror that is not a GitHub release. */
@@ -53,14 +65,14 @@ interface FixtureOptions {
 function manifest(
   product: 'client' | 'launcher',
   names: readonly string[],
-  { published, unpublished = [], url = fixtureDownloadUrl }: FixtureOptions,
+  { published, version = '1.0.0', unpublished = [], url = fixtureDownloadUrl }: FixtureOptions,
 ): ReleaseManifest {
-  const tag = `${product}-v1.0.0`;
+  const tag = `${product}-v${version}`;
   return parseReleaseManifest(
     {
       schemaVersion: 1,
       product,
-      version: '1.0.0',
+      version,
       minecraftVersion: '1.21.11',
       fabricVersion: '0.19.5',
       fabricApiVersion: '0.141.6+1.21.11',
@@ -72,16 +84,16 @@ function manifest(
           ? { name, downloadUrl: url(tag, name), size: fakeSize(index), sha256: fakeSha(index) }
           : { name, downloadUrl: '', size: 0, sha256: '' },
       ),
-      changelog: `website/content/changelog/${product}-1.0.0.md`,
+      changelog: `website/content/changelog/${product}-${version}.md`,
     },
-    `fixture ${product}-1.0.0.json`,
+    `fixture ${product}-${version}.json`,
   );
 }
 
 export function clientFixture(options: FixtureOptions): ReleaseManifest {
-  return manifest('client', CLIENT_FILE_NAMES, options);
+  return manifest('client', clientFileNames(options.version ?? '1.0.0'), options);
 }
 
 export function launcherFixture(options: FixtureOptions): ReleaseManifest {
-  return manifest('launcher', LAUNCHER_FILE_NAMES, options);
+  return manifest('launcher', launcherFileNames(options.version ?? '1.0.0'), options);
 }

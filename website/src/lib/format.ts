@@ -5,19 +5,36 @@
 const BYTE_UNITS = ['B', 'kB', 'MB', 'GB', 'TB'] as const;
 
 /**
- * Formats a byte count using decimal units (1 kB = 1000 B), as file managers and browsers do.
- * Returns `undefined` for `0`, negative or non-finite input so callers can show an honest fallback.
+ * `bytes` in tenths of `BYTE_UNITS[unit]`, rounded half up in exact integer arithmetic (no binary floating point
+ * rounding, so 1,450,000 bytes is 15 tenths of a MB, not 14).
  */
-export function formatBytes(bytes: number, fractionDigits = 1): string | undefined {
-  if (!Number.isFinite(bytes) || bytes <= 0) return undefined;
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1000 && unit < BYTE_UNITS.length - 1) {
-    value /= 1000;
+function roundedTenths(bytes: number, unit: number): number {
+  const divisor = 10 ** (3 * unit - 1); // one tenth of the unit in bytes
+  const remainder = bytes % divisor;
+  const tenths = (bytes - remainder) / divisor; // exact: the dividend is a multiple of the divisor
+  return remainder * 2 >= divisor ? tenths + 1 : tenths;
+}
+
+/**
+ * Formats a byte count using decimal units (1 kB = 1000 B, 1 MB = 1,000,000 B) with one decimal place above plain
+ * bytes, e.g. "512 B", "1.4 MB" or "66.9 MB". Same rule as `formatSize()` in scripts/release/release-assets.mjs (the
+ * release notes) and `ByteSizes` in the launcher: pick the largest unit not above the byte count, round half up to
+ * tenths of that unit with integer arithmetic, and if that gives 1000.0 move up one unit ("1.0 MB" for 999,950
+ * bytes, never "1000.0 kB").
+ * Returns `undefined` for `0`, negative, fractional or unsafe input so callers can show an honest fallback.
+ */
+export function formatBytes(bytes: number): string | undefined {
+  if (!Number.isSafeInteger(bytes) || bytes <= 0) return undefined;
+  if (bytes < 1000) return `${bytes} ${BYTE_UNITS[0]}`;
+  const last = BYTE_UNITS.length - 1;
+  let unit = 1;
+  while (unit < last && bytes >= 1000 ** (unit + 1)) unit += 1;
+  let tenths = roundedTenths(bytes, unit);
+  if (tenths >= 10_000 && unit < last) {
     unit += 1;
+    tenths = roundedTenths(bytes, unit);
   }
-  const digits = unit === 0 ? 0 : fractionDigits;
-  return `${value.toFixed(digits)} ${BYTE_UNITS[unit] ?? 'B'}`;
+  return `${Math.floor(tenths / 10)}.${tenths % 10} ${BYTE_UNITS[unit]}`;
 }
 
 /** Parses an ISO `YYYY-MM-DD` date as UTC midnight. Returns `undefined` for anything else. */

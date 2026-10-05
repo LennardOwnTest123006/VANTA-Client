@@ -8,8 +8,12 @@
  * regressions are visible in the build log.
  *
  * Budget: 180 kB gzip for the initial JavaScript, as set in the project brief.
+ *
+ * The manifest is build metadata that only this check needs, so `dist/.vite/` is deleted as soon as
+ * the manifest has been read — whether the check passes or fails — and is never deployed to Netlify
+ * or packed into an archive of `dist/`. Run the check right after `vite build` (`npm run build`).
  */
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,10 +22,20 @@ const BUDGET_GZIP_BYTES = 180 * 1024;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = resolve(here, '../dist');
-const manifestPath = resolve(dist, '.vite/manifest.json');
+const metadataDir = resolve(dist, '.vite');
+const manifestPath = resolve(metadataDir, 'manifest.json');
+
+if (!existsSync(manifestPath)) {
+  console.error(
+    `check-bundle-size: ${manifestPath} not found. The check deletes it after reading, so run it right after \`vite build\` (npm run build).`,
+  );
+  process.exit(1);
+}
 
 /** @type {Record<string, {file: string, isEntry?: boolean, imports?: string[], dynamicImports?: string[], css?: string[]}>} */
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+// Build metadata must not be published with the site.
+rmSync(metadataDir, { recursive: true, force: true });
 
 const gzipSize = (relative) => gzipSync(readFileSync(resolve(dist, relative))).length;
 const rawSize = (relative) => statSync(resolve(dist, relative)).size;

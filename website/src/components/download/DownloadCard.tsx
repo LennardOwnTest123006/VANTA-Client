@@ -1,7 +1,7 @@
-import { ArrowRight, Download, FolderArchive, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Clock, Download, FolderArchive, type LucideIcon } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { findChangelog, markdownExcerpt } from '../../lib/content';
+import { findChangelog, markdownExcerpt, productLabel } from '../../lib/content';
 import { type DownloadResolution } from '../../lib/downloads';
 import { formatBytes, formatDate, groupHash } from '../../lib/format';
 import { type ReleaseFile, type ReleaseManifest, isPublished } from '../../lib/releases';
@@ -27,6 +27,11 @@ export interface DownloadCardProps {
    * bundle. Nothing is rendered while the file is unpublished.
    */
   readonly secondaryDownload?: { readonly file: ReleaseFile | undefined; readonly label: string };
+  /**
+   * A newer release of the same product that is committed but not published yet (see
+   * `upcomingRelease`). The card keeps offering `manifest` and mentions the upcoming version.
+   */
+  readonly upcoming?: ReleaseManifest | undefined;
   /** Extra content between the actions and the file list, e.g. the ways to install. */
   readonly children?: ReactNode;
 }
@@ -58,6 +63,7 @@ export function DownloadCard({
   primary = false,
   footnote,
   secondaryDownload,
+  upcoming,
   children,
 }: DownloadCardProps) {
   const idPrefix = `download-${eyebrow.toLowerCase()}`;
@@ -74,6 +80,7 @@ export function DownloadCard({
     secondaryDownload?.file && secondaryDownload.file.downloadUrl !== ''
       ? secondaryDownload.file
       : undefined;
+  const upcomingNotes = upcoming ? findChangelog(upcoming.product, upcoming.version) : undefined;
 
   return (
     <article
@@ -163,6 +170,34 @@ export function DownloadCard({
           No release manifest found for this product.
         </p>
       )}
+
+      {manifest && upcoming ? (
+        <div
+          role="note"
+          aria-label={`Upcoming version ${upcoming.version}`}
+          className="mt-6 flex gap-3 rounded-lg border border-border-subtle bg-surface-2/60 p-4 text-sm leading-relaxed text-text-secondary"
+        >
+          <Clock className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+          <div className="min-w-0">
+            <p>
+              <span className="font-semibold text-text-primary">
+                {productLabel(upcoming.product)} {upcoming.version}
+              </span>{' '}
+              is not published yet. Its files appear here once the release workflow has published
+              them; until then {manifest.version} is the current release.
+            </p>
+            {upcomingNotes ? (
+              <Link
+                to={`/changelog#${upcomingNotes.id}`}
+                className="mt-1.5 inline-flex items-center gap-1 font-medium text-accent-violet-hover transition-colors hover:text-text-primary"
+              >
+                What changes in {upcoming.version}{' '}
+                <ArrowRight className="size-3.5" aria-hidden="true" />
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {excerpt.length > 0 ? (
         <div className="mt-6">

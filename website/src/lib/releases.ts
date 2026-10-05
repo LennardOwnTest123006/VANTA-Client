@@ -4,7 +4,9 @@
  * The manifests are the single source of truth for versions, release dates, file sizes, checksums
  * and download URLs (see RELEASE.md). They are read at build time through `import.meta.glob`, parsed
  * defensively and sorted so the newest release of each product comes first. A manifest whose
- * `downloadUrl` is empty means "not published yet" and is rendered exactly like that.
+ * `downloadUrl`s are all empty means "not published yet": the website keeps offering the newest
+ * published release of that product ({@link latestRelease}) and shows the unpublished one as upcoming
+ * ({@link upcomingRelease}); only a product without any published release shows "Not published yet".
  */
 
 export type Product = 'client' | 'launcher';
@@ -167,13 +169,71 @@ export function loadReleaseManifests(
   });
 }
 
-/** Newest manifest of the given product on the given channel (stable by default). */
+/** Every manifest of the given product on the given channel, newest version first. */
+export function releasesOf(
+  manifests: readonly ReleaseManifest[],
+  product: Product,
+  channel: Channel = 'stable',
+): ReleaseManifest[] {
+  return manifests
+    .filter((m) => m.product === product && m.channel === channel)
+    .sort((a, b) => compareVersionsDesc(a.version, b.version));
+}
+
+/**
+ * The release of a product the website offers (stable channel by default): the newest manifest that
+ * is published (at least one file with a download URL, see {@link isPublished}). While no release of
+ * the product is published, the newest manifest is returned so its facts and the honest
+ * "Not published yet" state can be shown.
+ *
+ * A new version is committed with an unpublished manifest before the release workflow fills it, so
+ * preferring the published one keeps the previous release on offer in the meantime instead of
+ * replacing it with "Not published yet".
+ */
 export function latestRelease(
   manifests: readonly ReleaseManifest[],
   product: Product,
   channel: Channel = 'stable',
 ): ReleaseManifest | undefined {
-  return manifests.find((m) => m.product === product && m.channel === channel);
+  const candidates = releasesOf(manifests, product, channel);
+  return candidates.find(isPublished) ?? candidates[0];
+}
+
+/**
+ * A release newer than {@link latestRelease} whose files are not published yet (committed, waiting
+ * for the release workflow), or `undefined` when the offered release is also the newest one.
+ */
+export function upcomingRelease(
+  manifests: readonly ReleaseManifest[],
+  product: Product,
+  channel: Channel = 'stable',
+): ReleaseManifest | undefined {
+  const newest = releasesOf(manifests, product, channel)[0];
+  if (!newest || isPublished(newest)) return undefined;
+  const offered = latestRelease(manifests, product, channel);
+  return offered && offered !== newest ? newest : undefined;
+}
+
+/** The manifest of exactly this product version (any channel), when the repository has one. */
+export function findRelease(
+  manifests: readonly ReleaseManifest[],
+  product: string,
+  version: string,
+): ReleaseManifest | undefined {
+  return manifests.find((m) => m.product === product && m.version === version);
+}
+
+/**
+ * True when a manifest for this product version exists but none of its files is published yet.
+ * Products without manifests (the website) and versions without one are never pending.
+ */
+export function isReleasePending(
+  manifests: readonly ReleaseManifest[],
+  product: string,
+  version: string,
+): boolean {
+  const manifest = findRelease(manifests, product, version);
+  return manifest !== undefined && !isPublished(manifest);
 }
 
 /**

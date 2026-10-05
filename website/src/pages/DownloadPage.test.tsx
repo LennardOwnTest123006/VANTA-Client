@@ -115,7 +115,15 @@ describe('DownloadPage', () => {
     expect(ways[0]).toHaveTextContent(/Microsoft application id that the project does not ship/);
     expect(ways[1]).toHaveTextContent('Use with Minecraft Launcher');
     expect(ways[1]).toHaveTextContent('VANTA 1.21.11');
+    // The Microsoft Store / Xbox app launcher case is written but untested: never claimed to work.
+    expect(ways[1]).toHaveTextContent(/Microsoft Store or the Xbox app it writes the profile/);
+    expect(ways[1]).toHaveTextContent(/has not been tested on Windows yet/);
+    // Step 0 of INSTALL.txt and the README: without a first start of the official launcher the Fabric installer stops.
+    expect(ways[2]).toHaveTextContent(
+      /Manual\s*Start the official Minecraft Launcher once, then install Fabric/,
+    );
     expect(ways[2]).toHaveTextContent(/Fabric installer/);
+    expect(ways[2]).toHaveTextContent('keep “Create profile” checked');
     expect(ways[2]).toHaveTextContent('.minecraft/mods');
     expect(
       within(howTo).getByRole('link', { name: 'Step-by-step installation guide' }),
@@ -171,6 +179,77 @@ describe('DownloadPage', () => {
     expect(within(client).getByRole('region', { name: 'How to install' })).toBeInTheDocument();
   });
 
+  it('keeps offering the published 1.0.0 while 1.0.1 is committed but not published', async () => {
+    const { launcher, client } = await renderPage([
+      clientFixture({ published: false, version: '1.0.1' }),
+      clientFixture({ published: true }),
+      launcherFixture({ published: false, version: '1.0.1' }),
+      launcherFixture({ published: true }),
+    ]);
+
+    expect(screen.queryByText('Not published yet — release pending')).toBeNull();
+    expect(within(launcher).getByRole('link', { name: 'Download launcher' })).toHaveAttribute(
+      'href',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.0.0/VANTA-Launcher-1.0.0.msi',
+    );
+    expect(within(client).getByRole('link', { name: 'Download client jar' })).toHaveAttribute(
+      'href',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.0.0/vanta-client-1.0.0.jar',
+    );
+    for (const card of [launcher, client]) {
+      const files = within(card).getByRole('list', { name: 'All files in this release' });
+      const hrefs = within(files)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href') ?? '');
+      expect(hrefs.length).toBeGreaterThan(0);
+      // Only files of the published 1.0.0 release are linked, never a 1.0.1 placeholder.
+      for (const href of hrefs) expect(href).toMatch(RELEASE_ASSET);
+      expect(within(card).getByText('Published')).toBeInTheDocument();
+    }
+    expect(
+      within(launcher).getByRole('note', { name: 'Upcoming version 1.0.1' }),
+    ).toHaveTextContent('VANTA Launcher 1.0.1 is not published yet');
+    expect(within(client).getByRole('note', { name: 'Upcoming version 1.0.1' })).toHaveTextContent(
+      'until then 1.0.0 is the current release',
+    );
+    expect(
+      screen.getByText(/certutil -hashfile "VANTA-Launcher-1\.0\.0\.msi" SHA256/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/shasum -a 256 vanta-client-1\.0\.0\.jar/)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Full release notes' })[0]).toHaveAttribute(
+      'href',
+      '/changelog#launcher-1.0.0',
+    );
+  });
+
+  it('offers 1.0.1 and no upcoming note once both versions are published', async () => {
+    const { launcher, client } = await renderPage([
+      clientFixture({ published: true, version: '1.0.1' }),
+      clientFixture({ published: true }),
+      launcherFixture({ published: true, version: '1.0.1' }),
+      launcherFixture({ published: true }),
+    ]);
+
+    expect(screen.queryByText(/Not published yet/)).toBeNull();
+    expect(screen.queryByRole('note', { name: /^Upcoming version/ })).toBeNull();
+    expect(within(launcher).getByRole('link', { name: 'Download launcher' })).toHaveAttribute(
+      'href',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.0.1/VANTA-Launcher-1.0.1.msi',
+    );
+    expect(within(client).getByRole('link', { name: 'Download mods bundle' })).toHaveAttribute(
+      'href',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.0.1/vanta-client-1.0.1-mods.zip',
+    );
+    expect(within(client).getByRole('link', { name: 'Release page on GitHub' })).toHaveAttribute(
+      'href',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.1',
+    );
+    expect(
+      screen.getByText(/certutil -hashfile "VANTA-Launcher-1\.0\.1\.msi" SHA256/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/shasum -a 256 vanta-client-1\.0\.1\.jar/)).toBeInTheDocument();
+  });
+
   it('turns a card into a live download when the environment provides a URL', async () => {
     const { launcher, client } = await renderPage(unpublished, {
       downloadLauncherUrl: launcherUrl,
@@ -189,8 +268,14 @@ describe('DownloadPage', () => {
   it('keeps working with the repository manifests, whatever their state', async () => {
     const actual = await vi.importActual<typeof ReleasesModule>('../lib/releases');
     const { launcher, client } = await renderPage(actual.releases);
-    for (const card of [launcher, client]) {
+    for (const [card, product] of [
+      [launcher, 'launcher'],
+      [client, 'client'],
+    ] as const) {
+      const anyPublished = actual.releasesOf(actual.releases, product).some(actual.isPublished);
       const pending = within(card).queryByText('Not published yet — release pending');
+      // A published release of the product is always offered, even when a newer one is pending.
+      expect(pending === null).toBe(anyPublished);
       if (pending) {
         expect(within(card).getByRole('button', { name: /^Download/ })).toBeDisabled();
       } else {

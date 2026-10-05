@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { clientFixture, launcherFixture } from '../test/fixtures/releases';
 import {
   compareVersionsDesc,
+  findRelease,
   githubReleasePageUrl,
   isPublished,
+  isReleasePending,
   latestRelease,
   loadReleaseManifests,
   parseReleaseManifest,
@@ -11,6 +13,8 @@ import {
   ReleaseManifestError,
   releasePageUrl,
   releases,
+  releasesOf,
+  upcomingRelease,
 } from './releases';
 
 const valid = {
@@ -105,6 +109,71 @@ describe('loadReleaseManifests', () => {
   });
 });
 
+describe('latestRelease / upcomingRelease with an unpublished next version', () => {
+  const client100 = clientFixture({ published: true });
+  const client101 = clientFixture({ published: false, version: '1.0.1' });
+  const launcher100 = launcherFixture({ published: true });
+  const launcher101 = launcherFixture({ published: false, version: '1.0.1' });
+
+  it('keeps offering the published 1.0.0 while 1.0.1 is committed but unpublished', () => {
+    // Order as loadReleaseManifests sorts it (newest first) and deliberately shuffled.
+    for (const manifests of [
+      [client101, client100, launcher101, launcher100],
+      [launcher100, client100, launcher101, client101],
+    ]) {
+      expect(latestRelease(manifests, 'client')).toBe(client100);
+      expect(latestRelease(manifests, 'launcher')).toBe(launcher100);
+      expect(upcomingRelease(manifests, 'client')).toBe(client101);
+      expect(upcomingRelease(manifests, 'launcher')).toBe(launcher101);
+      expect(isReleasePending(manifests, 'client', '1.0.1')).toBe(true);
+      expect(isReleasePending(manifests, 'client', '1.0.0')).toBe(false);
+    }
+  });
+
+  it('offers 1.0.1 and nothing upcoming once both versions are published', () => {
+    const published101 = clientFixture({ published: true, version: '1.0.1' });
+    const launcherPublished101 = launcherFixture({ published: true, version: '1.0.1' });
+    const manifests = [client100, published101, launcher100, launcherPublished101];
+    expect(latestRelease(manifests, 'client')).toBe(published101);
+    expect(latestRelease(manifests, 'launcher')).toBe(launcherPublished101);
+    expect(upcomingRelease(manifests, 'client')).toBeUndefined();
+    expect(upcomingRelease(manifests, 'launcher')).toBeUndefined();
+    expect(isReleasePending(manifests, 'client', '1.0.1')).toBe(false);
+  });
+
+  it('falls back to the newest manifest while no release of the product is published', () => {
+    const unpublished100 = clientFixture({ published: false });
+    const manifests = [unpublished100, client101];
+    expect(latestRelease(manifests, 'client')).toBe(client101);
+    expect(upcomingRelease(manifests, 'client')).toBeUndefined();
+    expect(latestRelease(manifests, 'launcher')).toBeUndefined();
+    expect(upcomingRelease(manifests, 'launcher')).toBeUndefined();
+  });
+
+  it('counts a partly published release as published', () => {
+    const partly = clientFixture({
+      published: true,
+      version: '1.0.1',
+      unpublished: ['vanta-client-1.0.1-mods.zip'],
+    });
+    expect(latestRelease([client100, partly], 'client')).toBe(partly);
+  });
+
+  it('prefers the newest published release when several are published', () => {
+    const published090 = clientFixture({ published: true, version: '0.9.0' });
+    expect(latestRelease([published090, client101, client100], 'client')).toBe(client100);
+    expect(
+      releasesOf([published090, client101, client100], 'client').map((m) => m.version),
+    ).toEqual(['1.0.1', '1.0.0', '0.9.0']);
+  });
+
+  it('never treats products or versions without a manifest as pending', () => {
+    expect(isReleasePending([client101], 'website', '1.0.0')).toBe(false);
+    expect(isReleasePending([client101], 'client', '9.9.9')).toBe(false);
+    expect(findRelease([client100, client101], 'client', '1.0.1')).toBe(client101);
+  });
+});
+
 describe('pickFile', () => {
   it('prefers extensions in order and falls back to the first file', () => {
     const manifest = parseReleaseManifest({
@@ -129,6 +198,20 @@ describe('repository manifests (shared/releases)', () => {
     expect(client?.fabricVersion).toBe('0.19.5');
     expect(client?.javaVersion).toBe(21);
     expect(launcher?.minecraftVersion).toBe('1.21.11');
+  });
+
+  it('offer a published release whenever the repository has one, whatever is committed next', () => {
+    for (const product of ['client', 'launcher'] as const) {
+      const offered = latestRelease(releases, product);
+      if (releasesOf(releases, product).some(isPublished)) {
+        expect(offered && isPublished(offered)).toBe(true);
+      }
+      const upcoming = upcomingRelease(releases, product);
+      if (upcoming && offered) {
+        expect(isPublished(upcoming)).toBe(false);
+        expect(compareVersionsDesc(upcoming.version, offered.version)).toBeLessThan(0);
+      }
+    }
   });
 });
 

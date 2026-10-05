@@ -1,34 +1,48 @@
 import { expect, test } from '@playwright/test';
 import { trackConsoleErrors, waitForApp } from './helpers';
+import { changelogIds, offeredRelease, repositoryManifests } from './repo-state';
 
 test.describe('changelog', () => {
   test('groups releases, filters by product and links from the download page', async ({ page }) => {
     const errors = trackConsoleErrors(page);
+    const ids = changelogIds();
+    const launcherIds = ids.filter((id) => id.startsWith('launcher-'));
     await page.goto('/changelog');
     await waitForApp(page);
     const releases = page.getByRole('list', { name: 'Releases' });
-    await expect(releases.getByRole('article')).toHaveCount(3);
+    await expect(releases.getByRole('article')).toHaveCount(ids.length);
     await expect(page.locator('#client-1\\.0\\.0')).toContainText('VANTA Client 1.0.0');
     await expect(page.locator('#client-1\\.0\\.0')).toContainText('Minecraft 1.21.11');
     await expect(
       page.locator('#client-1\\.0\\.0').getByText('Added', { exact: true }),
     ).toBeVisible();
 
+    // Notes of a version whose manifest is committed but not published carry a pending badge.
+    const manifests = repositoryManifests();
+    for (const id of ids) {
+      const manifest = manifests.find((m) => `${m.product}-${m.version}` === id);
+      const badge = page.locator(`[id="${id}"]`).getByText('Release pending', { exact: true });
+      await expect(badge).toHaveCount(manifest && !manifest.published ? 1 : 0);
+    }
+
     await page.getByRole('button', { name: 'VANTA Launcher' }).click();
     await expect(page).toHaveURL(/product=launcher/);
-    await expect(releases.getByRole('article')).toHaveCount(1);
+    await expect(releases.getByRole('article')).toHaveCount(launcherIds.length);
     await expect(page.getByRole('button', { name: 'VANTA Launcher' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
     await page.getByRole('button', { name: 'All' }).click();
-    await expect(releases.getByRole('article')).toHaveCount(3);
+    await expect(releases.getByRole('article')).toHaveCount(ids.length);
 
+    // The download page links the notes of the release it offers.
+    const launcher = offeredRelease('launcher')?.version ?? '';
+    const anchor = `launcher-${launcher}`;
     await page.goto('/download');
     await waitForApp(page);
     await page.getByRole('link', { name: 'Full release notes' }).first().click();
-    await expect(page).toHaveURL(/\/changelog#launcher-1\.0\.0$/);
-    await expect(page.locator('#launcher-1\\.0\\.0')).toBeInViewport();
+    await expect(page).toHaveURL(new RegExp(`/changelog#${anchor.replace(/\./g, '\\.')}$`));
+    await expect(page.locator(`[id="${anchor}"]`)).toBeInViewport();
     expect(errors()).toEqual([]);
   });
 });
@@ -98,13 +112,14 @@ test.describe('faq', () => {
     // A fresh load with a hash (not a same-document fragment change) opens the question.
     await page.goto('/about');
     await waitForApp(page);
-    await page.goto('/faq#why-is-there-no-download-yet');
+    await page.goto('/faq#how-do-i-verify-a-download');
     await waitForApp(page);
-    await expect(
-      page.getByRole('button', { name: 'Why is there no download yet?' }),
-    ).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('button', { name: 'How do I verify a download?' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     const docLink = page
-      .getByRole('region', { name: 'Why is there no download yet?' })
+      .getByRole('region', { name: 'How do I verify a download?' })
       .locator('a[href^="/"]');
     if ((await docLink.count()) > 0) {
       await expect(docLink.first()).not.toHaveAttribute('href', /\.md/);
@@ -114,7 +129,9 @@ test.describe('faq', () => {
 });
 
 test.describe('screenshots', () => {
-  test('shows the honest empty state without captures, otherwise the gallery and lightbox', async ({ page }) => {
+  test('shows the honest empty state without captures, otherwise the gallery and lightbox', async ({
+    page,
+  }) => {
     const errors = trackConsoleErrors(page);
     await page.goto('/screenshots');
     await waitForApp(page);

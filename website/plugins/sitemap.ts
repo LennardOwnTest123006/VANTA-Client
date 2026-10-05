@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { Plugin } from 'vite';
 import { parseFrontMatterTyped } from '../src/lib/front-matter';
 import { buildRobots, buildSitemap, type SitemapEntry } from '../src/lib/sitemap';
+import { resolveSiteUrl } from './site-meta';
 
 /**
  * Vite plugin that emits `sitemap.xml` and `robots.txt` at build time.
@@ -77,12 +78,9 @@ export function sitemapPlugin(options: SitemapPluginOptions): Plugin {
   return {
     name: 'vanta:sitemap',
     configResolved(config) {
-      siteUrl =
-        options.siteUrl ??
-        (typeof config.env.VITE_SITE_URL === 'string' && config.env.VITE_SITE_URL !== ''
-          ? config.env.VITE_SITE_URL
-          : undefined) ??
-        process.env.URL;
+      // VITE_SITE_URL, else Netlify's URL build variable. (The social images of index.html use
+      // VITE_SITE_URL only, see plugins/site-meta.ts.)
+      siteUrl = resolveSiteUrl(options.siteUrl, config.env.VITE_SITE_URL, process.env.URL);
     },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
