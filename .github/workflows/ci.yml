@@ -267,6 +267,168 @@ jobs:
           (cd "$OUT" && sha256sum * > SHA256SUMS && cat SHA256SUMS && ls -la)
           bash scripts/ci/publish-screenshots.sh "$OUT" launcher-windows
 
+  launcher-windows-gui:
+    # Proves on a real Windows desktop that the launcher window opens from all three Windows downloads: the installed
+    # MSI, the portable zip and the fat jar. Each start renders the main window, writes a screenshot through the UI
+    # smoke hook (VANTA_UI_SMOKE_SCREENSHOT / VANTA_UI_SMOKE_EXIT_AFTER) and exits with code 0. Screenshots, launcher
+    # logs, startup-error.txt, stdout/stderr (JavaFX/Prism verbose) and the msiexec log are published either way.
+    name: Launcher starts on Windows (MSI, portable zip, jar)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Fat jar, jlink runtime and app image (tests run in the Launcher job)
+        working-directory: launcher
+        shell: bash
+        run: ./gradlew fatJar jlinkImage jpackage -x test --stacktrace
+      - name: Zip the app image as the portable build (same marker as the release)
+        shell: bash
+        run: |
+          set -euo pipefail
+          V=$(sed -n 's/^launcher_version=//p' launcher/gradle.properties)
+          test -n "$V" || { echo "::error::no launcher_version in launcher/gradle.properties"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/gui-build"
+          printf 'portable\n' > "launcher/build/jpackage/VANTA Launcher/app/vanta-portable.marker"
+          (cd launcher/build/jpackage && 7z a -tzip -mx=9 "$RUNNER_TEMP/gui-build/VANTA-Launcher-$V-windows-portable.zip" "VANTA Launcher" >/dev/null)
+          ls -la "$RUNNER_TEMP/gui-build"
+      - name: Windows installer (msi, WiX on the runner)
+        working-directory: launcher
+        shell: bash
+        run: ./gradlew jpackage -PjpackageType=msi -x test --stacktrace
+      - name: Start the launcher from the installed MSI, the portable zip and the jar
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'launcher-windows-gui'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $dataLogs = Join-Path $env:APPDATA 'VANTA Launcher\logs'
+          $failures = [System.Collections.Generic.List[string]]::new()
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+
+          function Save-Desktop([string]$path) {
+            try {
+              $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+              $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+              $g = [System.Drawing.Graphics]::FromImage($bmp)
+              $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+              $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+              $g.Dispose(); $bmp.Dispose()
+            } catch { Write-Host "desktop screenshot failed: $_" }
+          }
+
+          function Invoke-Smoke([string]$label, [string]$exe, [string[]]$exeArgs) {
+            Write-Host "::group::${label}: $exe $exeArgs"
+            $dir = Join-Path $out $label
+            New-Item -ItemType Directory -Force -Path $dir | Out-Null
+            # Every start writes its own launcher log under %APPDATA%\VANTA Launcher\logs; start from an empty folder.
+            if (Test-Path $dataLogs) { Remove-Item -Recurse -Force $dataLogs }
+            $png = Join-Path $dir 'window.png'
+            $env:VANTA_UI_SMOKE_SCREENSHOT = $png
+            $env:VANTA_UI_SMOKE_EXIT_AFTER = '20'
+            # JavaFX native library loading and the chosen Prism pipeline end up in stdout.txt / stderr.txt.
+            $env:JAVA_TOOL_OPTIONS = '-Dprism.verbose=true -Djavafx.verbose=true'
+            $start = @{ FilePath = $exe; PassThru = $true
+                        RedirectStandardOutput = (Join-Path $dir 'stdout.txt'); RedirectStandardError = (Join-Path $dir 'stderr.txt') }
+            if ($exeArgs) { $start.ArgumentList = $exeArgs }
+            $ok = $true
+            try {
+              $p = Start-Process @start
+              $null = $p.Handle  # keeps ExitCode available after the process ended
+              if (-not $p.WaitForExit(180000)) {
+                Save-Desktop (Join-Path $dir 'desktop-timeout.png')
+                # Only the smoke process this step started is stopped, so the job can report and publish.
+                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                $failures.Add("${label}: did not exit within 180 s"); $ok = $false
+              } elseif ($p.ExitCode -ne 0) {
+                Save-Desktop (Join-Path $dir 'desktop-after-exit.png')
+                $failures.Add("${label}: exit code $($p.ExitCode)"); $ok = $false
+              }
+            } catch {
+              $failures.Add("${label}: could not be started: $_"); $ok = $false
+            } finally {
+              Remove-Item Env:VANTA_UI_SMOKE_SCREENSHOT, Env:VANTA_UI_SMOKE_EXIT_AFTER, Env:JAVA_TOOL_OPTIONS -ErrorAction SilentlyContinue
+            }
+            if (-not (Test-Path $png) -or (Get-Item $png).Length -eq 0) { $failures.Add("${label}: no screenshot written"); $ok = $false }
+            if (Test-Path $dataLogs) { Copy-Item -Recurse $dataLogs (Join-Path $dir 'logs') }
+            $log = Join-Path $dir 'logs\launcher-0.log'
+            if (-not (Test-Path $log) -or -not (Select-String -Path $log -SimpleMatch 'Main window shown' -Quiet)) {
+              $failures.Add("${label}: 'Main window shown' is missing from the launcher log"); $ok = $false
+            }
+            Get-ChildItem $dir -Recurse -File | Format-Table FullName, Length -AutoSize | Out-String -Width 300 | Write-Host
+            foreach ($f in 'logs\startup-error.txt', 'stderr.txt', 'stdout.txt', 'logs\launcher-0.log') {
+              $path = Join-Path $dir $f
+              if (Test-Path $path) { Write-Host "----- $f (last 80 lines)"; Get-Content $path -Tail 80 | Write-Host }
+            }
+            Write-Host '::endgroup::'
+            if ($ok) { Write-Host "${label}: window rendered, screenshot written, exit code 0" } else { Write-Host "::error::${label}: the launcher did not start cleanly (see the logs above)" }
+          }
+
+          # 1) MSI: per-user install without UI, then the installed "VANTA Launcher.exe".
+          $msi = Get-ChildItem 'launcher/build/jpackage/*.msi' | Select-Object -First 1
+          if (-not $msi) { throw 'no .msi was built' }
+          $msiLog = Join-Path $out 'msi.log'
+          $install = Start-Process msiexec.exe -ArgumentList "/i `"$($msi.FullName)`" /qn /l*v `"$msiLog`"" -Wait -PassThru
+          Write-Host "msiexec exit code: $($install.ExitCode)"
+          if ($install.ExitCode -ne 0 -and $install.ExitCode -ne 3010) {
+            $failures.Add("msi: msiexec failed with exit code $($install.ExitCode)")
+          } else {
+            $exe = @(
+              (Join-Path $env:LOCALAPPDATA 'VANTA Launcher\VANTA Launcher.exe'),
+              (Join-Path $env:LOCALAPPDATA 'Programs\VANTA Launcher\VANTA Launcher.exe'),
+              (Join-Path $env:ProgramFiles 'VANTA Launcher\VANTA Launcher.exe')
+            ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if (-not $exe) {
+              $m = Select-String -Path $msiLog -Pattern 'Property\(S\): INSTALLDIR = (.+)$' | Select-Object -Last 1
+              if ($m) {
+                $candidate = Join-Path $m.Matches[0].Groups[1].Value.Trim() 'VANTA Launcher.exe'
+                if (Test-Path $candidate) { $exe = $candidate }
+              }
+            }
+            if (-not $exe) {
+              $exe = Get-ChildItem -Path $env:LOCALAPPDATA, $env:ProgramFiles -Filter 'VANTA Launcher.exe' -Recurse -ErrorAction SilentlyContinue |
+                Select-Object -First 1 -ExpandProperty FullName
+            }
+            if (-not $exe) { $failures.Add('msi: installed, but VANTA Launcher.exe was not found') } else {
+              Write-Host "Installed launcher: $exe"
+              Invoke-Smoke 'msi' $exe @()
+            }
+          }
+
+          # 2) Portable zip (with the portable marker), unpacked like a player would.
+          $zip = Get-ChildItem (Join-Path $env:RUNNER_TEMP 'gui-build\*-windows-portable.zip') | Select-Object -First 1
+          $portable = Join-Path $env:RUNNER_TEMP 'portable'
+          Expand-Archive -Path $zip.FullName -DestinationPath $portable -Force
+          Invoke-Smoke 'portable' (Join-Path $portable 'VANTA Launcher\VANTA Launcher.exe') @()
+
+          # 3) The windows fat jar with the JDK from setup-java.
+          $jar = Get-ChildItem 'launcher/build/libs/*-all.jar' | Select-Object -First 1
+          Invoke-Smoke 'jar' (Join-Path $env:JAVA_HOME 'bin\java.exe') @('-jar', "`"$($jar.FullName)`"")
+
+          if ($failures.Count -gt 0) {
+            $failures | ForEach-Object { Write-Host "::error::$_" }
+            exit 1
+          }
+          Write-Host 'The launcher started from the MSI, the portable zip and the jar.'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launcher-windows-gui
+          path: ${{ runner.temp }}/launcher-windows-gui
+          if-no-files-found: ignore
+      - name: Publish screenshots and logs to the ci-artifacts branch
+        if: always() && github.event_name == 'push'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/publish-screenshots.sh "$RUNNER_TEMP/launcher-windows-gui" launcher-windows-gui
+
   launcher-integration:
     name: Launcher integration (real install of Minecraft 1.21.11 + Fabric, headless launch)
     runs-on: ubuntu-24.04
@@ -286,11 +448,44 @@ jobs:
         with:
           name: vanta-client-jar
           path: client-jar
-      - name: Install Minecraft 1.21.11, Fabric Loader, Fabric API and the VANTA client jar through the launcher
+      - name: Install Minecraft 1.21.11, Fabric Loader, Fabric API, the VANTA client jar and the performance pack through the launcher
         run: |
+          set -euo pipefail
           JAR=$(ls client-jar/vanta-client-*.jar | grep -v sources | head -1)
           echo "Client jar: $JAR"
-          java -jar launcher/build/libs/vanta-launcher-*-all.jar --install --client-jar "$JAR" --data-dir "$RUNNER_TEMP/vanta"
+          java -jar launcher/build/libs/vanta-launcher-*-all.jar --install --client-jar "$JAR" --data-dir "$RUNNER_TEMP/vanta" | tee "$RUNNER_TEMP/install.out"
+          grep -F "Performance pack: sodium, lithium, ferrite-core, immediatelyfast, entityculling, iris from Modrinth" "$RUNNER_TEMP/install.out"
+      - name: Performance pack from Modrinth (live) - jars in mods/, SHA-512 matches modrinth.json and Modrinth
+        run: |
+          set -euo pipefail
+          INSTANCE="$RUNNER_TEMP/vanta/instances/vanta-1.21.11"
+          INDEX="$INSTANCE/config/vanta/modrinth.json"
+          jq . "$INDEX"
+          jq -e '.schemaVersion == 1 and (.installed | type == "array")' "$INDEX"
+          V=$(sed -n 's/^launcher_version=//p' launcher/gradle.properties)
+          UA="LennardOwnTest123006/VANTA-Client/$V (https://github.com/LennardOwnTest123006/VANTA-Client)"
+          for SLUG in sodium lithium ferrite-core immediatelyfast entityculling iris; do
+            ENTRY=$(jq -c --arg s "$SLUG" '.installed[] | select(.slug == $s)' "$INDEX")
+            test -n "$ENTRY" || { echo "::error::$SLUG is not recorded in modrinth.json"; exit 1; }
+            printf '%s' "$ENTRY" | jq -e '.type == "mod" and .enabled == true and (.file | startswith("mods/")) and (.projectId | length > 0)
+              and (.versionId | length > 0) and (.versionNumber | length > 0) and (.sha512 | test("^[0-9a-f]{128}$")) and (.installedAt | length > 0)
+              and (.requiredBy | type == "array")' >/dev/null
+            FILE=$(printf '%s' "$ENTRY" | jq -r .file)
+            SHA=$(printf '%s' "$ENTRY" | jq -r .sha512)
+            test -s "$INSTANCE/$FILE" || { echo "::error::$INSTANCE/$FILE is missing"; exit 1; }
+            echo "$SHA  $INSTANCE/$FILE" | sha512sum -c -
+            # Modrinth knows this exact file: its SHA-512 resolves to the recorded version of the recorded project,
+            # a Fabric build for Minecraft 1.21.11.
+            REMOTE=$(curl -fsS --retry 3 --retry-delay 5 -A "$UA" "https://api.modrinth.com/v2/version_file/$SHA?algorithm=sha512")
+            printf '%s' "$REMOTE" | jq -e --argjson e "$ENTRY" '.id == $e.versionId and .project_id == $e.projectId
+              and (.game_versions | index("1.21.11")) and (.loaders | index("fabric"))' >/dev/null \
+              || { echo "::error::Modrinth does not list $FILE as version $(printf '%s' "$ENTRY" | jq -r .versionId) for 1.21.11/fabric"; exit 1; }
+            echo "$SLUG: $(printf '%s' "$ENTRY" | jq -r '.title + " " + .versionNumber + " (" + .file + ")"') verified"
+          done
+          # Fabric API comes from the launcher itself (maven.fabricmc.net) and is never added a second time.
+          if jq -e '.installed[] | select(.projectId == "P7dR8mSH")' "$INDEX" >/dev/null; then echo "::error::Fabric API tracked as Modrinth content"; exit 1; fi
+          test "$(ls "$INSTANCE"/mods/fabric-api-*.jar | wc -l)" -eq 1
+          ls -la "$INSTANCE/mods"
       - name: Use with the Minecraft Launcher - add the VANTA profile to a fake official .minecraft and verify it
         run: |
           set -euo pipefail
@@ -317,6 +512,7 @@ jobs:
           JSON
           java -jar launcher/build/libs/vanta-launcher-*-all.jar --install-official-profile --client-jar "$JAR" --minecraft-dir "$MC" --data-dir "$RUNNER_TEMP/vanta" | tee "$RUNNER_TEMP/official-profile.out"
           grep -F "Files that will be written" "$RUNNER_TEMP/official-profile.out"
+          grep -F "Performance pack: sodium, lithium" "$RUNNER_TEMP/official-profile.out"
           grep -F -- "- $MC/launcher_profiles.json.vanta-backup" "$RUNNER_TEMP/official-profile.out"
           grep -F "Open the Minecraft Launcher, choose the profile 'VANTA 1.21.11' and press Play." "$RUNNER_TEMP/official-profile.out"
           P="$MC/launcher_profiles.json"
@@ -393,6 +589,10 @@ jobs:
           if [ -z "$LOG" ]; then echo "::error::no game log found"; ls -R "$RUNNER_TEMP/vanta" | head -100; exit 1; fi
           grep -E "VANTA Client [0-9.]+ starting for Minecraft 1.21.11" "$LOG" || { echo "::error::VANTA start line missing"; tail -100 "$LOG"; exit 1; }
           grep -F "VANTA main menu shown" "$LOG" || { echo "::error::the game never reached the VANTA main menu within the launch window"; tail -100 "$LOG"; exit 1; }
+          # The performance pack was loaded by Fabric next to the VANTA client (Fabric lists every mod at start-up).
+          for MOD in sodium lithium ferritecore immediatelyfast entityculling iris; do
+            grep -E "^[[:space:]]+- $MOD " "$LOG" || { echo "::error::$MOD from the performance pack was not loaded"; grep -n -A80 "Loading [0-9]* mods" "$LOG" | head -100; exit 1; }
+          done
           ! grep -qiE "Mixin apply failed|MixinApplyError|Exception in thread \"Render thread\"" "$LOG" || { echo "::error::mixin or render thread failure"; grep -nE -A5 "Mixin apply failed|MixinApplyError|Exception in thread" "$LOG" | head -60; exit 1; }
           tail -40 "$LOG"
       - uses: actions/upload-artifact@v4
