@@ -79,14 +79,27 @@ website and the launcher display exactly that. For a **stable** release the work
 reads. A **beta** release (GitHub pre-release) leaves `shared/releases/latest/` unchanged, so installed launchers are
 never offered a pre-release. Field reference and local checks: [`shared/releases/README.md`](shared/releases/README.md).
 
+**A new version's manifest is committed unpublished first.** `bump-version.mjs` creates
+`shared/releases/<product>-<version>.json` with every file listed but no `downloadUrl`, `size` or `sha256`, and that
+manifest is committed (step 3) before the release workflow runs, because the workflow refuses to release a version
+without one. From that commit until the completed manifest is committed (step 7):
+
+- the website's Download page keeps offering the **newest published release** of the product (the newest manifest
+  with at least one published file) and only mentions the new version as not published yet; the changelog page marks
+  that version the same way. A product without any published release shows "Not published yet — release pending";
+- the launcher keeps reading `shared/releases/latest/<product>-latest.json`, which still describes the previous
+  release, so installed launchers see nothing new until step 7 updates `latest/`.
+
 ## Steps
 
-1. **Versions.** Run `node scripts/release/bump-version.mjs --product <client|launcher|website> --to <version>`. It
-   updates `client/gradle.properties` (`mod_version`) and `core/.../VantaVersion.java`, or
+1. **Versions.** Run `node scripts/release/bump-version.mjs --product <client|launcher|website> --to <version>
+   [--date YYYY-MM-DD]`. It updates `client/gradle.properties` (`mod_version`) and `core/.../VantaVersion.java`, or
    `launcher/gradle.properties` (`launcher_version`), or `website/package.json`, and creates the unpublished manifest
-   with exactly the release files above.
+   with exactly the release files above (`--date` sets its preliminary `releaseDate`; the workflow overwrites it).
+   For 1.0.1: `--product client --to 1.0.1 --date 2026-10-05` and `--product launcher --to 1.0.1 --date 2026-10-05`.
 2. **Notes.** Write `website/content/changelog/<product>-<version>.md` and update `CHANGELOG.md`.
-3. **Commit** to the default branch and wait for CI to pass.
+3. **Commit** to the default branch, including the unpublished manifest, and wait for CI to pass. The website keeps
+   offering the previous release meanwhile (see [Release manifests](#release-manifests)).
 4. **Start the release workflow** (`.github/workflows/release.yml`), either
    - *Actions → Release → Run workflow* with `product`, `version` (must equal the pinned version), `channel`
      (`stable` or `beta`; beta becomes a GitHub pre-release) and `draft`. The workflow builds the selected commit and
@@ -150,8 +163,11 @@ never offered a pre-release. Field reference and local checks: [`shared/releases
      heading instead;
    - `website/content/changelog/<product>-<version>.md`: set `date:` in the front matter to the same value.
 9. **Website and launcher pick it up.** Netlify rebuilds the website from the commit (the Download page reads
-   `shared/releases/*.json` at build time and lists every file with size, SHA-256 and its link). The launcher reads
-   `shared/releases/latest/` through raw.githubusercontent.com (next section).
+   `shared/releases/*.json` at build time, now offers the new version and lists every file with size, SHA-256 and its
+   link; sizes are decimal with one decimal place, 1 MB = 1,000,000 bytes, as in the GitHub release notes). The
+   launcher reads `shared/releases/latest/` through raw.githubusercontent.com (next section). `netlify.toml` builds
+   whenever `website/`, `docs/`, `shared/`, `assets/screenshots/` or `netlify.toml` changed, and always when Netlify
+   has no cached commit or builds the same commit again.
 
 A **draft** release has no public links, so the URL verification is skipped and the run prints a warning. After
 publishing the draft, run `node scripts/release/verify-manifest.mjs shared/releases/<product>-<version>.json`.
@@ -180,14 +196,32 @@ user's Java runtime, and a Windows installer only after the user confirmed).
 
 At startup the launcher fetches `launcher-latest.json` and `client-latest.json` from the releases URL in use, shows
 the changelog, downloads the new file to `cache/updates/` inside the launcher data directory and verifies the SHA-256
-from the manifest. The file depends on the platform:
+from the manifest. The file replaces exactly the kind of installation that is running:
 
-| Platform | Update file | After the download |
+| Running launcher | Update file | After the download |
 | --- | --- | --- |
-| Windows | `VANTA-Launcher-<version>.msi` (`.exe` if a release has no `.msi`) | the launcher asks, then hands the installer to Windows |
-| Linux x64 | `VANTA-Launcher-<version>-linux-x64.tar.gz` | shown in its folder; the user extracts it |
+| Windows x64, installed with the `.msi` or `.exe` | `VANTA-Launcher-<version>.msi` (`.exe` if a release has no `.msi`) | the launcher asks, then hands the installer to Windows |
+| Windows x64, portable folder | `VANTA-Launcher-<version>-windows-portable.zip` | shown with instructions; the user closes the launcher and extracts the zip into the folder that contains the old `VANTA Launcher` folder (its parent), replacing the existing files (a renamed folder: copy the contents of the zip's `VANTA Launcher` folder into it) |
+| Windows x64, `java -jar` | `vanta-launcher-<version>-windows-all.jar` | shown in its folder; started with `java -jar` |
+| Linux x64 app image | `VANTA-Launcher-<version>-linux-x64.tar.gz` | shown in its folder; the user extracts it |
+| Linux x64, `java -jar` | `vanta-launcher-<version>-linux-all.jar` | shown in its folder; started with `java -jar` |
 | macOS, Apple Silicon | `vanta-launcher-<version>-macos-aarch64-all.jar` | shown in its folder; started with `java -jar` |
-| other (Intel macOS, Linux on ARM) | none | the update dialog opens the release page |
+| other (Intel macOS, Windows or Linux on ARM) | none | the update dialog opens the release page |
+
+The launcher tells a packaged installation (started by the jpackage launcher, which sets `jpackage.app-path`) from a
+plain jar, and the portable folder from an installed one by `<directory of jpackage.app-path>/app/vanta-portable.marker`.
+The `launcher-windows` job writes that marker (text `portable`) into the app image right before zipping it as
+`VANTA-Launcher-<version>-windows-portable.zip` and checks it in the zip; the `.msi` and `.exe` are built from a fresh
+jpackage run without it, which the job also checks. The launcher never unpacks or runs the zip, the archive or a jar.
+
+This selection exists from launcher 1.0.1 on. Launcher 1.0.0 picks the update file by system only (the `.msi` on
+Windows, also for the portable folder and a jar; the `.tar.gz` on Linux x64, also for a jar), so it offers 1.0.1
+that way. Portable and jar users of 1.0.0 are told in [Installation → Updating](docs/installation.md#updating) to
+download the portable zip or their jar from the release page instead; keep that note while 1.0.0 is in use.
+
+A client update is offered only when a client is installed (the `vanta-client-<version>.jar` in the instance's
+`mods/` folder); a fresh launcher installs the client through the regular installation or *Use with Minecraft
+Launcher* instead.
 
 Client updates install exactly `vanta-client-<version>.jar` (never the mods bundle or the Fabric API jar) and keep
 the last three verified jars under `versions/vanta-client/` so the Versions screen can roll back; rolling back the

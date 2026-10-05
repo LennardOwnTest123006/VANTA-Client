@@ -34,10 +34,11 @@ names each) and the **last 30 sessions** are kept. Nothing about other players i
 
 ## The Statistics screen
 
-Open it from the main menu, `/vanta stats`, or the in-game VANTA menu. It shows summary cards (total playtime,
-sessions, average FPS, highest FPS, worlds, servers, distance, blocks broken, blocks placed) with small bars for the
-last 30 sessions, the current session, a sessions table (date, duration, average FPS, world or server) and a privacy
-panel. A fresh installation shows honest empty states, not sample numbers.
+Open it from the main menu or *Settings → Privacy* (`/vanta stats` prints the current session in the chat instead).
+It shows summary cards (total playtime, sessions, average FPS, highest FPS, worlds, servers, distance, blocks broken,
+blocks placed) with small bars for the last 30 sessions, the current session, a sessions table (date, duration,
+average FPS, world or server) and a privacy panel. A fresh installation shows honest empty states, not sample
+numbers.
 
 ## Privacy switches
 

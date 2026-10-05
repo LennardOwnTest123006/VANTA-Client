@@ -6,8 +6,8 @@ category: Client
 ---
 
 VANTA's screens are built with a small UI kit that applies these options everywhere at once; changing one takes effect
-immediately in the screen you are looking at. Open them from the main menu's **ACCESSIBILITY** button, *Settings →
-Accessibility*, or the Accessibility screen in the VANTA menu.
+immediately in the screen you are looking at. Open them from the main menu's **ACCESSIBILITY** button or *Settings →
+Accessibility* (in a world, **Right Shift** opens the settings).
 
 ## Options
 

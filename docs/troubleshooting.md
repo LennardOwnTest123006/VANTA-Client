@@ -14,16 +14,19 @@ category: Help
 
 ## The Download page says "Not published yet"
 
-The website's Download page is built from the release manifests in the repository (`shared/releases/`). A product
-shows **"Not published yet — release pending"** and a disabled button while the manifest in the deployed website has
-no download URL for it. That happens before the release workflow has published the product, and also in the short
-time after a release is published but before its completed manifest has been committed and the website rebuilt.
+The website's Download page is built from the release manifests in the repository (`shared/releases/`). A new
+version's manifest is committed before the release workflow publishes its files, with no download URLs yet. Until the
+workflow has published the files and the completed manifest is committed and the website rebuilt, the Download page
+keeps offering the **newest published release** of that product and adds a note that the new version is not published
+yet; the changelog page says the same next to that version. Only a product that has no published release at all shows
+**"Not published yet — release pending"** with a disabled button. The page never links to a file that does not exist.
 
-1. Open [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases). If the release
-   (`launcher-v1.0.0` or `client-v1.0.0`) is listed, download the file from its release page and compare it with
-   `SHA256SUMS.txt` from the same page ([Installation → Verify the checksum](installation.md#2-verify-the-checksum)).
-2. If GitHub Releases does not list it either, the release does not exist yet and there is nothing to download.
-   Do not take VANTA files from any other source.
+1. Open [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases). If the release you want
+   (for example `launcher-v1.0.1` or `client-v1.0.1`) is listed, the website has not been rebuilt yet: download the
+   file from its release page and compare it with `SHA256SUMS.txt` from the same page
+   ([Installation → Verify the checksum](installation.md#2-verify-the-checksum)).
+2. If GitHub Releases does not list it either, that version has not been published yet and there is nothing to
+   download for it; use the newest version that is listed. Do not take VANTA files from any other source.
 
 The VANTA Launcher shows the same state in its *VANTA Client* card ("No public release has been published yet." or
 "Version … is announced but not downloadable yet."). It reads `client-latest.json` and `launcher-latest.json` from the
@@ -36,7 +39,7 @@ configured value is not an `http(s)` URL; correct it or reset it.
 ## "Windows protected your PC"
 
 Windows SmartScreen shows this for programs without a code-signing certificate. The VANTA installers
-(`VANTA-Launcher-1.0.0.msi`, `.exe`) and the portable app are **not code-signed** yet (a certificate is a paid item
+(`VANTA-Launcher-1.0.1.msi`, `.exe`) and the portable app are **not code-signed** yet (a certificate is a paid item
 the project does not have), so the warning is expected for the files from GitHub Releases.
 
 1. First compare the file's SHA-256 with `SHA256SUMS.txt` from the release page
@@ -54,16 +57,25 @@ Each launcher jar contains the JavaFX libraries for one system only, so take the
 
 | Your computer | File | Needs |
 | --- | --- | --- |
-| Linux x64 (`uname -m` prints `x86_64`) | `VANTA-Launcher-1.0.0-linux-x64.tar.gz` (recommended) or `vanta-launcher-1.0.0-linux-all.jar` | nothing for the `.tar.gz`; Java 21 for the jar |
-| Mac with Apple Silicon (*About This Mac* shows an Apple M chip; `uname -m` prints `arm64`) | `vanta-launcher-1.0.0-macos-aarch64-all.jar` | Java 21; start it with `java -jar` from Terminal |
-| Mac with an Intel processor (`uname -m` prints `x86_64`) | none | use the [manual installation](installation.md#c-manual-installation) with `vanta-client-1.0.0-mods.zip` |
+| Linux x64 (`uname -m` prints `x86_64`) | `VANTA-Launcher-1.0.1-linux-x64.tar.gz` (recommended) or `vanta-launcher-1.0.1-linux-all.jar` | nothing for the `.tar.gz`; Java 21 for the jar |
+| Mac with Apple Silicon (*About This Mac* shows an Apple M chip; `uname -m` prints `arm64`) | `vanta-launcher-1.0.1-macos-aarch64-all.jar` | Java 21; start it with `java -jar` from Terminal |
+| Mac with an Intel processor (`uname -m` prints `x86_64`) | none | use the [manual installation](installation.md#c-manual-installation) with `vanta-client-1.0.1-mods.zip` |
 | Linux on ARM (`aarch64`) | none | use the manual installation |
 
-The Windows jar (`-windows-all.jar`) does not start on Linux or macOS, and the Linux jar does not start on Windows or
-macOS, even though all of them are `.jar` files. `java -jar <file> --version` prints the JavaFX platform the jar was built
-for and the system it is running on. The macOS jar is built and tested from the command line on an Apple Silicon
-machine in CI; its window has not been tested there yet, and it is not signed or notarized. If it does not open
-for you, use the manual installation and [report it](#how-to-report-a-problem).
+The Windows jar (`-windows-all.jar`) does not start its window on Linux or macOS, and the Linux jar does not start it
+on Windows or macOS, even though all of them are `.jar` files. Started on the wrong system, a jar says so before it
+tries to open a window: *"This jar is for Windows x64, but it was started by a Java runtime for Linux x64. …"* followed
+by the file to download instead (for example `vanta-launcher-1.0.1-linux-all.jar` or
+`VANTA-Launcher-1.0.1-linux-x64.tar.gz`) and the releases page. The check looks at the Java runtime, not at the
+computer: an x64 (Intel) Java on an Apple Silicon Mac runs under Rosetta 2 and is told to install an arm64 (aarch64)
+Java 21 and start `vanta-launcher-1.0.1-macos-aarch64-all.jar` with it, and a 32-bit Java is told to use a 64-bit
+Java 21 or a download that brings its own Java runtime (the `.msi`, the portable app or the Linux `.tar.gz`). The jar
+prints the message, also shows it in a message window when a display is available (a double-clicked jar has no
+console), and exits with code 1. Command line options such as `--help`, `--version` and `--install-official-profile`
+need no window and work with every jar. `java -jar <file> --version` prints the JavaFX platform the jar was built for
+and the system it is running on. The macOS jar is built and tested from the command line on an Apple Silicon machine
+in CI; its window has not been tested there yet, and it is not signed or notarized. If it does not open for you, use
+the manual installation and [report it](#how-to-report-a-problem).
 
 ## PLAY is disabled or sign-in is not configured
 
@@ -111,7 +123,8 @@ profiles file VANTA changed keeps its original next to it as `launcher_profiles.
 If the profile does not show up in the Minecraft Launcher from the Microsoft Store or the Xbox app, close that
 launcher completely and start it again. If it is still missing, install with
 [path C](installation.md#c-manual-installation) instead and [report the problem](#how-to-report-a-problem): CI checks
-the file VANTA writes for that launcher on Linux, but it has not been tested on a real Windows machine.
+the file VANTA writes for that launcher on Linux, but whether that launcher shows the profile has not been tested on
+a real Windows PC.
 
 ## The launcher cannot find Java
 
@@ -184,6 +197,13 @@ counts attack/use clicks for the CPS widget, and changes the FOV while the zoom 
 - **Two main menus / a flash of the vanilla menu**: another mod also replaces the title screen. Turn off
   *Settings → General → Replace the title screen* or remove the other mod.
 - **Overlapping HUDs**: disable the duplicate VANTA widgets in the HUD editor or move them.
+- **The keybind manager reports a conflict on C, or C + a number key saves your hotbar in Creative**: VANTA's zoom key
+  (C) shares its default key with vanilla's *Save Hotbar Activator* (Creative mode only). That is expected; rebind
+  either one in *Options → Controls → Key Binds* or in the VANTA keybind manager ([Keybinds → Zoom](keybinds.md#zoom)).
+- **The keybind manager reports many conflicts right after installation** (for example on A, S, D or the middle mouse
+  button): apart from C, the conflicts you see with only VANTA and Fabric API installed are between vanilla bindings
+  that share a default key. They behave as in the game without VANTA and can be ignored; the only conflict VANTA adds
+  is the one on C ([Keybinds → Conflict detection](keybinds.md#conflict-detection)).
 - **Crash on start after adding a mod**: remove mods one at a time to find the pair; include both names in the
   report. Keep Fabric API — it is required.
 - Performance mods (Sodium, Lithium, Iris, …) are not tested with VANTA. VANTA changes vanilla options only, so they
@@ -196,10 +216,29 @@ counts attack/use clicks for the CPS widget, and changes the FOV while the zoom 
 - **"No public release has been published yet"** in the VANTA Client card: see
   [The Download page says "Not published yet"](#the-download-page-says-not-published-yet); the launcher reads the
   same release manifests.
-- **The launcher window does not open** (launcher jar): run `java -jar vanta-launcher-1.0.0-<system>-all.jar` from a
-  terminal to see the error. Make sure the jar is the one for your system
-  ([which file](#linux-and-macos-which-launcher-file)) and that `java -version` prints 21; JavaFX also needs a
-  desktop session (not a headless server).
+- **The VANTA Client card says "Not installed yet" and offers no *Update***: expected on a fresh launcher. There is
+  nothing to update until a client is installed; use **Install now** (when sign-in is configured), PLAY or **Use with
+  Minecraft Launcher**. A client installed by *Use with Minecraft Launcher* counts as installed and gets updates
+  ([Launcher → Home](launcher.md#home)).
+- **The launcher window does not open** (launcher jar): run `java -jar vanta-launcher-<version>-<system>-all.jar` from
+  a terminal to see the message. A jar for another system names the right file and exits with code 1
+  ([which file](#linux-and-macos-which-launcher-file)); otherwise check that `java -version` prints 21. JavaFX also
+  needs a desktop session (not a headless server); without one the launcher says that its user interface could not
+  start and exits with code 1. The command line (`--help`) works without a window.
+- **A launcher update was downloaded but nothing was installed**: only the Windows installer is opened (after you
+  confirm). Every other update file is verified and shown in its folder: close the launcher and extract the portable
+  `.zip` into the folder that contains your `VANTA Launcher` folder (its parent, not the `VANTA Launcher` folder
+  itself), replacing the existing files; extract the Linux `.tar.gz`; or start the new jar with `java -jar`
+  ([Installation → Updating](installation.md#updating)).
+- **After a portable update there is a `VANTA Launcher` folder inside your `VANTA Launcher` folder and the version did
+  not change**: the zip was extracted into the portable folder instead of its parent. Close the launcher, delete the
+  inner `VANTA Launcher` folder and extract the zip again into the folder that contains your portable folder.
+- **Launcher 1.0.0 offers `VANTA-Launcher-1.0.1.msi` although you use the portable folder or a jar** (or the
+  `.tar.gz` for a Linux jar): launcher 1.0.0 picks the update by system only. Choose *Not now* and download the
+  portable zip or the jar for your system from the release `launcher-v1.0.1` yourself; from 1.0.1 on the launcher
+  picks the matching file ([Installation → Updating](installation.md#updating)). If you already installed the `.msi`,
+  you have an installed launcher next to the portable copy or jar; both use the same data directory, so you can keep
+  the installed one and delete the portable folder or jar.
 - **Network failure (exit code 5)**: the message names the step and the URL that failed. Check the internet
   connection, firewall and proxy; an HTTPS proxy that refuses the connection is reported the same way.
 - **Installation stops with insufficient disk space**: free space on the drive that holds the data directory or

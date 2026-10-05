@@ -6,8 +6,8 @@ category: Client
 ---
 
 Cosmetics change how VANTA looks. They have **no effect on gameplay**, they are **all free**, and nothing is unlocked,
-bought or tracked. Open the Cosmetics screen from the main menu's Cosmetics button, *Settings → Cosmetics*, or the
-in-game VANTA menu.
+bought or tracked. Open the Cosmetics screen from the main menu's Cosmetics button or *Settings → Cosmetics* (in a
+world, **Right Shift** opens the settings).
 
 ## UI themes
 

@@ -15,10 +15,10 @@ options on top of vanilla Minecraft. It adds **no cheats** and sends **no data**
 | Fabric Loader | 0.19.5 |
 | Fabric API | 0.141.6+1.21.11 |
 | Java | 21 |
-| VANTA Client | 1.0.0 |
-| VANTA Launcher | 1.0.0 |
+| VANTA Client | 1.0.1 |
+| VANTA Launcher | 1.0.1 |
 | Launcher platforms | Windows 10/11 x64 (installers, portable app, jar); Linux x64 (app image, jar); Apple Silicon macOS (jar) |
-| Downloads | GitHub Releases `client-v1.0.0` and `launcher-v1.0.0` |
+| Downloads | GitHub Releases `client-v1.0.1` and `launcher-v1.0.1` (released 2026-10-05; 1.0.0 stays available), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
 
 ## Quick start
 
@@ -28,8 +28,9 @@ options on top of vanilla Minecraft. It adds **no cheats** and sends **no data**
    install it and click **Use with Minecraft Launcher**, then start the profile *VANTA 1.21.11* in the official
    Minecraft Launcher. (PLAY inside the VANTA Launcher needs a Microsoft client id that the published builds do not
    include; the guide explains this and the manual alternative with the mods bundle.)
-3. In the game, open the VANTA menu with **Right Shift** (or the OPTIONS button in the main menu) and start with
-   [Settings](settings.md) and the [HUD editor](hud.md).
+3. In the game, open the VANTA settings with **Right Shift** (or the OPTIONS button in the main menu) and start with
+   [Settings](settings.md) and the [HUD editor](hud.md). Hold **C** to zoom; in Creative mode C is also vanilla's
+   *Save Hotbar Activator*, see [Keybinds](keybinds.md#zoom).
 
 ## Guides
 
@@ -69,7 +70,7 @@ options on top of vanilla Minecraft. It adds **no cheats** and sends **no data**
 
 - [Troubleshooting](troubleshooting.md) — "Not published yet", SmartScreen, which launcher file, disabled PLAY,
   the Minecraft Launcher profile, Java not found, checksum mismatch, sign-in errors, crashes, mod conflicts, logs
-- [FAQ](faq.md) — servers, Sodium/OptiFine, supported versions, price, data
+- [FAQ](faq.md) — where to download, servers, Sodium/OptiFine, supported versions, price, data
 
 ## Getting help
 
@@ -81,8 +82,9 @@ Please read [Troubleshooting](troubleshooting.md) first and include the informat
 ## A note on honesty
 
 Downloads exist only as files the release workflow has published on GitHub Releases, with SHA-256 checksums it
-computed from the uploaded files and checked against the public links. A product the workflow has not published yet
-shows "not published yet" on the website rather than a link. The files are not code-signed, and Microsoft sign-in
+computed from the uploaded files and checked against the public links. A version the workflow has not published yet
+is marked "not published yet" on the website rather than linked, and the Download page keeps offering the newest
+published release meanwhile. The files are not code-signed, and Microsoft sign-in
 inside the VANTA Launcher needs a client id the project does not have; both are documented where they matter. Screenshots on the website are real captures from the automated game
 test; if there are none yet, the page says so. Everything described in these pages is implemented in the version
 named above; features that do not exist are not documented as if they did.

@@ -5,7 +5,14 @@
   base = "website"
   command = "npm ci && npm run build"
   publish = "dist"
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ../docs ../shared ../assets/screenshots ../netlify.toml"
+  # Netlify skips the build when this command exits with 0 and builds when it exits with 1.
+  # - No cached commit (first build of a newly linked site, cleared cache) or the same commit again
+  #   (CACHED_COMMIT_REF == COMMIT_REF, e.g. "Clear cache and deploy"): always build. A plain
+  #   `git diff --quiet A A` would exit 0 there and cancel every such build, so the site would never deploy.
+  # - Otherwise build only when the website, the docs, the release manifests, the screenshots or this file changed.
+  #   A failing `git diff` (for example a cached commit that no longer exists after a force push) also builds.
+  # Literal TOML string (single quotes): the shell sees the double quotes unchanged.
+  ignore = 'if [ -z "$CACHED_COMMIT_REF" ] || [ "$CACHED_COMMIT_REF" = "$COMMIT_REF" ]; then false; elif git diff --quiet "$CACHED_COMMIT_REF" "$COMMIT_REF" -- . ../docs ../shared ../assets/screenshots ../netlify.toml; then true; else false; fi'
 
 [build.environment]
   NODE_VERSION = "22"

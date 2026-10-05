@@ -63,7 +63,7 @@ Loom launches Minecraft 1.21.11 with an offline development account. Config file
 
 | Layer | How |
 | --- | --- |
-| core | JUnit 5 unit tests; Java2D screen previews for visual review |
+| core | JUnit 5 unit tests (CI runs `./gradlew build`); Java2D screen previews (`./gradlew previewScreens`) for local visual review, not run in CI |
 | client | Compiles against real Minecraft in CI; Fabric client game tests launch the real game headlessly (Xvfb) and screenshot the main menu, settings, HUD editor, in-game HUD |
 | launcher | JUnit 5 with fixture JSON (version manifest, version json, Fabric profile); integration test for the install pipeline runs in CI against the real Mojang/Fabric endpoints and launches the game in development offline mode, and `--install-official-profile` is checked against a prepared `.minecraft` folder |
 | website | vitest + Testing Library; Playwright end-to-end against the production build; link checker |

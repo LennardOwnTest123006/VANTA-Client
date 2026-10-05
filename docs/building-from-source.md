@@ -35,6 +35,8 @@ cd core
 ./gradlew previewScreens   # renders every VANTA screen to build/previews/*.png with a Java2D canvas
 ```
 
+`previewScreens` is a local tool for visual review; CI runs `./gradlew build` (compile and unit tests) only.
+
 ## Client — the Fabric mod
 
 Compiles the core sources together with the thin Minecraft adapters against Minecraft 1.21.11 (Mojang official
@@ -43,27 +45,28 @@ minutes.
 
 ```bash
 cd client
-./gradlew build                        # build/libs/vanta-client-1.0.0.jar
+./gradlew build                        # build/libs/vanta-client-<version>.jar (mod_version in gradle.properties)
 ./gradlew runClient                    # start Minecraft 1.21.11 with VANTA (development account)
 ./gradlew runClientGametest            # automated client game tests in the development environment
 ./gradlew runProductionClientGametest  # runs the real built jar with Fabric Loader + Fabric API headlessly (Xvfb when CI=true)
 ```
 
-Check the target: `unzip -p build/libs/vanta-client-1.0.0.jar fabric.mod.json | grep minecraft` prints
+Check the target: `unzip -p build/libs/vanta-client-<version>.jar fabric.mod.json | grep minecraft` prints
 `"minecraft": "~1.21.11"`.
 
 ## Launcher — JavaFX
 
 ```bash
 cd launcher
-./gradlew build            # tests + build/libs/vanta-launcher-1.0.0-all.jar (fat jar incl. JavaFX for this system)
+./gradlew build            # tests + build/libs/vanta-launcher-<version>-all.jar (fat jar incl. JavaFX for this system)
 ./gradlew run              # start the launcher UI with the host JDK
 ./gradlew jlinkImage       # trimmed Java 21 + JavaFX runtime under build/runtime
 ./gradlew jpackage         # app image under build/jpackage; -PjpackageType=msi|exe on Windows (WiX), deb/rpm on Linux
 ```
 
 The fat jar contains the JavaFX native libraries of one platform: the build host's, or the one chosen with
-`-PjavafxPlatform=win|linux|mac|mac-aarch64|linux-aarch64`. A jar built on Windows does not start on Linux or macOS.
+`-PjavafxPlatform=win|linux|mac|mac-aarch64|linux-aarch64`. A jar built on Windows does not start its window on
+Linux or macOS; it names the right download instead and exits with code 1 (the command line works with every jar).
 The release workflow therefore builds the launcher on Windows, Linux and Apple Silicon macOS and publishes renamed
 copies (`vanta-launcher-<version>-windows-all.jar`, `-linux-all.jar`, `-macos-aarch64-all.jar`). Packaging uses only
 the JDK's `jlink` and `jpackage`; installers for Windows must be built on Windows.
@@ -79,8 +82,10 @@ PLAYWRIGHT_CHROMIUM_PATH=/path/to/chromium npm run test:e2e   # Playwright again
 ```
 
 Optional environment variables (`website/.env.example`): `VITE_DOWNLOAD_LAUNCHER_URL`, `VITE_DOWNLOAD_CLIENT_URL`,
-`VITE_RELEASES_BASE_URL`, `VITE_SUPPORT_EMAIL`, `VITE_DISCORD_URL`, `VITE_GITHUB_URL`. Without them the download page
-reads the release manifests and shows "not published yet" where no URL exists.
+`VITE_RELEASES_BASE_URL`, `VITE_SUPPORT_EMAIL`, `VITE_DISCORD_URL`, `VITE_GITHUB_URL`, `VITE_SITE_URL` (the public
+origin for the sitemap and the absolute link-preview tags; on Netlify its `URL` build variable is used when it is
+unset). Without them the download page reads the release manifests: it offers the newest published release of each
+product and shows "not published yet" for a version without published files.
 
 ## Everything at once
 
@@ -95,10 +100,10 @@ powershell -File scripts/build-all.ps1 -SkipClient   # Windows
 ```bash
 node --test scripts/release/                                                                 # release script tests
 node scripts/release/validate-json.mjs shared/schemas/release-manifest.schema.json shared/releases/*.json
-node scripts/release/release-assets.mjs check-manifest shared/releases/client-1.0.0.json            # release file names and order
+node scripts/release/release-assets.mjs check-manifest shared/releases/client-1.0.1.json            # release file names and order
 node scripts/release/check-links.mjs docs website/content                                    # markdown link check
 ```
 
 Releases themselves are cut by the release workflow (*Run workflow* with product and version, or a pushed tag
-`client-v1.0.0` / `launcher-v1.0.0`); it builds, checksums, publishes the GitHub Release, verifies the public download
+such as `client-v1.0.1` / `launcher-v1.0.1`); it builds, checksums, publishes the GitHub Release, verifies the public download
 links and hands the completed manifests back — see `RELEASE.md` in the root folder of the repository.

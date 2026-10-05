@@ -52,7 +52,8 @@ until one is configured ([Launcher → Microsoft client id](launcher.md#microsof
 | 32-bit systems | not supported (Java 21 for Minecraft is 64-bit only) |
 
 Each launcher jar contains JavaFX for one system only; the Windows jar does not run on Linux or macOS and the other
-way round. The client jar (`vanta-client-1.0.0.jar`) is the same on every system.
+way round (started on the wrong system it names the right file and exits with code 1). The client jar
+(`vanta-client-<version>.jar`, for example `vanta-client-1.0.1.jar`) is the same on every system.
 
 ## Graphics
 

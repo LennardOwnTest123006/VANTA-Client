@@ -72,19 +72,26 @@ Report incompatibilities with the mod list included; see [Troubleshooting → Mo
 You can use VANTA without the VANTA Launcher. Any launcher that runs Fabric 0.19.5 on Minecraft 1.21.11 works;
 the client jar does not care who started the game.
 
-The release `client-v1.0.0` has what you need: `vanta-client-1.0.0-mods.zip` contains both mods in a `mods/` folder
-(`vanta-client-1.0.0.jar` and `fabric-api-0.141.6+1.21.11.jar`) together with `INSTALL.txt` and a `SHA256SUMS` file.
-The two jars are also published on their own; `fabric-api-0.141.6+1.21.11.jar` is the unmodified FabricMC release
-(Apache-2.0). Verify what you download as described in [Installation](installation.md#2-verify-the-checksum).
+The release `client-v1.0.1` has what you need: `vanta-client-1.0.1-mods.zip` contains both mods in a `mods/` folder
+(`vanta-client-1.0.1.jar` and `fabric-api-0.141.6+1.21.11.jar`) together with `INSTALL.txt` and a `SHA256SUMS` file.
+`INSTALL.txt` lists the steps below for the official Minecraft Launcher, starting with step 0: start the official
+Minecraft Launcher once. The two jars are also published on their own; `fabric-api-0.141.6+1.21.11.jar` is the
+unmodified FabricMC release (Apache-2.0). Verify what you download as described in
+[Installation](installation.md#2-verify-the-checksum).
 
 **Official Minecraft Launcher**
 
-1. Start the Minecraft Launcher once if you never have. Then run the Fabric installer from fabricmc.net, choose
-   Minecraft **1.21.11** and Loader **0.19.5**, keep *Create profile* checked and install. This creates a profile
-   listed as **fabric-loader-1.21.11** (its version is `fabric-loader-0.19.5-1.21.11`) in `launcher_profiles.json`,
-   or in `launcher_profiles_microsoft_store.json` for the Minecraft Launcher from the Microsoft Store or the Xbox app.
-2. Unzip `vanta-client-1.0.0-mods.zip` and check it with its `SHA256SUMS` (`sha256sum -c SHA256SUMS` on Linux,
-   `shasum -a 256 -c SHA256SUMS` on macOS, `certutil -hashfile mods\vanta-client-1.0.0.jar SHA256` on Windows).
+1. Start the official Minecraft Launcher once if you never have, then close it: the Fabric installer needs the
+   Minecraft folder and the profiles file it creates and otherwise stops with "No launcher directory found!" (no
+   Minecraft folder yet) or "No launcher profile.json found!". Then run the Fabric installer from fabricmc.net
+   (*Client* tab), choose Minecraft **1.21.11** and Loader **0.19.5**, keep **Create profile** checked and install.
+   This creates a profile listed as **fabric-loader-1.21.11** (its version is `fabric-loader-0.19.5-1.21.11`) in
+   `launcher_profiles.json`, or in `launcher_profiles_microsoft_store.json` for the Minecraft Launcher from the
+   Microsoft Store or the Xbox app.
+2. Unzip `vanta-client-1.0.1-mods.zip` and check it with its `SHA256SUMS` (`sha256sum -c SHA256SUMS` on Linux,
+   `shasum -a 256 -c SHA256SUMS` on macOS; on Windows
+   `Get-FileHash mods\*.jar -Algorithm SHA256 | Format-List Hash, Path` in PowerShell, which prints the full path of
+   each jar, then compare the hash of both jars with the line for the same file in `SHA256SUMS`).
 3. Copy both jars from its `mods/` folder into the `mods/` folder of the game directory (`%APPDATA%\.minecraft\mods` on
    Windows, `~/.minecraft/mods` on Linux, `~/Library/Application Support/minecraft/mods` on macOS). Create the folder
    if it does not exist.

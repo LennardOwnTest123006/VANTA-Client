@@ -62,30 +62,36 @@ notarised macOS app.
 
 ## Which launcher file do I need on Linux or macOS?
 
-Linux x64: `VANTA-Launcher-1.0.0-linux-x64.tar.gz` (or `vanta-launcher-1.0.0-linux-all.jar` with Java 21). Apple
-Silicon Mac: `vanta-launcher-1.0.0-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
-interchangeable: each contains JavaFX for one system only, so the Windows or Linux jar does not run on a Mac. The macOS
-jar is built and tested from the command line in CI; its window has not been tested yet. Details:
+Linux x64: `VANTA-Launcher-1.0.1-linux-x64.tar.gz` (or `vanta-launcher-1.0.1-linux-all.jar` with Java 21). Apple
+Silicon Mac: `vanta-launcher-1.0.1-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
+interchangeable: each contains JavaFX for one system only, so the Windows or Linux jar does not run on a Mac. Started on
+the wrong system, a jar does not open its window; it names the file to download instead (in a message window as well
+when you double-clicked it) and exits with code 1. The macOS jar is built and tested from the command line in CI; its
+window has not been tested yet. Details:
 [Troubleshooting → Which launcher file](troubleshooting.md#linux-and-macos-which-launcher-file).
 
 ## Can I use VANTA without the VANTA Launcher?
 
-Yes. Download `vanta-client-1.0.0-mods.zip`: it contains `vanta-client-1.0.0.jar` and Fabric API
-0.141.6+1.21.11 in a `mods/` folder. Install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer and copy both
-jars into the `mods/` folder of that profile (official launcher, Prism, MultiMC). You lose the launcher's verified
-updates, rollback and Java helpers, nothing else. See [Installation](installation.md#c-manual-installation) and
+Yes. Download `vanta-client-1.0.1-mods.zip`: it contains `vanta-client-1.0.1.jar` and Fabric API
+0.141.6+1.21.11 in a `mods/` folder, plus `INSTALL.txt` with the steps. Start the official Minecraft Launcher once,
+install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer (keep *Create profile* checked) and copy both jars
+into the `mods/` folder of that profile (official launcher, Prism, MultiMC). You lose the launcher's verified updates,
+rollback and Java helpers, nothing else. See [Installation](installation.md#c-manual-installation) and
 [Fabric](fabric.md#manual-installation-into-an-existing-fabric-profile).
 
 ## What does "Use with Minecraft Launcher" do?
 
 It is a button on the VANTA Launcher's Home screen (and the command `--install-official-profile`). It installs Fabric
 API and the VANTA Client into VANTA's game folder, adds the Fabric Loader 0.19.5 version to the official Minecraft
-folder and adds the profile **VANTA 1.21.11** to the official Minecraft Launcher, whether you have the one from
-minecraft.net or the one from the Microsoft Store or the Xbox app. All your other profiles are kept, and each profiles
-file it changes is backed up once (for example as `launcher_profiles.json.vanta-backup`). You then choose that
-profile in the Minecraft Launcher and press Play; the Minecraft Launcher downloads the game and Java and signs you
-in. Exactly what is written:
-[Launcher → Use with the Minecraft Launcher](launcher.md#use-with-the-minecraft-launcher).
+folder and writes the profile **VANTA 1.21.11** into the profiles files of the official Minecraft Launcher that exist
+there: `launcher_profiles.json` (Minecraft Launcher from minecraft.net) and/or
+`launcher_profiles_microsoft_store.json` (Minecraft Launcher from the Microsoft Store or the Xbox app). All your other
+profiles are kept, and each profiles file it changes is backed up once (for example as
+`launcher_profiles.json.vanta-backup`). You then choose that profile in the Minecraft Launcher and press Play; the
+Minecraft Launcher downloads the game and Java and signs you in. CI checks the contents of both files on Linux, but
+whether the Minecraft Launcher from the Microsoft Store or the Xbox app then shows the profile has not been tested on a
+real Windows PC yet; if it does not, use the [manual installation](installation.md#c-manual-installation). Exactly
+what is written: [Launcher → Use with the Minecraft Launcher](launcher.md#use-with-the-minecraft-launcher).
 
 ## Why can't I sign in with Microsoft in the VANTA Launcher?
 
@@ -110,16 +116,32 @@ Yes, VANTA is an ordinary Fabric mod. Mods that also replace the title screen co
 VANTA's off in *Settings → General*). We do not test third-party combinations; see
 [Fabric](fabric.md#using-vanta-with-other-fabric-mods).
 
-## Why is there no download yet?
+## Where do I download VANTA?
 
-VANTA Client 1.0.0 and VANTA Launcher 1.0.0 are distributed only as the GitHub Releases `client-v1.0.0` and
-`launcher-v1.0.0` on [github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases).
-The public release workflow builds the files, computes their SHA-256 checksums, uploads them and checks every public
-download link; the website's Download page is then rebuilt from the completed release manifests. If the Download page
-says **"Not published yet"**, look at GitHub Releases: when the release is listed there, the page was built before
-the manifests were updated, so take the files from the GitHub release page and verify them with `SHA256SUMS.txt`
-([Troubleshooting](troubleshooting.md#the-download-page-says-not-published-yet)). When GitHub Releases does not list
-it either, the release has not been published yet — the Download page never links to something that is not there.
+On the website's [Download page](https://vanta-client.netlify.app/download) or directly from
+[GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases). The newest releases are
+`launcher-v1.0.1` and `client-v1.0.1`; both places offer the same files, built and published by the project's
+release workflow with their SHA-256 checksums. Do not take VANTA files from anywhere else.
+
+| Your system | File |
+| --- | --- |
+| Windows 10/11 x64 | `VANTA-Launcher-1.0.1.msi` (installer with its own Java runtime), or `VANTA-Launcher-1.0.1.exe` if `.msi` files are blocked, or `VANTA-Launcher-1.0.1-windows-portable.zip` to run it without installing |
+| Linux x64 | `VANTA-Launcher-1.0.1-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.0.1-linux-all.jar` with Java 21 |
+| Mac with Apple Silicon | `vanta-launcher-1.0.1-macos-aarch64-all.jar` with Java 21 |
+| Intel Mac, Linux on ARM, or no VANTA Launcher | `vanta-client-1.0.1-mods.zip` and the Fabric installer ([manual installation](installation.md#c-manual-installation)) |
+
+Verify the file with `SHA256SUMS.txt` from the same release before you run it
+([Installation → Verify the checksum](installation.md#2-verify-the-checksum)). Older versions stay available on
+GitHub Releases.
+
+**"Not published yet"** marks a version whose files the release workflow has not published yet. A new version's
+release manifest is committed to the repository before the workflow runs; until the workflow has published its files,
+the Download page keeps offering the newest published release and only mentions the new version, and the changelog
+says the same. A product without any published release shows "Not published yet — release pending" with a disabled
+button: there is nothing to download, and the page never links to a file that does not exist. If GitHub Releases
+already lists a version that the Download page still calls not published, the website has not been rebuilt yet: take
+the files from that release page and verify them with its `SHA256SUMS.txt`
+([Troubleshooting](troubleshooting.md#the-download-page-says-not-published-yet)).
 
 ## How do I verify a download?
 
@@ -158,6 +180,20 @@ hides VANTA's HUD together with the vanilla one.
 
 It narrows your field of view like a spyglass without the item; it does not change reach, aim, hit detection or
 anything the server can see. Some competitive servers nonetheless forbid zoom mods — check their rules.
+
+## Why does the zoom key C conflict with a vanilla key?
+
+Vanilla Minecraft also binds C to *Save Hotbar Activator* (Creative mode only: hold it and press a number key to save
+your hotbar). VANTA keeps C as the zoom key because that is what players expect from a zoom, so out of the box the two
+share a key: in Creative mode, holding C zooms, and pressing a number key while you hold it also saves your hotbar.
+In Survival the vanilla binding does nothing. VANTA's keybind manager lists Zoom and Save Hotbar Activator in the C
+conflict. If you use saved hotbars, rebind either one in *Options → Controls → Key Binds* (VANTA's keys are in the
+VANTA category) or in the VANTA keybind manager (*Settings → Controls*). See [Keybinds → Zoom](keybinds.md#zoom).
+
+The manager also lists other conflicts with every key at its default, for example on A, S, D and the middle mouse
+button. With only VANTA and Fabric API installed, those are between vanilla bindings that share a default key; they
+behave as in the game without VANTA and can be ignored. The C conflict is the only one VANTA adds
+([Keybinds → Conflict detection](keybinds.md#conflict-detection)).
 
 ## Does the Performance Center make the game faster?
 

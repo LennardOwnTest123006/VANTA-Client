@@ -33,8 +33,9 @@ pressing *Apply* in the [Performance Center](performance.md).
 
 ## The Profiles screen
 
-Open it from the main menu's Profiles button, `/vanta profiles`, or the in-game VANTA menu. Each card shows the
-icon, name, an **Active** badge, a summary (HUD preset, performance preset, crosshair, last change) and these actions:
+Open it from the main menu's Profiles button. In a world, `/vanta profiles` lists the profiles in the chat and
+`/vanta profiles <name>` activates one. Each card shows the icon, name, an **Active** badge, a summary (HUD preset,
+performance preset, crosshair, last change) and these actions:
 
 | Action | Effect |
 | --- | --- |

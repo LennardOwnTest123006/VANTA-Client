@@ -9,7 +9,7 @@ category: Client
 
 - Main menu → **OPTIONS** (VANTA replaces the vanilla options button with its own settings; the vanilla screens stay
   one click away).
-- In a world: press the VANTA menu key (**Right Shift** by default) and choose Settings, or run `/vanta menu`.
+- In a world: press **Right Shift** (the *Open VANTA settings* key) or run `/vanta menu`.
 - From anywhere in VANTA: open the global search (the magnifier in the main menu, or **Ctrl+F** inside the settings
   screen), type the setting's name and press Enter — the settings screen opens scrolled to that row and highlights it.
 

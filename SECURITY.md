@@ -59,7 +59,9 @@ targets Minecraft Java Edition 1.21.11 exclusively.
 - Every file the launcher downloads is verified against a checksum from Mojang/Fabric metadata or from our release
   manifest before it is used; a file that fails verification is deleted and never used. Apart from the verified Java
   runtime it installs, the only downloaded file the launcher hands to the operating system is a verified launcher
-  installer (Windows `.msi`/`.exe`), and only after the user confirms.
+  installer (Windows `.msi`/`.exe`), and only after the user confirms. Every other self-update file (the Windows
+  portable `.zip`, the Linux `.tar.gz`, a launcher jar) is verified and then only shown in its folder; the launcher
+  never unpacks or runs it.
 - Archive extraction rejects path traversal. Writes are atomic (temp file + rename).
 - Account tokens are encrypted at rest; passwords are never seen (OAuth device code flow). Tokens are redacted from
   all logs.

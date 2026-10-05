@@ -53,35 +53,50 @@ This is a monorepo. Each product is an independent build with its own README.
 
 ## Status
 
-**VANTA Client 1.0.0** and **VANTA Launcher 1.0.0** were released on 2026-10-05 as the GitHub Releases
+The latest releases are **VANTA Client 1.0.1** and **VANTA Launcher 1.0.1**, released on 2026-10-05 as the GitHub
+Releases [`client-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.1) and
+[`launcher-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.1). They are
+maintenance releases with fixes for problems found in 1.0.0, which was released the same day as
 [`client-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.0) and
-[`launcher-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.0); every release is
-listed at **[github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases)**.
-They are distributed only there. The release workflow ([`release.yml`](.github/workflows/release.yml)) builds the
-files, uploads them, computes their SHA-256 checksums, downloads every public link again to check it, and fills in the
-release manifests committed to [`shared/releases/`](shared/releases/), which the website's Download page and the
-launcher read. Download URLs, sizes and checksums are never typed by hand ([RELEASE.md](RELEASE.md)). A future
-release that is not listed on GitHub Releases has not been published yet: its manifest has an empty `downloadUrl`,
-and the Download page and the launcher say "not published yet" instead of offering a link. What each version contains
-is in [CHANGELOG.md](CHANGELOG.md).
+[`launcher-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.0) and stays
+available. Every release is listed at
+**[github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases)**,
+the only place the files are distributed; the Download page of the website
+**[vanta-client.netlify.app](https://vanta-client.netlify.app)** lists the same files and links to them there. The
+release workflow ([`release.yml`](.github/workflows/release.yml)) builds the files, uploads them, computes their
+SHA-256 checksums, downloads every public link again to check it, and fills in the release manifests committed to
+[`shared/releases/`](shared/releases/), which the website's Download page and the launcher read. Download URLs, sizes
+and checksums are never typed by hand ([RELEASE.md](RELEASE.md)). A new version's manifest is committed before the
+workflow runs, with an empty `downloadUrl` for every file. Until the workflow has published the files and the filled
+manifests are committed, the Download page keeps offering the newest published release and marks the new version
+"Not published yet", and the launcher keeps reading the previous release from `shared/releases/latest/`. What each
+version contains is in [CHANGELOG.md](CHANGELOG.md).
 
 ### Downloads
 
 | Release | File | For |
 | --- | --- | --- |
-| `launcher-v1.0.0` | `VANTA-Launcher-1.0.0.msi` | Windows 10/11 x64, per-user installer with the Java 21 runtime (recommended) |
-| `launcher-v1.0.0` | `VANTA-Launcher-1.0.0.exe` | Windows 10/11 x64, the same installer as `.exe` |
-| `launcher-v1.0.0` | `VANTA-Launcher-1.0.0-windows-portable.zip` | Windows 10/11 x64, no installation: run `VANTA Launcher/VANTA Launcher.exe` |
-| `launcher-v1.0.0` | `vanta-launcher-1.0.0-windows-all.jar` | Windows x64 with Java 21 installed |
-| `launcher-v1.0.0` | `VANTA-Launcher-1.0.0-linux-x64.tar.gz` | Linux x64, app image with the Java 21 runtime: run `VANTA Launcher/bin/VANTA Launcher` |
-| `launcher-v1.0.0` | `vanta-launcher-1.0.0-linux-all.jar` | Linux x64 with Java 21 installed |
-| `launcher-v1.0.0` | `vanta-launcher-1.0.0-macos-aarch64-all.jar` | Apple Silicon macOS with Java 21 installed |
-| `client-v1.0.0` | `vanta-client-1.0.0.jar` | the Fabric mod (the launcher installs it for you) |
-| `client-v1.0.0` | `vanta-client-1.0.0-mods.zip` | manual installation: `mods/` with the VANTA jar and Fabric API, `INSTALL.txt`, `SHA256SUMS` |
-| `client-v1.0.0` | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0), required by VANTA |
+| `launcher-v1.0.1` | `VANTA-Launcher-1.0.1.msi` | Windows 10/11 x64, per-user installer with the Java 21 runtime (recommended) |
+| `launcher-v1.0.1` | `VANTA-Launcher-1.0.1.exe` | Windows 10/11 x64, the same installer as `.exe` |
+| `launcher-v1.0.1` | `VANTA-Launcher-1.0.1-windows-portable.zip` | Windows 10/11 x64, no installation: run `VANTA Launcher/VANTA Launcher.exe` |
+| `launcher-v1.0.1` | `vanta-launcher-1.0.1-windows-all.jar` | Windows x64 with Java 21 installed |
+| `launcher-v1.0.1` | `VANTA-Launcher-1.0.1-linux-x64.tar.gz` | Linux x64, app image with the Java 21 runtime: run `VANTA Launcher/bin/VANTA Launcher` |
+| `launcher-v1.0.1` | `vanta-launcher-1.0.1-linux-all.jar` | Linux x64 with Java 21 installed |
+| `launcher-v1.0.1` | `vanta-launcher-1.0.1-macos-aarch64-all.jar` | Apple Silicon macOS with Java 21 installed |
+| `client-v1.0.1` | `vanta-client-1.0.1.jar` | the Fabric mod (the launcher installs it for you) |
+| `client-v1.0.1` | `vanta-client-1.0.1-mods.zip` | manual installation: `mods/` with the VANTA jar and Fabric API, `INSTALL.txt`, `SHA256SUMS` |
+| `client-v1.0.1` | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0), required by VANTA |
 
-Each release also has `SHA256SUMS.txt` and its manifest (`client-1.0.0.json`, `launcher-1.0.0.json`). Every launcher
-jar contains JavaFX for one system only, so take the jar with your system in its name.
+Each release also has `SHA256SUMS.txt` and its manifest (`client-1.0.1.json`, `launcher-1.0.1.json`). Every launcher
+jar contains JavaFX for one system only, so take the jar with your system in its name; started on another system it
+says which file to download and exits with code 1. From 1.0.1 on, the launcher updates itself with the file that
+matches how it was installed: the `.msi` for a launcher installed with the `.msi` or `.exe`, the portable `.zip` for
+the portable folder, the `.tar.gz` for the Linux app image and the jar for your system when it was started with
+`java -jar` ([docs/launcher.md](docs/launcher.md#updates-and-rollback)). Launcher 1.0.0 still picks the update by
+system only: on Windows it offers the `.msi` (also in the portable folder and for the jar), on Linux x64 the
+`.tar.gz`. To keep a portable or jar setup, choose *Not now*, close the 1.0.0 launcher and download
+`VANTA-Launcher-1.0.1-windows-portable.zip` or the jar for your system from the `launcher-v1.0.1` release instead
+([docs/installation.md](docs/installation.md#updating)).
 
 ### How to install
 
@@ -90,10 +105,13 @@ jar contains JavaFX for one system only, so take the jar with your system in its
    *VANTA 1.21.11* in the official Minecraft Launcher, which handles Microsoft sign-in, Minecraft and Java. Like the
    Fabric installer, VANTA adds the profile to every profiles file the Minecraft Launcher has created:
    `launcher_profiles.json` (Minecraft Launcher from minecraft.net) and/or `launcher_profiles_microsoft_store.json`
-   (Minecraft Launcher from the Microsoft Store or the Xbox app on Windows).
+   (Minecraft Launcher from the Microsoft Store or the Xbox app on Windows). CI checks the contents of both files on
+   Linux; whether the Microsoft Store / Xbox app launcher then shows the profile has not been tested on a real Windows
+   PC yet. If it does not, use the manual installation (3).
 2. **VANTA Launcher → PLAY**: installs and starts everything itself, but needs a Microsoft client id (see below).
-3. **Manual**: install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer and copy the two jars from
-   `vanta-client-1.0.0-mods.zip` into `.minecraft/mods`.
+3. **Manual**: start the official Minecraft Launcher once, install Fabric Loader 0.19.5 for 1.21.11 with the Fabric
+   installer (keep *Create profile* checked) and copy the two jars from `vanta-client-1.0.1-mods.zip` into
+   `.minecraft/mods`. `INSTALL.txt` in the zip lists these steps.
 
 Step by step, with checksum verification for every system: [docs/installation.md](docs/installation.md).
 
@@ -101,7 +119,8 @@ Step by step, with checksum verification for every system: [docs/installation.md
 
 On every push ([`ci.yml`](.github/workflows/ci.yml)):
 
-- **core**: JUnit tests and Java2D previews of every VANTA screen.
+- **core**: `./gradlew build`, which compiles the library and runs its JUnit tests. The Java2D screen previews
+  (`./gradlew previewScreens`) are a local tool and do not run in CI.
 - **client**: compiled against the real Minecraft 1.21.11 (Mojang mappings); the production game test then starts
   the built jar with Fabric Loader 0.19.5 and Fabric API in a headless game, opens every screen, creates a world,
   applies a performance preset and screenshots everything. The captures in [`assets/screenshots/`](assets/screenshots/)
@@ -122,8 +141,9 @@ On every release ([`release.yml`](.github/workflows/release.yml)):
 - **launcher**: one fat jar each on Windows x64, Linux x64 and Apple Silicon macOS, each checked to contain the
   JavaFX native libraries of exactly that system and started with `--version` (Linux and macOS also `--check-java`);
   the bundled runtime of the Windows portable app image runs its jar with `--version`, the Linux app image runs
-  `bin/VANTA Launcher --version`, and both archives are checked for their expected contents; the `.msi` and `.exe`
-  installers are built.
+  `bin/VANTA Launcher --version`, and both archives are checked for their expected contents (the portable zip also
+  for `VANTA Launcher/app/vanta-portable.marker`, which tells the launcher to update itself with the portable zip);
+  the `.msi` and `.exe` installers are built from a fresh app image without that marker.
 - **publish**: the manifest is built from the real files and checked (names, order, sizes, SHA-256), the GitHub
   Release is created, then every public download URL is downloaded again and re-hashed; the run fails on a single
   mismatch.
