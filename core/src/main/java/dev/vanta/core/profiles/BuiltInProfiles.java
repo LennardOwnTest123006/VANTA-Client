@@ -86,12 +86,11 @@ public final class BuiltInProfiles {
             encodeInto(settings, entry.getKey(), entry.getValue());
         }
         // A profile's frame-rate choice is only real once the vanilla limit and VSync it stands for are in the
-        // profile too; the performance preset deliberately leaves both alone.
-        Object fpsLimit = overrides.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET);
-        if (fpsLimit instanceof FpsLimitPreset limit) {
-            encodeInto(settings, VantaSettings.VIDEO_FRAMERATE_LIMIT, limit.framerateLimit());
-            encodeInto(settings, VantaSettings.VIDEO_VSYNC, limit.vsync());
-        }
+        // profile too: activation replays every setting, and the registry defaults would otherwise re-apply
+        // vanilla's 120 FPS cap with VSync on. The performance preset deliberately leaves both alone.
+        FpsLimitPreset limit = enumOf(settings, VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET);
+        encodeInto(settings, VantaSettings.VIDEO_FRAMERATE_LIMIT, limit.framerateLimit());
+        encodeInto(settings, VantaSettings.VIDEO_VSYNC, limit.vsync());
         CrosshairStyle crosshair = CrosshairPresets.find(crosshairPresetId).map(p -> p.style())
                 .orElse(CrosshairStyle.DEFAULT);
         CosmeticsSelection cosmetics = new CosmeticsSelection(

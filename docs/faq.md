@@ -237,8 +237,11 @@ behave as in the game without VANTA and can be ignored. The C conflict is the on
 ## Does the Performance Center make the game faster?
 
 It can, by making Minecraft render less (lower render distance, fewer particles, …). It does not change the renderer
-and we make no FPS claims. For more, it points to the Performance pack, separate mods such as Sodium that VANTA
-installs from Modrinth on request. See [Performance Center → Honest limits](performance.md#honest-limits).
+and we make no FPS claims. Its presets never cap the frame rate: the frame-rate limit and VSync are set only in the
+frame-rate limit chooser, and **Boost FPS** applies the MAX FPS preset, removes the limit and turns VSync off in one
+click. For more, it points to the Performance pack, separate mods such as Sodium that VANTA installs from Modrinth on
+request (Boost FPS installs it too when it is missing). See
+[Performance Center → Honest limits](performance.md#honest-limits).
 
 ## Why Java 21 and not the Java I already have?
 

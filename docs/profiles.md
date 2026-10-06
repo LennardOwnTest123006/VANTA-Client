@@ -25,11 +25,13 @@ them (except the last remaining one).
 | **Default** | Default | BALANCED | Default | — |
 | **PvP** | PvP | HIGH | Bold | frame rate unlimited, menu particles off, HUD text shadow on |
 | **Building** | Minimal | ULTRA | Thin | FOV 85, HUD opacity 80 % |
-| **Performance** | Performance | LOW | Default | solid menu background, particles off, no text shadow, frame rate limited to 60 |
+| **Performance** | Performance | MAX FPS | Default | solid menu background, particles off, no text shadow, frame rate unlimited |
 | **Recording** | Streamer | HIGH | Dot | HUD opacity 85 %, shorter notifications (2.5 s), servers not recorded in statistics, version label hidden |
 
 The performance preset inside a profile is applied through the vanilla options when the profile is activated, like
-pressing *Apply* in the [Performance Center](performance.md).
+pressing *Apply* in the [Performance Center](performance.md). Presets never set the frame-rate limit or VSync; a
+profile carries them separately, as the *Frame rate limit* choice it was saved with (unlimited and VSync off in every
+built-in profile, so no profile caps your frame rate).
 
 ## The Profiles screen
 

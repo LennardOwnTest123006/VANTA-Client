@@ -57,8 +57,8 @@ use Mods & Shaders ([Privacy](privacy.md)).
 - [Settings](settings.md) — categories, search, reset, tooltips, keyboard navigation, `settings.json`
 - [HUD and crosshair](hud.md) — every widget, the HUD editor, presets, keyboard shortcuts, the crosshair customizer
 - [Profiles](profiles.md) — built-in profiles, create, duplicate, export and import safely
-- [Performance Center](performance.md) — what it measures, the four presets with their exact vanilla values, render
-  distance suggestions, the Performance pack, honest limits
+- [Performance Center](performance.md) — what it measures, the five presets with their exact vanilla values, the
+  one-click Boost FPS, render distance suggestions, the Performance pack, honest limits
 - [Mods & Shaders](mods-and-shaders.md) — mods, shader packs and resource packs from Modrinth in game and in the
   launcher, the Performance pack, Iris shaders, disabling and removing, restart, what is sent to Modrinth
 - [Keybinds](keybinds.md) — VANTA keys, rebinding, conflict detection, zoom

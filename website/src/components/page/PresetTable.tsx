@@ -8,7 +8,7 @@ export interface PresetTableProps {
   readonly caption?: string;
 }
 
-/** Comparison table of the four presets and the vanilla video option values each one sets. */
+/** Comparison table of the five presets and the vanilla video option values each one sets. */
 export function PresetTable({ className, showKeys = false, caption }: PresetTableProps) {
   return (
     <div
@@ -21,7 +21,7 @@ export function PresetTable({ className, showKeys = false, caption }: PresetTabl
       <table className="w-full min-w-[640px] border-collapse text-left text-sm">
         <caption className="sr-only">
           {caption ??
-            'Vanilla video option values set by the LOW, BALANCED, HIGH and ULTRA presets'}
+            'Vanilla video option values set by the MAX FPS, LOW, BALANCED, HIGH and ULTRA presets'}
         </caption>
         <thead>
           <tr className="border-b border-border-subtle bg-surface-2/70">

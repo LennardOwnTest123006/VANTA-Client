@@ -42,13 +42,13 @@ const measurements = [
   },
 ] as const;
 
-/** Explains the Performance Center, the four presets and their limits — truthfully. */
+/** Explains the Performance Center, the five presets and their limits — truthfully. */
 export default function PerformancePage() {
   return (
     <>
       <PageMeta
         title="Performance"
-        description={`How the VANTA Performance Center works: what it measures, which vanilla video options the LOW, BALANCED, HIGH and ULTRA presets set, and what it does not do. Minecraft ${site.minecraft}.`}
+        description={`How the VANTA Performance Center works: what it measures, which vanilla video options the MAX FPS, LOW, BALANCED, HIGH and ULTRA presets set, the one-click Boost FPS, and what it does not do. Minecraft ${site.minecraft}.`}
       />
       <PageHero
         eyebrow="Performance Center"
@@ -80,11 +80,11 @@ export default function PerformancePage() {
       <Section
         id="presets"
         eyebrow="Presets"
-        title="Four presets, one table — this is exactly what they change."
-        lead="A preset writes the vanilla video options below and nothing else. Apply one, then fine-tune any option in the normal Video Settings; VANTA never overrides a change you make afterwards."
+        title="Five presets, one table — this is exactly what they change."
+        lead="A preset writes the vanilla video options below and nothing else — never the frame-rate limit or VSync. Apply one, then fine-tune any option in the normal Video Settings; VANTA never overrides a change you make afterwards."
         className="border-t border-border-subtle bg-bg-void/40"
       >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {presets.map((preset, index) => (
             <Reveal key={preset.id} delay={index * 60}>
               <div className="surface-card h-full p-5">
@@ -121,8 +121,10 @@ export default function PerformancePage() {
             Frame-rate limit, separately
           </p>
           <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-            Presets turn VSync off so the limit is the only cap. A quick menu next to them sets the
-            limit on its own — pick one and the preset stays otherwise untouched.
+            Presets never set the frame-rate limit or VSync, so picking LOW can never cap you at 60
+            FPS. A quick menu next to them sets the limit on its own — pick one and the preset stays
+            otherwise untouched. Boost FPS, the button above the presets, applies MAX FPS, removes
+            the limit, turns VSync off and installs the Performance pack when it is missing.
           </p>
           <ul className="mt-4 flex flex-wrap gap-2" aria-label="Frame-rate limit choices">
             {fpsLimitChoices.map((choice) => (
