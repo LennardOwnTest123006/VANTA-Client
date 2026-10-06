@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Builds vanta-client-<version>-mods.zip, the "unzip into .minecraft" download of a client release:
 #
-#   INSTALL.txt                          scripts/release/mods-bundle/INSTALL.txt with the pinned versions and the
-#                                        Performance pack list filled in
+#   INSTALL.txt                          scripts/release/mods-bundle/INSTALL.txt with the pinned versions, the
+#                                        Performance pack list and the notes about it filled in
 #   PERFORMANCE-PACK.txt                 the resolver's summary (performance-pack.mjs)
 #   SHA256SUMS                           sha256sum -c compatible, paths relative to the zip root
 #   THIRD-PARTY-LICENSES.txt             licence texts of every third-party jar (performance-pack.mjs)
@@ -17,10 +17,12 @@
 #
 # --pack-dir is the --out directory of `node scripts/release/performance-pack.mjs`: it holds performance-pack.json,
 # PERFORMANCE-PACK.txt, THIRD-PARTY-LICENSES.txt and mods/<jar> for every item of the JSON. Every pack jar is checked
-# against the SHA-512 recorded in performance-pack.json before it is staged. Minecraft and Fabric Loader versions come
-# from client/gradle.properties; the Fabric API version comes from the jar's file name and must match
-# fabric_api_version there. The script verifies SHA256SUMS before zipping and again on a fresh extraction of the
-# finished zip, and checks the zip holds exactly the expected entries.
+# against the SHA-512 recorded in performance-pack.json before it is staged, and THIRD-PARTY-LICENSES.txt must hold a
+# "File:     mods/<jar>" section for every third-party jar of the zip (each pack jar and the Fabric API jar), so the
+# bundle never ships a jar without its notice. Minecraft and Fabric Loader versions come from client/gradle.properties;
+# the Fabric API version comes from the jar's file name and must match fabric_api_version there. The script verifies
+# SHA256SUMS before zipping and again on a fresh extraction of the finished zip, and checks the zip holds exactly the
+# expected entries.
 # Needs bash, node, zip, unzip and sha256sum/sha512sum (or shasum). Prints the zip path on the last line.
 set -euo pipefail
 
@@ -97,26 +99,35 @@ command -v node >/dev/null 2>&1 || fail "node is not installed (needed to read p
 command -v zip >/dev/null 2>&1 || fail "zip is not installed"
 command -v unzip >/dev/null 2>&1 || fail "unzip is not installed"
 
-# performance-pack.json -> one tab-separated line per item (file, title, version, licence id, sha512) and per excluded
-# member (prefixed with "excluded"), in pack order. Only node parses JSON here; nothing else about it is trusted.
+# performance-pack.json -> one tab-separated line per item (slug, file, title, version, licence id, sha512) and per
+# excluded member (prefixed with "excluded"), in pack order. Only node parses JSON here; nothing else about it is
+# trusted. Titles and slugs go into INSTALL.txt, so they must be plain printable text without tabs or line breaks.
 PACK_ROWS="$(node --input-type=module -e '
 import { readFileSync } from "node:fs";
 const pack = JSON.parse(readFileSync(process.argv[1], "utf8"));
 if (pack.schemaVersion !== 1 || !Array.isArray(pack.items) || !Array.isArray(pack.excluded)) {
   console.error("performance-pack.json: unexpected shape"); process.exit(1);
 }
-for (const i of pack.items) console.log(["item", i.file, i.title, i.versionNumber, i.license?.id ?? "", i.sha512].join("\t"));
-for (const e of pack.excluded) console.log(["excluded", e.title, e.license, e.reason].join("\t"));
+const plain = (value, what) => {
+  if (typeof value !== "string" || value.trim() === "" || /[^\x20-\x7e]/.test(value)) {
+    console.error(`performance-pack.json: ${what} is not plain printable text: ${JSON.stringify(value)}`); process.exit(1);
+  }
+  return value;
+};
+for (const i of pack.items) console.log(["item", plain(i.slug, "slug"), i.file, plain(i.title, "title"), plain(i.versionNumber, "versionNumber"), plain(i.license?.id, "license.id"), i.sha512].join("\t"));
+for (const e of pack.excluded) console.log(["excluded", plain(e.title, "excluded title"), plain(e.license, "excluded licence"), e.reason].join("\t"));
 ' "$PACK_JSON")" || fail "could not read $PACK_JSON"
 
 PACK_FILES=()
+PACK_SLUGS=()
+PACK_TITLES=()
 PACK_LIST=""
 PACK_EXCLUDED=""
 JAR_NAME='^[0-9A-Za-z][0-9A-Za-z._+-]*\.jar$'
-while IFS=$'\t' read -r kind a b c d e; do
+while IFS=$'\t' read -r kind a b c d e f; do
   case "$kind" in
     item)
-      file="$a"; title="$b"; number="$c"; licence="$d"; sha="$e"
+      slug="$a"; file="$b"; title="$c"; number="$d"; licence="$e"; sha="$f"
       [[ "$file" =~ $JAR_NAME ]] || fail "performance-pack.json names an unsafe pack file '$file'"
       [ "$file" != "$CLIENT_NAME" ] && [ "$file" != "$FAPI_NAME" ] || fail "pack file '$file' collides with a bundle jar"
       for seen in "${PACK_FILES[@]+"${PACK_FILES[@]}"}"; do
@@ -127,6 +138,8 @@ while IFS=$'\t' read -r kind a b c d e; do
       actual="$(cd "$PACK_DIR/mods" && "${SHA512[@]}" "$file" | cut -d' ' -f1)"
       [ "$actual" = "$sha" ] || fail "pack jar '$file': SHA-512 $actual does not match performance-pack.json ($sha)"
       PACK_FILES+=("$file")
+      PACK_SLUGS+=("$slug")
+      PACK_TITLES+=("$title")
       PACK_LIST="${PACK_LIST}   - ${file}   (${title} ${number}, ${licence})"$'\n'
       ;;
     excluded)
@@ -139,6 +152,35 @@ while IFS=$'\t' read -r kind a b c d e; do
 done <<< "$PACK_ROWS"
 [ "${#PACK_FILES[@]}" -gt 0 ] || fail "performance-pack.json lists no bundled items"
 [ -n "$PACK_EXCLUDED" ] || PACK_EXCLUDED="   - Every Performance pack mod is in this archive."$'\n'
+
+# Every third-party jar of the zip needs its section in THIRD-PARTY-LICENSES.txt ("File:     mods/<jar>", the line
+# performance-pack.mjs writes); the Fabric API notice is there only when the resolver ran with --fabric-api-jar.
+NOTICES="$PACK_DIR/THIRD-PARTY-LICENSES.txt"
+for file in "${PACK_FILES[@]}" "$FAPI_NAME"; do
+  pattern="$(printf '%s' "$file" | sed 's/[.+]/\\&/g')"
+  grep -qE "^File: +mods/${pattern}\$" "$NOTICES" \
+    || fail "THIRD-PARTY-LICENSES.txt has no section for mods/$file (run performance-pack.mjs with --fabric-api-jar)"
+done
+
+# The notes under the pack list are generated from what is really in the archive: the Iris/Sodium pairing only when
+# both are bundled, and the duplicate-mod warning names exactly the bundled mods.
+has_slug() { local s; for s in "${PACK_SLUGS[@]}"; do [ "$s" = "$1" ] && return 0; done; return 1; }
+PACK_NOTES=""
+if has_slug sodium && has_slug iris; then
+  PACK_NOTES="${PACK_NOTES}   - Iris and Sodium belong together: the Iris and Sodium builds in this archive were resolved as a pair"$'\n'
+  PACK_NOTES="${PACK_NOTES}     (Iris requires Sodium). Always copy or update the two together."$'\n'
+fi
+TITLE_LIST=""
+for i in "${!PACK_TITLES[@]}"; do
+  if [ "$i" -eq 0 ]; then TITLE_LIST="${PACK_TITLES[$i]}"
+  elif [ "$i" -eq $((${#PACK_TITLES[@]} - 1)) ]; then TITLE_LIST="${TITLE_LIST} or ${PACK_TITLES[$i]}"
+  else TITLE_LIST="${TITLE_LIST}, ${PACK_TITLES[$i]}"
+  fi
+done
+PACK_NOTES="${PACK_NOTES}   WARNING: your mods folder must not already contain another copy of one of these mods:"$'\n'
+PACK_NOTES="${PACK_NOTES}   ${TITLE_LIST}."$'\n'
+PACK_NOTES="${PACK_NOTES}   Fabric refuses to start when two copies of one mod id are present (\"Duplicate mod\" error). Delete the"$'\n'
+PACK_NOTES="${PACK_NOTES}   older jar before you copy the new one; a leftover \".jar.disabled\" file is fine."$'\n'
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -153,18 +195,20 @@ cp "$PACK_DIR/PERFORMANCE-PACK.txt" "$BUNDLE/PERFORMANCE-PACK.txt"
 cp "$PACK_DIR/THIRD-PARTY-LICENSES.txt" "$BUNDLE/THIRD-PARTY-LICENSES.txt"
 cp "$PACK_JSON" "$BUNDLE/performance-pack.json"
 
-# The scalar placeholders go through sed; the two multi-line blocks replace the line that holds only the placeholder.
+# The scalar placeholders go through sed; the three multi-line blocks replace the line that holds only the placeholder.
 printf '%s' "$PACK_LIST" > "$WORK/pack-list.txt"
 printf '%s' "$PACK_EXCLUDED" > "$WORK/pack-excluded.txt"
+printf '%s' "$PACK_NOTES" > "$WORK/pack-notes.txt"
 sed -e "s|{VERSION}|${VERSION}|g" \
     -e "s|{MINECRAFT_VERSION}|${MINECRAFT_VERSION}|g" \
     -e "s|{LOADER_VERSION}|${LOADER_VERSION}|g" \
     -e "s|{FABRIC_API_VERSION}|${FABRIC_API_VERSION}|g" \
     "$TEMPLATE" \
-  | awk -v list="$WORK/pack-list.txt" -v excluded="$WORK/pack-excluded.txt" '
+  | awk -v list="$WORK/pack-list.txt" -v excluded="$WORK/pack-excluded.txt" -v notes="$WORK/pack-notes.txt" '
       function emit(file,   line) { while ((getline line < file) > 0) print line; close(file) }
       $0 == "{PACK_LIST}" { emit(list); next }
       $0 == "{PACK_EXCLUDED}" { emit(excluded); next }
+      $0 == "{PACK_NOTES}" { emit(notes); next }
       { print }' > "$BUNDLE/INSTALL.txt"
 if grep -nE '\{[A-Z_]+\}' "$BUNDLE/INSTALL.txt" >&2; then
   fail "INSTALL.txt still contains placeholders"

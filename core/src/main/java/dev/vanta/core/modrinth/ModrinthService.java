@@ -317,7 +317,14 @@ public final class ModrinthService implements AutoCloseable {
             if (jar == null || version == null || versionsByProject.containsKey(version.projectId())) {
                 continue;
             }
-            ModrinthProject project = api.project(version.projectId());
+            ModrinthProject project;
+            try {
+                project = api.project(version.projectId());
+            } catch (ModrinthException e) {
+                // A jar of some other project whose page is gone must not stop the adoption of the pack jars.
+                CoreLog.debug("Could not look up project {} of {}: {}", version.projectId(), jar, e.getMessage());
+                continue;
+            }
             Optional<PerformancePack.Item> member = PerformancePack.item(project.slug());
             if (member.isEmpty()) {
                 continue;

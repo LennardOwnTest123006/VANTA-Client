@@ -141,7 +141,8 @@ the release is built and listed in the bundle's `SHA256SUMS`). The bundle of 1.1
 - **Which versions?** None is fixed in the repository. The release workflow resolves the newest 1.21.11 Fabric build of
   each mod on Modrinth when it builds the release, verifies every download, fetches every licence text (the release
   fails rather than ship without them) and prints the resolved list into the GitHub Release notes
-  (*Performance pack in the mods bundle*).
+  (*Performance pack in the mods bundle*). A bundled mod without a 1.21.11 build, or an Iris that needs a Sodium other
+  than the newest one, stops the release instead of producing an incomplete zip; a person then decides.
 
 ### The offer at start
 

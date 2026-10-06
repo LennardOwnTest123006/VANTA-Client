@@ -19,6 +19,9 @@
  * that member must be exactly the required one, otherwise the script fails with a clear message. A dependency on
  * Fabric API (project P7dR8mSH) is satisfied by the Fabric API jar that is already in the bundle.
  *
+ * A member marked incompatible with another bundled member fails too, and so do two members whose files share one
+ * name. Every request has a time limit (DEFAULT_TIMEOUT_MS) so a stalled connection cannot hang the release job.
+ *
  * Every primary file is downloaded to <out>/mods/<filename> and verified against the published size and SHA-512 (a
  * mismatching file is deleted and the script fails). Every licence text is fetched (license.url, with
  * github.com/<owner>/<repo>/blob/<ref>/<path> rewritten to raw.githubusercontent.com; for an SPDX id without a URL the
@@ -158,33 +161,58 @@ export function licenseTextUrls(license) {
   return urls;
 }
 
-function looksLikeHtml(text) {
-  return /^\s*(<!doctype html|<html)/i.test(text.slice(0, 512));
+/** An HTML page (sign-in, 404, "file moved") instead of a licence text; a leading comment or BOM must not hide it. */
+export function looksLikeHtml(text, contentType = '') {
+  if (/^\s*text\/html\b/i.test(contentType ?? '')) return true;
+  return /<!doctype html|<html[\s>]/i.test(text.slice(0, 4096));
 }
 
-/** Modrinth JSON and licence downloads through one injectable fetch with retries on 5xx and network errors. */
+/** Default per-request time limit (connect, headers and body); a stalled connection must not hang the release job. */
+export const DEFAULT_TIMEOUT_MS = 60_000;
+
+/**
+ * Modrinth JSON and licence downloads through one injectable fetch with retries on 5xx, network errors and timeouts.
+ * Every request runs under an {@code AbortSignal} that fires after {@code timeoutMs} (0 disables it) and covers the
+ * body as well, so neither a stalled connection nor a stalled download can hang the release job.
+ */
 export class Client {
-  constructor({ fetch: fetchImpl, userAgent: ua, delayMs = 1000, log = () => {} }) {
+  constructor({ fetch: fetchImpl, userAgent: ua, delayMs = 1000, timeoutMs = DEFAULT_TIMEOUT_MS, log = () => {} }) {
     if (typeof fetchImpl !== 'function') throw new TypeError('a fetch implementation is required');
     this.fetch = fetchImpl;
     this.ua = ua;
     this.delayMs = delayMs;
+    this.timeoutMs = timeoutMs;
     this.log = log;
   }
 
-  async request(url, accept) {
+  /**
+   * Fetches `url` and hands the response to `read`, which judges the status and consumes the body; a PackError thrown
+   * there ends the request at once (the server answered, the answer is wrong), anything else (network error, timeout,
+   * 5xx, truncated body) is retried up to MAX_ATTEMPTS times.
+   */
+  async request(url, accept, read) {
     let last;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+      const controller = new AbortController();
+      const timer = this.timeoutMs > 0
+        ? setTimeout(() => controller.abort(new DOMException(`no answer within ${this.timeoutMs} ms`, 'TimeoutError')), this.timeoutMs)
+        : null;
       try {
-        const response = await this.fetch(url, { headers: { 'User-Agent': this.ua, Accept: accept }, redirect: 'follow' });
+        const response = await this.fetch(url, {
+          headers: { 'User-Agent': this.ua, Accept: accept }, redirect: 'follow', signal: timer ? controller.signal : undefined,
+        });
         if (response.status >= 500 && attempt < MAX_ATTEMPTS) {
           last = new PackError(`${url}: HTTP ${response.status}`);
         } else {
-          return response;
+          return await read(response);
         }
       } catch (error) {
-        if (attempt === MAX_ATTEMPTS) throw new PackError(`${url}: ${error.message}`);
-        last = error;
+        if (error instanceof PackError) throw error;
+        const reason = error?.name === 'TimeoutError' || error?.name === 'AbortError' ? `no answer within ${this.timeoutMs} ms` : error.message;
+        if (attempt === MAX_ATTEMPTS) throw new PackError(`${url}: ${reason}`);
+        last = new PackError(`${url}: ${reason}`);
+      } finally {
+        if (timer) clearTimeout(timer);
       }
       this.log(`retrying ${url} after ${last.message}`);
       if (this.delayMs > 0) await new Promise((r) => setTimeout(r, this.delayMs * attempt));
@@ -194,33 +222,38 @@ export class Client {
 
   async json(path) {
     const url = new URL(path, API_BASE).toString();
-    const response = await this.request(url, 'application/json');
-    if (!response.ok) throw new PackError(`${url}: HTTP ${response.status}`);
-    return response.json();
+    return this.request(url, 'application/json', async (response) => {
+      if (!response.ok) throw new PackError(`${url}: HTTP ${response.status}`);
+      return response.json();
+    });
   }
 
   /** Like json() but null on 404. */
   async jsonOrNull(path) {
     const url = new URL(path, API_BASE).toString();
-    const response = await this.request(url, 'application/json');
-    if (response.status === 404) return null;
-    if (!response.ok) throw new PackError(`${url}: HTTP ${response.status}`);
-    return response.json();
+    return this.request(url, 'application/json', async (response) => {
+      if (response.status === 404) return null;
+      if (!response.ok) throw new PackError(`${url}: HTTP ${response.status}`);
+      return response.json();
+    });
   }
 
   async text(url) {
-    const response = await this.request(url, 'text/plain, */*');
-    if (!response.ok) throw new PackError(`${url}: HTTP ${response.status}`);
-    const text = await response.text();
-    if (text.trim() === '') throw new PackError(`${url}: empty response`);
-    if (looksLikeHtml(text)) throw new PackError(`${url}: returned an HTML page instead of the licence text`);
-    return text;
+    return this.request(url, 'text/plain, */*', async (response) => {
+      if (!response.ok) throw new PackError(`${url}: HTTP ${response.status}`);
+      const text = await response.text();
+      if (text.trim() === '') throw new PackError(`${url}: empty response`);
+      const contentType = typeof response.headers?.get === 'function' ? response.headers.get('content-type') : '';
+      if (looksLikeHtml(text, contentType)) throw new PackError(`${url}: returned an HTML page instead of the licence text`);
+      return text;
+    });
   }
 
   async bytes(url) {
-    const response = await this.request(url, 'application/java-archive, application/octet-stream, */*');
-    if (!response.ok) throw new PackError(`${url}: HTTP ${response.status}`);
-    return Buffer.from(await response.arrayBuffer());
+    return this.request(url, 'application/java-archive, application/octet-stream, */*', async (response) => {
+      if (!response.ok) throw new PackError(`${url}: HTTP ${response.status}`);
+      return Buffer.from(await response.arrayBuffer());
+    });
   }
 }
 
@@ -287,21 +320,38 @@ export async function resolvePack({ slugs, gameVersion, client, log = () => {} }
     });
     log(`${title}: ${items.at(-1).versionNumber} (${version.id}, ${version.version_type}) ${file.filename}, licence ${licenseId}`);
   }
+  const byFile = new Map();
+  for (const item of items) {
+    const other = byFile.get(item.file.toLowerCase());
+    if (other) throw new PackError(`${item.title} ${item.versionNumber} and ${other.title} ${other.versionNumber} both publish their file as ${item.file}; two mods cannot share one name in mods/`);
+    byFile.set(item.file.toLowerCase(), item);
+  }
   await checkDependencies({ items, excluded, gameVersion, client, notes });
   return { items, excluded, notes };
 }
 
-/** Required dependencies: Fabric API is bundled; another member must be the exactly required version; anything else fails. */
+/**
+ * Required dependencies: Fabric API is bundled; another member must be the exactly required version; anything else
+ * fails. A member marked incompatible with another bundled member (or with the bundled version of it) fails as well,
+ * like the in-game planner refuses such an install.
+ */
 async function checkDependencies({ items, excluded, gameVersion, client, notes }) {
   let fabricApiNoted = false;
   for (const item of items) {
     for (const dep of item.dependencies) {
-      if (dep.dependency_type !== 'required') continue;
+      if (dep.dependency_type !== 'required' && dep.dependency_type !== 'incompatible') continue;
       let projectId = dep.project_id ?? null;
       let pinned = null;
       if (dep.version_id) {
         pinned = await client.jsonOrNull(`version/${encodeURIComponent(dep.version_id)}`);
         if (pinned?.project_id) projectId = projectId ?? pinned.project_id;
+      }
+      if (dep.dependency_type === 'incompatible') {
+        const clash = items.find((i) => i.projectId === projectId);
+        if (clash && (!dep.version_id || clash.versionId === dep.version_id)) {
+          throw new PackError(`${item.title} ${item.versionNumber} is marked incompatible with ${clash.title} ${clash.versionNumber}${dep.version_id ? ` (${dep.version_id})` : ''}; the two cannot be bundled together`);
+        }
+        continue;
       }
       if (!projectId) throw new PackError(`${item.title} ${item.versionNumber} requires a file Modrinth does not identify (${dep.file_name ?? 'no project id'})`);
       if (projectId === FABRIC_API_PROJECT_ID) {
@@ -521,7 +571,7 @@ export async function main(argv, deps = {}) {
   try {
     const gameVersion = o['game-version'] ?? readToolchain(root).minecraftVersion;
     const slugs = readPackSlugs(root);
-    const client = deps.client ?? new Client({ fetch: deps.fetch ?? globalThis.fetch, userAgent: userAgent(root), delayMs: deps.delayMs ?? 1000, log });
+    const client = deps.client ?? new Client({ fetch: deps.fetch ?? globalThis.fetch, userAgent: userAgent(root), delayMs: deps.delayMs ?? 1000, timeoutMs: deps.timeoutMs ?? DEFAULT_TIMEOUT_MS, log });
     log(`Performance pack for Minecraft ${gameVersion}: ${slugs.join(', ')}`);
     const result = await buildPack({
       out: resolve(o.out), slugs, gameVersion, client, root, log, now: deps.now,

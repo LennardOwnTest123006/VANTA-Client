@@ -5,9 +5,9 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  API_BASE, Client, FABRIC_API_PROJECT_ID, LICENSE_ALLOW_LIST, PackError, POLYFORM_SHIELD_ID, POLYFORM_SHIELD_URL,
-  SPDX_TEXT_BASE, buildPack, downloadItem, fabricApiNotice, isSafeFilename, licenseTextUrls, main, parsePackSlugs,
-  rawLicenseUrl, readPackSlugs, resolvePack, selectVersion, userAgent,
+  API_BASE, Client, DEFAULT_TIMEOUT_MS, FABRIC_API_PROJECT_ID, LICENSE_ALLOW_LIST, PackError, POLYFORM_SHIELD_ID,
+  POLYFORM_SHIELD_URL, SPDX_TEXT_BASE, buildPack, downloadItem, fabricApiNotice, isSafeFilename, licenseTextUrls,
+  looksLikeHtml, main, parsePackSlugs, rawLicenseUrl, readPackSlugs, resolvePack, selectVersion, userAgent,
 } from './performance-pack.mjs';
 import { REPO_ROOT } from './lib/repo.mjs';
 import { buildZip } from './lib/zip-writer.mjs';
@@ -229,10 +229,62 @@ describe('resolvePack()', () => {
     await assert.rejects(resolvePack({ slugs: SLUGS, gameVersion: GAME, client: client(fakeFetch(g).fetch) }), /requires project NNAgCjsB, which is EntityCulling, excluded from the bundle by its licence/);
   });
 
+  test('a licence that is missing, null, differently cased or unknown excludes the member; it never ships', async () => {
+    for (const license of [null, {}, { id: null, name: null, url: null }, { id: 'mit', name: 'MIT', url: null },
+      { id: 'LICENSEREF-POLYFORM-SHIELD-1.0.0', name: 'PolyForm', url: null }, { url: 'https://example.invalid/LICENSE' }]) {
+      const f = fixture({ entityLicense: license });
+      const result = await resolvePack({ slugs: SLUGS, gameVersion: GAME, client: client(fakeFetch(f).fetch) });
+      assert.deepEqual(result.items.map((i) => i.slug), ['sodium', 'lithium', 'ferrite-core', 'immediatelyfast', 'iris'], JSON.stringify(license));
+      assert.deepEqual(result.excluded.map((e) => e.slug), ['entityculling'], JSON.stringify(license));
+      assert.equal(result.excluded[0].license, license?.id ? license.id : '(none)');
+    }
+  });
+
+  test('two members whose files share one name cannot be bundled', async () => {
+    const f = fixture();
+    f.versions.iris[0].files[0].filename = 'Sodium-Fabric-9.9.9-test.jar';
+    await assert.rejects(resolvePack({ slugs: SLUGS, gameVersion: GAME, client: client(fakeFetch(f).fetch) }), /Iris Shaders 4\.4\.4-test and Sodium 9\.9\.9-test both publish their file as Sodium-Fabric-9\.9\.9-test\.jar/);
+  });
+
+  test('a member marked incompatible with another bundled member fails; a pin on another version of it does not', async () => {
+    const f = fixture();
+    f.versions.lithium[0].dependencies = [{ version_id: null, project_id: 'AANobbMI', dependency_type: 'incompatible' }];
+    await assert.rejects(resolvePack({ slugs: SLUGS, gameVersion: GAME, client: client(fakeFetch(f).fetch) }), /Lithium 7\.7\.7-test is marked incompatible with Sodium 9\.9\.9-test; the two cannot be bundled together/);
+    const g = fixture();
+    g.versions.lithium[0].dependencies = [{ version_id: 'SODIUMV9', project_id: null, dependency_type: 'incompatible' }];
+    await assert.rejects(resolvePack({ slugs: SLUGS, gameVersion: GAME, client: client(fakeFetch(g).fetch) }), /Lithium 7\.7\.7-test is marked incompatible with Sodium 9\.9\.9-test \(SODIUMV9\)/);
+    const h = fixture();
+    h.versions.lithium[0].dependencies = [{ version_id: 'SODIUMV8', project_id: 'AANobbMI', dependency_type: 'incompatible' }, { version_id: null, project_id: 'NNAgCjsB', dependency_type: 'incompatible' }, { version_id: null, project_id: 'OUTSIDE1', dependency_type: 'optional' }];
+    const result = await resolvePack({ slugs: SLUGS, gameVersion: GAME, client: client(fakeFetch(h).fetch) });
+    assert.equal(result.items.length, 5, 'incompatible with an older Sodium, an excluded member or an optional dependency is fine');
+  });
+
   test('a member without a compatible version is an error, not a silent skip', async () => {
     const f = fixture();
     f.versions.lithium = [];
     await assert.rejects(resolvePack({ slugs: SLUGS, gameVersion: GAME, client: client(fakeFetch(f).fetch) }), /Lithium \(lithium\) has no Fabric version for Minecraft 1\.21\.11/);
+  });
+
+  test('every request has a time limit: a stalled connection fails the resolution instead of hanging the job', async () => {
+    assert.equal(DEFAULT_TIMEOUT_MS, 60_000);
+    let attempts = 0;
+    const stalled = (url, init) => new Promise((_, reject) => {
+      attempts += 1;
+      assert.ok(init.signal instanceof AbortSignal, 'fetch receives the abort signal');
+      init.signal.addEventListener('abort', () => reject(init.signal.reason));
+    });
+    const c = new Client({ fetch: stalled, userAgent: 'test-agent', delayMs: 0, timeoutMs: 20 });
+    await assert.rejects(resolvePack({ slugs: ['sodium'], gameVersion: GAME, client: c }), (error) => {
+      assert.ok(error instanceof PackError);
+      assert.match(error.message, /project\/sodium: no answer within 20 ms/);
+      return true;
+    });
+    assert.equal(attempts, 3, 'a timeout is retried like a network error');
+    const { fetch } = fakeFetch(fixture());
+    const seen = [];
+    const open = new Client({ fetch: (url, init) => { seen.push(init.signal); return fetch(url, init); }, userAgent: 'test-agent', delayMs: 0, timeoutMs: 0 });
+    await resolvePack({ slugs: ['lithium'], gameVersion: GAME, client: open });
+    assert.ok(seen.length > 0 && seen.every((s) => s === undefined), 'timeoutMs 0 sends no signal');
   });
 
   test('retries a 5xx answer and gives up after three attempts', async () => {
@@ -324,6 +376,15 @@ describe('buildPack()', () => {
     out = join(tmp(), 'pack');
     await assert.rejects(buildPack({ out, slugs: SLUGS, gameVersion: GAME, client: client(fakeFetch(g).fetch) }), /Sodium: licence text LicenseRef-Polyform-Shield-1\.0\.0 could not be fetched: .*HTML page/);
     assert.ok(!existsSync(join(out, 'performance-pack.json')));
+    // A page that starts with a comment or BOM, or one that only the Content-Type header gives away.
+    assert.ok(looksLikeHtml('<!-- moved -->\n<!DOCTYPE html><html>'));
+    assert.ok(looksLikeHtml('\ufeff  <html lang="en">'));
+    assert.ok(looksLikeHtml('Sign in', 'text/html; charset=utf-8'));
+    assert.ok(!looksLikeHtml('Copyright (c) <year> <copyright holders>\n\nPermission is hereby granted', 'text/plain; charset=utf-8'));
+    assert.ok(!looksLikeHtml('# PolyForm Shield License 1.0.0\n\n<https://polyformproject.org/licenses/shield/1.0.0>', 'text/plain'));
+    const k = fixture();
+    const { fetch: htmlFetch } = fakeFetch(k, { [`${SPDX_TEXT_BASE}MIT.txt`]: () => new Response('Not Found', { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } }) });
+    await assert.rejects(buildPack({ out: join(tmp(), 'pack'), slugs: SLUGS, gameVersion: GAME, client: client(htmlFetch) }), /FerriteCore: licence text MIT could not be fetched: .*HTML page/);
 
     const h = fixture();
     h.projects.sodium.license = { id: 'LicenseRef-Unknown', name: 'Custom', url: null };

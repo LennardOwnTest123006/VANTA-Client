@@ -29,7 +29,13 @@ missing file fails the release.
    compatible); resolved and downloaded by `scripts/release/performance-pack.mjs` (size and SHA-512 verified, Iris must
    require exactly the bundled Sodium), zipped by `scripts/release/build-mods-bundle.sh`. The resolved versions appear
    in the job summary and in the GitHub Release notes (*Performance pack in the mods bundle*); none is stored in the
-   repository. Sodium is under PolyForm Shield 1.0.0: a person reads its terms before each release.
+   repository. The resolver fails the release on purpose (a person then decides) when a member whose licence allows
+   bundling has no Fabric build for the pinned Minecraft version, when Iris requires a Sodium version other than the
+   newest one, when a member is marked incompatible with another bundled member, when a licence text cannot be fetched
+   or comes back as an HTML page, or when a download does not match the published size and SHA-512; a member whose
+   licence is not on the allow-list is left out with a printed reason, never an error. Every request has a time limit,
+   so a stalled connection fails instead of hanging the job. Sodium is under PolyForm Shield 1.0.0: a person reads its
+   terms before each release.
 3. `fabric-api-0.141.6+1.21.11.jar` — the unmodified FabricMC Fabric API jar (Apache-2.0, contains
    `LICENSE-fabric-api`), taken from the client build's Gradle cache by `scripts/release/fabric-api-jar.mjs`
 
