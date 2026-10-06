@@ -25,6 +25,7 @@ public class Card extends UiNode {
     private String title;
     private String caption;
     private boolean accentBar = true;
+    private boolean clip;
     private UiNode headerSlot;
 
     /** Card without a header. */
@@ -58,6 +59,21 @@ public class Card extends UiNode {
     public Card accentBar(boolean on) {
         this.accentBar = on;
         return this;
+    }
+
+    /**
+     * Whether the body and header slot are clipped to the card. Content that overflows the body is then cut off at
+     * the card's edge instead of being drawn over the neighbours; a node drawn outside its parent can never be
+     * clicked anyway, so clipping makes the overflow visible as what it is.
+     */
+    public Card clip(boolean clipChildren) {
+        this.clip = clipChildren;
+        return this;
+    }
+
+    /** Whether the children are clipped to the card. */
+    public boolean clip() {
+        return clip;
     }
 
     /** Node shown at the right end of the header (e.g. a toggle or badge). */
@@ -152,5 +168,16 @@ public class Card extends UiNode {
                     theme.textMuted(), FontKind.UI, false);
         }
         canvas.fill(r.x() + 1, r.y() + hh, r.w() - 2, 1, Colors.withAlpha(theme.borderSubtle(), 0.9f));
+    }
+
+    @Override
+    protected void renderChildren(Canvas canvas, UiContext ctx) {
+        if (clip) {
+            canvas.pushScissor(bounds());
+            super.renderChildren(canvas, ctx);
+            canvas.popScissor();
+        } else {
+            super.renderChildren(canvas, ctx);
+        }
     }
 }

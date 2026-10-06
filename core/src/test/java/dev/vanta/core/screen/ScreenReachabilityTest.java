@@ -8,6 +8,7 @@ import dev.vanta.core.modrinth.FakeModPlatform;
 import dev.vanta.core.modrinth.FakeModrinthApi;
 import dev.vanta.core.screen.common.ScreenTestSupport;
 import dev.vanta.core.screen.mods.ModsScreen;
+import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.UiScreen;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -15,7 +16,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -46,8 +46,13 @@ class ScreenReachabilityTest {
 
     /** Shows a screen at the size and lets it settle (ticks and frames), selecting content where needed. */
     UiScreen open(ScreenId id, int w, int h) {
+        return open(id, w, h, 1f);
+    }
+
+    /** Shows a screen at the host size, checking that the theme produced the expected effective scale. */
+    UiScreen open(ScreenId id, int w, int h, float expectedScale) {
         UiScreen screen = t.show(id, w, h);
-        assertEquals(1f, screen.effectiveScale(), "the walk assumes effective scale 1");
+        assertEquals(expectedScale, screen.effectiveScale(), 1e-6f, "effective scale of the test theme");
         if (screen instanceof ModsScreen mods) {
             assertTrue(mods.isAvailable(), "Modrinth service installed");
             assertTrue(!mods.results().hits().isEmpty(), "the fake search returned hits");
@@ -74,14 +79,28 @@ class ScreenReachabilityTest {
     }
 
     @Test
-    @Disabled("reproduces the small-window click bug; enabled again by the fix")
     void everyInteractiveNodeIsClickableAtEverySize() {
+        walkAll(SIZES, 1f, "");
+    }
+
+    /**
+     * Large text multiplies the effective scale by 1.15, so the same window leaves fewer logical pixels: 427x240
+     * becomes 371x209 and 480x270 becomes 417x235. Every interactive node must still be clickable there.
+     */
+    @Test
+    void everyInteractiveNodeIsClickableWithLargeText() {
+        t.services.settings().set(VantaSettings.ACCESSIBILITY_LARGE_TEXT, true);
+        walkAll(new int[][] {{427, 240}, {480, 270}}, 1.15f, " large text");
+    }
+
+    private void walkAll(int[][] sizes, float expectedScale, String sizeSuffix) {
         List<ReachabilityWalker.Failure> failures = new ArrayList<>();
         Map<String, String> summary = new LinkedHashMap<>();
         for (ScreenId id : ScreenId.values()) {
-            for (int[] size : SIZES) {
-                String sizeName = size[0] + "x" + size[1];
-                UiScreen screen = open(id, size[0], size[1]);
+            for (int[] size : sizes) {
+                UiScreen screen = open(id, size[0], size[1], expectedScale);
+                String sizeName = size[0] + "x" + size[1] + sizeSuffix + " (" + screen.width() + "x" + screen.height()
+                        + " logical)";
                 ReachabilityWalker.Report report = ReachabilityWalker.walk(screen, id.name(), sizeName);
                 summary.put(id.name() + " @ " + sizeName, report.interactive() + " interactive, "
                         + report.skippedScrolledOut() + " scrolled out, " + report.failures().size() + " unreachable");
@@ -101,8 +120,8 @@ class ScreenReachabilityTest {
     }
 
     /**
-     * The sizes every screen already passes at (480x270 and 854x480 and up): locked in so the fix cannot regress
-     * them. The failing sizes are 320x240 (SETTINGS, HUD_EDITOR, MODS), 427x240 (MODS) and 640x360 (MAIN_MENU).
+     * The sizes every screen passed at before the layout fixes (480x270 and 854x480 and up), kept as a separate
+     * lock so a regression there is told apart from one at the small sizes.
      */
     @Test
     void everyInteractiveNodeIsClickableAtSizesThatFitToday() {

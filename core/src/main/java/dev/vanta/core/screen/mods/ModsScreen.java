@@ -74,6 +74,11 @@ public final class ModsScreen extends VantaUiScreen {
     private static final int DETAIL_W = 216;
     private static final int DETAIL_W_NARROW = 150;
     private static final int NARROW_WIDTH = 640;
+    /**
+     * Below this logical height the screen saves room: the detail description is cut to fewer lines, the detail
+     * card has tighter padding, its actions share a line where they fit and the restart banner drops its body text.
+     */
+    private static final int SHORT_HEIGHT = 300;
 
     private final Optional<ModrinthService> service;
     private ModsTab tab = ModsTab.MODS;
@@ -103,6 +108,10 @@ public final class ModsScreen extends VantaUiScreen {
     private Card detailCard;
     private Label scopeLabel;
     private Column detailBody;
+    private ScrollPanel detailScroll;
+    private Column detailFooter;
+    private ScrollPanel detailFooterScroll;
+    private final List<UiNode> pendingActions = new ArrayList<>();
     private Card packCard;
     private final List<PackItemToggle> packToggles = new ArrayList<>();
     private Button packInstall;
@@ -217,22 +226,30 @@ public final class ModsScreen extends VantaUiScreen {
         listColumn = new Column(Theme.SPACE_2);
         listScroll = new ScrollPanel(listColumn).edgeFade(Colors.withAlpha(ctx.theme().surface1(), 0.95f));
         listScroll.flex(1f);
-        Card listCard = new Card();
+        Card listCard = new Card().clip(true);
         listCard.body().padding(Theme.SPACE_2).gap(0);
         listCard.add(listScroll);
         listCard.flex(1f);
         listCard.setId("mods.list");
-        detailCard = new Card();
+        // The detail text scrolls; the action buttons sit in a footer below it so they are always visible and
+        // clickable, however small the window is (see DetailStack for the case where even the footer is too tall).
+        detailCard = new Card().clip(true);
         detailCard.setId("mods.detail");
-        detailBody = detailCard.body();
-        detailBody.gap(Theme.SPACE_3);
+        int fade = Colors.withAlpha(ctx.theme().panelBackground(), 0.95f);
+        detailBody = new Column(Theme.SPACE_3);
+        detailScroll = new ScrollPanel(detailBody).edgeFade(fade);
+        detailFooter = new Column(Theme.SPACE_3);
+        detailFooterScroll = new ScrollPanel(detailFooter).edgeFade(fade);
+        DetailStack stack = new DetailStack(detailScroll, detailFooterScroll, Theme.SPACE_4);
+        stack.flex(1f);
+        detailCard.add(stack);
         body.add(listCard);
         body.add(detailCard);
         content.add(body);
         shell.content(content);
 
         buildPackCard();
-        applyDetailWidth();
+        applyDetailSize();
         refreshInstalled();
         return shell;
     }
@@ -279,15 +296,17 @@ public final class ModsScreen extends VantaUiScreen {
 
     @Override
     protected void onScreenResize() {
-        applyDetailWidth();
+        applyDetailSize();
         if (service.isPresent()) {
             refreshInstalled();
         }
     }
 
-    private void applyDetailWidth() {
+    private void applyDetailSize() {
         if (detailCard != null) {
             detailCard.width(width() < NARROW_WIDTH ? DETAIL_W_NARROW : DETAIL_W);
+            // A short window needs every pixel of the card for the text and the footer buttons.
+            detailCard.body().padding(height() < SHORT_HEIGHT ? Theme.SPACE_4 : Theme.SPACE_5);
             scopeLabel.setVisible(width() >= NARROW_WIDTH);
             invalidateLayout();
         }
@@ -459,8 +478,12 @@ public final class ModsScreen extends VantaUiScreen {
         boolean inWorld = services().game().isInWorld();
         restartButton.setLabel(Lang.tr(s.launcherRestartable() ? "vanta.mods.restart.restart" : "vanta.mods.restart.quit"));
         restartButton.setEnabled(!inWorld);
-        restartBanner.setBody(Lang.tr(inWorld ? "vanta.mods.restart.body_in_world"
-                : s.launcherRestartable() ? "vanta.mods.restart.body_launcher" : "vanta.mods.restart.body"));
+        String body = Lang.tr(inWorld ? "vanta.mods.restart.body_in_world"
+                : s.launcherRestartable() ? "vanta.mods.restart.body_launcher" : "vanta.mods.restart.body");
+        // A short window cannot spare the banner's text lines: title and button stay, the text becomes the tooltip.
+        boolean shortScreen = height() < SHORT_HEIGHT;
+        restartBanner.setBody(shortScreen ? "" : body);
+        restartBanner.setTooltip(shortScreen ? body : null);
         invalidateLayout();
     }
 
@@ -665,6 +688,12 @@ public final class ModsScreen extends VantaUiScreen {
             return;
         }
         detailBody.clearChildren();
+        detailFooter.clearChildren();
+        pendingActions.clear();
+        if (context() != null && isInitialised()) {
+            detailScroll.setScrollY(context(), 0f, false);
+            detailFooterScroll.setScrollY(context(), 0f, false);
+        }
         if (selectedHit != null && tab != ModsTab.INSTALLED) {
             detailForHit(selectedHit);
         } else if (selectedLocal().isPresent()) {
@@ -674,7 +703,37 @@ public final class ModsScreen extends VantaUiScreen {
                     Lang.tr(tab == ModsTab.INSTALLED ? "vanta.mods.detail.empty_installed_hint"
                             : "vanta.mods.detail.empty_hint")).height(110));
         }
+        arrangeActions();
         settleLayout();
+    }
+
+    /** Queues an action (button or note) for the detail footer. */
+    private void addAction(UiNode node) {
+        pendingActions.add(node);
+    }
+
+    /**
+     * Puts the queued actions into the footer: one per line, except on short windows where actions narrow enough
+     * to share a line sit side by side so the footer takes less of the card.
+     */
+    private void arrangeActions() {
+        UiContext ctx = context();
+        if (!pendingActions.isEmpty() && ctx != null && height() < SHORT_HEIGHT) {
+            int widest = 0;
+            for (UiNode action : pendingActions) {
+                widest = Math.max(widest, action.preferredSize(ctx).w());
+            }
+            ResponsiveGrid grid = new ResponsiveGrid(widest, 2, Theme.SPACE_3);
+            for (UiNode action : pendingActions) {
+                grid.add(action);
+            }
+            detailFooter.add(grid);
+        } else {
+            for (UiNode action : pendingActions) {
+                detailFooter.add(action);
+            }
+        }
+        pendingActions.clear();
     }
 
     /**
@@ -717,27 +776,27 @@ public final class ModsScreen extends VantaUiScreen {
         detailBody.add(badges);
         detailBody.add(new Label(Lang.tr("vanta.mods.detail.stats", ModsFormats.compact(hit.downloads()),
                 ModsFormats.compact(hit.follows())), Label.Variant.MUTED));
-        Label description = new Label(hit.description(), Label.Variant.BODY).wrap(true).maxLines(6);
+        Label description = new Label(hit.description(), Label.Variant.BODY).wrap(true)
+                .maxLines(height() < SHORT_HEIGHT ? 3 : 6);
         detailBody.add(description);
-        detailBody.add(Spacer.grow());
         if (entry.isPresent()) {
             entryActions(entry.get(), true);
         } else if (installed) {
-            detailBody.add(new Label(Lang.tr("vanta.mods.detail.installed_elsewhere"), Label.Variant.MUTED)
+            addAction(new Label(Lang.tr("vanta.mods.detail.installed_elsewhere"), Label.Variant.MUTED)
                     .wrap(true));
         } else {
             Button install = Button.primary(Lang.tr("vanta.mods.action.install"), () -> install(hit));
             install.icon(Icons.DOWNLOAD);
             install.setId("mods.action.install");
             install.setEnabled(hit.type().isPresent());
-            detailBody.add(install);
+            addAction(install);
         }
         hit.type().ifPresent(type -> {
             Button view = Button.ghost(Lang.tr("vanta.mods.action.view"), () -> services().game().openUrl(
                     "https://modrinth.com/" + type.apiName() + "/" + hit.slug())).compact(true);
             view.icon(Icons.EXTERNAL_LINK);
             view.setId("mods.action.view");
-            detailBody.add(view);
+            addAction(view);
         });
     }
 
@@ -756,18 +815,16 @@ public final class ModsScreen extends VantaUiScreen {
                 detailBody.add(new Label(Lang.tr("vanta.mods.detail.required_by", titles(entry.requiredBy())),
                         Label.Variant.MUTED).wrap(true).maxLines(3));
             }
-            detailBody.add(Spacer.grow());
             if (item.state() == LocalItem.State.MISSING) {
                 Button forget = Button.secondary(Lang.tr("vanta.mods.action.forget"),
                         () -> service.get().forget(entry.projectId(), this::refreshInstalled)).compact(true);
                 forget.setId("mods.action.forget");
-                detailBody.add(forget);
+                addAction(forget);
             } else {
                 entryActions(entry, false);
             }
         } else {
             detailBody.add(new Label(Lang.tr("vanta.mods.detail.manual"), Label.Variant.MUTED).wrap(true));
-            detailBody.add(Spacer.grow());
             typeShortcut(item.type());
         }
     }
@@ -780,12 +837,12 @@ public final class ModsScreen extends VantaUiScreen {
             Button toggle = Button.secondary(Lang.tr(enabled ? "vanta.mods.action.disable" : "vanta.mods.action.enable"),
                     () -> service.get().setEnabled(entry.projectId(), !enabled, e -> refreshInstalled())).compact(true);
             toggle.setId(enabled ? "mods.action.disable" : "mods.action.enable");
-            detailBody.add(toggle);
+            addAction(toggle);
         }
         Button remove = Button.danger(Lang.tr("vanta.mods.action.remove"), () -> confirmRemove(entry)).compact(true);
         remove.icon(Icons.TRASH);
         remove.setId("mods.action.remove");
-        detailBody.add(remove);
+        addAction(remove);
     }
 
     /** Shortcuts that make an installed shader or resource pack usable right away. */
@@ -795,13 +852,13 @@ public final class ModsScreen extends VantaUiScreen {
                     .compact(true);
             open.icon(Icons.SLIDERS);
             open.setId("mods.action.shaderSettings");
-            detailBody.add(open);
+            addAction(open);
         } else if (type == ModrinthProjectType.RESOURCE_PACK) {
             Button open = Button.secondary(Lang.tr("vanta.mods.action.resource_packs"), this::openResourcePacks)
                     .compact(true);
             open.icon(Icons.PACKAGE);
             open.setId("mods.action.resourcePacks");
-            detailBody.add(open);
+            addAction(open);
         }
     }
 
@@ -903,7 +960,49 @@ public final class ModsScreen extends VantaUiScreen {
         service.get().restartOrQuit(services().game());
     }
 
-    // ---------------------------------------------------------------- avatar node
+    // ---------------------------------------------------------------- detail nodes
+
+    /**
+     * Body of the detail card: the scrolling text above the action footer. The footer is pinned at the bottom at its
+     * full height; when the card is too short even for that (a 240 px window with the restart banner, large text)
+     * the footer scrolls as well, keeping one line of text, so every action stays reachable with the wheel.
+     */
+    private static final class DetailStack extends UiNode {
+        private static final int MIN_TEXT_H = Button.HEIGHT;
+        private final ScrollPanel text;
+        private final ScrollPanel actions;
+        private final int gap;
+
+        DetailStack(ScrollPanel text, ScrollPanel actions, int gap) {
+            this.text = text;
+            this.actions = actions;
+            this.gap = gap;
+            add(text);
+            add(actions);
+        }
+
+        @Override
+        protected Size measure(UiContext ctx) {
+            Size t = text.preferredSize(ctx);
+            Size a = actions.preferredSize(ctx);
+            return new Size(Math.max(t.w(), a.w()), t.h() + (a.h() > 0 ? gap + a.h() : 0));
+        }
+
+        @Override
+        public void layout(UiContext ctx) {
+            Rect b = bounds();
+            int actionsPref = actions.preferredSize(ctx).h();
+            boolean hasActions = actionsPref > 0;
+            int actionsH = hasActions ? Math.min(actionsPref, Math.max(0, b.h() - MIN_TEXT_H - gap)) : 0;
+            actions.setVisible(hasActions);
+            text.setBounds(b.x(), b.y(), b.w(), Math.max(0, b.h() - (hasActions ? actionsH + gap : 0)));
+            text.layout(ctx);
+            if (hasActions) {
+                actions.setBounds(b.x(), b.bottom() - actionsH, b.w(), actionsH);
+                actions.layout(ctx);
+            }
+        }
+    }
 
     /** Large letter avatar of the detail panel. */
     private static final class Avatar extends UiNode {

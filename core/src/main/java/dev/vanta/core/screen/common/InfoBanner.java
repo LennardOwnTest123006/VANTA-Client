@@ -16,7 +16,8 @@ import java.util.List;
 
 /**
  * Tinted message box with an icon, a bold title, wrapped body text and up to two action buttons. Actions sit at the
- * right on wide rows and move below the text on narrow ones.
+ * right on wide rows and move below the text on narrow ones; a banner without body text keeps the title and the
+ * actions on one line whatever the width.
  */
 public class InfoBanner extends UiNode {
     /** Colour role. */
@@ -108,7 +109,7 @@ public class InfoBanner extends UiNode {
     }
 
     private boolean stacked(int width) {
-        return hasActions() && width < NARROW;
+        return hasActions() && !body.isEmpty() && width < NARROW;
     }
 
     private int textLeft() {

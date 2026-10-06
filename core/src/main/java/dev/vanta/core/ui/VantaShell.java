@@ -1,6 +1,8 @@
 package dev.vanta.core.ui;
 
 import dev.vanta.core.VantaVersion;
+import dev.vanta.core.ui.layout.Column;
+import dev.vanta.core.ui.layout.ScrollPanel;
 import dev.vanta.core.ui.widget.IconButton;
 
 import java.util.ArrayList;
@@ -54,6 +56,9 @@ public class VantaShell extends UiNode {
     private UiNode content;
     private final List<RailItem> rail = new ArrayList<>();
     private final List<RailButton> railButtons = new ArrayList<>();
+    // The rail entries scroll when the window is too short for all of them (large text at 427x240).
+    private final Column railColumn = new Column(Theme.SPACE_1);
+    private final ScrollPanel railScroll = new ScrollPanel(railColumn);
     private String selectedRail;
     private Consumer<String> onRailSelect;
     private boolean showFooter = true;
@@ -65,6 +70,8 @@ public class VantaShell extends UiNode {
         this.back = new IconButton(Icons.CHEVRON_LEFT, onBack).sizes(20, 10);
         this.back.setTooltip("Back");
         add(back);
+        railScroll.setVisible(false);
+        add(railScroll);
         String[] lines = VantaVersion.menuLabel();
         this.footerText = String.join("  ·  ", lines);
     }
@@ -117,9 +124,7 @@ public class VantaShell extends UiNode {
 
     /** Configures the left rail; an empty list removes it. */
     public VantaShell rail(List<RailItem> items, String selectedId, Consumer<String> onSelect) {
-        for (RailButton b : railButtons) {
-            remove(b);
-        }
+        railColumn.clearChildren();
         railButtons.clear();
         rail.clear();
         rail.addAll(items);
@@ -128,8 +133,9 @@ public class VantaShell extends UiNode {
         for (RailItem item : rail) {
             RailButton b = new RailButton(item);
             railButtons.add(b);
-            add(b);
+            railColumn.add(b);
         }
+        railScroll.setVisible(hasRail());
         return this;
     }
 
@@ -225,15 +231,17 @@ public class VantaShell extends UiNode {
             rightSlot.setBounds(top.right() - Theme.SPACE_5 - w, top.y() + (TOP_BAR_H - s.h()) / 2, w, s.h());
             rightSlot.layout(ctx);
         }
-        Rect railArea = railRect();
-        int ry = railArea.y() + Theme.SPACE_4;
-        boolean compact = isCompactRail();
-        int railInset = compact ? Theme.SPACE_2 : Theme.SPACE_4;
-        for (RailButton b : railButtons) {
-            b.setBounds(railArea.x() + railInset, ry, railArea.w() - railInset * 2, RAIL_ITEM_H);
-            b.setTooltip(compact ? b.item.label() : null);
-            b.layout(ctx);
-            ry += RAIL_ITEM_H + Theme.SPACE_1;
+        if (hasRail()) {
+            Rect railArea = railRect();
+            boolean compact = isCompactRail();
+            int railInset = compact ? Theme.SPACE_2 : Theme.SPACE_4;
+            for (RailButton b : railButtons) {
+                b.setTooltip(compact ? b.item.label() : null);
+            }
+            railScroll.edgeFade(Colors.withAlpha(ctx.theme().surface1(), 0.95f));
+            railScroll.setBounds(railArea.x() + railInset, railArea.y() + Theme.SPACE_4, railArea.w() - railInset * 2,
+                    Math.max(0, railArea.h() - Theme.SPACE_4 * 2));
+            railScroll.layout(ctx);
         }
         if (content != null) {
             content.setBounds(contentRect());
