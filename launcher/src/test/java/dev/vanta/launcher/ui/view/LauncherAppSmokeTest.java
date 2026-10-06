@@ -475,6 +475,254 @@ class LauncherAppSmokeTest {
         assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
     }
 
+    /**
+     * User report: in a small (not maximised) window the Mods page's Install buttons do nothing. The page is opened at
+     * 900 x 560 (below the 960 x 600 minimum; the window is clamped to whatever the platform allows and the real size is
+     * used), the first and the last Install button must lie inside the scene (the last one after scrolling the page),
+     * the node under the cursor at each button's centre must be that button (nothing transparent may cover it), and a
+     * click there must reach the view model, i.e. the backend must be asked to install the project.
+     */
+    @Test
+    void modsInstallButtonsAreReachableInASmallWindow() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        final dev.vanta.launcher.core.modrinth.ContentType mod = dev.vanta.launcher.core.modrinth.ContentType.MOD;
+        final int pageSize = backend.searchPageSize;
+        backend.searchPageSize = 20;
+        backend.modrinthHits.put(mod, List.of(
+            FakeBackend.hit("AANobbMI", "sodium", "Sodium", "jellysquid3", mod, 236_787_190L,
+                "A high-performance rendering engine replacement for Minecraft, which greatly improves frame rates and reduces micro-stutter."),
+            FakeBackend.hit("gvQqBUqZ", "lithium", "Lithium", "jellysquid3", mod, 132_326_304L,
+                "No-compromises game logic optimization mod, useful for both single-player games and multi-player servers."),
+            FakeBackend.hit("NNAgCjsB", "entityculling", "Entity Culling", "tr7zw", mod, 174_814_150L,
+                "Using async path-tracing to hide Block-/Entities that are not visible"),
+            FakeBackend.hit("uXXizFIs", "ferrite-core", "FerriteCore", "malte0811", mod, 155_853_518L, "Memory usage optimizations"),
+            FakeBackend.hit("mOgUt4GM", "modmenu", "Mod Menu", "Prospector", mod, 150_014_581L,
+                "Adds a mod menu to view the list of mods you have installed."),
+            FakeBackend.hit("YL57xq9U", "iris", "Iris Shaders", "coderbot", mod, 184_174_507L,
+                "A modern shader pack loader for Minecraft intended to be compatible with existing OptiFine shader packs")));
+        final double width = fx(() -> app.stage().getWidth());
+        final double height = fx(() -> app.stage().getHeight());
+        final boolean maximized = fx(() -> app.stage().isMaximized());
+        try {
+            fx(() -> {
+                app.stage().setMaximized(false);
+                app.stage().setWidth(900);
+                app.stage().setHeight(560);
+                app.context().navigation().navigate(NavigationModel.Page.MODS);
+                app.context().mods().search();
+                return null;
+            });
+            waitUntil(() -> {
+                final List<Button> installs = installButtons();
+                return installs.size() == 6 && installs.stream().allMatch(b -> b.getWidth() > 0 && b.getScene() != null);
+            });
+            final javafx.scene.Scene scene = app.stage().getScene();
+            final String first = fx(() -> {
+                final double w = scene.getWidth();
+                final double h = scene.getHeight();
+                assertTrue(w <= 960.5 && h <= 600.5, "the window really is small (" + w + " x " + h + "), not the 1120 x 720 default");
+                final Button button = installButtons().get(0);
+                final javafx.geometry.Bounds bounds = button.localToScene(button.getBoundsInLocal());
+                assertWithinScene(bounds, w, h, "first Install button");
+                assertCovers(button, scene);
+                click(button);
+                return button.getTooltip().getText();
+            });
+            waitUntil(() -> backend.calls.contains("installFromModrinth:AANobbMI"));
+            assertTrue(first.contains("Sodium"), first);
+            System.out.println("modsInstallButtonsAreReachableInASmallWindow: clicked with " + CLICKED_WITH.get());
+            // Sodium is installed now: the rows are rebuilt with five Install buttons; wait until they are laid out.
+            waitUntil(() -> {
+                final List<Button> installs = installButtons();
+                return installs.size() == 5 && installs.stream().allMatch(b -> b.getWidth() > 0 && b.getScene() != null);
+            });
+
+            // The install shows a toast ("Sodium installed") in the bottom-right corner.
+            waitUntil(() -> app.window().lookup(".toast") != null);
+
+            // The last row is below the viewport in a 600 px window: the page scrolls, and after scrolling it is reachable.
+            fx(() -> {
+                final javafx.scene.control.ScrollPane scroll = (javafx.scene.control.ScrollPane) app.window().page(NavigationModel.Page.MODS);
+                assertTrue(scroll.getContent().getLayoutBounds().getHeight() > scroll.getViewportBounds().getHeight(),
+                    "the Mods page is taller than the viewport and scrolls (content " + scroll.getContent().getLayoutBounds().getHeight()
+                        + " px, viewport " + scroll.getViewportBounds().getHeight() + " px)");
+                final Button last = installButtons().get(installButtons().size() - 1);
+                final javafx.geometry.Bounds before = last.localToScene(last.getBoundsInLocal());
+                assertTrue(before.getMaxY() > scene.getHeight(), "before scrolling the last Install button is below the window: " + before);
+                scroll.setVvalue(1.0);
+                return null;
+            });
+            waitUntil(() -> {
+                final Button last = installButtons().get(installButtons().size() - 1);
+                return last.localToScene(last.getBoundsInLocal()).getMaxY() <= scene.getHeight();
+            });
+            // In this small window the toast lies over the lower Install buttons (in a maximised window the Install
+            // column is nowhere near that corner). The click must not vanish into the toast: it dismisses it, and the
+            // next click reaches the button. Whether the toast covers this particular button depends on the fonts, so
+            // the covered case is handled when it occurs and reported.
+            final boolean covered = fx(() -> {
+                final Button last = installButtons().get(installButtons().size() - 1);
+                final javafx.geometry.Bounds bounds = last.localToScene(last.getBoundsInLocal());
+                assertWithinScene(bounds, scene.getWidth(), scene.getHeight(), "last Install button after scrolling");
+                final Node under = pickAt(scene.getRoot(), bounds.getCenterX(), bounds.getCenterY());
+                final boolean toastCovers = under != null && ancestorWithStyle(under, "toast") != null;
+                System.out.println("modsInstallButtonsAreReachableInASmallWindow: at " + (int) scene.getWidth() + " x " + (int) scene.getHeight()
+                    + " the toast " + (toastCovers ? "covers" : "does not cover") + " the last Install button " + bounds);
+                if (toastCovers) {
+                    click(last);
+                }
+                return toastCovers;
+            });
+            if (covered) {
+                waitUntil(() -> app.window().lookup(".toast") == null);
+                assertFalse(backend.calls.contains("installFromModrinth:YL57xq9U"), "the click on the toast dismissed it and did nothing else");
+            }
+            fx(() -> {
+                final Button last = installButtons().get(installButtons().size() - 1);
+                assertCovers(last, scene);
+                click(last);
+                return null;
+            });
+            waitUntil(() -> backend.calls.contains("installFromModrinth:YL57xq9U"));
+        } finally {
+            backend.searchPageSize = pageSize;
+            backend.modrinthHits.clear();
+            backend.content.clear();
+            fx(() -> {
+                // The view model caches what is installed; read the (now empty) list again so later tests start clean.
+                app.context().mods().refreshInstalled();
+                app.stage().setWidth(width);
+                app.stage().setHeight(height);
+                app.stage().setMaximized(maximized);
+                app.context().navigation().navigate(NavigationModel.Page.HOME);
+                return null;
+            });
+            waitUntil(() -> app.context().mods().installed().isEmpty());
+        }
+        assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+    }
+
+    /**
+     * A toast is a notification, not a wall: it sits over whatever is in the bottom-right corner (in a 960 x 600 window
+     * that includes controls), so a click on it dismisses it instead of being swallowed.
+     */
+    @Test
+    void aClickOnAToastDismissesIt() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        fx(() -> {
+            app.context().toasts().clear();
+            app.context().toasts().success("Smoke", "a click anywhere dismisses this");
+            return null;
+        });
+        waitUntil(() -> {
+            final Node toast = app.window().lookup(".toast");
+            return toast != null && toast.getScene() != null && toast.getLayoutBounds().getWidth() > 0;
+        });
+        fx(() -> {
+            final Node toast = app.window().lookup(".toast");
+            final javafx.geometry.Bounds bounds = toast.localToScene(toast.getBoundsInLocal());
+            final Node under = pickAt(app.stage().getScene().getRoot(), bounds.getCenterX(), bounds.getCenterY());
+            assertNotNull(under);
+            assertEquals(toast, ancestorWithStyle(under, "toast"), "the toast is what the mouse hits at its centre");
+            click(toast);
+            return null;
+        });
+        waitUntil(() -> app.context().toasts().toasts().isEmpty());
+        waitUntil(() -> app.window().lookup(".toast") == null);
+    }
+
+    private static Node ancestorWithStyle(final Node node, final String styleClass) {
+        Node n = node;
+        while (n != null && !n.getStyleClass().contains(styleClass)) {
+            n = n.getParent();
+        }
+        return n;
+    }
+
+    /** @return the Install buttons of the Mods page, top to bottom */
+    private List<Button> installButtons() {
+        return app.window().page(NavigationModel.Page.MODS).lookupAll(".mods-install").stream().map(n -> (Button) n)
+            .sorted(java.util.Comparator.comparingDouble(b -> b.localToScene(0, 0).getY())).toList();
+    }
+
+    private static void assertWithinScene(final javafx.geometry.Bounds bounds, final double width, final double height, final String what) {
+        assertTrue(bounds.getMinX() >= 0 && bounds.getMinY() >= 0 && bounds.getMaxX() <= width && bounds.getMaxY() <= height,
+            what + " lies inside the " + (int) width + " x " + (int) height + " scene: " + bounds);
+    }
+
+    /** The node JavaFX would deliver a mouse event to at the button's centre is the button itself (or its label/icon). */
+    private static void assertCovers(final Button button, final javafx.scene.Scene scene) {
+        final javafx.geometry.Bounds bounds = button.localToScene(button.getBoundsInLocal());
+        final Node picked = pickAt(scene.getRoot(), bounds.getCenterX(), bounds.getCenterY());
+        assertNotNull(picked, "something is under the cursor at " + bounds.getCenterX() + ", " + bounds.getCenterY());
+        Node n = picked;
+        while (n != null && n != button) {
+            n = n.getParent();
+        }
+        assertEquals(button, n, "the node under the cursor at the Install button's centre is the button, not "
+            + picked.getClass().getSimpleName() + picked.getStyleClass() + " (" + picked.getId() + ")");
+    }
+
+    /**
+     * Picks like JavaFX does, with public API only: children are tried front to back, invisible and mouse-transparent nodes
+     * are skipped, a clip (the ScrollPane viewport) limits its node, and {@link Node#contains} applies each node's
+     * {@code pickOnBounds} (true for every Region, which is why a transparent pane covering content swallows clicks).
+     */
+    private static Node pickAt(final Node node, final double sceneX, final double sceneY) {
+        if (!node.isVisible() || node.isMouseTransparent()) {
+            return null;
+        }
+        final javafx.geometry.Point2D local = node.sceneToLocal(sceneX, sceneY);
+        if (local == null) {
+            return null;
+        }
+        if (node.getClip() != null && !node.getClip().contains(node.getClip().parentToLocal(local))) {
+            return null;
+        }
+        if (node instanceof javafx.scene.Parent parent) {
+            if (!parent.getBoundsInLocal().contains(local)) {
+                return null;
+            }
+            final List<Node> children = parent.getChildrenUnmodifiable();
+            for (int i = children.size() - 1; i >= 0; i--) {
+                final Node hit = pickAt(children.get(i), sceneX, sceneY);
+                if (hit != null) {
+                    return hit;
+                }
+            }
+        }
+        return node.contains(local) ? node : null;
+    }
+
+    /**
+     * Clicks the centre of a node: through the platform's {@link javafx.scene.robot.Robot} (Monocle delivers the press and
+     * release through the real picking and event dispatch) when the platform has one, otherwise with synthetic press and
+     * release events fired at the node itself.
+     */
+    private static void click(final Node node) {
+        final javafx.geometry.Bounds screen = node.localToScreen(node.getBoundsInLocal());
+        try {
+            final javafx.scene.robot.Robot robot = new javafx.scene.robot.Robot();
+            robot.mouseMove(screen.getCenterX(), screen.getCenterY());
+            robot.mousePress(javafx.scene.input.MouseButton.PRIMARY);
+            robot.mouseRelease(javafx.scene.input.MouseButton.PRIMARY);
+            CLICKED_WITH.compareAndSet(null, "robot");
+        } catch (RuntimeException noRobot) {
+            CLICKED_WITH.compareAndSet(null, "synthetic events (" + noRobot + ")");
+            final javafx.geometry.Bounds scene = node.localToScene(node.getBoundsInLocal());
+            final javafx.geometry.Point2D local = node.sceneToLocal(scene.getCenterX(), scene.getCenterY());
+            final javafx.scene.input.PickResult pick = new javafx.scene.input.PickResult(node, scene.getCenterX(), scene.getCenterY());
+            javafx.event.Event.fireEvent(node, new javafx.scene.input.MouseEvent(javafx.scene.input.MouseEvent.MOUSE_PRESSED, local.getX(),
+                local.getY(), screen.getCenterX(), screen.getCenterY(), javafx.scene.input.MouseButton.PRIMARY, 1, false, false, false, false,
+                true, false, false, false, false, true, pick));
+            javafx.event.Event.fireEvent(node, new javafx.scene.input.MouseEvent(javafx.scene.input.MouseEvent.MOUSE_RELEASED, local.getX(),
+                local.getY(), screen.getCenterX(), screen.getCenterY(), javafx.scene.input.MouseButton.PRIMARY, 1, false, false, false, false,
+                false, false, false, false, false, true, pick));
+        }
+    }
+
+    private static final AtomicReference<String> CLICKED_WITH = new AtomicReference<>();
+
     @Test
     void aRunningMinecraftLauncherIsNamedAndNeverClosedForThePlayer() throws Exception {
         waitUntil(() -> app.context().session().loadedProperty().get());

@@ -8,7 +8,22 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 ## [Unreleased]
 
-No changes yet.
+### VANTA Launcher
+
+#### Fixed
+- A notification (toast) in the bottom-right corner could swallow clicks on what lay under it: in a small window
+  (960 x 600) that corner holds the lower *Install* buttons of the Mods page, and because a toast stayed as long as the
+  mouse rested on it, a mouse moved onto such a button kept the toast open and every click did nothing (in a
+  maximised window the Install column is nowhere near that corner). A click anywhere on a toast now dismisses it, and
+  the pause while the mouse is over a toast ends after 8 seconds at the latest.
+
+#### Added
+- For automated tests the launcher also reads `VANTA_UI_SMOKE_PAGE=<home|mods|versions|logs|settings|about>` (the
+  page shown before the screenshot) and `VANTA_UI_SMOKE_SIZE=<width>x<height>` (the window size, raised to the
+  960 x 600 minimum); both only together with `VANTA_UI_SMOKE_SCREENSHOT` or `VANTA_UI_SMOKE_EXIT_AFTER`.
+  `./gradlew uiSmoke -PsmokePage=mods -PsmokeSize=1000x600` renders one page at one window size with fake services.
+- The headless UI test opens the Mods page in a 960 x 600 window and clicks the first and the last *Install* button
+  through the platform's robot (the last one after scrolling, and after the toast over it was dismissed by the click).
 
 ## [1.1.0] - 2026-10-05
 

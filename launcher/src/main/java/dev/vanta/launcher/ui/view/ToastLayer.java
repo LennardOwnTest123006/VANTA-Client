@@ -23,6 +23,9 @@ import java.util.Map;
  */
 public final class ToastLayer extends VBox {
 
+    /** Longest time the mouse resting on a toast keeps it from timing out. */
+    public static final Duration HOVER_LIMIT = Duration.seconds(8);
+
     private final ToastModel model;
     private final String closeText;
     private final Map<Long, Node> nodes = new HashMap<>();
@@ -80,7 +83,23 @@ public final class ToastLayer extends VBox {
         final PauseTransition ttl = new PauseTransition(Duration.millis(toast.ttl().toMillis()));
         ttl.setOnFinished(e -> model.dismiss(toast.id()));
         ttl.play();
-        card.setOnMouseEntered(e -> ttl.pause());
-        card.setOnMouseExited(e -> ttl.play());
+        // In a small window a toast lies over controls (at 960 x 600 the Mods page's lower Install buttons sit under
+        // this corner; in a maximised window they do not). A click anywhere on the toast dismisses it, so no click
+        // vanishes silently, and the pause while the mouse rests on it ends by itself: a mouse parked over a toast on
+        // the way to a control underneath must not keep the toast open for ever.
+        card.setOnMouseClicked(e -> {
+            model.dismiss(toast.id());
+            e.consume();
+        });
+        final PauseTransition hoverLimit = new PauseTransition(HOVER_LIMIT);
+        hoverLimit.setOnFinished(e -> ttl.play());
+        card.setOnMouseEntered(e -> {
+            ttl.pause();
+            hoverLimit.playFromStart();
+        });
+        card.setOnMouseExited(e -> {
+            hoverLimit.stop();
+            ttl.play();
+        });
     }
 }
