@@ -137,6 +137,30 @@ class ModrinthServiceTest {
     }
 
     @Test
+    void adoptionSurvivesAJarWhoseProjectIsGoneAndWritesOnlyExactPackMatches() throws Exception {
+        Path mods = gameDir.resolve("mods");
+        Files.createDirectories(mods);
+        Files.writeString(mods.resolve("sodium-fabric-bundled.jar"), "fake sodium content");
+        // Same mod, but not the bytes Modrinth published (a rebuilt or patched jar): no hash hit, so no entry.
+        Files.writeString(mods.resolve("lithium-patched.jar"), "fake lithium content with a patch");
+        // A Modrinth file whose project page no longer exists: the hash resolves, the project lookup fails.
+        Files.writeString(mods.resolve("modmenu-old.jar"), "fake modmenu content");
+        api.removeProject("MODMENU1");
+        List<List<InstalledEntry>> results = new ArrayList<>();
+        service.adoptKnownFiles(results::add);
+        assertEquals(List.of("AANobbMI"), results.get(0).stream().map(InstalledEntry::projectId).toList());
+        assertTrue(service.installed("LITHIUM1").isEmpty(), "only the exact SHA-512 of a published file is adopted");
+        assertTrue(service.installed("MODMENU1").isEmpty());
+        assertTrue(service.installedItems().stream().filter(i -> i.state() == LocalItem.State.MANUAL)
+                .map(LocalItem::name).toList().containsAll(List.of("lithium-patched.jar", "modmenu-old.jar")));
+        assertTrue(toasts().isEmpty());
+        // The index on disk is the shared format: schemaVersion and the adopted entry, nothing else.
+        String index = Files.readString(gameDir.resolve("config/vanta/modrinth.json"));
+        assertTrue(index.contains("\"schemaVersion\""), index);
+        assertTrue(index.contains("\"AANobbMI\"") && !index.contains("LITHIUM1") && !index.contains("MODMENU1"), index);
+    }
+
+    @Test
     void installingWhatIsThereAlreadySaysSo() {
         service.install(List.of(InstallRequest.of("sodium")), "Installing Sodium", null);
         clock.advance(5_000);

@@ -30,11 +30,7 @@ Install
    Performance pack (third-party mods under their own licences, see THIRD-PARTY-LICENSES.txt):
 {PACK_LIST}
 {PACK_EXCLUDED}
-   - Iris and Sodium belong together: this Iris build requires exactly this Sodium build. Always copy or
-     update the two as a pair.
-   WARNING: your mods folder must not already contain another Sodium, Iris, Lithium, FerriteCore or
-   ImmediatelyFast jar. Fabric refuses to start when two copies of one mod id are present ("Duplicate mod"
-   error). Delete the older jar before you copy the new one; a leftover ".jar.disabled" file is fine.
+{PACK_NOTES}
 3. In the Minecraft Launcher start the profile the Fabric installer created. It is listed as
    "fabric-loader-{MINECRAFT_VERSION}" (its version id is fabric-loader-{LOADER_VERSION}-{MINECRAFT_VERSION}).
 

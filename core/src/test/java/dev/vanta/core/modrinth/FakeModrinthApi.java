@@ -75,6 +75,13 @@ public final class FakeModrinthApi implements ModrinthApi {
         return this;
     }
 
+    /** Forgets a project page but keeps its versions and files, like a project that was removed from Modrinth. */
+    public FakeModrinthApi removeProject(String id) {
+        projects.remove(id);
+        hits.remove(id);
+        return this;
+    }
+
     /** Makes every search fail with the given error ({@code null} to stop failing). */
     public FakeModrinthApi failSearch(ModrinthException error) {
         this.failSearch = error;
