@@ -67,8 +67,17 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *   <li>the resource pack bridge lists the vanilla "Default" pack as enabled;</li>
  *   <li>in a fresh creative world: HUD widgets enabled → {@code 20_hud_ingame}, the BALANCED preset sets render
  *       distance 10, the in-game VANTA menu → {@code 21_ingame_menu};</li>
+ *   <li>still in the world: the frame-cost probe ({@link PerfProbeStep}: game frame time with / without the VANTA
+ *       HUD / with the GUI hidden, VANTA render hook wall times and primitive counts over 300 frames each, written to
+ *       {@code screenshots/vanta-perf-probe.json}) and the windowed click reproduction ({@link ModsClickReproduction}:
+ *       Mods &amp; Shaders buttons clicked through the real mouse path at 854x480/scale 2, 1920x1080/scale 4 and
+ *       1920x1080/scale 2) → {@code 30_mods_*};</li>
  *   <li>with a world on disk, Singleplayer opens the world list → Escape, and → Back, both back on the VANTA menu;</li>
- *   <li>the test ends on the vanilla title screen as the Fabric runner requires.</li>
+ *   <li>the click reproduction again without a world → {@code 40_mods_*};</li>
+ *   <li>the test ends on the vanilla title screen as the Fabric runner requires;</li>
+ *   <li>finally every collected finding (clicks without effect, a HUD render average above the baseline) fails the
+ *       test in one assertion, so all numbers and screenshots exist before CI turns red. With
+ *       {@code -Dvanta.gametest.clickReproduction=report} the findings are only logged.</li>
  * </ol>
  */
 public final class VantaClientGameTest implements FabricClientGameTest {
@@ -99,6 +108,8 @@ public final class VantaClientGameTest implements FabricClientGameTest {
     private static final int MODRINTH_TIMEOUT_TICKS = 400;
     /** JVM property with the Fabric mod ids that must be loaded (set by the Performance pack CI job). */
     private static final String EXPECT_MODS_PROPERTY = "vanta.gametest.expectMods";
+    /** JVM property; {@code report} logs the click reproduction / perf baseline findings instead of failing. */
+    private static final String FINDINGS_MODE_PROPERTY = "vanta.gametest.clickReproduction";
 
     private static final int CAPTURE_WIDTH = 1920;
     private static final int CAPTURE_HEIGHT = 1080;
@@ -138,10 +149,31 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         profiles(context, services);
         keybinds(context, services);
         resourcePacks(context, runtime);
-        inWorld(context, services);
+        List<String> findings = new ArrayList<>();
+        inWorld(context, services, findings);
         backPathsWithAWorld(context);
+        // Without a world, last: the findings are collected and judged once at the end.
+        ModsClickReproduction.run(context, services, "menu", 40, findings);
+        ModsClickReproduction.applyWindow(context,
+                new ModsClickReproduction.WindowSetup(CAPTURE_WIDTH, CAPTURE_HEIGHT, CAPTURE_GUI_SCALE));
         finishOnVanillaTitleScreen(context);
+        judgeFindings(findings);
         step("done: all steps passed");
+    }
+
+    /** Fails the test once with every collected finding, or only logs them in report mode. */
+    private static void judgeFindings(List<String> findings) {
+        if (findings.isEmpty()) {
+            step("click reproduction: every checked button reacted to its click; perf probe within the baseline");
+            return;
+        }
+        String summary = findings.size() + " finding(s) from the click reproduction / perf probe:\n  "
+                + String.join("\n  ", findings);
+        if ("report".equals(System.getProperty(FINDINGS_MODE_PROPERTY))) {
+            warn("REPORT ONLY (-D" + FINDINGS_MODE_PROPERTY + "=report): " + summary);
+            return;
+        }
+        check(false, summary);
     }
 
     // ---- steps -------------------------------------------------------------------------------------------------
@@ -320,7 +352,7 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         step(packs.size() + " resource packs listed (vanilla enabled)");
     }
 
-    private static void inWorld(ClientGameTestContext context, VantaServices services) {
+    private static void inWorld(ClientGameTestContext context, VantaServices services, List<String> findings) {
         try (TestSingleplayerContext world = context.worldBuilder()
                 .adjustSettings(ui -> ui.setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE))
                 .create()) {
@@ -344,6 +376,16 @@ public final class VantaClientGameTest implements FabricClientGameTest {
             context.setScreen(() -> null);
             context.waitForScreen(null);
             step("in-game menu closed");
+
+            // Frame-cost probe: no screen open, HUD widgets enabled, player standing still.
+            Path probeDir = hudShot.getParent() != null ? hudShot.getParent()
+                    : FabricLoader.getInstance().getGameDir().resolve("screenshots");
+            findings.addAll(PerfProbeStep.run(context, services, probeDir));
+
+            // Windowed click reproduction in the world (the menu variant runs after the world is closed).
+            ModsClickReproduction.run(context, services, "world", 30, findings);
+            context.setScreen(() -> null);
+            context.waitForScreen(null);
         }
     }
 
@@ -395,7 +437,7 @@ public final class VantaClientGameTest implements FabricClientGameTest {
     }
 
     /** Polls once per tick; true when the predicate held within {@code timeoutTicks}. */
-    private static boolean pollFor(ClientGameTestContext context, Predicate<Minecraft> predicate, int timeoutTicks) {
+    static boolean pollFor(ClientGameTestContext context, Predicate<Minecraft> predicate, int timeoutTicks) {
         for (int i = 0; i < timeoutTicks; i++) {
             if (context.computeOnClient(predicate::test)) {
                 return true;
@@ -456,11 +498,16 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         context.getInput().setCursorPos(CAPTURE_WIDTH - 2, CAPTURE_HEIGHT - 2);
     }
 
-    private static void step(String message) {
+    static void step(String message) {
         VantaClient.LOGGER.info("[VANTA gametest] {}", message);
     }
 
-    private static void check(boolean condition, String message) {
+    /** A finding or a skipped check: visible in the log, does not fail the test by itself. */
+    static void warn(String message) {
+        VantaClient.LOGGER.warn("[VANTA gametest] {}", message);
+    }
+
+    static void check(boolean condition, String message) {
         if (!condition) {
             VantaClient.LOGGER.error("[VANTA gametest] FAILED: {}", message);
             throw new AssertionError(message);

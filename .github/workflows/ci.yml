@@ -121,6 +121,13 @@ jobs:
             fi
           done
           wait "$GRADLE_PID"
+      - name: Show the frame-cost probe and click reproduction findings
+        if: always()
+        run: |
+          LOG=client/run/production-gametest/logs/latest.log
+          grep -F "[VANTA gametest] perf probe" "$LOG" || echo "no perf probe lines in the log"
+          grep -E "\[VANTA gametest\] (REPRODUCED|UNEXPECTED|INCONCLUSIVE|PERF BASELINE|REPORT ONLY)" "$LOG" \
+            || echo "no click reproduction findings in the log"
       - name: Collect logs and screenshots
         if: always()
         run: |
@@ -232,6 +239,13 @@ jobs:
           fi
           grep -qF "[VANTA gametest] done: all steps passed" "$LOG" || {
             echo "::error::the VANTA game test did not finish with the Performance pack loaded"; exit 1; }
+      - name: Show the frame-cost probe and click reproduction findings
+        if: always()
+        run: |
+          LOG=client/run/production-gametest/logs/latest.log
+          grep -F "[VANTA gametest] perf probe" "$LOG" || echo "no perf probe lines in the log"
+          grep -E "\[VANTA gametest\] (REPRODUCED|UNEXPECTED|INCONCLUSIVE|PERF BASELINE|REPORT ONLY)" "$LOG" \
+            || echo "no click reproduction findings in the log"
       - name: Collect logs and screenshots
         if: always()
         run: |

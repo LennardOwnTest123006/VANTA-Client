@@ -57,7 +57,14 @@ cd client && ./gradlew runClient
 ```
 Loom launches Minecraft 1.21.11 with an offline development account. Config files are written to
 `client/run/config/vanta/`. Use `./gradlew runClientGametest` to run the automated UI tests
-(`dev.vanta.client.gametest.VantaClientGameTest`), which take screenshots of every VANTA screen.
+(`dev.vanta.client.gametest.VantaClientGameTest`), which take screenshots of every VANTA screen. The test also
+runs a frame-cost probe in the test world (game frame time with and without the VANTA HUD and with the GUI hidden,
+wall time of the VANTA render hooks, drawing primitives per frame; written to `screenshots/vanta-perf-probe.json`
+and logged as `[VANTA gametest] perf probe ...`) and a windowed click reproduction of the Mods & Shaders screen at
+854x480 / GUI scale 2, 1920x1080 / scale 4 and 1920x1080 / scale 2, clicking its buttons through the real mouse path.
+Clicks without effect are logged as `REPRODUCED` (geometry explains it) or `UNEXPECTED` and fail the test once at
+the end; pass `-Dvanta.gametest.clickReproduction=report` to only log them. `-Dvanta.gametest.perfProbe=true`
+turns the probe counters on from the start (`dev.vanta.client.perf.FrameProbe`).
 
 ## Testing strategy
 
