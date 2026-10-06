@@ -46,6 +46,7 @@ public final class GameEvents {
     private static void onEndTick(VantaRuntime runtime, Minecraft client) {
         runtime.services().tick();
         runtime.hud().tick();
+        runtime.crosshair().tick();
         runtime.notifications().tick();
         runtime.screenshots().tick();
         runtime.keys().syncZoomKey(runtime.services().settings());

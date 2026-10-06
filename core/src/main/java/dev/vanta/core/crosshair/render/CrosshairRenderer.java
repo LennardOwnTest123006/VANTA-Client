@@ -9,6 +9,8 @@ import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.Canvas;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -16,13 +18,15 @@ import java.util.Objects;
  * Draws the custom crosshair in the centre of the screen.
  * <p>
  * The client replaces the vanilla crosshair HUD element: when {@link #isCustomEnabled()} is true it calls
- * {@link #render(Canvas, int, int, float)} instead of the vanilla element, otherwise it lets vanilla draw. The
- * custom crosshair is enabled while the HUD is on and the layout contains an enabled crosshair widget (the "Use
- * vanilla crosshair" toggle of the crosshair screen flips that widget).
+ * {@link #render(Canvas, int, int, float, boolean)} with that flag instead of the vanilla element, otherwise it lets
+ * vanilla draw. The custom crosshair is enabled while the HUD is on and the layout contains an enabled crosshair
+ * widget (the "Use vanilla crosshair" toggle of the crosshair screen flips that widget).
  * <p>
  * Dynamic styles spread their arms while the player moves or attacks; the expansion eases over
- * {@value #SMOOTHING_MS} ms so it never pops. The client reports the camera perspective with
- * {@link #setThirdPerson(boolean)} so {@link CrosshairStyle#hideOnThirdPerson()} can be honoured.
+ * {@value #SMOOTHING_MS} ms so it never pops. The inputs are sampled once per client tick by {@link #tick()} rather
+ * than once per frame, and the geometry of the active style is built once per expansion step and replayed until the
+ * style or the screen centre changes. The client reports the camera perspective with {@link #setThirdPerson(boolean)}
+ * so {@link CrosshairStyle#hideOnThirdPerson()} can be honoured.
  */
 public final class CrosshairRenderer {
 
@@ -32,11 +36,22 @@ public final class CrosshairRenderer {
     public static final int ACTION_EXPANSION = 1;
     /** Time constant of the expansion easing in milliseconds. */
     public static final long SMOOTHING_MS = 90L;
+    /** Largest expansion a dynamic style reaches (moving and acting at once). */
+    public static final int MAX_EXPANSION = MOVE_EXPANSION + ACTION_EXPANSION;
 
     private final VantaServices services;
     private float expansion;
     private long lastFrameMillis = -1L;
     private boolean thirdPerson;
+    private KeyStates keys = KeyStates.NONE;
+    private boolean keysSampled;
+
+    // Geometry cache: one primitive list per expansion step for the style and centre last rendered.
+    private CrosshairStyle cachedStyle;
+    private int cachedCx;
+    private int cachedCy;
+    private final List<List<CrosshairGeometry.Primitive>> cachedPrimitives =
+            new ArrayList<>(Collections.nCopies(MAX_EXPANSION + 1, null));
 
     public CrosshairRenderer(VantaServices services) {
         this.services = Objects.requireNonNull(services, "services");
@@ -75,23 +90,48 @@ public final class CrosshairRenderer {
     }
 
     /**
-     * Draws the crosshair centred on the screen. Does nothing when the custom crosshair is disabled, when the game
-     * is not in a world, or when the style hides it in third person.
+     * Called once per client tick: samples the movement and mouse inputs a dynamic style reacts to. Static styles
+     * never read the inputs. The first render samples on demand when no tick happened yet.
+     */
+    public void tick() {
+        keys = style().dynamic() ? services.game().keyStates() : KeyStates.NONE;
+        keysSampled = true;
+    }
+
+    /** The inputs sampled by the last {@link #tick()}. */
+    public KeyStates keys() {
+        return keys;
+    }
+
+    /**
+     * Draws the crosshair centred on the screen, evaluating {@link #isCustomEnabled()} itself. Does nothing when the
+     * custom crosshair is disabled, when the game is not in a world, or when the style hides it in third person.
      */
     public void render(Canvas canvas, int screenWidth, int screenHeight, float deltaTicks) {
-        if (!isCustomEnabled() || !services.game().isInWorld()) {
+        render(canvas, screenWidth, screenHeight, deltaTicks, isCustomEnabled());
+    }
+
+    /**
+     * Draws the crosshair centred on the screen for a caller that already evaluated {@link #isCustomEnabled()} this
+     * frame (the client HUD element does, to decide between vanilla and VANTA), so the layout is not scanned twice.
+     */
+    public void render(Canvas canvas, int screenWidth, int screenHeight, float deltaTicks, boolean customEnabled) {
+        if (!customEnabled || !services.game().isInWorld()) {
             return;
         }
         CrosshairStyle style = style();
         if (thirdPerson && style.hideOnThirdPerson()) {
             return;
         }
+        if (!keysSampled) {
+            tick();
+        }
         updateExpansion(style);
-        draw(canvas, style, screenWidth / 2, screenHeight / 2, currentExpansion());
+        draw(canvas, primitives(style, screenWidth / 2, screenHeight / 2, currentExpansion()));
     }
 
     private void updateExpansion(CrosshairStyle style) {
-        int target = targetExpansion(style, services.game().keyStates());
+        int target = targetExpansion(style, keys);
         long now = services.clock().millis();
         if (lastFrameMillis < 0L || now < lastFrameMillis) {
             expansion = target;
@@ -103,6 +143,28 @@ public final class CrosshairRenderer {
             }
         }
         lastFrameMillis = now;
+    }
+
+    /**
+     * Geometry for the style centred at {@code (cx, cy)} with the given expansion, built once per expansion step
+     * and reused until the style or the centre changes.
+     */
+    List<CrosshairGeometry.Primitive> primitives(CrosshairStyle style, int cx, int cy, int expansion) {
+        if (cachedStyle == null || cx != cachedCx || cy != cachedCy || !style.equals(cachedStyle)) {
+            cachedStyle = style;
+            cachedCx = cx;
+            cachedCy = cy;
+            Collections.fill(cachedPrimitives, null);
+        }
+        if (expansion < 0 || expansion > MAX_EXPANSION) {
+            return CrosshairGeometry.build(style, cx, cy, expansion);
+        }
+        List<CrosshairGeometry.Primitive> primitives = cachedPrimitives.get(expansion);
+        if (primitives == null) {
+            primitives = CrosshairGeometry.build(style, cx, cy, expansion);
+            cachedPrimitives.set(expansion, primitives);
+        }
+        return primitives;
     }
 
     /** Expansion a dynamic style aims for given the pressed inputs; 0 for static styles. */

@@ -31,7 +31,13 @@ public final class VantaCrosshairElement implements HudElement {
     public void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
         VantaRuntime runtime = VantaRuntime.get();
         Minecraft minecraft = Minecraft.getInstance();
-        if (runtime == null || minecraft == null || !runtime.crosshair().isCustomEnabled() || !useCustom(minecraft)) {
+        if (runtime == null || minecraft == null || !useCustom(minecraft)) {
+            vanilla.render(graphics, deltaTracker);
+            return;
+        }
+        // Evaluated once per frame; the renderer takes the flag so it does not scan the HUD layout a second time.
+        boolean customEnabled = runtime.crosshair().isCustomEnabled();
+        if (!customEnabled) {
             vanilla.render(graphics, deltaTracker);
             return;
         }
@@ -39,7 +45,7 @@ public final class VantaCrosshairElement implements HudElement {
         int height = graphics.guiHeight();
         GuiGraphicsCanvas canvas = new GuiGraphicsCanvas(graphics, minecraft.font, width, height, false);
         try {
-            runtime.crosshair().render(canvas, width, height, deltaTracker.getRealtimeDeltaTicks());
+            runtime.crosshair().render(canvas, width, height, deltaTracker.getRealtimeDeltaTicks(), customEnabled);
         } finally {
             canvas.finish();
         }
