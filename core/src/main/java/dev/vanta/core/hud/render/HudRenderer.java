@@ -30,8 +30,11 @@ import java.util.Objects;
  *   <li>{@link #onMouseClick(int)} for every mouse press the game receives, so the CPS and keystroke widgets can
  *       count clicks. VANTA never generates clicks.</li>
  * </ul>
- * The render pass does no settings lookups beyond the master switch, no bridge calls apart from {@code isInWorld}
- * and the frame time sample, and allocates only the short strings the widgets format.
+ * The render pass does no settings lookups beyond the master switch and the global scale/opacity, no bridge calls
+ * apart from {@code isInWorld}, and allocates only the short strings the widgets format. Frame times are not sampled
+ * here: the client's {@code FrameTimer} feeds {@code PerformanceCenter.onFrame} exactly once per frame (from the HUD
+ * element in a world, from {@code VantaScreen} otherwise), so recording them again in the render pass would count
+ * every in-world frame twice.
  */
 public final class HudRenderer {
 
@@ -52,7 +55,6 @@ public final class HudRenderer {
 
     /**
      * Renderer fed by another data source, e.g. {@link SampleGameData} for the HUD editor when no world is loaded.
-     * Frame times are only recorded into the performance centre for the live game.
      */
     public HudRenderer(VantaServices services, GameBridge source) {
         this.services = Objects.requireNonNull(services, "services");
@@ -102,9 +104,6 @@ public final class HudRenderer {
         }
         if (!captured) {
             tick();
-        }
-        if (!sampleSource) {
-            services.performance().onFrame(source.frameTimeMillis());
         }
         renderLayout(canvas, services.hud().layout(), screenWidth, screenHeight, data, false);
     }
