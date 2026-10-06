@@ -139,6 +139,29 @@ tasks.register('screenshots', JavaExec) {
     }
 }
 
+// Opens the launcher (fake services) on one page at one window size, writes a screenshot through the UiSmoke hook and
+// exits: ./gradlew uiSmoke -PsmokePage=mods -PsmokeSize=1000x600 -PsmokeOut=build/ui-smoke/mods.png. Needs a display
+// (`xvfb-run -a` on Linux) or -Pheadless for the Monocle platform.
+tasks.register('uiSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Starts the launcher UI (fake services) on a page and window size, writes a screenshot and exits.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.vanta.launcher.ui.screenshots.UiSmokeMain'
+    final String smokeOut = project.hasProperty('smokeOut') ? project.property('smokeOut')
+        : layout.buildDirectory.file('ui-smoke/smoke.png').get().asFile.absolutePath
+    args = [smokeOut, project.hasProperty('smokePage') ? project.property('smokePage') : '',
+            project.hasProperty('smokeSize') ? project.property('smokeSize') : '',
+            project.hasProperty('smokeExitAfter') ? project.property('smokeExitAfter') : '']
+    systemProperty 'prism.order', 'sw'
+    systemProperty 'java.awt.headless', 'true'
+    systemProperty 'file.encoding', 'UTF-8'
+    if (project.hasProperty('headless')) {
+        systemProperty 'glass.platform', 'Monocle'
+        systemProperty 'monocle.platform', 'Headless'
+    }
+}
+
 tasks.named('jar', Jar) {
     manifest {
         attributes(

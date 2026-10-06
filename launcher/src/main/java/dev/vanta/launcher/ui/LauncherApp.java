@@ -185,10 +185,11 @@ public final class LauncherApp extends Application {
         stage.show();
         window.requestFocus();
         LOG.log(Level.INFO, "Main window shown ({0} x {1})", new Object[] {(int) scene.getWidth(), (int) scene.getHeight()});
-        UiSmoke.fromEnvironment(backend.env()).ifPresent(smoke -> smoke.start(scene, context.session().loadedProperty(), code -> {
-            shutdown();
-            exitHandler.accept(code);
-        }));
+        UiSmoke.fromEnvironment(backend.env()).ifPresent(smoke -> smoke.start(stage, scene, context.navigation(),
+            context.session().loadedProperty(), code -> {
+                shutdown();
+                exitHandler.accept(code);
+            }));
 
         context.session().refreshAll();
         context.session().loadedProperty().addListener((obs, old, now) -> {

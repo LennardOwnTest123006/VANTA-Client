@@ -318,9 +318,17 @@ be written), shown in a dialog (JavaFX, or Swing when JavaFX itself could not st
 For CI, `UiSmoke` reads two environment variables: `VANTA_UI_SMOKE_SCREENSHOT=<png>` writes a snapshot of the main
 window once it is shown and the first refresh finished (at most 15 s later), and `VANTA_UI_SMOKE_EXIT_AFTER=<seconds>`
 closes the launcher that long after the window was shown, with exit code 0 (2 when the screenshot could not be
-written). The CI job "Launcher starts on Windows" installs the `.msi` (`msiexec /qn`), unpacks the portable zip and runs
-the Windows jar with these variables on `windows-latest`, and fails unless each of them shows its window and exits with
-0; screenshots, logs and the msiexec log are published to the `ci-artifacts` branch under `launcher-windows-gui`.
+written). Two more steer such a run and do nothing on their own: `VANTA_UI_SMOKE_PAGE=<home|mods|versions|logs|settings|about>`
+shows that page before the screenshot, and `VANTA_UI_SMOKE_SIZE=<width>x<height>` (for example `1000x600`) sizes the
+window first (a maximised window is restored; a size below the 960 x 600 minimum is raised to it). The CI job
+"Launcher starts on Windows" installs the `.msi` (`msiexec /qn`), unpacks the portable zip and runs the Windows jar with
+these variables on `windows-latest`, and fails unless each of them shows its window and exits with 0; screenshots, logs
+and the msiexec log are published to the `ci-artifacts` branch under `launcher-windows-gui`.
+
+The same hook drives `./gradlew uiSmoke -PsmokePage=mods -PsmokeSize=1000x600 -PsmokeOut=build/ui-smoke/mods.png`
+(`UiSmokeMain`, test class path): the real window with the scripted fake services of the screenshot tool, one page at
+one window size, as a PNG. Run it under `xvfb-run -a` on a headless Linux box, or with `-Pheadless` for the Monocle
+platform.
 
 ## Installed client and update checks
 
