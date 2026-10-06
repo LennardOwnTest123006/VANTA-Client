@@ -54,9 +54,10 @@ import org.junit.jupiter.api.io.TempDir;
  * <p>
  * In the Minecraft client every counted {@code fill} is one {@code GuiGraphics.fill} (one coloured-rectangle render
  * state element), every {@code text} one {@code drawString} with a styled {@code Component} and every {@code width}
- * one {@code Font.width} on a freshly allocated {@code Component}. The numbers printed by these tests are what the
- * core hands to the backend per frame; the assertions are generous upper bounds that pin the current baseline so a
- * regression (or an optimisation) is visible in the test output.
+ * one {@code Font.width} (both memoised per string in the client since the 2026-10 render cost work, so repeated
+ * strings cost a map lookup). The numbers printed by these tests are what the core hands to the backend per frame;
+ * the assertions pin the optimised state (icons replayed from a rectangle cache, clipped text found by binary search,
+ * crosshair geometry cached) with a little headroom so a regression is visible in the test output.
  */
 class HudRenderCostTest {
     private static final int SMALL_W = 480;
@@ -136,13 +137,13 @@ class HudRenderCostTest {
             Lang.reset();
         }
         printTable("HUD presets, sample data, all widgets enabled (crosshair widget excluded in-game)", rows);
-        // Baseline (2026-10): pvp is the heaviest preset with 152 fills (24 of them 1x1), 32 texts, 92 width
-        // measurements and ~60 Lang.tr lookups per frame; default: 86 fills, 32 texts, 98 widths. Every width
-        // measurement and every text draw allocates a styled Component in game. Bounds are ~2x the baseline.
-        assertTrue(maxFills <= 300, "HUD fills per frame: " + maxFills);
-        assertTrue(maxTexts <= 70, "HUD texts per frame: " + maxTexts);
-        assertTrue(maxWidths <= 200, "HUD width measurements per frame: " + maxWidths);
-        assertTrue(maxLookups <= 160, "HUD Lang.tr lookups per frame: " + maxLookups);
+        // Before (2026-10): pvp 152 fills / 32 texts / 92 widths, default 86 / 32 / 98, up to 16 Lang.tr lookups.
+        // After: fills and texts unchanged (plain widget fills and labels), widths 62 (pvp) / 70 (default) because
+        // clipped labels are now found by binary search. Bounds leave ~10 % headroom.
+        assertTrue(maxFills <= 170, "HUD fills per frame: " + maxFills);
+        assertTrue(maxTexts <= 36, "HUD texts per frame: " + maxTexts);
+        assertTrue(maxWidths <= 80, "HUD width measurements per frame: " + maxWidths);
+        assertTrue(maxLookups <= 24, "HUD Lang.tr lookups per frame: " + maxLookups);
     }
 
     // ---- primitives behind the numbers -----------------------------------------------------------------------------
@@ -169,15 +170,18 @@ class HudRenderCostTest {
             }
             rows.add(sb.toString());
         }
-        StringBuilder sb = new StringBuilder("\n== Icons: fills per draw (IconPen strokes are stroke x stroke "
-                + "squares, one fill each)\n");
+        StringBuilder sb = new StringBuilder("\n== Icons: fills per draw (rectangles replayed from the IconRaster "
+                + "cache; the stroke path drew one fill per stroke step)\n");
         for (String row : rows) {
             sb.append(row).append('\n');
         }
-        sb.append(String.format(Locale.ROOT, "average at 16px: %d fills; worst: %s = %d%n",
-                total16 / Icons.values().length, worstIcon, worst));
+        int average16 = total16 / Icons.values().length;
+        sb.append(String.format(Locale.ROOT, "average at 16px: %d fills; worst: %s = %d%n", average16, worstIcon,
+                worst));
         System.out.print(sb);
-        assertTrue(worst <= 300, "worst icon fills at 16px: " + worst);
+        // Before (2026-10): average 19 fills at 16 px, worst STAR = 48. After: average 11, worst ERROR = 21.
+        assertTrue(worst <= 26, "worst icon fills at 16px: " + worst);
+        assertTrue(average16 <= 13, "average icon fills at 16px: " + average16);
     }
 
     @Test
@@ -232,8 +236,9 @@ class HudRenderCostTest {
         rows.add(canvas.row("crosshair circle MAX +outline"));
         maxFills = Math.max(maxFills, canvas.fills);
         printTable("Crosshair styles (one frame each)", rows);
-        // Rings are drawn as two fills per scanline: radius 48 outline + radius 32 ring ~ 300 fills.
-        assertTrue(maxFills <= 400, "crosshair fills per frame: " + maxFills);
+        // Rings are drawn as two fills per scanline: radius 48 outline + radius 32 ring = 356 fills for the largest
+        // legal style (unchanged by the geometry cache, which saves the per-frame rebuild, not the fills).
+        assertTrue(maxFills <= 360, "crosshair fills per frame: " + maxFills);
     }
 
     // ---- (c) notification toast ------------------------------------------------------------------------------------
@@ -271,8 +276,10 @@ class HudRenderCostTest {
                 clock)).render(none, W, H, 0f);
         rows.add(none.row("no toasts (idle overlay)"));
         printTable("Notification overlay", rows);
-        assertTrue(one.fills <= 120, "one toast fills: " + one.fills);
-        assertTrue(four.fills <= 480, "four toasts fills: " + four.fills);
+        // Before (2026-10): 67 fills for one toast, 257 for four (the kind icon was 42 / 154 of them).
+        // After: 54 / 210 with the icons replayed as rectangles.
+        assertTrue(one.fills <= 60, "one toast fills: " + one.fills);
+        assertTrue(four.fills <= 232, "four toasts fills: " + four.fills);
         assertTrue(none.fills == 0 && none.texts == 0, "idle overlay draws nothing");
     }
 
@@ -356,12 +363,16 @@ class HudRenderCostTest {
         maxWidths = Math.max(maxWidths, smallCanvas.textWidths);
 
         printTable("Screens at 960x540 (one steady-state frame, cursor outside the window)", rows);
-        // Baseline (2026-10): graphite-grid menu 6 081 fills (4 638 of them 1x1 grid pixels), violet horizon
-        // (default) 2 795, settings 1 640 (1 210 1x1 = icons), mods 2 127; 50-71 texts; 73-90 width measurements
-        // at 960x540 but 224 at 480x270 because clipped descriptions are ellipsised character by character.
-        assertTrue(maxFills <= 12_000, "screen fills per frame: " + maxFills);
-        assertTrue(maxTexts <= 300, "screen texts per frame: " + maxTexts);
-        assertTrue(maxWidths <= 600, "screen width measurements per frame: " + maxWidths);
+        // Before (2026-10): graphite-grid menu 6 081 fills (4 638 of them 1x1 grid pixels), violet horizon
+        // (default) 2 795, settings 1 640, mods 2 127; 50-71 texts; 73-90 width measurements at 960x540 but 224
+        // at 480x270 because clipped descriptions were ellipsised character by character.
+        // After: 6 001 / 2 715 / 1 560 / 2 085 fills in core (icons as rectangles; the 960 columns of the horizon
+        // line, the 384 vignette strips and the 200 columns of the PLAY button become 3 native gradients in the
+        // client only), 110 widths at 480x270 (binary search). The grid pixels and the per-column gradients of the
+        // test canvas remain, so the fill bound stays high; texts and widths are pinned tightly.
+        assertTrue(maxFills <= 6_600, "screen fills per frame: " + maxFills);
+        assertTrue(maxTexts <= 80, "screen texts per frame: " + maxTexts);
+        assertTrue(maxWidths <= 125, "screen width measurements per frame: " + maxWidths);
     }
 
     // ---- diagnostics: Mods & Shaders detail column at small windows ------------------------------------------------
