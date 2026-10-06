@@ -9,6 +9,7 @@ import dev.vanta.core.modrinth.FakeModrinthApi;
 import dev.vanta.core.screen.ReachabilityWalker;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.common.ScreenTestSupport;
+import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.Rect;
 import dev.vanta.core.ui.TestCanvas;
@@ -20,7 +21,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.io.TempDir;
@@ -81,13 +81,40 @@ class ModsScreenSmallWindowTest {
      */
     @ParameterizedTest(name = "{0}x{1}")
     @CsvSource({"320, 240", "427, 240"})
-    @Disabled("reproduces the small-window click bug; enabled again by the fix")
     void detailInstallButtonIsClickableInASmallWindow(int w, int h) {
         ModsScreen screen = open(w, h);
         assertReachable(screen, "mods.action.install", w + "x" + h);
         // And the click really installs: route it through the screen like the game does.
         clickVisibleCentre(screen, screen.root().findById("mods.action.install"));
         assertTrue(Files.exists(dir.resolve("mods/sodium-1.0.0.jar")), "the click reached the Install button");
+    }
+
+    /**
+     * After an install the restart banner takes room above the cards and the detail footer holds Disable and
+     * Remove instead of Install: the banner's button and both actions must stay clickable, and no interactive node
+     * of the screen may be unreachable.
+     */
+    @ParameterizedTest(name = "{0}x{1} large text {2}")
+    @CsvSource({"320, 240, false", "427, 240, false", "427, 240, true", "480, 270, true"})
+    void installedActionsAndRestartBannerAreClickableInASmallWindow(int w, int h, boolean largeText) {
+        t.services.settings().set(VantaSettings.ACCESSIBILITY_LARGE_TEXT, largeText);
+        ModsScreen screen = open(w, h);
+        assertEquals(largeText ? 1.15f : 1f, screen.effectiveScale(), 1e-6f);
+        screen.install(screen.results().hits().get(0));
+        screen.selectTab(ModsTab.INSTALLED);
+        screen.rows().get(0).select(screen.context());
+        for (int i = 0; i < 3; i++) {
+            screen.tick();
+        }
+        t.frame(screen, -1000, -1000);
+        t.frame(screen, -1000, -1000);
+        assertTrue(screen.restartBanner().isVisible(), "restart banner shown after the install");
+        String size = w + "x" + h + (largeText ? " large text" : "");
+        assertReachable(screen, "mods.restart", size);
+        assertReachable(screen, "mods.action.disable", size);
+        assertReachable(screen, "mods.action.remove", size);
+        List<ReachabilityWalker.Failure> failures = ReachabilityWalker.walk(screen, "MODS", size).failures();
+        assertTrue(failures.isEmpty(), () -> String.join("\n", failures.stream().map(Object::toString).toList()));
     }
 
     /** At 480x270 the detail column still (just) fits; lock that in. */

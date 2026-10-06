@@ -33,9 +33,7 @@ import dev.vanta.core.ui.UiContext;
 import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.VantaShell;
 import dev.vanta.core.ui.layout.Column;
-import dev.vanta.core.ui.layout.Row;
 import dev.vanta.core.ui.layout.ScrollPanel;
-import dev.vanta.core.ui.layout.Spacer;
 import dev.vanta.core.ui.widget.Badge;
 import dev.vanta.core.ui.widget.Button;
 import dev.vanta.core.ui.widget.Label;
@@ -167,8 +165,7 @@ public final class SettingsScreen extends VantaUiScreen {
         return shell;
     }
 
-    private Row buildFooter() {
-        Row footer = new Row(Theme.SPACE_3);
+    private UiNode buildFooter() {
         resetCategoryButton = Button.secondary(resetCategoryLabel(), this::resetCategory).compact(true);
         resetCategoryButton.icon(Icons.RESET);
         resetCategoryButton.setId("settings.resetCategory");
@@ -179,12 +176,89 @@ public final class SettingsScreen extends VantaUiScreen {
         openVanillaButton.icon(Icons.EXTERNAL_LINK);
         openVanillaButton.setId("settings.openVanilla");
         Label hint = new Label(Lang.tr("vanta.settings.autosave_hint"), Label.Variant.MUTED);
-        footer.add(resetCategoryButton);
-        footer.add(resetAllButton);
-        footer.add(Spacer.grow());
-        footer.add(hint);
-        footer.add(openVanillaButton);
-        return footer;
+        return new Footer(resetCategoryButton, resetAllButton, hint, openVanillaButton);
+    }
+
+    /**
+     * The footer: reset buttons at the left, the autosave hint and the vanilla shortcut at the right. When the three
+     * buttons do not fit on one line (a 320 px window, large text) the vanilla shortcut moves to a second line; the
+     * hint is dropped before any button would be, so every button stays on screen and nothing overlaps.
+     */
+    static final class Footer extends UiNode {
+        private static final int GAP = Theme.SPACE_3;
+        private static final int ROW_GAP = Theme.SPACE_2;
+
+        private final List<Button> left;
+        private final Label hint;
+        private final Button right;
+        private int lastRows = -1;
+
+        Footer(Button resetCategory, Button resetAll, Label hint, Button openVanilla) {
+            this.left = List.of(resetCategory, resetAll);
+            this.hint = hint;
+            this.right = openVanilla;
+            add(resetCategory);
+            add(resetAll);
+            add(hint);
+            add(openVanilla);
+        }
+
+        private int leftWidth(UiContext ctx) {
+            int w = 0;
+            int visible = 0;
+            for (Button button : left) {
+                if (button.isVisible()) {
+                    w += button.preferredSize(ctx).w();
+                    visible++;
+                }
+            }
+            return w + Math.max(0, visible - 1) * GAP;
+        }
+
+        private int rowsFor(UiContext ctx, int width) {
+            return leftWidth(ctx) + GAP + right.preferredSize(ctx).w() <= width ? 1 : 2;
+        }
+
+        @Override
+        protected Size measure(UiContext ctx) {
+            // The width is only known once laid out; the first pass measures against the screen and asks for
+            // another pass from layout() when the line count changed (like ResponsiveGrid).
+            int w = bounds().w() > 0 ? bounds().w() : ctx.screenWidth();
+            int rows = rowsFor(ctx, w);
+            return new Size(w, rows * Button.HEIGHT + (rows - 1) * ROW_GAP);
+        }
+
+        @Override
+        public void layout(UiContext ctx) {
+            Rect b = bounds();
+            int rows = rowsFor(ctx, b.w());
+            if (rows != lastRows) {
+                ctx.requestLayout();
+            }
+            lastRows = rows;
+            int x = b.x();
+            for (Button button : left) {
+                if (!button.isVisible()) {
+                    continue;
+                }
+                Size s = button.preferredSize(ctx);
+                button.setBounds(x, b.y(), s.w(), Button.HEIGHT);
+                button.layout(ctx);
+                x += s.w() + GAP;
+            }
+            int lineY = rows == 1 ? b.y() : b.y() + Button.HEIGHT + ROW_GAP;
+            int lineLeft = rows == 1 ? x : b.x();
+            Size rs = right.preferredSize(ctx);
+            right.setBounds(b.right() - rs.w(), lineY, rs.w(), Button.HEIGHT);
+            right.layout(ctx);
+            Size hs = hint.preferredSize(ctx);
+            boolean hintFits = lineLeft + hs.w() + GAP <= right.bounds().x();
+            hint.setVisible(hintFits);
+            if (hintFits) {
+                hint.setBounds(right.bounds().x() - GAP - hs.w(), lineY + (Button.HEIGHT - hs.h()) / 2, hs.w(), hs.h());
+                hint.layout(ctx);
+            }
+        }
     }
 
     private String resetCategoryLabel() {
