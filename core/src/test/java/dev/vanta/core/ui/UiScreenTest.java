@@ -127,9 +127,10 @@ class UiScreenTest {
         int[] clicks = {0};
         Button a = root.add(new Button("a", () -> clicks[0]++));
         a.size(40, 20);
-        UiScreen screen = t.screen(root, 400, 200);
-        assertEquals(200, screen.width());
-        assertEquals(100, screen.height());
+        UiScreen screen = t.screen(root, 800, 600);
+        assertEquals(2f, screen.effectiveScale(), 1e-6f, "800x600 leaves 400x300 logical, nothing to clamp");
+        assertEquals(400, screen.width());
+        assertEquals(300, screen.height());
         assertEquals(new Rect(0, 0, 40, 20), a.bounds());
         UiTestSupport.click(screen, 70, 30);
         assertEquals(1, clicks[0], "host (70,30) maps to logical (35,15)");
@@ -138,6 +139,86 @@ class UiScreenTest {
         assertTrue(canvas.ops().stream().anyMatch(op -> op instanceof TestCanvas.TransformOp s
                 && s.kind().equals("scale") && s.a() == 2f));
         assertTrue(a.isHovered());
+    }
+
+    /**
+     * The vanilla minimum window at UI scale 1.25 would leave 256x192 logical pixels, less than any screen is
+     * laid out for; the screen falls back to scale 1 and keeps 320x240.
+     */
+    @Test
+    void zoomIsClampedToKeepTheMinimumLogicalSizeAt125() {
+        assertZoomClamped(1.25f, 320, 240, 1f, 320, 240);
+    }
+
+    /** Same at 1.5 (would be 213x160). */
+    @Test
+    void zoomIsClampedToKeepTheMinimumLogicalSizeAt150() {
+        assertZoomClamped(1.5f, 320, 240, 1f, 320, 240);
+    }
+
+    /** A slightly larger window keeps as much of the zoom as fits: 480x270 at 1.5 renders at 1.125 (427x240). */
+    @Test
+    void zoomIsOnlyReducedAsFarAsNeeded() {
+        assertZoomClamped(1.5f, 480, 270, 1.125f, 427, 240);
+        assertZoomClamped(1.25f, 427, 240, 1f, 427, 240);
+        assertZoomClamped(1.25f, 1280, 720, 1.25f, 1024, 576);
+    }
+
+    /** Scales below 1 enlarge the logical area and are never touched by the clamp. */
+    @Test
+    void zoomBelowOneIsNotClamped() {
+        assertZoomClamped(0.75f, 320, 240, 0.75f, 427, 320);
+    }
+
+    /** Large text multiplies the theme scale and is clamped the same way. */
+    @Test
+    void largeTextIsClampedLikeTheScale() {
+        t.theme = Theme.DEFAULT.withLargeText(true);
+        UiScreen screen = t.screen(new Column(), 320, 240);
+        assertEquals(1f, screen.effectiveScale(), 1e-6f);
+        assertEquals(320, screen.width());
+        assertEquals(240, screen.height());
+        screen.resize(1280, 720);
+        assertEquals(1.15f, screen.effectiveScale(), 1e-6f, "the clamp lifts as soon as the window allows it");
+    }
+
+    private void assertZoomClamped(float themeScale, int hostW, int hostH, float expectedScale, int expectedW,
+                                   int expectedH) {
+        t.theme = Theme.DEFAULT.withScale(themeScale);
+        int[] clicks = {0};
+        Button a = new Button("a", () -> clicks[0]++);
+        // A second button at the far corner proves the clamped layout still fits the host.
+        Button far = new Button("far", () -> clicks[0] += 10);
+        UiNode root = new UiNode() {
+            @Override
+            public void layout(UiContext ctx) {
+                a.setBounds(0, 0, 40, 20);
+                far.setBounds(bounds().right() - 40, bounds().bottom() - 20, 40, 20);
+                super.layout(ctx);
+            }
+        };
+        root.add(a);
+        root.add(far);
+        UiScreen screen = t.screen(root, hostW, hostH);
+        assertEquals(expectedScale, screen.effectiveScale(), 1e-6f, "used scale");
+        assertEquals(expectedW, screen.width(), "logical width");
+        assertEquals(expectedH, screen.height(), "logical height");
+        assertTrue(screen.width() >= UiScreen.MIN_LOGICAL_WIDTH || themeScale < 1f);
+        assertTrue(screen.height() >= UiScreen.MIN_LOGICAL_HEIGHT || themeScale < 1f);
+        assertEquals(new Rect(0, 0, 40, 20), a.bounds());
+        float s = screen.effectiveScale();
+        UiTestSupport.click(screen, 20 * s, 10 * s);
+        assertEquals(1, clicks[0], "host click maps to the button through the same scale");
+        Rect fb = far.bounds();
+        assertTrue(fb.right() * s <= hostW + 0.5f && fb.bottom() * s <= hostH + 0.5f, "far corner inside the host");
+        UiTestSupport.click(screen, fb.centerX() * s, fb.centerY() * s);
+        assertEquals(11, clicks[0], "a node at the far corner still receives clicks");
+        t.clock.advance(1000L);
+        TestCanvas canvas = t.frame(screen, Math.round(20 * s), Math.round(10 * s));
+        boolean scaled = canvas.ops().stream().anyMatch(op -> op instanceof TestCanvas.TransformOp op2
+                && op2.kind().equals("scale") && Math.abs(op2.a() - s) < 1e-6f);
+        assertEquals(s != 1f, scaled, "rendering pushes exactly the used scale");
+        assertTrue(a.isHovered(), "hover uses the same scale");
     }
 
     @Test

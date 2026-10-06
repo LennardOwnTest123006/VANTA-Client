@@ -113,12 +113,13 @@ class ScreenReachabilityTest {
     }
 
     /**
-     * Large text multiplies the effective scale by 1.15, so the same window leaves fewer logical pixels: 427x240
-     * becomes 371x209 and 480x270 becomes 417x235. Every interactive node must still be clickable there.
+     * Large text multiplies the effective scale by 1.15, so the same window leaves fewer logical pixels: 640x360
+     * becomes 557x313. Below 368x276 the screen clamps the scale so at least 320x240 logical pixels remain
+     * (427x240 renders at scale 1, 480x270 at 1.125 = 427x240). Every interactive node must be clickable there.
      */
     @Test
     void everyInteractiveNodeIsClickableWithLargeText() {
-        walkAll(new int[][] {{427, 240}, {480, 270}}, true);
+        walkAll(new int[][] {{427, 240}, {480, 270}, {640, 360}}, true);
     }
 
     /** The full matrix of window sizes at scale 1. */
@@ -133,14 +134,51 @@ class ScreenReachabilityTest {
         walkAll(ALL_SIZES, true);
     }
 
+    /**
+     * A user UI zoom above 1 in a small window: 320x240 at 1.25 would leave 256x192 logical pixels, at 1.5 only
+     * 213x160, less than any screen is laid out for. {@link UiScreen} clamps the scale it uses so the logical
+     * area stays at least 320x240 (320x240 and 427x240 fall back to scale 1, 480x270 renders at 1.125 = 427x240)
+     * and every interactive node must be clickable through that clamped scale.
+     */
+    @Test
+    void everyInteractiveNodeIsClickableWhenZoomed() {
+        int[][] sizes = {{320, 240}, {427, 240}, {480, 270}};
+        List<ReachabilityWalker.Failure> failures = new ArrayList<>();
+        Map<String, String> summary = new LinkedHashMap<>();
+        for (double zoom : new double[] {1.25, 1.5}) {
+            t.services.settings().set(VantaSettings.GENERAL_UI_SCALE, zoom);
+            for (ScreenId id : ScreenId.values()) {
+                for (int[] size : sizes) {
+                    float expectedScale = expectedScale((float) zoom, size);
+                    UiScreen screen = open(id, size[0], size[1], expectedScale);
+                    assertTrue(screen.width() >= UiScreen.MIN_LOGICAL_WIDTH
+                            && screen.height() >= UiScreen.MIN_LOGICAL_HEIGHT, () -> "logical size kept at "
+                            + screen.width() + "x" + screen.height());
+                    String sizeName = size[0] + "x" + size[1] + " zoom " + zoom + " (" + screen.width() + "x"
+                            + screen.height() + " logical at " + expectedScale + ")";
+                    ReachabilityWalker.Report report = ReachabilityWalker.walk(screen, id.name(), sizeName);
+                    summary.put(id.name() + " @ " + sizeName, describe(report));
+                    failures.addAll(report.failures());
+                }
+            }
+        }
+        t.services.settings().set(VantaSettings.GENERAL_UI_SCALE, 1.0);
+        report(summary, failures);
+    }
+
+    /** The scale {@link UiScreen} uses for a theme scale at a host size (see {@link UiScreen#effectiveScale()}). */
+    private static float expectedScale(float themeScale, int[] size) {
+        return ReachabilityWalker.expectedScale(themeScale, size[0], size[1]);
+    }
+
     private void walkAll(int[][] sizes, boolean largeText) {
         t.services.settings().set(VantaSettings.ACCESSIBILITY_LARGE_TEXT, largeText);
-        float expectedScale = largeText ? 1.15f : 1f;
+        float themeScale = largeText ? 1.15f : 1f;
         List<ReachabilityWalker.Failure> failures = new ArrayList<>();
         Map<String, String> summary = new LinkedHashMap<>();
         for (ScreenId id : ScreenId.values()) {
             for (int[] size : sizes) {
-                UiScreen screen = open(id, size[0], size[1], expectedScale);
+                UiScreen screen = open(id, size[0], size[1], expectedScale(themeScale, size));
                 String sizeName = sizeName(size, largeText, screen);
                 ReachabilityWalker.Report report = ReachabilityWalker.walk(screen, id.name(), sizeName);
                 summary.put(id.name() + " @ " + sizeName, describe(report));
@@ -205,9 +243,9 @@ class ScreenReachabilityTest {
         Map<String, String> summary = new LinkedHashMap<>();
         for (boolean largeText : new boolean[] {false, true}) {
             t.services.settings().set(VantaSettings.ACCESSIBILITY_LARGE_TEXT, largeText);
-            float expectedScale = largeText ? 1.15f : 1f;
+            float themeScale = largeText ? 1.15f : 1f;
             for (ScreenId id : ScreenId.values()) {
-                UiScreen big = open(id, 1920, 1080, expectedScale);
+                UiScreen big = open(id, 1920, 1080, themeScale);
                 for (int[] size : small) {
                     big.resize(size[0], size[1]);
                     settle(big);
@@ -217,8 +255,9 @@ class ScreenReachabilityTest {
                     failures.addAll(report.failures());
                 }
                 for (int[] size : small) {
-                    UiScreen screen = open(id, size[0], size[1], expectedScale);
+                    UiScreen screen = open(id, size[0], size[1], expectedScale(themeScale, size));
                     screen.resize(1920, 1080);
+                    assertEquals(themeScale, screen.effectiveScale(), 1e-6f, "the clamp lifts after growing");
                     settle(screen);
                     String name = size[0] + "x" + size[1] + " -> " + sizeName(new int[] {1920, 1080}, largeText, screen);
                     ReachabilityWalker.Report report = ReachabilityWalker.walk(screen, id.name(), name);
@@ -368,7 +407,7 @@ class ScreenReachabilityTest {
                 t.services.settings().set(VantaSettings.ACCESSIBILITY_LARGE_TEXT, largeText);
                 for (int[] size : ALL_SIZES) {
                     ModsScreen screen = t.show(ScreenId.MODS, size[0], size[1]);
-                    assertEquals(largeText ? 1.15f : 1f, screen.effectiveScale(), 1e-6f);
+                    assertEquals(expectedScale(largeText ? 1.15f : 1f, size), screen.effectiveScale(), 1e-6f);
                     state.after().accept(screen);
                     settle(screen);
                     String sizeName = sizeName(size, largeText, screen) + " [" + state.name() + "]";
