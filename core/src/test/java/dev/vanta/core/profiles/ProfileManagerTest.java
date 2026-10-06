@@ -20,6 +20,7 @@ import dev.vanta.core.crosshair.CrosshairStore;
 import dev.vanta.core.hud.HudPresets;
 import dev.vanta.core.hud.HudStore;
 import dev.vanta.core.keybinds.VantaKeys;
+import dev.vanta.core.perf.FpsLimitPreset;
 import dev.vanta.core.perf.PerformancePreset;
 import dev.vanta.core.settings.Setting;
 import dev.vanta.core.settings.SettingsStore;
@@ -30,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -92,7 +94,17 @@ class ProfileManagerTest {
         assertEquals(260, pvp.settings().get("video.framerateLimit").getAsInt());
         Profile dflt = manager.find("default").orElseThrow();
         assertEquals("balanced", dflt.settings().get("performance.perfPreset").getAsString());
-        assertEquals(120, dflt.settings().get("video.framerateLimit").getAsInt(), "vanilla default kept");
+        for (Profile profile : manager.list()) {
+            // Activation replays every setting: the vanilla limit and VSync a profile carries must be the ones its
+            // own frame-rate choice stands for, never the registry defaults (120 FPS with VSync on).
+            FpsLimitPreset limit = FpsLimitPreset.valueOf(
+                    profile.settings().get("performance.fpsLimitPreset").getAsString().toUpperCase(Locale.ROOT));
+            assertEquals(limit.framerateLimit(), profile.settings().get("video.framerateLimit").getAsInt(),
+                    profile.id());
+            assertEquals(limit.vsync(), profile.settings().get("video.vsync").getAsBoolean(), profile.id());
+            assertEquals(260, profile.settings().get("video.framerateLimit").getAsInt(),
+                    profile.id() + " never caps the frame rate");
+        }
         Profile recording = manager.find("recording").orElseThrow();
         assertEquals("dot", recording.cosmetics().crosshairPreset());
         assertFalse(recording.settings().get("privacy.statsTrackServers").getAsBoolean());

@@ -25,8 +25,8 @@ manipulation or anything that gives an unfair advantage on multiplayer servers.
   click away.
 - **HUD** with sixteen movable widgets (FPS, ping, coordinates, armor, effects, keystrokes, …), a drag-and-drop HUD
   editor and a crosshair designer.
-- **Performance Center**: live FPS, frame time, memory and distances, and four presets that change vanilla video
-  options only.
+- **Performance Center**: live FPS, frame time, memory and distances, five presets that change vanilla video
+  options only and never cap the frame rate, and a one-click Boost FPS.
 - **Mods & Shaders** (client 1.1.0): search Modrinth in the game for Fabric mods, shader packs for Iris and resource
   packs for Minecraft 1.21.11; installs required dependencies, checks every file with the SHA-512 Modrinth publishes,
   and lets you disable or remove what VANTA installed.

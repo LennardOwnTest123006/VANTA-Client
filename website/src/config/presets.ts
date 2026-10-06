@@ -1,12 +1,13 @@
 /**
- * The four Performance Center presets and the vanilla video options each one sets.
+ * The five Performance Center presets and the vanilla video options each one sets.
  *
  * This table mirrors `dev.vanta.core.perf.PerformancePreset` in the core library value for value.
  * A preset only writes the vanilla options listed here — it never changes FOV, GUI scale, view
- * bobbing or any control setting, and VANTA does not replace Minecraft's renderer.
+ * bobbing or any control setting, never the frame-rate limit or VSync (those live only in the
+ * frame-rate limit chooser), and VANTA does not replace Minecraft's renderer.
  */
 
-export type PresetId = 'LOW' | 'BALANCED' | 'HIGH' | 'ULTRA';
+export type PresetId = 'MAX FPS' | 'LOW' | 'BALANCED' | 'HIGH' | 'ULTRA';
 
 export interface PresetDefinition {
   readonly id: PresetId;
@@ -18,28 +19,36 @@ export interface PresetDefinition {
 
 export const presets: readonly PresetDefinition[] = [
   {
+    id: 'MAX FPS',
+    name: 'Max FPS',
+    summary:
+      '5 chunks, every costly effect off, menu blur off — the most frames vanilla options alone can give. Boost FPS applies it in one click.',
+    audience:
+      'Anyone who wants frames first and will raise the render distance later if the world ends too close.',
+  },
+  {
     id: 'LOW',
     name: 'Low',
-    summary: '6 chunks, fast graphics, a 60 FPS cap and no extras — the lightest the game gets.',
+    summary: '6 chunks, fast graphics and no extras — light, without capping your frame rate.',
     audience: 'Integrated graphics, older laptops, or when a steady frame rate matters most.',
   },
   {
     id: 'BALANCED',
     name: 'Balanced',
-    summary: 'The vanilla look at 10 chunks with a 120 FPS cap. The default for most machines.',
+    summary: 'The vanilla look at 10 chunks. The default for most machines.',
     audience: 'Mid-range desktops and gaming laptops.',
   },
   {
     id: 'HIGH',
     name: 'High',
-    summary: 'Fancy graphics, 16 chunks, all particles and shadows, no frame-rate cap.',
+    summary: 'Fancy graphics, 16 chunks, all particles and shadows.',
     audience: 'Dedicated GPUs with headroom to spare.',
   },
   {
     id: 'ULTRA',
     name: 'Ultra',
     summary:
-      '24 chunks, entities drawn 25% further, no cap. Stays on Fancy — Fabulous is one click away if you want it.',
+      '24 chunks, entities drawn 25% further. Stays on Fancy — Fabulous is one click away if you want it.',
     audience: 'High-end systems that already run 1.21.11 far above the refresh rate.',
   },
 ];
@@ -57,72 +66,97 @@ export const presetOptions: readonly PresetOptionRow[] = [
   {
     option: 'Graphics',
     key: 'graphicsMode',
-    values: { LOW: 'Fast', BALANCED: 'Fancy', HIGH: 'Fancy', ULTRA: 'Fancy' },
+    values: { 'MAX FPS': 'Fast', LOW: 'Fast', BALANCED: 'Fancy', HIGH: 'Fancy', ULTRA: 'Fancy' },
   },
   {
     option: 'Render Distance',
     key: 'renderDistance',
-    values: { LOW: '6 chunks', BALANCED: '10 chunks', HIGH: '16 chunks', ULTRA: '24 chunks' },
+    values: {
+      'MAX FPS': '5 chunks',
+      LOW: '6 chunks',
+      BALANCED: '10 chunks',
+      HIGH: '16 chunks',
+      ULTRA: '24 chunks',
+    },
   },
   {
     option: 'Simulation Distance',
     key: 'simulationDistance',
-    values: { LOW: '6 chunks', BALANCED: '8 chunks', HIGH: '12 chunks', ULTRA: '16 chunks' },
-  },
-  {
-    option: 'Max Framerate',
-    key: 'maxFps',
-    values: { LOW: '60 fps', BALANCED: '120 fps', HIGH: 'Unlimited', ULTRA: 'Unlimited' },
-  },
-  {
-    option: 'VSync',
-    key: 'enableVsync',
-    values: { LOW: 'Off', BALANCED: 'Off', HIGH: 'Off', ULTRA: 'Off' },
+    values: {
+      'MAX FPS': '5 chunks',
+      LOW: '6 chunks',
+      BALANCED: '8 chunks',
+      HIGH: '12 chunks',
+      ULTRA: '16 chunks',
+    },
   },
   {
     option: 'Smooth Lighting',
     key: 'ao',
-    values: { LOW: 'Off', BALANCED: 'On', HIGH: 'On', ULTRA: 'On' },
+    values: { 'MAX FPS': 'Off', LOW: 'Off', BALANCED: 'On', HIGH: 'On', ULTRA: 'On' },
   },
   {
     option: 'Clouds',
     key: 'renderClouds',
-    values: { LOW: 'Off', BALANCED: 'Fast', HIGH: 'Fancy', ULTRA: 'Fancy' },
+    values: { 'MAX FPS': 'Off', LOW: 'Off', BALANCED: 'Fast', HIGH: 'Fancy', ULTRA: 'Fancy' },
   },
   {
     option: 'Particles',
     key: 'particles',
-    values: { LOW: 'Minimal', BALANCED: 'Decreased', HIGH: 'All', ULTRA: 'All' },
+    values: {
+      'MAX FPS': 'Minimal',
+      LOW: 'Minimal',
+      BALANCED: 'Decreased',
+      HIGH: 'All',
+      ULTRA: 'All',
+    },
   },
   {
     option: 'Entity Shadows',
     key: 'entityShadows',
-    values: { LOW: 'Off', BALANCED: 'On', HIGH: 'On', ULTRA: 'On' },
+    values: { 'MAX FPS': 'Off', LOW: 'Off', BALANCED: 'On', HIGH: 'On', ULTRA: 'On' },
   },
   {
     option: 'Entity Distance',
     key: 'entityDistanceScaling',
-    values: { LOW: '50%', BALANCED: '100%', HIGH: '100%', ULTRA: '125%' },
+    values: { 'MAX FPS': '50%', LOW: '50%', BALANCED: '100%', HIGH: '100%', ULTRA: '125%' },
   },
   {
     option: 'Biome Blend',
     key: 'biomeBlendRadius',
-    values: { LOW: 'Off', BALANCED: '5x5 (2)', HIGH: '9x9 (4)', ULTRA: '13x13 (6)' },
+    values: {
+      'MAX FPS': 'Off',
+      LOW: 'Off',
+      BALANCED: '5x5 (2)',
+      HIGH: '9x9 (4)',
+      ULTRA: '13x13 (6)',
+    },
   },
   {
     option: 'Mipmap Levels',
     key: 'mipmapLevels',
-    values: { LOW: '0', BALANCED: '2', HIGH: '4', ULTRA: '4' },
+    values: { 'MAX FPS': '0', LOW: '0', BALANCED: '2', HIGH: '4', ULTRA: '4' },
+  },
+  {
+    option: 'Menu Background Blur',
+    key: 'menuBackgroundBlurriness',
+    values: {
+      'MAX FPS': 'Off (0)',
+      LOW: 'unchanged',
+      BALANCED: 'unchanged',
+      HIGH: 'unchanged',
+      ULTRA: 'unchanged',
+    },
   },
 ];
 
 /** Vanilla options the presets deliberately leave alone. */
 export const untouchedOptions: readonly string[] = [
+  'Max Framerate and VSync (only the frame-rate limit chooser sets them)',
   'FOV',
   'GUI Scale',
   'View Bobbing',
   'Brightness',
-  'Menu Background Blur',
   'Fullscreen and resolution',
   'Controls and key bindings',
 ];

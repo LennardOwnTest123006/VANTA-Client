@@ -1,6 +1,6 @@
 ---
 title: Performance Center
-description: What the Performance Center measures, the LOW, BALANCED, HIGH and ULTRA presets with their exact vanilla values, render distance suggestions, the Performance pack and honest limits.
+description: What the Performance Center measures, the MAX FPS, LOW, BALANCED, HIGH and ULTRA presets with their exact vanilla values, the one-click Boost FPS, render distance suggestions, the Performance pack and honest limits.
 order: 23
 category: Client
 ---
@@ -35,40 +35,59 @@ A preset is a bundle of vanilla video options. Selecting one shows a **before �
 change; nothing happens until you press **Apply**, which writes the options through Minecraft's own settings (they end
 up in `options.txt`) and shows a notification. The values, with the reasoning:
 
-| Vanilla option | LOW | BALANCED | HIGH | ULTRA |
-| --- | --- | --- | --- | --- |
-| Graphics | Fast | Fancy | Fancy | Fancy |
-| Render distance | 6 chunks | 10 chunks | 16 chunks | 24 chunks |
-| Simulation distance | 6 chunks | 8 chunks | 12 chunks | 16 chunks |
-| Max framerate | 60 | 120 | Unlimited | Unlimited |
-| VSync | Off | Off | Off | Off |
-| Smooth lighting | Off | On | On | On |
-| Clouds | Off | Fast | Fancy | Fancy |
-| Particles | Minimal | Decreased | All | All |
-| Entity shadows | Off | On | On | On |
-| Entity distance | 50 % | 100 % | 100 % | 125 % |
-| Biome blend | Off (0) | 5×5 (2) | 9×9 (4) | 13×13 (6) |
-| Mipmap levels | 0 | 2 | 4 | 4 |
+| Vanilla option | MAX FPS | LOW | BALANCED | HIGH | ULTRA |
+| --- | --- | --- | --- | --- | --- |
+| Graphics | Fast | Fast | Fancy | Fancy | Fancy |
+| Render distance | 5 chunks | 6 chunks | 10 chunks | 16 chunks | 24 chunks |
+| Simulation distance | 5 chunks | 6 chunks | 8 chunks | 12 chunks | 16 chunks |
+| Smooth lighting | Off | Off | On | On | On |
+| Clouds | Off | Off | Fast | Fancy | Fancy |
+| Particles | Minimal | Minimal | Decreased | All | All |
+| Entity shadows | Off | Off | On | On | On |
+| Entity distance | 50 % | 50 % | 100 % | 100 % | 125 % |
+| Biome blend | Off (0) | Off (0) | 5×5 (2) | 9×9 (4) | 13×13 (6) |
+| Mipmap levels | 0 | 0 | 2 | 4 | 4 |
+| Menu background blur | Off (0) | unchanged | unchanged | unchanged | unchanged |
 
+- **Presets never set Max framerate or VSync.** Earlier versions shipped a 60 FPS cap with LOW and a 120 FPS cap
+  with BALANCED; a player who picked LOW to get *more* frames was capped at 60 and, with a driver-forced VSync at
+  60 Hz on top of Minecraft's limiter, landed at exactly 30. The limit now lives only in the
+  [frame-rate limit chooser](#frame-rate-limit-chooser); applying a preset leaves whatever limit and VSync you have.
 - **Render and simulation distance** are the biggest levers: the number of chunks grows with the square of the
-  distance. Simulation distance stays at or below render distance so you never simulate chunks you cannot see.
-- **Max framerate**: a cap keeps weak GPUs cool and frame pacing even; strong machines run uncapped. "Unlimited" is
-  vanilla's value 260.
-- **VSync** is off in every preset so the frame-rate limit is the only cap; if you prefer VSync, choose it in the
-  frame-rate limit chooser below.
-- **Smooth lighting** costs chunk-building time, so only LOW turns it off. **Entity shadows**, **clouds** and
+  distance. Simulation distance stays at or below render distance so you never simulate chunks you cannot see; 5 is
+  vanilla's minimum simulation distance, which is why MAX FPS stops there.
+- **Smooth lighting** costs chunk-building time, so MAX FPS and LOW turn it off. **Entity shadows**, **clouds** and
   **particles** are cheap wins on low-end hardware.
 - **Biome blend** costs CPU when chunks are built; **mipmaps** cost VRAM and reduce texture flicker at distance.
+- **Menu background blur** runs a blur pass every frame a screen is open; only MAX FPS turns it off, the other
+  presets leave it alone.
 - **ULTRA stays on Fancy, not Fabulous.** Fabulous graphics add translucency passes that cost a lot of GPU time for a
   small visual difference and conflict with some shader mods. Select Fabulous manually in Video settings if you want it.
 
-Presets never touch FOV, GUI scale, view bobbing, brightness, menu blur, fullscreen/resolution, audio or controls.
-Applying a preset also records it as *Settings → Performance → Last applied preset*, and the built-in
-[profiles](profiles.md) each carry one.
+Presets never touch FOV, GUI scale, view bobbing, brightness, fullscreen/resolution, audio or controls, and never the
+frame-rate limit or VSync. Applying a preset also records it as *Settings → Performance → Last applied preset*, and
+the built-in [profiles](profiles.md) each carry one.
+
+## Boost FPS
+
+**Boost FPS**, the button at the top of the Presets card (also in the search / command palette), does in one click
+what most people open the Performance Center for:
+
+1. applies the **MAX FPS** preset,
+2. sets the frame-rate limit to **Unlimited** and turns **VSync off** (the chooser below shows the result),
+3. switches the VANTA menu to a solid background without particles,
+4. installs the [Performance pack](#the-performance-pack) when a member is neither loaded nor installed. This is the
+   only part that downloads anything, and only when you press the button; when every member is already present, or
+   the Modrinth integration is not available, nothing is downloaded.
+
+The confirmation notification says *Restart the game to load the Performance pack* when mods were installed. Every
+step is a vanilla option or a VANTA setting you can change back by hand.
 
 ## Frame-rate limit chooser
 
-Next to the presets, a quick chooser writes the vanilla **Max framerate** and **VSync** options:
+Next to the presets, a quick chooser writes the vanilla **Max framerate** and **VSync** options. It is the only place
+in VANTA that sets them, apart from [Boost FPS](#boost-fps) and [profiles](profiles.md), which carry the choice made
+here:
 
 | Choice | Max framerate | VSync |
 | --- | --- | --- |

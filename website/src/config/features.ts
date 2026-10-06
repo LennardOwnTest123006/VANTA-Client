@@ -43,7 +43,7 @@ export const featureHighlights: readonly FeatureHighlight[] = [
     title: 'Performance',
     icon: Gauge,
     summary:
-      'Live FPS, frame time, memory and distance readouts with four presets built from vanilla video options.',
+      'Live FPS, frame time, memory and distance readouts with five presets built from vanilla video options, and a one-click Boost FPS.',
   },
   {
     id: 'performance-pack',
@@ -146,7 +146,10 @@ export const builtInProfiles: readonly { readonly name: string; readonly purpose
   { name: 'DEFAULT', purpose: 'Vanilla-like HUD, balanced performance preset.' },
   { name: 'PVP', purpose: 'Keystrokes, CPS, ping and armor widgets; compact crosshair.' },
   { name: 'BUILDING', purpose: 'Coordinates, direction and biome; long render distance.' },
-  { name: 'PERFORMANCE', purpose: 'Minimal HUD with the LOW preset applied.' },
+  {
+    name: 'PERFORMANCE',
+    purpose: 'Minimal HUD with the MAX FPS preset applied and no frame-rate cap.',
+  },
   { name: 'RECORDING', purpose: 'Clean HUD, notifications muted, no menu particles.' },
 ];
 
@@ -198,7 +201,7 @@ export const featureFamilies: readonly FeatureFamily[] = [
       'See what your machine is doing and change the vanilla video options that matter — in one screen, with honest numbers.',
     bullets: [
       'Live FPS, average and 1% low frame time, used / allocated / maximum memory, render and simulation distance, entity count and CPU load',
-      'LOW, BALANCED, HIGH and ULTRA presets that only set vanilla video options, plus quick FPS-limit choices',
+      'MAX FPS, LOW, BALANCED, HIGH and ULTRA presets that only set vanilla video options and never cap the frame rate, plus quick FPS-limit choices and a one-click Boost FPS',
       'Detects which preset matches your current options and shows "Custom" when you changed anything',
       'Render-distance advisor that suggests ±2 chunks from measured frame rate — applied only when you say so',
       'No renderer replacement of its own and no unverified performance claims; for more, it points to the Performance pack',
