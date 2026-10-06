@@ -55,6 +55,11 @@ public record ActionEntry(String id, List<String> keywords, Optional<ScreenId> s
     public static final String TOGGLE_HUD = "toggle_hud";
     /** Id of the "apply balanced performance preset" command. */
     public static final String APPLY_BALANCED_PRESET = "apply_balanced_preset";
+    /**
+     * Id of the one-click "Boost FPS" command: Max FPS preset, no frame-rate cap, VSync off, a plain VANTA menu and
+     * the Performance pack when it is missing.
+     */
+    public static final String BOOST_FPS = "boost_fps";
     /** Id of the "clear statistics" command. */
     public static final String CLEAR_STATISTICS = "clear_statistics";
     /** Id of the "open website" command. */
@@ -82,6 +87,8 @@ public record ActionEntry(String id, List<String> keywords, Optional<ScreenId> s
                 command(SCREENSHOT_HUD_FREE, "capture", "clean", "hide hud", "photo"),
                 command(TOGGLE_HUD, "hide", "show", "overlay"),
                 command(APPLY_BALANCED_PRESET, "performance", "preset", "balanced", "fps"),
+                command(BOOST_FPS, "performance", "max fps", "boost", "speed", "lag", "fps boost", "unlimited",
+                        "sodium"),
                 command(CLEAR_STATISTICS, "delete", "privacy", "reset stats"),
                 command(OPEN_WEBSITE, "docs", "help", "support", "documentation"));
     }

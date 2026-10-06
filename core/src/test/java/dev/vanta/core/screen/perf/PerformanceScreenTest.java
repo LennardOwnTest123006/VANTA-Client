@@ -36,10 +36,10 @@ class PerformanceScreenTest {
         assertTrue(render.changes());
         assertEquals(12, render.current().orElseThrow());
         assertEquals(10, render.target());
-        PresetDiff.Row fps = row(diff, VanillaOption.FRAMERATE_LIMIT);
-        assertFalse(fps.changes(), "120 FPS is already set");
-        PresetDiff.Row vsync = row(diff, VanillaOption.VSYNC);
-        assertTrue(vsync.changes(), "presets turn vsync off");
+        assertTrue(diff.rows().stream().noneMatch(r -> r.option() == VanillaOption.FRAMERATE_LIMIT
+                || r.option() == VanillaOption.VSYNC), "presets never touch the frame-rate limit or VSync");
+        PresetDiff.Row particles = row(diff, VanillaOption.PARTICLES);
+        assertTrue(particles.changes());
         assertEquals(diff.rows().stream().filter(PresetDiff.Row::changes).count(), diff.changeCount());
         assertFalse(diff.isNoop());
 
@@ -76,12 +76,30 @@ class PerformanceScreenTest {
         ScreenTestSupport.click(screen, screen.applyPresetButton());
         assertEquals(6, t.options.getInt(VanillaOption.RENDER_DISTANCE, -1));
         assertEquals("MINIMAL", t.options.getEnum(VanillaOption.PARTICLES, ""));
-        assertEquals(false, t.options.get(VanillaOption.VSYNC).orElseThrow());
+        assertEquals(true, t.options.get(VanillaOption.VSYNC).orElseThrow(), "VSync is left as it was");
+        assertEquals(120, t.options.getInt(VanillaOption.FRAMERATE_LIMIT, -1), "no cap came with the preset");
         assertEquals(PerformancePreset.LOW, t.services.settings().get(VantaSettings.PERFORMANCE_PRESET));
         assertTrue(screen.selectedDiff().isNoop());
         assertFalse(screen.applyPresetButton().isEnabled(), "nothing left to apply");
         assertTrue(t.services.notifications().visible().stream().anyMatch(n -> n.title().equals("Preset applied")));
         assertTrue(t.frame(screen, -1000, -1000).hasTextContaining("Current preset: Low"));
+    }
+
+    @Test
+    void boostButtonAppliesMaxFpsWithoutACapAndSelectsTheBoostTab() {
+        PerformanceScreen screen = t.show(ScreenId.PERFORMANCE, 854, 480);
+        assertEquals("Boost FPS", screen.boostFpsButton().label());
+        screen.scrollPanel().scrollIntoView(screen.context(), screen.boostFpsButton().bounds());
+        t.advance(screen, 500);
+        ScreenTestSupport.click(screen, screen.boostFpsButton());
+        assertEquals(5, t.options.getInt(VanillaOption.RENDER_DISTANCE, -1));
+        assertEquals(260, t.options.getInt(VanillaOption.FRAMERATE_LIMIT, -1), "cap removed");
+        assertEquals(false, t.options.get(VanillaOption.VSYNC).orElseThrow());
+        assertEquals(PerformancePreset.BOOST, screen.selectedPreset());
+        assertEquals(PerformancePreset.BOOST.ordinal(), screen.presetTabs().selected());
+        assertTrue(screen.selectedDiff().isNoop());
+        assertTrue(t.services.notifications().visible().stream().anyMatch(n -> n.title().equals("Boost applied")));
+        assertTrue(t.frame(screen, -1000, -1000).hasTextContaining("Current preset: Max FPS"));
     }
 
     @Test

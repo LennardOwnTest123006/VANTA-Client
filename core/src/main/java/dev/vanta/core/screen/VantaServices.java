@@ -13,12 +13,17 @@ import dev.vanta.core.config.JsonStore;
 import dev.vanta.core.config.VantaPaths;
 import dev.vanta.core.cosmetics.CosmeticsRegistry;
 import dev.vanta.core.cosmetics.CosmeticsStore;
+import dev.vanta.core.cosmetics.MenuBackground;
+import dev.vanta.core.cosmetics.MenuParticles;
 import dev.vanta.core.crosshair.CrosshairStore;
 import dev.vanta.core.hud.HudStore;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.keybinds.KeybindModel;
+import dev.vanta.core.modrinth.LocalItem;
 import dev.vanta.core.modrinth.ModrinthService;
+import dev.vanta.core.modrinth.PerformancePack;
 import dev.vanta.core.notifications.NotificationCenter;
+import dev.vanta.core.perf.FpsLimitPreset;
 import dev.vanta.core.perf.PerformanceCenter;
 import dev.vanta.core.perf.PerformancePreset;
 import dev.vanta.core.profiles.Profile;
@@ -33,8 +38,12 @@ import dev.vanta.core.stats.StatsTracker;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Composition root of the domain layer. The client creates one instance at start-up with its bridge implementations,
@@ -220,6 +229,10 @@ public final class VantaServices {
                 performance.applyPreset(PerformancePreset.BALANCED);
                 return true;
             }
+            case ActionEntry.BOOST_FPS -> {
+                boostFps();
+                return true;
+            }
             case ActionEntry.CLEAR_STATISTICS -> {
                 statsStore.clearAll();
                 notifications.statisticsCleared();
@@ -249,6 +262,41 @@ public final class VantaServices {
                 return false;
             }
         }
+    }
+
+    /**
+     * The one-click "Boost FPS": applies {@link PerformancePreset#BOOST}, removes the frame-rate cap and turns VSync
+     * off ({@link FpsLimitPreset#UNLIMITED}), switches the VANTA menu to a solid background without particles and,
+     * when the Modrinth integration is installed and a Performance pack member is neither loaded nor installed,
+     * installs the pack. Nothing is ever downloaded except through this explicit action; the confirmation toast
+     * says when a restart is needed for the new mods.
+     */
+    public void boostFps() {
+        performance.applyPreset(PerformancePreset.BOOST);
+        performance.applyFpsLimit(FpsLimitPreset.UNLIMITED);
+        settings.set(VantaSettings.MENU_BACKGROUND, MenuBackground.SOLID);
+        settings.set(VantaSettings.MENU_PARTICLES, MenuParticles.NONE);
+        if (modrinth == null || missingPerformancePackMembers(modrinth).isEmpty()) {
+            notifications.boostApplied(false);
+            return;
+        }
+        modrinth.installPerformancePack(PerformancePack.slugs(),
+                result -> notifications.boostApplied(result.modsChanged()));
+    }
+
+    /** Performance pack members that are neither loaded in this game nor in the Modrinth index. */
+    public static List<PerformancePack.Item> missingPerformancePackMembers(ModrinthService service) {
+        Set<String> installedSlugs = new HashSet<>();
+        for (LocalItem item : service.installedItems()) {
+            item.entry().ifPresent(e -> installedSlugs.add(e.slug()));
+        }
+        List<PerformancePack.Item> missing = new ArrayList<>();
+        for (PerformancePack.Item item : PerformancePack.ITEMS) {
+            if (!service.platform().isModLoaded(item.modId()) && !installedSlugs.contains(item.slug())) {
+                missing.add(item);
+            }
+        }
+        return missing;
     }
 
     /** Activates a profile and shows the confirmation toast. */

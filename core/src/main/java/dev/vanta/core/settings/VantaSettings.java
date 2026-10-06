@@ -114,7 +114,7 @@ public final class VantaSettings {
     /** Last applied performance preset. */
     public static final Setting<PerformancePreset> PERFORMANCE_PRESET = add(Setting.enumOf("performance.perfPreset",
             PERFORMANCE, PerformancePreset.class, PerformancePreset.BALANCED)
-            .keywords("low", "balanced", "high", "ultra", "quality", "preset", "fps"));
+            .keywords("boost", "max fps", "low", "balanced", "high", "ultra", "quality", "preset", "fps"));
     /** Button: open the Performance Center. */
     public static final Setting<String> PERFORMANCE_OPEN_CENTER = add(Setting.action("performance.openCenter",
             PERFORMANCE, "open_performance").keywords("fps", "monitor", "memory"));

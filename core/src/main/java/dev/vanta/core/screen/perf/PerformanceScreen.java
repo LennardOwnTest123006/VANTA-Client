@@ -19,6 +19,7 @@ import dev.vanta.core.screen.common.SettingFormats;
 import dev.vanta.core.screen.common.SettingRow;
 import dev.vanta.core.screen.common.Sparkline;
 import dev.vanta.core.screen.common.VantaUiScreen;
+import dev.vanta.core.search.ActionEntry;
 import dev.vanta.core.settings.Setting;
 import dev.vanta.core.settings.SettingsListener;
 import dev.vanta.core.settings.VantaSettings;
@@ -32,6 +33,7 @@ import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiContext;
 import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.VantaShell;
+import dev.vanta.core.ui.layout.Align;
 import dev.vanta.core.ui.layout.Column;
 import dev.vanta.core.ui.layout.Row;
 import dev.vanta.core.ui.layout.ScrollPanel;
@@ -48,9 +50,10 @@ import java.util.Optional;
 
 /**
  * The Performance Center: live cards (frame rate with a 60-sample sparkline, frame times, memory, render and
- * simulation distance, system), the render distance advisor's pending suggestion, the LOW / BALANCED / HIGH /
- * ULTRA presets with a table of exactly which vanilla options would change, and the safe individual video options
- * as rows. Everything written here is a vanilla option; the renderer itself is never touched.
+ * simulation distance, system), the render distance advisor's pending suggestion, the one-click "Boost FPS", the
+ * BOOST / LOW / BALANCED / HIGH / ULTRA presets with a table of exactly which vanilla options would change, and the
+ * safe individual video options as rows. Everything written here is a vanilla option; the renderer itself is never
+ * touched, and presets never cap the frame rate.
  * <p>
  * Live values come from {@link GameBridge} through {@link PerformanceCenter#snapshot()} once per client tick.
  */
@@ -101,6 +104,7 @@ public final class PerformanceScreen extends VantaUiScreen {
     private PresetDiffTable diffTable;
     private Label diffSummary;
     private Button applyPreset;
+    private Button boostFps;
 
     public PerformanceScreen(VantaServices services, ScreenNavigator navigator) {
         super(services, navigator, ScreenId.PERFORMANCE);
@@ -158,6 +162,11 @@ public final class PerformanceScreen extends VantaUiScreen {
 
     public Button applyPresetButton() {
         return applyPreset;
+    }
+
+    /** The one-click "Boost FPS" button at the top of the preset card. */
+    public Button boostFpsButton() {
+        return boostFps;
     }
 
     public Tabs presetTabs() {
@@ -284,6 +293,16 @@ public final class PerformanceScreen extends VantaUiScreen {
         card.setId("perf.presets");
         currentPreset = new Badge("", Badge.Tone.ACCENT);
         card.headerSlot(currentPreset);
+        Row boost = new Row(Theme.SPACE_4).align(Align.CENTER);
+        boostFps = Button.primary(Lang.tr("vanta.action." + ActionEntry.BOOST_FPS), this::boostFps);
+        boostFps.icon(Icons.ARROW_UP);
+        boostFps.setId("perf.boostFps");
+        boost.add(boostFps);
+        Label boostHint = new Label(Lang.tr("vanta.action." + ActionEntry.BOOST_FPS + ".description"),
+                Label.Variant.MUTED).wrap(true);
+        boostHint.flex(1f);
+        boost.add(boostHint);
+        card.add(boost);
         List<String> labels = new ArrayList<>();
         for (PerformancePreset preset : PerformancePreset.values()) {
             labels.add(Lang.tr(preset.langKey()));
@@ -353,6 +372,13 @@ public final class PerformanceScreen extends VantaUiScreen {
     /** Applies the selected preset (vanilla options only) and refreshes every row. */
     public void applySelectedPreset() {
         perf.applyPreset(selectedPreset);
+        onSettingsChanged();
+    }
+
+    /** Runs the one-click FPS boost (see {@link VantaServices#boostFps()}) and shows BOOST in the tabs. */
+    public void boostFps() {
+        services().boostFps();
+        selectPreset(PerformancePreset.BOOST);
         onSettingsChanged();
     }
 
