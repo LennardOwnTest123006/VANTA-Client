@@ -14,6 +14,7 @@ import dev.vanta.client.hud.VantaHudElement;
 import dev.vanta.client.keys.VantaKeyMappings;
 import dev.vanta.client.lang.MinecraftLangProvider;
 import dev.vanta.client.log.Slf4jCoreLogSink;
+import dev.vanta.client.render.TextCacheReloader;
 import dev.vanta.client.screen.ScreenOverlays;
 import dev.vanta.core.VantaVersion;
 import dev.vanta.core.config.CoreLog;
@@ -26,8 +27,10 @@ import java.time.Clock;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +48,8 @@ public final class VantaClient implements ClientModInitializer {
 
     /** Identifier of the VANTA HUD element. */
     public static final Identifier HUD_ELEMENT = Identifier.fromNamespaceAndPath(MOD_ID, "hud");
+    /** Identifier of the resource reloader that drops the text caches. */
+    public static final Identifier TEXT_CACHE_RELOADER = Identifier.fromNamespaceAndPath(MOD_ID, "text_caches");
 
     @Override
     public void onInitializeClient() {
@@ -82,6 +87,8 @@ public final class VantaClient implements ClientModInitializer {
         VantaCommands.register(runtime);
         HudElementRegistry.attachElementAfter(VanillaHudElements.CHAT, HUD_ELEMENT, new VantaHudElement());
         HudElementRegistry.replaceElement(VanillaHudElements.CROSSHAIR, VantaCrosshairElement::new);
+        // Glyph advances can change with a resource pack, so the memoised text widths die with every reload.
+        ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloader(TEXT_CACHE_RELOADER, new TextCacheReloader());
 
         LOGGER.info("VANTA ready: {} screens registered, config in {}", services.screens().registered().size(),
                 paths.root());
