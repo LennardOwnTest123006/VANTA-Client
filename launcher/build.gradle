@@ -140,8 +140,9 @@ tasks.register('screenshots', JavaExec) {
 }
 
 // Opens the launcher (fake services) on one page at one window size, writes a screenshot through the UiSmoke hook and
-// exits: ./gradlew uiSmoke -PsmokePage=mods -PsmokeSize=1000x600 -PsmokeOut=build/ui-smoke/mods.png. Needs a display
-// (`xvfb-run -a` on Linux) or -Pheadless for the Monocle platform.
+// exits: ./gradlew uiSmoke -PsmokePage=mods -PsmokeSize=1000x600 -PsmokeOut=build/ui-smoke/mods.png. With -PsmokeToast a
+// toast is shown and the page scrolled to its end first. Needs a display (`xvfb-run -a` on Linux) or -Pheadless for the
+// Monocle platform.
 tasks.register('uiSmoke', JavaExec) {
     group = 'verification'
     description = 'Starts the launcher UI (fake services) on a page and window size, writes a screenshot and exits.'
@@ -152,7 +153,8 @@ tasks.register('uiSmoke', JavaExec) {
         : layout.buildDirectory.file('ui-smoke/smoke.png').get().asFile.absolutePath
     args = [smokeOut, project.hasProperty('smokePage') ? project.property('smokePage') : '',
             project.hasProperty('smokeSize') ? project.property('smokeSize') : '',
-            project.hasProperty('smokeExitAfter') ? project.property('smokeExitAfter') : '']
+            project.hasProperty('smokeExitAfter') ? project.property('smokeExitAfter') : '',
+            project.hasProperty('smokeToast') ? 'toast' : '']
     systemProperty 'prism.order', 'sw'
     systemProperty 'java.awt.headless', 'true'
     systemProperty 'file.encoding', 'UTF-8'

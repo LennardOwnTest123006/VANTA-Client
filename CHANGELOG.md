@@ -49,12 +49,17 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
   mouse rested on it, a mouse moved onto such a button kept the toast open and every click did nothing (in a
   maximised window the Install column is nowhere near that corner). A click anywhere on a toast now dismisses it, and
   the pause while the mouse is over a toast ends after 8 seconds at the latest.
+- In a window narrower than 1100 px the toasts now appear top-right, below the update banner and the page header, and
+  a toast is never wider than 30 percent of the window (at most 360 px), so at 960 x 600 the Mods page's *Install*
+  buttons, its header actions and the installed list's switches are no longer under a toast; in wider windows the
+  toasts stay bottom-right. The headless UI test checks this at 960 x 600 and 1200 x 700.
 
 #### Added
 - For automated tests the launcher also reads `VANTA_UI_SMOKE_PAGE=<home|mods|versions|logs|settings|about>` (the
   page shown before the screenshot) and `VANTA_UI_SMOKE_SIZE=<width>x<height>` (the window size, raised to the
   960 x 600 minimum); both only together with `VANTA_UI_SMOKE_SCREENSHOT` or `VANTA_UI_SMOKE_EXIT_AFTER`.
-  `./gradlew uiSmoke -PsmokePage=mods -PsmokeSize=1000x600` renders one page at one window size with fake services.
+  `./gradlew uiSmoke -PsmokePage=mods -PsmokeSize=1000x600` renders one page at one window size with fake services
+  (`-PsmokeToast` shows a toast first).
 - The headless UI test opens the Mods page in a 960 x 600 window and clicks the first and the last *Install* button
   through the platform's robot (the last one after scrolling, and after the toast over it was dismissed by the click).
 

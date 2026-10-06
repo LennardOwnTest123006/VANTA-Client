@@ -631,6 +631,133 @@ class LauncherAppSmokeTest {
         waitUntil(() -> app.window().lookup(".toast") == null);
     }
 
+    /**
+     * A toast must not lie over controls. In a small window (960 x 600) the bottom-right corner holds the Mods page's
+     * lower Install buttons and the installed pane, so there the toasts sit top-right, below the update banner and the
+     * page header, and a card is at most 30 percent of the window wide (it never reaches the Install column): no Install
+     * button, no header action and no banner button intersects the toast card. In a wide window (1200 x 700 here) the
+     * toasts stay bottom-right at their full 360 px.
+     */
+    @Test
+    void toastsKeepClearOfTheInstallButtonsInASmallWindow() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        waitUntil(() -> app.context().updates().checkedOnce());
+        final dev.vanta.launcher.core.modrinth.ContentType mod = dev.vanta.launcher.core.modrinth.ContentType.MOD;
+        final int pageSize = backend.searchPageSize;
+        backend.searchPageSize = 20;
+        backend.modrinthHits.put(mod, List.of(
+            FakeBackend.hit("AANobbMI", "sodium", "Sodium", "jellysquid3", mod, 236_787_190L,
+                "A high-performance rendering engine replacement for Minecraft, which greatly improves frame rates and reduces micro-stutter."),
+            FakeBackend.hit("gvQqBUqZ", "lithium", "Lithium", "jellysquid3", mod, 132_326_304L,
+                "No-compromises game logic optimization mod, useful for both single-player games and multi-player servers."),
+            FakeBackend.hit("NNAgCjsB", "entityculling", "Entity Culling", "tr7zw", mod, 174_814_150L,
+                "Using async path-tracing to hide Block-/Entities that are not visible"),
+            FakeBackend.hit("uXXizFIs", "ferrite-core", "FerriteCore", "malte0811", mod, 155_853_518L, "Memory usage optimizations"),
+            FakeBackend.hit("mOgUt4GM", "modmenu", "Mod Menu", "Prospector", mod, 150_014_581L,
+                "Adds a mod menu to view the list of mods you have installed."),
+            FakeBackend.hit("YL57xq9U", "iris", "Iris Shaders", "coderbot", mod, 184_174_507L,
+                "A modern shader pack loader for Minecraft intended to be compatible with existing OptiFine shader packs")));
+        final double width = fx(() -> app.stage().getWidth());
+        final double height = fx(() -> app.stage().getHeight());
+        final boolean maximized = fx(() -> app.stage().isMaximized());
+        try {
+            fx(() -> {
+                app.context().toasts().clear();
+                app.stage().setMaximized(false);
+                app.stage().setWidth(960);
+                app.stage().setHeight(600);
+                app.context().navigation().navigate(NavigationModel.Page.MODS);
+                app.context().mods().search();
+                return null;
+            });
+            waitUntil(() -> {
+                final List<Button> installs = installButtons();
+                return installs.size() == 6 && installs.stream().allMatch(b -> b.getWidth() > 0 && b.getScene() != null);
+            });
+            waitUntil(() -> app.window().lookup(".toast") == null);
+            fx(() -> {
+                app.context().toasts().success("Sodium installed", "It loads the next time the game starts.");
+                return null;
+            });
+            final javafx.scene.Scene scene = app.stage().getScene();
+            final Node banner = app.window().lookup(".banner");
+            final Node header = app.window().page(NavigationModel.Page.MODS).lookup(".page-header");
+            assertNotNull(banner);
+            assertNotNull(header);
+            // The toast is placed below the banner and header in the layout pass after it appeared, and it slides in
+            // (Motion.enter moves it 10 px); wait for both.
+            waitUntil(() -> {
+                final Node toast = app.window().lookup(".toast");
+                return toast != null && toast.getScene() != null && toast.getLayoutBounds().getWidth() > 0 && toast.getTranslateY() == 0
+                    && sceneBounds(toast).getMinY() >= sceneBounds(header).getMaxY();
+            });
+            fx(() -> {
+                final double w = scene.getWidth();
+                final double h = scene.getHeight();
+                assertTrue(w <= 960.5 && h <= 600.5, "the window really is small (" + w + " x " + h + ")");
+                assertTrue(ToastLayer.anchorsTop(w) && app.window().toasts().isAnchoredTop(), "below 1100 px the toasts are anchored top-right");
+                final Node toast = app.window().lookup(".toast");
+                final javafx.geometry.Bounds card = sceneBounds(toast);
+                assertWithinScene(card, w, h, "toast card");
+                assertEquals(ToastLayer.cardWidth(w), card.getWidth(), 1.0, "a card is min(360, 30 percent of the window) wide: " + card);
+                assertTrue(card.getWidth() <= w * 0.3 + 1, "the card takes at most 30 percent of the window: " + card);
+                assertTrue(card.getMaxY() < h / 2, "the toast lies in the upper half of the window: " + card);
+                if (banner.isVisible()) {
+                    assertFalse(card.intersects(sceneBounds(banner)), "the toast lies below the update banner: " + card + " vs " + sceneBounds(banner));
+                }
+                assertFalse(card.intersects(sceneBounds(header)), "the toast lies below the page header: " + card + " vs " + sceneBounds(header));
+                final List<Button> installs = installButtons();
+                assertEquals(6, installs.size());
+                for (Button install : installs) {
+                    final javafx.geometry.Bounds button = sceneBounds(install);
+                    assertFalse(card.intersects(button), "the toast " + card + " does not cover the Install button of "
+                        + install.getTooltip().getText() + " at " + button);
+                }
+                assertFalse(card.intersects(sceneBounds(app.window().sidebar())), "the toast is not over the sidebar: " + card);
+                return null;
+            });
+            // The same toast in a wide window: bottom-right, full width.
+            fx(() -> {
+                app.stage().setWidth(1200);
+                app.stage().setHeight(700);
+                return null;
+            });
+            waitUntil(() -> {
+                final Node toast = app.window().lookup(".toast");
+                return toast != null && scene.getWidth() >= 1199 && toast.getTranslateY() == 0
+                    && sceneBounds(toast).getMaxY() > scene.getHeight() / 2;
+            });
+            fx(() -> {
+                final double w = scene.getWidth();
+                final double h = scene.getHeight();
+                assertFalse(ToastLayer.anchorsTop(w) || app.window().toasts().isAnchoredTop(), "from 1100 px on the toasts are anchored bottom-right");
+                final javafx.geometry.Bounds card = sceneBounds(app.window().lookup(".toast"));
+                assertWithinScene(card, w, h, "toast card");
+                assertEquals(ToastLayer.MAX_WIDTH, card.getWidth(), 1.0, "a card is 360 px wide in a wide window: " + card);
+                assertEquals(h - ToastLayer.EDGE, card.getMaxY(), 1.0, "the toast sits at the bottom edge: " + card);
+                assertEquals(w - ToastLayer.EDGE, card.getMaxX(), 1.0, "the toast sits at the right edge: " + card);
+                return null;
+            });
+        } finally {
+            backend.searchPageSize = pageSize;
+            backend.modrinthHits.clear();
+            fx(() -> {
+                app.context().toasts().clear();
+                app.stage().setWidth(width);
+                app.stage().setHeight(height);
+                app.stage().setMaximized(maximized);
+                app.context().navigation().navigate(NavigationModel.Page.HOME);
+                return null;
+            });
+        }
+        assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+    }
+
+    /** @return the node's layout bounds (without its drop shadow) in scene coordinates */
+    private static javafx.geometry.Bounds sceneBounds(final Node node) {
+        return node.localToScene(node.getLayoutBounds());
+    }
+
     private static Node ancestorWithStyle(final Node node, final String styleClass) {
         Node n = node;
         while (n != null && !n.getStyleClass().contains(styleClass)) {
