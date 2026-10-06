@@ -20,8 +20,16 @@ missing file fails the release.
 
 1. `vanta-client-<version>.jar` — the Fabric mod (primary)
 2. `vanta-client-<version>-mods.zip` — `mods/vanta-client-<version>.jar`, `mods/fabric-api-0.141.6+1.21.11.jar`,
-   `INSTALL.txt` and `SHA256SUMS` (paths relative to the zip root, `sha256sum -c` compatible); built by
-   `scripts/release/build-mods-bundle.sh`
+   the Performance pack jars that may be redistributed (`mods/<file as published on Modrinth>`, newest 1.21.11 Fabric
+   build of every member of `PerformancePack.java` whose licence is on the allow-list of
+   `scripts/release/performance-pack.mjs`; EntityCulling's licence forbids redistribution, so it stays an in-game
+   download), `INSTALL.txt` (the pack list is written into it at build time), `PERFORMANCE-PACK.txt`,
+   `THIRD-PARTY-LICENSES.txt` (every licence text; the release fails when one cannot be fetched), `performance-pack.json`
+   (`shared/schemas/performance-pack.schema.json`) and `SHA256SUMS` (paths relative to the zip root, `sha256sum -c`
+   compatible); resolved and downloaded by `scripts/release/performance-pack.mjs` (size and SHA-512 verified, Iris must
+   require exactly the bundled Sodium), zipped by `scripts/release/build-mods-bundle.sh`. The resolved versions appear
+   in the job summary and in the GitHub Release notes (*Performance pack in the mods bundle*); none is stored in the
+   repository. Sodium is under PolyForm Shield 1.0.0: a person reads its terms before each release.
 3. `fabric-api-0.141.6+1.21.11.jar` — the unmodified FabricMC Fabric API jar (Apache-2.0, contains
    `LICENSE-fabric-api`), taken from the client build's Gradle cache by `scripts/release/fabric-api-jar.mjs`
 

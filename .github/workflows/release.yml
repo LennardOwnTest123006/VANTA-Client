@@ -224,7 +224,7 @@ jobs:
           name: client-gametest
           path: ${{ runner.temp }}/gametest-out
           if-no-files-found: ignore
-      - name: Stage the release files (client jar, verified Fabric API jar, mods bundle)
+      - name: Stage the release files (client jar, verified Fabric API jar, Performance pack, mods bundle)
         run: |
           set -euo pipefail
           rm -rf dist
@@ -234,15 +234,39 @@ jobs:
           # the download, fabric.mod.json id/version/license and LICENSE-fabric-api checked; copied byte for byte.
           FAPI="$(node scripts/release/fabric-api-jar.mjs --copy-to dist | tee /dev/stderr | tail -n 1)"
           test -s "$FAPI" || { echo "::error::Fabric API jar was not staged"; exit 1; }
-          # INSTALL.txt + SHA256SUMS + mods/; verified with sha256sum -c before and after zipping.
+          # Performance pack: the newest Minecraft 1.21.11 Fabric build of every member of PerformancePack.java that
+          # may be redistributed (licence allow-list; EntityCulling stays an in-game download), downloaded from
+          # Modrinth and verified by size and SHA-512, with every licence text (THIRD-PARTY-LICENSES.txt). The
+          # resolved versions exist only in this run's output, never in the repository.
+          PACK="$RUNNER_TEMP/performance-pack"
+          rm -rf "$PACK"
+          node scripts/release/performance-pack.mjs --out "$PACK" --fabric-api-jar "$FAPI"
+          node scripts/release/validate-json.mjs shared/schemas/performance-pack.schema.json "$PACK/performance-pack.json"
+          {
+            echo "## Performance pack in the mods bundle"
+            echo
+            cat "$PACK/PERFORMANCE-PACK.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # INSTALL.txt + PERFORMANCE-PACK.txt + SHA256SUMS + THIRD-PARTY-LICENSES.txt + mods/ + performance-pack.json;
+          # every pack jar re-checked against performance-pack.json, SHA256SUMS verified before and after zipping.
           bash scripts/release/build-mods-bundle.sh --version "$VERSION" \
-            --client-jar "dist/vanta-client-${VERSION}.jar" --fabric-api-jar "$FAPI" --out dist
+            --client-jar "dist/vanta-client-${VERSION}.jar" --fabric-api-jar "$FAPI" --pack-dir "$PACK" --out dist
           node scripts/release/release-assets.mjs check-dir dist --product client --version "$VERSION"
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:
           name: release-client
           path: dist/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          # Not "release-*": the publish job merges every release-* artifact into the release files; this one feeds
+          # the release notes (the pack jars themselves travel inside the mods zip).
+          name: client-performance-pack
+          path: |
+            ${{ runner.temp }}/performance-pack/PERFORMANCE-PACK.txt
+            ${{ runner.temp }}/performance-pack/THIRD-PARTY-LICENSES.txt
+            ${{ runner.temp }}/performance-pack/performance-pack.json
           if-no-files-found: error
 
   launcher-windows:
@@ -492,6 +516,12 @@ jobs:
           merge-multiple: true
       - name: The downloaded files are exactly the release files
         run: node scripts/release/release-assets.mjs check-dir dist --product "$PRODUCT" --version "$VERSION"
+      - uses: actions/download-artifact@v4
+        # The Performance pack summary of the client job (for the release notes); outside dist so check-dir stays exact.
+        if: needs.prepare.outputs.product == 'client'
+        with:
+          name: client-performance-pack
+          path: ${{ runner.temp }}/performance-pack
       - name: Build the manifest from the real files (manifest order, primary first)
         id: manifest
         run: |
@@ -563,6 +593,19 @@ jobs:
             echo
             echo "Also attached: \`SHA256SUMS.txt\` (SHA-256 of the files above) and \`${PRODUCT}-${VERSION}.json\` (the release manifest the website and the launcher read)."
             echo
+            PACK_SUMMARY="$RUNNER_TEMP/performance-pack/PERFORMANCE-PACK.txt"
+            if [ "$PRODUCT" = client ]; then
+              # Written by scripts/release/performance-pack.mjs in the client job (resolved live on Modrinth).
+              test -s "$PACK_SUMMARY" || { echo "::error::$PACK_SUMMARY is missing; the client job did not hand over the Performance pack summary"; exit 1; }
+              echo "## Performance pack in the mods bundle"
+              echo
+              echo "\`vanta-client-${VERSION}-mods.zip\` also contains the Performance pack: third-party Fabric mods by their own authors under their own licences, redistributed unchanged (licence texts in \`THIRD-PARTY-LICENSES.txt\` inside the zip, list in \`PERFORMANCE-PACK.txt\` and \`performance-pack.json\`). Versions as resolved on Modrinth when this release was built:"
+              echo
+              cat "$PACK_SUMMARY"
+              echo
+              echo "EntityCulling is not in the zip: its licence does not allow redistribution, so the game downloads it from Modrinth only when you click *Install* on the Performance pack card under *Mods & Shaders* (or accept the one-time offer at start). Sodium is licensed under [PolyForm Shield 1.0.0](https://polyformproject.org/licenses/shield/1.0.0); the terms are passed on in the zip."
+              echo
+            fi
             echo "## Verify your download"
             echo
             echo '```'
@@ -667,6 +710,12 @@ jobs:
               echo '```'
               cat dist/SHA256SUMS.txt
               echo '```'
+            fi
+            if [ -s "$RUNNER_TEMP/performance-pack/PERFORMANCE-PACK.txt" ]; then
+              echo
+              echo "### Performance pack in the mods bundle"
+              echo
+              cat "$RUNNER_TEMP/performance-pack/PERFORMANCE-PACK.txt"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Open a pull request with the completed manifest (optional; never pushes to the default branch)

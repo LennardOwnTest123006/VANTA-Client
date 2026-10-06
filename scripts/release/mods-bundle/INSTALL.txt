@@ -21,12 +21,20 @@ Install
    - If both Minecraft Launchers are installed (from minecraft.net and from the Microsoft Store or the Xbox
      app), the Fabric installer asks which one to use. Choose the one you play with; only that one gets the
      Fabric profile.
-2. Copy BOTH files from the "mods" folder of this archive into your Minecraft "mods" folder:
+2. Copy ALL jars from the "mods" folder of this archive into your Minecraft "mods" folder:
      Windows: %APPDATA%\.minecraft\mods
      macOS:   ~/Library/Application Support/minecraft/mods
      Linux:   ~/.minecraft/mods
    - vanta-client-{VERSION}.jar           (VANTA Client, MIT)
    - fabric-api-{FABRIC_API_VERSION}.jar   (Fabric API, Apache-2.0, required dependency)
+   Performance pack (third-party mods under their own licences, see THIRD-PARTY-LICENSES.txt):
+{PACK_LIST}
+{PACK_EXCLUDED}
+   - Iris and Sodium belong together: this Iris build requires exactly this Sodium build. Always copy or
+     update the two as a pair.
+   WARNING: your mods folder must not already contain another Sodium, Iris, Lithium, FerriteCore or
+   ImmediatelyFast jar. Fabric refuses to start when two copies of one mod id are present ("Duplicate mod"
+   error). Delete the older jar before you copy the new one; a leftover ".jar.disabled" file is fine.
 3. In the Minecraft Launcher start the profile the Fabric installer created. It is listed as
    "fabric-loader-{MINECRAFT_VERSION}" (its version id is fabric-loader-{LOADER_VERSION}-{MINECRAFT_VERSION}).
 
@@ -34,12 +42,19 @@ In the game
 - The VANTA main menu replaces the title screen (Settings > General lets you switch back).
 - Right Shift opens the VANTA settings. All VANTA key bindings are in the keybind manager (Settings > Controls).
 - Mods & Shaders (main menu) installs mods and shader packs from Modrinth, with a one-click Performance pack.
+  The Installed tab manages the Performance pack mods of this archive once you accept the one-time offer at
+  start (or press Install on the Performance pack card); nothing is downloaded without a click.
 - C is hold-to-zoom. Vanilla Minecraft also uses C for "Save Hotbar Activator" (Creative mode only), so the
   two share a key. If you use saved hotbars, rebind either one in Options > Controls > Key Binds (VANTA's keys
   are in the VANTA category) or in the VANTA keybind manager (Settings > Controls).
 - Configuration lives in .minecraft/config/vanta/.
 
 VANTA is a legitimate client: no cheats, no combat automation, no packet manipulation.
+
+Files in this archive besides the jars: PERFORMANCE-PACK.txt (which Performance pack versions this archive
+holds, and which mods are not in it and why), THIRD-PARTY-LICENSES.txt (the licence texts of every third-party
+jar) and performance-pack.json (the same list, machine-readable). The Performance pack mods are third-party projects
+by their own authors, not part of VANTA; VANTA only ships their unmodified release files.
 
 Verify the files before installing (run in the folder you unzipped this archive into):
   Linux:   sha256sum -c SHA256SUMS
@@ -50,6 +65,7 @@ Verify the files before installing (run in the folder you unzipped this archive 
   Windows (Command Prompt):
            certutil -hashfile mods\vanta-client-{VERSION}.jar SHA256
            certutil -hashfile mods\fabric-api-{FABRIC_API_VERSION}.jar SHA256
+           (repeat for each Performance pack jar in mods\)
            type SHA256SUMS
-  On Windows compare the hash of BOTH jars with the line for the same file in SHA256SUMS (PowerShell prints
+  On Windows compare the hash of EVERY jar with the line for the same file in SHA256SUMS (PowerShell prints
   the hash in upper case; upper and lower case mean the same). If a hash differs, do not install that file.

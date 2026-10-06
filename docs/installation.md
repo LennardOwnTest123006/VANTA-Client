@@ -28,8 +28,8 @@ Details are in [Minecraft requirements](minecraft-requirements.md) and [Java 21]
 | Who installs Minecraft and Java | the VANTA Launcher | the official Minecraft Launcher | the official Minecraft Launcher |
 | Who signs you in | the VANTA Launcher (needs a Microsoft client id, see below) | the official Minecraft Launcher | the official Minecraft Launcher |
 | Game folder | `<data directory>/instances/vanta-1.21.11` | the same VANTA instance | your `.minecraft` folder |
-| Performance pack | installed by default | installed by default | optional, from *Mods & Shaders* in the game |
-| Checksums verified for you | every file | Fabric API, the VANTA Client and the Performance pack by VANTA; the rest by the Minecraft Launcher | the two jars by you, with `SHA256SUMS` |
+| Performance pack | installed by default | installed by default | in the mods bundle (except EntityCulling, which the game offers with one click) |
+| Checksums verified for you | every file | Fabric API, the VANTA Client and the Performance pack by VANTA; the rest by the Minecraft Launcher | every jar in the bundle by you, with `SHA256SUMS` |
 
 **Which one should I use?** Microsoft sign-in inside the VANTA Launcher needs an application id that Mojang has
 approved for the Minecraft API. The project does not have one, so in the published launcher the main button on the
@@ -40,8 +40,11 @@ showed a disabled PLAY instead and offered path B as the button *Use with Minecr
 
 The **Performance pack** is six optimisation mods from Modrinth: Sodium, Lithium, FerriteCore, ImmediatelyFast,
 EntityCulling and Iris Shaders. Paths A and B install it by default (from launcher 1.1.0 on; *Settings → Game →
-Install the performance pack* turns it off). With path C you can install it in the game from *Mods & Shaders*. See
-[Mods & Shaders](mods-and-shaders.md#the-performance-pack).
+Install the performance pack* turns it off). With path C the mods bundle brings it along (from the client release
+after 1.1.0 on): every pack mod whose licence allows redistribution is in the zip's `mods/` folder; EntityCulling is
+not, because its licence forbids it, and the game offers it with one click (*Mods & Shaders → Performance pack*, or
+the one-time *Boost your FPS?* dialog at start). See
+[Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle).
 
 ## 1. Download
 
@@ -93,12 +96,15 @@ From the release `client-v1.1.0`:
 | File | What it is |
 | --- | --- |
 | `vanta-client-1.1.0.jar` | the VANTA Client Fabric mod. The VANTA Launcher downloads it for you (paths A and B) |
-| `vanta-client-1.1.0-mods.zip` | for path C: a `mods/` folder with `vanta-client-1.1.0.jar` and `fabric-api-0.141.6+1.21.11.jar`, plus `INSTALL.txt` (the steps of path C) and `SHA256SUMS` |
+| `vanta-client-1.1.0-mods.zip` | for path C: a `mods/` folder with `vanta-client-1.1.0.jar` and `fabric-api-0.141.6+1.21.11.jar`, plus `INSTALL.txt` (the steps of path C) and `SHA256SUMS`. From the client release after 1.1.0 on, `mods/` also holds the Performance pack mods that may be redistributed (all but EntityCulling), with `THIRD-PARTY-LICENSES.txt`, `PERFORMANCE-PACK.txt` and `performance-pack.json` |
 | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0). VANTA requires it; it is also inside the mods bundle |
 
 Both releases also contain `SHA256SUMS.txt` (the SHA-256 of every file above) and the release manifest
-(`launcher-1.1.0.json`, `client-1.1.0.json`) that the website and the launcher read. The Performance pack is not in
-any VANTA release: its mods are downloaded from Modrinth when they are installed.
+(`launcher-1.1.0.json`, `client-1.1.0.json`) that the website and the launcher read. The Performance pack mods are
+third-party projects under their own licences; they are never published as VANTA files of their own. Newer mods
+bundles carry the redistributable ones inside the zip (with their licence texts), EntityCulling is downloaded from
+Modrinth when it is installed, and the launcher downloads the whole pack from Modrinth
+([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)).
 
 If the Download page says a version is **not published yet**, its files are not out yet and the page keeps offering
 the newest published release; see
@@ -134,12 +140,12 @@ grep -F '  vanta-launcher-1.1.0-macos-aarch64-all.jar' SHA256SUMS.txt | shasum -
 sha256sum -c --ignore-missing SHA256SUMS.txt
 ```
 
-**The mods bundle** carries its own `SHA256SUMS` for the two jars inside. After unzipping, run
-`sha256sum -c SHA256SUMS` (Linux) or `shasum -a 256 -c SHA256SUMS` (macOS) in the unzipped folder. On Windows run
-`Get-FileHash mods\*.jar -Algorithm SHA256 | Format-List Hash, Path` in PowerShell, which prints the full path of
-each jar (or `certutil -hashfile mods\vanta-client-1.1.0.jar SHA256` and
-`certutil -hashfile mods\fabric-api-0.141.6+1.21.11.jar SHA256` in the Command Prompt), and compare the hash of
-**both** jars with the line for the same file in `SHA256SUMS`. `INSTALL.txt` in the bundle lists the same commands.
+**The mods bundle** carries its own `SHA256SUMS` for every file inside (the jars and the text files). After
+unzipping, run `sha256sum -c SHA256SUMS` (Linux) or `shasum -a 256 -c SHA256SUMS` (macOS) in the unzipped folder. On
+Windows run `Get-FileHash mods\*.jar -Algorithm SHA256 | Format-List Hash, Path` in PowerShell, which prints the full
+path of each jar (or `certutil -hashfile mods\<jar> SHA256` for each jar in the Command Prompt, for example
+`certutil -hashfile mods\vanta-client-1.1.0.jar SHA256`), and compare the hash of **every** jar with the line for the
+same file in `SHA256SUMS`. `INSTALL.txt` in the bundle lists the same commands.
 
 The value must match character for character (upper or lower case aside). If it does not, delete the file and download
 it again; if it still differs, do not use it and [report it](troubleshooting.md#how-to-report-a-problem).
@@ -288,25 +294,37 @@ No VANTA Launcher involved; any launcher that runs Fabric works the same way.
    the Microsoft Store or the Xbox app), the Fabric installer asks which one to use: choose the one you play with. It
    adds the profile to that launcher only.
 3. Download `vanta-client-1.1.0-mods.zip`, verify it ([Verify the checksum](#2-verify-the-checksum)), unzip it and
-   copy **both** jars from its `mods/` folder into the `mods` folder of your Minecraft directory (create it if it does
+   copy **all** jars from its `mods/` folder into the `mods` folder of your Minecraft directory (create it if it does
    not exist):
    - Windows: `%APPDATA%\.minecraft\mods`
    - macOS: `~/Library/Application Support/minecraft/mods`
    - Linux: `~/.minecraft/mods`
+
+   In the 1.1.0 bundle these are the VANTA jar and Fabric API. From the client release after 1.1.0 on, the folder
+   also holds the Performance pack mods that may be redistributed (Iris and Sodium belong together: copy both). If
+   your `mods` folder already contains another Sodium, Iris, Lithium, FerriteCore or ImmediatelyFast jar, delete the
+   older one first: Fabric refuses to start with two copies of one mod (*Duplicate mod*). The pack mods are
+   third-party projects under their own licences; `THIRD-PARTY-LICENSES.txt` in the zip has the texts
+   ([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)).
 4. In the Minecraft Launcher start the profile the Fabric installer created. It is listed as
    **fabric-loader-1.21.11** (its version is `fabric-loader-0.19.5-1.21.11`).
-5. Optional: in the game, open **Mods & Shaders** from the VANTA main menu and install the **Performance pack** or
-   other mods, shader packs and resource packs from Modrinth; they go into the same `.minecraft` folder. Restart the
-   game afterwards so new mods load ([Mods & Shaders](mods-and-shaders.md)).
+5. Optional: at the VANTA main menu the game asks once, **Boost your FPS?**, whether to install the Performance pack
+   mods that are still missing (EntityCulling is never in the zip because its licence does not allow redistribution).
+   **Install** downloads them from Modrinth; **Not now** stops the question for good. The same is on the *Performance
+   pack* card of **Mods & Shaders**, where you can also install other mods, shader packs and resource packs from
+   Modrinth; they go into the same `.minecraft` folder. Restart the game afterwards so new mods load
+   ([Mods & Shaders](mods-and-shaders.md)).
 
 `INSTALL.txt` in the bundle repeats these steps: it starts with step 0, *start the official Minecraft Launcher
 once*, says which Fabric installer to take on each system (the `.exe` on Windows, the universal `.jar` with Java 21 on
 macOS and Linux), that the Fabric installer asks which launcher to use when both Minecraft Launchers are installed,
-and to keep *Create profile* checked. It shows how to verify both jars on Linux, macOS and Windows (PowerShell or
+and to keep *Create profile* checked. It shows how to verify every jar on Linux, macOS and Windows (PowerShell or
 Command Prompt), mentions Mods & Shaders and the Performance pack, and explains that the zoom key C is also vanilla's
 *Save Hotbar Activator* ([Keybinds → Zoom](keybinds.md#zoom)). The notes on the Fabric installer per system, the
 launcher choice and Mods & Shaders are new in `vanta-client-1.1.0-mods.zip`; the `INSTALL.txt` of 1.0.1 does not have
-them. For Prism Launcher, MultiMC and other details see
+them. From the client release after 1.1.0 on, `INSTALL.txt` also lists the Performance pack jars in the zip (written
+from `performance-pack.json` when the release is built), says that EntityCulling is not among them and why, and warns
+about duplicate copies of a mod. For Prism Launcher, MultiMC and other details see
 [Fabric → Manual installation](fabric.md#manual-installation-into-an-existing-fabric-profile).
 
 ## 5. Where files live
@@ -389,9 +407,10 @@ VANTA's own configuration lives in the game directory under `config/vanta/`: `se
   `vanta-launcher-1.1.0-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name.
 
   Details: [Launcher → Updates and rollback](launcher.md#updates-and-rollback).
-- **Path C.** Download the new mods bundle, verify it and replace both jars in `.minecraft/mods`. The game does not
-  update mods you installed with *Mods & Shaders*; to get a newer version, remove the project there and install it
-  again.
+- **Path C.** Download the new mods bundle, verify it and replace the jars in `.minecraft/mods` with the ones from
+  the zip: the VANTA jar, Fabric API and (from the client release after 1.1.0 on) the Performance pack jars. Delete
+  the older copy of each pack mod first, so Fabric never sees two copies of one mod. The game does not update mods
+  you installed with *Mods & Shaders*; to get a newer version, remove the project there and install it again.
 
 ## Uninstalling
 

@@ -53,7 +53,7 @@ export function releaseAssets(product, version, toolchain) {
   if (product === 'client') {
     return [
       { name: `vanta-client-${version}.jar`, description: `The VANTA Client Fabric mod for Minecraft ${mc}. Put it in your \`mods\` folder together with Fabric API.` },
-      { name: `vanta-client-${version}-mods.zip`, description: `Both mods in a \`mods/\` folder (\`vanta-client-${version}.jar\` and \`fabric-api-${fapi}.jar\`) plus \`INSTALL.txt\` and \`SHA256SUMS\`.` },
+      { name: `vanta-client-${version}-mods.zip`, description: `A complete \`mods/\` folder: \`vanta-client-${version}.jar\`, \`fabric-api-${fapi}.jar\` and the Performance pack mods that may be redistributed (third-party, own licences; EntityCulling is downloaded in game), plus \`INSTALL.txt\`, \`PERFORMANCE-PACK.txt\`, \`THIRD-PARTY-LICENSES.txt\`, \`performance-pack.json\` and \`SHA256SUMS\`.` },
       { name: `fabric-api-${fapi}.jar`, description: 'Fabric API, the unmodified FabricMC release (Apache-2.0). Required dependency of VANTA Client.' },
     ];
   }

@@ -254,6 +254,7 @@ public final class MainMenuScreen extends VantaUiScreen {
     protected void onScreenInit() {
         openedAt = context().now();
         scheduleEntrance();
+        MainMenuHooks.onMainMenuShown(this);
     }
 
     private void scheduleEntrance() {

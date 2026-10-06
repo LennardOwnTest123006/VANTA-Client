@@ -116,6 +116,44 @@ installed, so Fabric never sees two copies.
 CI runs VANTA's headless game test with the newest 1.21.11 Fabric versions of these six mods loaded, and fails when
 one of them is not loaded, the game crashes or a step of the test fails. Other mod combinations are not tested.
 
+### The pack in the mods bundle
+
+From the client release after 1.1.0 on, the manual-installation download `vanta-client-<version>-mods.zip`
+([Installation → path C](installation.md#c-manual-installation)) also contains the Performance pack: next to the
+VANTA jar and Fabric API, its `mods/` folder holds the newest 1.21.11 Fabric build of every pack mod whose licence
+allows redistribution, exactly as published on Modrinth (same file name, same bytes, checked by size and SHA-512 when
+the release is built and listed in the bundle's `SHA256SUMS`). The bundle of 1.1.0 holds only the two jars.
+
+- **EntityCulling is the exception.** Its licence does not allow redistribution, so it is not in the zip. The game
+  offers it instead: the *Performance pack* card shows it as *Not installed* with its tick box, and **Install**
+  downloads it from Modrinth. Nothing is downloaded without that click.
+- **Iris and Sodium belong together.** The Iris build in the bundle requires exactly the Sodium build in the bundle
+  (Iris names the Sodium version it needs). Always copy or update the two as a pair.
+- **Do not mix with copies you already have.** Fabric refuses to start when two jars carry the same mod id
+  (*Duplicate mod*). If your `mods/` folder already holds a Sodium, Iris, Lithium, FerriteCore or ImmediatelyFast
+  jar, delete the older one before copying the bundle's. A leftover `.jar.disabled` is fine.
+- **Licences.** The pack mods are third-party projects by their own authors under their own licences, shipped
+  unmodified. The zip contains `THIRD-PARTY-LICENSES.txt` (the full licence text of every third-party jar, with the
+  file it applies to, its source repository and authors), `PERFORMANCE-PACK.txt` (which versions the bundle holds and
+  what is not in it and why) and `performance-pack.json` (the same list, machine-readable). Sodium is licensed under
+  PolyForm Shield 1.0.0; its terms are reproduced in the notices. Fabric API is Apache-2.0 (its notice is in there
+  too). VANTA Client itself stays MIT.
+- **Which versions?** None is fixed in the repository. The release workflow resolves the newest 1.21.11 Fabric build of
+  each mod on Modrinth when it builds the release, verifies every download, fetches every licence text (the release
+  fails rather than ship without them) and prints the resolved list into the GitHub Release notes
+  (*Performance pack in the mods bundle*).
+
+### The offer at start
+
+A game that was not started by the VANTA Launcher (path C, Prism, MultiMC, …) asks once per start when it reaches
+the VANTA main menu and at least one pack member is missing: **Boost your FPS?** names the missing mods and that they
+come from Modrinth. **Install** first records the pack jars that came with the bundle in `config/vanta/modrinth.json`
+(so the Installed tab manages them: *Remove* and *Disable* work, and they no longer show as added by hand), then
+installs the missing members with the usual progress and result toasts and asks for a restart. **Not now** turns
+the offer off for good (*Settings → Performance → Offer the Performance pack at start*, `performance.offerPack` in
+`settings.json`, switches it back on). Games started by the VANTA Launcher never see it: the launcher installs the
+pack itself. Nothing is downloaded without your click.
+
 ## Shaders with Iris
 
 Shader packs need **Iris**, which is part of the Performance pack. Without Iris the Shaders tab says *Shader packs

@@ -88,8 +88,11 @@ The release `client-v1.1.0` has what you need: `vanta-client-1.1.0-mods.zip` con
 Minecraft Launcher once. From 1.1.0 on it also says which Fabric installer to take on each system and that the
 Fabric installer asks which launcher to use when both Minecraft Launchers are installed (step 1 below), and it
 mentions Mods & Shaders and the Performance pack. The two jars are also published on their own; `fabric-api-0.141.6+1.21.11.jar` is the
-unmodified FabricMC release (Apache-2.0). Verify what you download as described in
-[Installation](installation.md#2-verify-the-checksum).
+unmodified FabricMC release (Apache-2.0). From the client release after 1.1.0 on, the bundle's `mods/` folder also
+holds the Performance pack mods whose licences allow redistribution (every member except EntityCulling), unmodified
+as published on Modrinth, together with `THIRD-PARTY-LICENSES.txt`, `PERFORMANCE-PACK.txt` and
+`performance-pack.json` ([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)). Verify what you download
+as described in [Installation](installation.md#2-verify-the-checksum).
 
 **Official Minecraft Launcher**
 
@@ -110,10 +113,12 @@ unmodified FabricMC release (Apache-2.0). Verify what you download as described 
 2. Unzip `vanta-client-1.1.0-mods.zip` and check it with its `SHA256SUMS` (`sha256sum -c SHA256SUMS` on Linux,
    `shasum -a 256 -c SHA256SUMS` on macOS; on Windows
    `Get-FileHash mods\*.jar -Algorithm SHA256 | Format-List Hash, Path` in PowerShell, which prints the full path of
-   each jar, then compare the hash of both jars with the line for the same file in `SHA256SUMS`).
-3. Copy both jars from its `mods/` folder into the `mods/` folder of the game directory (`%APPDATA%\.minecraft\mods` on
+   each jar, then compare the hash of every jar with the line for the same file in `SHA256SUMS`).
+3. Copy all jars from its `mods/` folder into the `mods/` folder of the game directory (`%APPDATA%\.minecraft\mods` on
    Windows, `~/.minecraft/mods` on Linux, `~/Library/Application Support/minecraft/mods` on macOS). Create the folder
-   if it does not exist.
+   if it does not exist. When the bundle carries the Performance pack (client releases after 1.1.0), delete any older
+   copy of Sodium, Iris, Lithium, FerriteCore or ImmediatelyFast first: Fabric does not start with two copies of one
+   mod.
 4. Select the Fabric profile in the official launcher and play. VANTA writes its files to `config/vanta/` inside
    that game directory. For the Performance pack, open *Mods & Shaders* in the VANTA main menu.
 
@@ -127,7 +132,8 @@ launcher to use: it adds that profile to every profiles file your Minecraft fold
 **Prism Launcher / MultiMC**
 
 1. Create a 1.21.11 instance, open *Edit → Version → Install Fabric* and pick Loader 0.19.5.
-2. *Mods → Add file*: the two jars from the mods bundle (Fabric API 0.141.6+1.21.11 and the VANTA jar).
+2. *Mods → Add file*: the jars from the mods bundle (Fabric API 0.141.6+1.21.11, the VANTA jar and, in client
+   releases after 1.1.0, the Performance pack jars; skip a pack jar whose mod the instance already has).
 3. Launch the instance.
 
 **Without the VANTA Launcher you lose**: automatic updates with checksum verification, rollback to previous client
