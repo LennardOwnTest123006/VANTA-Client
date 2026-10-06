@@ -131,7 +131,11 @@ describe('DownloadPage', () => {
     expect(ways[2]).toHaveTextContent(/Fabric installer/);
     expect(ways[2]).toHaveTextContent('keep “Create profile” checked');
     expect(ways[2]).toHaveTextContent('.minecraft/mods');
-    expect(ways[2]).toHaveTextContent(/From client 1\.1\.0 on, “Mods & Shaders” in the game/);
+    expect(ways[2]).toHaveTextContent(/copy all jars from the mods bundle/);
+    expect(ways[2]).toHaveTextContent(
+      /From client 1\.2\.0 on the bundle holds the VANTA jar, Fabric API and the Performance pack/,
+    );
+    expect(ways[2]).toHaveTextContent(/EntityCulling is not in the zip/);
     expect(
       within(howTo).getByRole('link', { name: 'Step-by-step installation guide' }),
     ).toHaveAttribute('href', '/documentation/installation');

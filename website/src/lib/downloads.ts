@@ -73,8 +73,8 @@ const FILE_RULES: readonly FileRule[] = [
   {
     test: (name) => name.endsWith('-mods.zip'),
     info: {
-      label: 'Mods folder bundle (VANTA + Fabric API)',
-      note: 'Both mods in a mods/ folder, plus INSTALL.txt and SHA256SUMS. Copy the two jars into .minecraft/mods.',
+      label: 'Mods folder bundle (VANTA, Fabric API, Performance pack)',
+      note: 'A mods/ folder with the VANTA jar, Fabric API and, from client 1.2.0 on, the redistributable Performance pack mods (not EntityCulling), plus INSTALL.txt, licence notices and SHA256SUMS. Copy all jars into .minecraft/mods.',
     },
   },
   {

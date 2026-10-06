@@ -1,6 +1,6 @@
 ---
 title: Performance Center
-description: What the Performance Center measures, the MAX FPS, LOW, BALANCED, HIGH and ULTRA presets with their exact vanilla values, the one-click Boost FPS, render distance suggestions, the Performance pack and honest limits.
+description: What the Performance Center measures, the five presets with their exact vanilla values (never a frame-rate cap), Boost FPS, render distance suggestions, the Performance pack and honest limits.
 order: 23
 category: Client
 ---
@@ -49,10 +49,12 @@ up in `options.txt`) and shows a notification. The values, with the reasoning:
 | Mipmap levels | 0 | 0 | 2 | 4 | 4 |
 | Menu background blur | Off (0) | unchanged | unchanged | unchanged | unchanged |
 
-- **Presets never set Max framerate or VSync.** Earlier versions shipped a 60 FPS cap with LOW and a 120 FPS cap
-  with BALANCED; a player who picked LOW to get *more* frames was capped at 60 and, with a driver-forced VSync at
+- **Presets never set Max framerate or VSync** (from client 1.2.0 on). VANTA 1.1.0 shipped a 60 FPS cap with LOW and
+  a 120 FPS cap with BALANCED, and activating a built-in profile replayed a 120 FPS limit with VSync on; a player who picked LOW to get *more* frames was capped at 60 and, with a driver-forced VSync at
   60 Hz on top of Minecraft's limiter, landed at exactly 30. The limit now lives only in the
   [frame-rate limit chooser](#frame-rate-limit-chooser); applying a preset leaves whatever limit and VSync you have.
+  A cap that 1.1.0 already wrote stays in `options.txt` until you choose *Unlimited* (or *Boost FPS*) once
+  ([Troubleshooting](troubleshooting.md#low-fps-or-exactly-30-fps-after-choosing-a-preset-or-profile-in-vanta-110)).
 - **Render and simulation distance** are the biggest levers: the number of chunks grows with the square of the
   distance. Simulation distance stays at or below render distance so you never simulate chunks you cannot see; 5 is
   vanilla's minimum simulation distance, which is why MAX FPS stops there.
@@ -70,8 +72,8 @@ the built-in [profiles](profiles.md) each carry one.
 
 ## Boost FPS
 
-**Boost FPS**, the button at the top of the Presets card (also in the search / command palette), does in one click
-what most people open the Performance Center for:
+**Boost FPS** (from client 1.2.0 on), the button at the top of the Presets card (also in the search / command
+palette), does in one click what most people open the Performance Center for:
 
 1. applies the **MAX FPS** preset,
 2. sets the frame-rate limit to **Unlimited** and turns **VSync off** (the chooser below shows the result),
@@ -152,3 +154,7 @@ Everything about installing, disabling and removing them is in
   them loaded; other mod combinations are not tested
   ([Fabric → Using VANTA with other mods](fabric.md#using-vanta-with-other-fabric-mods)).
 - The CPU card shows "n/a" when the Java runtime does not provide process CPU load.
+- **What VANTA itself costs.** The headless game test in CI measures 300 frames each with the VANTA HUD on, off and
+  with the GUI hidden (software renderer, no GPU). In that run the VANTA HUD element took about 0.5 ms per frame; the
+  test fails when it averages more than 4 ms. That is the cost on a CI machine without a graphics card, not a promise
+  for yours, and it says nothing about FPS gains on real GPUs, which were not measured.
