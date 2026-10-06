@@ -113,7 +113,7 @@ version contains is in [CHANGELOG.md](CHANGELOG.md).
 | `launcher-v1.1.0` | `vanta-launcher-1.1.0-linux-all.jar` | Linux x64 with Java 21 installed |
 | `launcher-v1.1.0` | `vanta-launcher-1.1.0-macos-aarch64-all.jar` | Apple Silicon macOS with Java 21 installed |
 | `client-v1.1.0` | `vanta-client-1.1.0.jar` | the Fabric mod (the launcher installs it for you) |
-| `client-v1.1.0` | `vanta-client-1.1.0-mods.zip` | manual installation: `mods/` with the VANTA jar and Fabric API, `INSTALL.txt`, `SHA256SUMS` |
+| `client-v1.1.0` | `vanta-client-1.1.0-mods.zip` | manual installation: `mods/` with the VANTA jar and Fabric API, `INSTALL.txt`, `SHA256SUMS` (newer client releases also carry the redistributable Performance pack mods with `THIRD-PARTY-LICENSES.txt`) |
 | `client-v1.1.0` | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0), required by VANTA |
 
 Each release also has `SHA256SUMS.txt` and its manifest (`client-1.1.0.json`, `launcher-1.1.0.json`). Every launcher
@@ -155,8 +155,10 @@ installed.
    `java -jar fabric-installer-<version>.jar` (on macOS, if Gatekeeper blocks it, choose *Open Anyway* under
    *System Settings → Privacy & Security*). If both Minecraft Launchers are installed, the Fabric installer asks which
    one to use; choose the one you play with. `INSTALL.txt` in the zip lists these steps (from 1.1.0 on including the
-   Fabric installer per system and the launcher choice). The Performance pack can then be installed in the game from
-   *Mods & Shaders*.
+   Fabric installer per system and the launcher choice). From the client release after 1.1.0 on, the zip also carries
+   the Performance pack mods whose licences allow redistribution (third-party, unmodified, licence texts in
+   `THIRD-PARTY-LICENSES.txt`); EntityCulling is not among them, so the game offers it with one click (the one-time
+   *Boost your FPS?* dialog, or *Mods & Shaders → Performance pack*).
 
 Step by step, with checksum verification for every system: [docs/installation.md](docs/installation.md).
 
@@ -175,6 +177,11 @@ On every push ([`ci.yml`](.github/workflows/ci.yml)):
   and fails when one of them is not loaded, the game crashes or the test does not finish. Before it, a live check
   resolves and downloads the pack through VANTA's own Modrinth client (`./gradlew liveTest` in `core/`) and verifies
   every SHA-512.
+- **Performance pack resolver**: `node --test scripts/release/` (the release scripts' tests) and a real run of
+  `scripts/release/performance-pack.mjs` against the live Modrinth API, exactly as the release builds the mods bundle:
+  five redistributable jars downloaded and verified by size and SHA-512, EntityCulling listed as excluded by its
+  licence, every licence text fetched into `THIRD-PARTY-LICENSES.txt`, `performance-pack.json` valid against its
+  schema. The summary and JSON are uploaded as the `performance-pack` artifact.
 - **launcher**: unit tests, `jlink` + `jpackage` app image and a command line smoke test (`--version`,
   `--check-java`) on Ubuntu and Windows; on Windows also the portable zip and a non-blocking `.msi` build. An integration job on
   Linux installs Minecraft 1.21.11 + Fabric from the official endpoints with the launcher's fat jar, launches the game
@@ -194,7 +201,9 @@ On every push ([`ci.yml`](.github/workflows/ci.yml)):
 On every release ([`release.yml`](.github/workflows/release.yml)):
 
 - **client**: build, jar metadata (Minecraft `~1.21.11`, version), the headless production game test, the Fabric API
-  jar checked against the checksum Gradle recorded and its license, and the mods bundle checked with `sha256sum -c`.
+  jar checked against the checksum Gradle recorded and its license, the Performance pack resolved live on Modrinth
+  (jars verified by size and SHA-512, licence texts fetched or the release fails), and the mods bundle checked with
+  `sha256sum -c`; the resolved pack versions go into the release notes.
 - **launcher**: one fat jar each on Windows x64, Linux x64 and Apple Silicon macOS, each checked to contain the
   JavaFX native libraries of exactly that system and started with `--version` (Linux and macOS also `--check-java`);
   the bundled runtime of the Windows portable app image runs its jar with `--version`, the Linux app image runs

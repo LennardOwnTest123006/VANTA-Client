@@ -78,6 +78,54 @@ jobs:
           (cd "$RUNNER_TEMP/client-jar" && sha256sum *.jar > SHA256SUMS && cat SHA256SUMS)
           bash scripts/ci/publish-screenshots.sh "$RUNNER_TEMP/client-jar" client-jar
 
+  performance-pack:
+    name: Performance pack resolver (release scripts tests + live Modrinth resolution)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Release script tests (node --test)
+        run: node --test scripts/release/
+      - name: Resolve and download the Performance pack for real (what the release does for the mods bundle)
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/performance-pack"
+          node scripts/release/performance-pack.mjs --out "$OUT" | tee "$RUNNER_TEMP/performance-pack.log"
+          node scripts/release/validate-json.mjs shared/schemas/performance-pack.schema.json "$OUT/performance-pack.json"
+          test -s "$OUT/THIRD-PARTY-LICENSES.txt" || { echo "::error::THIRD-PARTY-LICENSES.txt is missing"; exit 1; }
+          test -s "$OUT/PERFORMANCE-PACK.txt" || { echo "::error::PERFORMANCE-PACK.txt is missing"; exit 1; }
+          # Today five of the six members may be redistributed (Sodium, Lithium, FerriteCore, ImmediatelyFast, Iris);
+          # EntityCulling's licence forbids it. A different count means a licence changed: a person decides.
+          ITEMS=$(jq '.items | length' "$OUT/performance-pack.json")
+          JARS=$(find "$OUT/mods" -maxdepth 1 -name '*.jar' | wc -l)
+          [ "$ITEMS" -eq 5 ] || { echo "::error::expected 5 bundled Performance pack mods, performance-pack.json lists $ITEMS (did a licence change?)"; exit 1; }
+          [ "$JARS" -eq 5 ] || { echo "::error::expected 5 jars in $OUT/mods, found $JARS"; exit 1; }
+          jq -e '.excluded[] | select(.slug == "entityculling")' "$OUT/performance-pack.json" >/dev/null \
+            || { echo "::error::EntityCulling is not listed as excluded; its licence does not allow bundling"; exit 1; }
+          for slug in sodium lithium ferrite-core immediatelyfast iris; do
+            FILE=$(jq -r --arg s "$slug" '.items[] | select(.slug == $s) | .file' "$OUT/performance-pack.json")
+            [ -n "$FILE" ] && [ -s "$OUT/mods/$FILE" ] || { echo "::error::$slug is not bundled"; exit 1; }
+            grep -qF "mods/$FILE" "$OUT/THIRD-PARTY-LICENSES.txt" || { echo "::error::THIRD-PARTY-LICENSES.txt has no section for $FILE"; exit 1; }
+          done
+          {
+            echo "## Performance pack (live Modrinth resolution)"
+            echo
+            cat "$OUT/PERFORMANCE-PACK.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-pack
+          path: |
+            ${{ runner.temp }}/performance-pack/performance-pack.json
+            ${{ runner.temp }}/performance-pack/PERFORMANCE-PACK.txt
+            ${{ runner.temp }}/performance-pack/THIRD-PARTY-LICENSES.txt
+            ${{ runner.temp }}/performance-pack.log
+          if-no-files-found: ignore
+
   client-gametest:
     name: Client game test (real Minecraft 1.21.11, headless)
     runs-on: ubuntu-24.04

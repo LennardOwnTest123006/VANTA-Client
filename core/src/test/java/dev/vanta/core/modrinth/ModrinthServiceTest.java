@@ -90,6 +90,53 @@ class ModrinthServiceTest {
     }
 
     @Test
+    void adoptKnownFilesRecordsBundledPackJarsAndLeavesOtherJarsAlone() throws Exception {
+        Path mods = gameDir.resolve("mods");
+        Files.createDirectories(mods);
+        // Bundle files carry Modrinth's own names, which may differ from the fake API's; identification is by hash.
+        Files.writeString(mods.resolve("sodium-fabric-bundled.jar"), "fake sodium content");
+        Files.writeString(mods.resolve("iris-fabric-bundled.jar.disabled"), "fake iris content");
+        Files.writeString(mods.resolve("modmenu-bundled.jar"), "fake modmenu content");
+        Files.writeString(mods.resolve("unknown-mod.jar"), "no Modrinth file has this content");
+        List<List<InstalledEntry>> results = new ArrayList<>();
+        long changes = service.changeCount();
+        service.adoptKnownFiles(results::add);
+        List<InstalledEntry> adopted = results.get(0);
+        assertEquals(List.of("AANobbMI", "YL57xq9U"), adopted.stream().map(InstalledEntry::projectId).sorted().toList());
+        assertTrue(service.changeCount() > changes);
+        InstalledEntry sodium = service.installed("AANobbMI").orElseThrow();
+        assertEquals("mods/sodium-fabric-bundled.jar", sodium.file());
+        assertEquals("sodium", sodium.slug());
+        assertEquals("VAANobbMI", sodium.versionId());
+        assertEquals("1.0.0", sodium.versionNumber());
+        assertEquals("mod", sodium.type());
+        assertTrue(sodium.enabled());
+        assertEquals(Sha512.hex("fake sodium content".getBytes(java.nio.charset.StandardCharsets.UTF_8)), sodium.sha512());
+        assertEquals(List.of("YL57xq9U"), sodium.requiredBy(), "Iris requires Sodium");
+        assertEquals(Instant.parse(clock.instant().toString()).truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString(),
+                sodium.installedAt());
+        InstalledEntry iris = service.installed("YL57xq9U").orElseThrow();
+        assertEquals("mods/iris-fabric-bundled.jar", iris.file(), "the enabled path, without .disabled");
+        assertFalse(iris.enabled());
+        assertTrue(service.installed("MODMENU1").isEmpty(), "Mod Menu is on Modrinth but not a pack member");
+        List<LocalItem> items = service.installedItems();
+        assertEquals(2, items.stream().filter(i -> i.state() == LocalItem.State.INSTALLED).count());
+        assertEquals(2, items.stream().filter(i -> i.state() == LocalItem.State.MANUAL).count(), items.toString());
+        assertFalse(service.restartRequired(), "adoption changes no files");
+        assertTrue(toasts().isEmpty(), "adoption is silent");
+
+        // Running it again changes nothing; installing the pack afterwards downloads only what is really missing.
+        service.adoptKnownFiles(results::add);
+        assertTrue(results.get(1).isEmpty());
+        service.installPerformancePack(PerformancePack.slugs(), null);
+        assertFalse(api.calls().contains("download:sodium-1.0.0.jar"));
+        assertFalse(api.calls().contains("download:iris-1.0.0.jar"));
+        assertTrue(api.calls().contains("download:lithium-1.0.0.jar"));
+        assertEquals(6, service.installedProjectIds().size());
+        assertTrue(service.installed("YL57xq9U").orElseThrow().enabled(), "the disabled bundled Iris was switched on");
+    }
+
+    @Test
     void installingWhatIsThereAlreadySaysSo() {
         service.install(List.of(InstallRequest.of("sodium")), "Installing Sodium", null);
         clock.advance(5_000);

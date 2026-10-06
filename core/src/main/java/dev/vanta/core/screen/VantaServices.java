@@ -18,6 +18,7 @@ import dev.vanta.core.hud.HudStore;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.keybinds.KeybindModel;
 import dev.vanta.core.modrinth.ModrinthService;
+import dev.vanta.core.modrinth.PackOffer;
 import dev.vanta.core.notifications.NotificationCenter;
 import dev.vanta.core.perf.PerformanceCenter;
 import dev.vanta.core.perf.PerformancePreset;
@@ -68,6 +69,7 @@ public final class VantaServices {
     private final ScreenRegistry screens = new ScreenRegistry();
     private Optional<String> websiteUrl = Optional.empty();
     private ModrinthService modrinth;
+    private PackOffer packOffer;
     private boolean loaded;
 
     private VantaServices(VantaPaths paths, GameBridge game, OptionsBridge options, KeybindBridge keybindBridge,
@@ -283,6 +285,14 @@ public final class VantaServices {
     /** The Modrinth integration, when installed. */
     public Optional<ModrinthService> modrinth() {
         return Optional.ofNullable(modrinth);
+    }
+
+    /** The one-time Performance pack offer of this session (created on first use). */
+    public PackOffer packOffer() {
+        if (packOffer == null) {
+            packOffer = new PackOffer(this);
+        }
+        return packOffer;
     }
 
     /** Translated label line for the About screen: "VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric 0.19.5". */

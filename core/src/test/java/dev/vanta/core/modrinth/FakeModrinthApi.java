@@ -140,10 +140,17 @@ public final class FakeModrinthApi implements ModrinthApi {
         throw new ModrinthException(ModrinthException.Kind.NOT_FOUND, versionId);
     }
 
+    /** Like Modrinth's {@code POST /version_files}: the version whose primary file has one of the hashes, by hash. */
     @Override
     public Map<String, ModrinthVersion> versionsByHash(Collection<String> sha512Hashes) {
         calls.add("version_files:" + sha512Hashes.size());
-        return Map.of();
+        Map<String, ModrinthVersion> out = new LinkedHashMap<>();
+        for (List<ModrinthVersion> list : versions.values()) {
+            for (ModrinthVersion v : list) {
+                v.primaryFile().filter(f -> sha512Hashes.contains(f.sha512())).ifPresent(f -> out.put(f.sha512(), v));
+            }
+        }
+        return out;
     }
 
     @Override
