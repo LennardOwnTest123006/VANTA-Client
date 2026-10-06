@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.bridge.VanillaOption;
+import dev.vanta.core.perf.FpsLimitPreset;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.common.ScreenTestSupport;
 import dev.vanta.core.screen.common.SettingRow;
@@ -14,6 +15,7 @@ import dev.vanta.core.settings.SettingCategory;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.TestCanvas;
+import dev.vanta.core.ui.widget.Select;
 import dev.vanta.core.ui.widget.Slider;
 import dev.vanta.core.ui.widget.Toggle;
 import java.nio.file.Files;
@@ -189,5 +191,32 @@ class SettingsScreenTest {
         assertTrue(screen.scrollPanel().isScrollable());
         assertTrue(screen.resetAllButton().bounds().bottom() <= 240 - 16, "footer above the version line");
         assertTrue(screen.scrollPanel().bounds().h() > 60);
+    }
+
+    /** Picking a frame-rate limit in the Performance category writes the vanilla limit and VSync right away. */
+    @Test
+    void fpsLimitPresetRowWritesTheVanillaOptions() {
+        SettingsScreen screen = t.show(ScreenId.SETTINGS, 854, 480);
+        screen.selectCategory(SettingCategory.PERFORMANCE);
+        t.frame(screen, -1000, -1000);
+        SettingRow row = screen.rowFor("performance.fpsLimitPreset").orElseThrow();
+        @SuppressWarnings("unchecked")
+        Select<Object> select = (Select<Object>) row.editor();
+        assertEquals(FpsLimitPreset.UNLIMITED, select.value());
+        assertEquals(120, t.options.getInt(VanillaOption.FRAMERATE_LIMIT, -1), "vanilla default before");
+        assertTrue(t.options.getBoolean(VanillaOption.VSYNC, false));
+        int saves = t.options.saveCount;
+
+        select.select(screen.context(), select.options().indexOf(FpsLimitPreset.FPS_144));
+        assertEquals(FpsLimitPreset.FPS_144, t.services.settings().get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+        assertEquals(140, t.options.getInt(VanillaOption.FRAMERATE_LIMIT, -1), "144 FPS is vanilla's 140 step");
+        assertFalse(t.options.getBoolean(VanillaOption.VSYNC, true));
+        assertEquals(saves + 1, t.options.saveCount, "options.txt saved once");
+        assertFalse(row.isDefault());
+
+        screen.selectCategory(SettingCategory.VIDEO);
+        t.frame(screen, -1000, -1000);
+        Toggle vsync = (Toggle) screen.rowFor("video.vsync").orElseThrow().editor();
+        assertFalse(vsync.isOn(), "the Video rows show what the preset wrote");
     }
 }

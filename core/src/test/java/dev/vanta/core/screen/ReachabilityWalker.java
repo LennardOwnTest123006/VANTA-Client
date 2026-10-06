@@ -264,4 +264,16 @@ public final class ReachabilityWalker {
     private static String fmt(Rect r) {
         return "[" + r.x() + "," + r.y() + " " + r.w() + "x" + r.h() + " -> " + r.right() + "," + r.bottom() + "]";
     }
+
+    /**
+     * The scale a {@link UiScreen} uses for a theme scale at a host size: the theme scale, lowered (never below 1)
+     * so the logical area keeps at least {@link UiScreen#MIN_LOGICAL_WIDTH}x{@link UiScreen#MIN_LOGICAL_HEIGHT}
+     * pixels (see {@link UiScreen#effectiveScale()}). 427x240 with large text (1.15) renders at 1, 480x270 at
+     * 1.125 and 640x360 at the full 1.15.
+     */
+    public static float expectedScale(float themeScale, int hostWidth, int hostHeight) {
+        float allowed = Math.min(hostWidth / (float) UiScreen.MIN_LOGICAL_WIDTH,
+                hostHeight / (float) UiScreen.MIN_LOGICAL_HEIGHT);
+        return Math.min(themeScale, Math.max(1f, allowed));
+    }
 }

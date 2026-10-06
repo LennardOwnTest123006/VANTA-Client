@@ -102,7 +102,9 @@ class ModsScreenSmallWindowTest {
     void installedActionsAndRestartBannerAreClickableInASmallWindow(int w, int h, boolean largeText) {
         t.services.settings().set(VantaSettings.ACCESSIBILITY_LARGE_TEXT, largeText);
         ModsScreen screen = open(w, h);
-        assertEquals(largeText ? 1.15f : 1f, screen.effectiveScale(), 1e-6f);
+        // Large text is 1.15 where it fits; in these windows the screen clamps it so 320x240 logical px remain.
+        assertEquals(ReachabilityWalker.expectedScale(largeText ? 1.15f : 1f, w, h), screen.effectiveScale(),
+                1e-6f);
         screen.install(screen.results().hits().get(0));
         screen.selectTab(ModsTab.INSTALLED);
         screen.rows().get(0).select(screen.context());

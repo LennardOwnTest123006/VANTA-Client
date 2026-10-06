@@ -253,6 +253,97 @@ class PerformanceTest {
         assertEquals(8, options.getInt(VanillaOption.RENDER_DISTANCE, 0), "disabled: no change");
     }
 
+    private PerformanceCenter center(FakeOptionsBridge options, SettingsStore settings, MutableClock clock) {
+        return new PerformanceCenter(new FakeGameBridge(), options, settings, new NotificationCenter(clock), clock,
+                new dev.vanta.core.hud.FrameTimeTracker(), new MemorySampler(() -> new MemorySampler.MemorySample(
+                        512L << 20, 1024L << 20, 2048L << 20)), new CpuSampler(() -> OptionalDouble.of(0.25)));
+    }
+
+    private static long writes(FakeOptionsBridge options, VanillaOption option) {
+        return options.setOrder.stream().filter(option::equals).count();
+    }
+
+    /** Picking a limit in the Settings screen only changes the setting; the center must carry it to the options. */
+    @Test
+    void changingTheFpsLimitSettingWritesTheVanillaOptions() {
+        MutableClock clock = MutableClock.standard();
+        FakeOptionsBridge options = new FakeOptionsBridge();
+        SettingsStore settings = new SettingsStore(VantaSettings.registry(), new JsonStore(clock),
+                dir.resolve("settings.json"), Optional.of(options));
+        center(options, settings, clock);
+        assertEquals(120, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1), "vanilla default before");
+        assertTrue(options.getBoolean(VanillaOption.VSYNC, false), "vanilla default before");
+
+        assertTrue(settings.set(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.FPS_144));
+        assertEquals(140, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1), "144 FPS is vanilla's 140 step");
+        assertFalse(options.getBoolean(VanillaOption.VSYNC, true));
+        assertEquals(1, options.saveCount, "options.txt saved once");
+
+        settings.set(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.VSYNC);
+        assertEquals(260, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1));
+        assertTrue(options.getBoolean(VanillaOption.VSYNC, false));
+        assertEquals(2, options.saveCount);
+
+        // Options that already hold the preset's values are left alone (no write, no save).
+        options.set(VanillaOption.FRAMERATE_LIMIT, 60);
+        options.set(VanillaOption.VSYNC, false);
+        options.setOrder.clear();
+        settings.set(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.FPS_60);
+        assertTrue(options.setOrder.isEmpty(), "options already match: nothing written");
+        assertEquals(2, options.saveCount, "and nothing saved");
+    }
+
+    /** {@link PerformanceCenter#applyFpsLimit} stores the same setting; its own listener must not write twice. */
+    @Test
+    void applyFpsLimitWritesEachOptionOnce() {
+        MutableClock clock = MutableClock.standard();
+        FakeOptionsBridge options = new FakeOptionsBridge();
+        SettingsStore settings = new SettingsStore(VantaSettings.registry(), new JsonStore(clock),
+                dir.resolve("settings.json"), Optional.of(options));
+        PerformanceCenter center = center(options, settings, clock);
+
+        center.applyFpsLimit(FpsLimitPreset.FPS_240);
+        assertEquals(240, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1));
+        assertFalse(options.getBoolean(VanillaOption.VSYNC, true));
+        assertEquals(FpsLimitPreset.FPS_240, settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+        assertEquals(1, writes(options, VanillaOption.FRAMERATE_LIMIT), "limit written once");
+        assertEquals(1, writes(options, VanillaOption.VSYNC), "vsync written once");
+        assertEquals(1, options.saveCount, "saved once");
+
+        center.applyFpsLimit(FpsLimitPreset.FPS_240);
+        assertEquals(2, writes(options, VanillaOption.FRAMERATE_LIMIT), "an explicit re-apply still writes");
+        assertEquals(2, options.saveCount);
+    }
+
+    /** settings.json holding a limit must not override options.txt at startup; only explicit changes do. */
+    @Test
+    void loadingSettingsAtStartupLeavesTheVanillaOptionsAlone() {
+        MutableClock clock = MutableClock.standard();
+        JsonStore store = new JsonStore(clock);
+        Path file = dir.resolve("settings.json");
+        SettingsStore earlier = new SettingsStore(VantaSettings.registry(), store, file,
+                Optional.of(new FakeOptionsBridge()));
+        earlier.set(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.FPS_60);
+        earlier.save();
+
+        FakeOptionsBridge options = new FakeOptionsBridge();
+        SettingsStore settings = new SettingsStore(VantaSettings.registry(), store, file, Optional.of(options));
+        PerformanceCenter center = center(options, settings, clock);
+        settings.load();
+        assertEquals(FpsLimitPreset.FPS_60, settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET), "loaded");
+        assertEquals(120, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1), "options.txt untouched by load()");
+        assertTrue(options.getBoolean(VanillaOption.VSYNC, false));
+        assertTrue(options.setOrder.isEmpty(), "no option written at startup");
+        assertEquals(0, options.saveCount);
+
+        // The user then picks a different limit: that is an explicit change and is applied.
+        settings.set(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.FPS_120);
+        assertEquals(120, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1));
+        assertFalse(options.getBoolean(VanillaOption.VSYNC, true), "vsync off for a numeric limit");
+        assertEquals(1, options.saveCount);
+        assertEquals(120, center.targetFps());
+    }
+
     @Test
     void samplersAndSystemInfo() {
         MemorySampler.MemorySample sample = new MemorySampler().sample();

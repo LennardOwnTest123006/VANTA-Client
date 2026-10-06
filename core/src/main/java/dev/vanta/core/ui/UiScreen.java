@@ -10,13 +10,23 @@ import java.util.Objects;
  * <p>
  * Lifecycle driven by the host: {@link #attach(UiEnvironment)} once, {@link #init(int, int)} when shown or
  * resized, then {@link #render(Canvas, int, int, float)} every frame and the input methods as events arrive.
- * Coordinates passed in are host GUI pixels; the screen divides them by {@link Theme#effectiveScale()} so the
- * tree works in logical pixels.
+ * Coordinates passed in are host GUI pixels; the screen divides them by {@link #effectiveScale()} so the tree
+ * works in logical pixels.
+ * <p>
+ * The scale actually used is the theme's {@link Theme#effectiveScale()} (user UI scale times the large-text
+ * bonus), reduced when it would leave fewer than {@value #MIN_LOGICAL_WIDTH}x{@value #MIN_LOGICAL_HEIGHT} logical
+ * pixels: Minecraft guarantees that many GUI pixels and every screen is laid out to fit them, so a zoom that
+ * shrinks a 320x240 window to 256x192 would push buttons off screen. The clamp never lowers the scale below 1
+ * (scales below 1 only enlarge the logical area) and the same value is used for layout, rendering and input.
  */
 public abstract class UiScreen {
 
     /** Duration of the open and close transitions in ms. */
     public static final long TRANSITION_MS = 160L;
+    /** Minimum logical width every screen is laid out for (Minecraft's smallest GUI size). */
+    public static final int MIN_LOGICAL_WIDTH = 320;
+    /** Minimum logical height every screen is laid out for (Minecraft's smallest GUI size). */
+    public static final int MIN_LOGICAL_HEIGHT = 240;
     private static final float TRANSITION_SCALE = 0.96f;
 
     private UiEnvironment env;
@@ -78,10 +88,24 @@ public abstract class UiScreen {
     }
 
     private void updateLogicalSize() {
-        float s = effectiveScale();
+        float s = usedScale();
         width = Math.max(1, Math.round(hostWidth / s));
         height = Math.max(1, Math.round(hostHeight / s));
         ctx.setScreenSize(width, height);
+    }
+
+    /**
+     * The scale every coordinate conversion of this screen uses: the theme's effective scale, lowered (never
+     * below 1) so that {@code hostWidth / scale >= MIN_LOGICAL_WIDTH} and {@code hostHeight / scale >=
+     * MIN_LOGICAL_HEIGHT}. Before {@link #init} the host size is unknown and the theme scale is returned as is.
+     */
+    private float usedScale() {
+        float s = ctx.theme().effectiveScale();
+        if (s <= 1f || hostWidth <= 0 || hostHeight <= 0) {
+            return s;
+        }
+        float allowed = Math.min(hostWidth / (float) MIN_LOGICAL_WIDTH, hostHeight / (float) MIN_LOGICAL_HEIGHT);
+        return Math.min(s, Math.max(1f, allowed));
     }
 
     private void doLayout() {
@@ -154,9 +178,13 @@ public abstract class UiScreen {
         return height;
     }
 
-    /** Factor between host pixels and logical pixels. */
+    /**
+     * Factor between host pixels and logical pixels: the theme's {@link Theme#effectiveScale()}, clamped so the
+     * logical area never falls below {@value #MIN_LOGICAL_WIDTH}x{@value #MIN_LOGICAL_HEIGHT} (see the class
+     * comment). Layout, rendering and every input method divide by this same value.
+     */
     public final float effectiveScale() {
-        return ctx.theme().effectiveScale();
+        return usedScale();
     }
 
     /** Whether {@link #init} has run. */

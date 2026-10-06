@@ -13,7 +13,9 @@ import dev.vanta.core.bridge.FakeScreenshotBridge;
 import dev.vanta.core.bridge.VanillaOption;
 import dev.vanta.core.config.MutableClock;
 import dev.vanta.core.config.VantaPaths;
+import dev.vanta.core.perf.FpsLimitPreset;
 import dev.vanta.core.perf.PerformancePreset;
+import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.search.ActionEntry;
 import dev.vanta.core.settings.VantaSettings;
 import java.nio.file.Files;
@@ -94,5 +96,44 @@ class VantaServicesTest {
         assertEquals(1, again.statsStore().lifetime().sessions());
         assertTrue(again.screenshots().isEmpty());
         assertFalse(again.runAction(ActionEntry.SCREENSHOT_HUD_FREE), "no screenshot bridge configured");
+    }
+
+    /**
+     * The frame-rate limit preset reaches options.txt from every write path of the real composition root: never
+     * at startup, from a raw (Settings screen / search) write, and from a saved profile that is re-activated.
+     */
+    @Test
+    void fpsLimitPresetReachesTheVanillaOptionsFromEveryWritePath() {
+        MutableClock clock = MutableClock.standard();
+        FakeOptionsBridge options = new FakeOptionsBridge();
+        VantaServices services = VantaServices.create(VantaPaths.inGameDirectory(dir),
+                new FakeGameBridge().onTitleScreen(), options, new FakeKeybindBridge(), new FakeResourcePackBridge(),
+                clock);
+        services.load();
+        assertTrue(options.setOrder.isEmpty(), "startup wrote " + options.setOrder);
+        assertEquals(0, options.saveCount, "options.txt untouched at startup");
+        assertEquals(120, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1));
+
+        assertTrue(services.settings().setRaw(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, "FPS_120"));
+        assertEquals(120, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1));
+        assertFalse(options.getBoolean(VanillaOption.VSYNC, true), "a numeric limit turns VSync off");
+        assertEquals(1, options.saveCount);
+        assertFalse(services.settings().set(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.FPS_120));
+        assertEquals(1, options.saveCount, "re-setting the same value fires nothing");
+
+        // A profile saved with 60 FPS, left for the Performance profile (unlimited) and re-activated.
+        services.performance().applyFpsLimit(FpsLimitPreset.FPS_60);
+        Profile mine = services.profiles().updateActiveFromCurrent().orElseThrow();
+        assertEquals("fps_60", mine.settings().get("performance.fpsLimitPreset").getAsString());
+        assertEquals(60, mine.settings().get("video.framerateLimit").getAsInt());
+        assertFalse(mine.settings().get("video.vsync").getAsBoolean());
+        assertTrue(services.profiles().activate("performance"));
+        assertEquals(FpsLimitPreset.UNLIMITED, services.settings().get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+        assertEquals(260, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1));
+        assertFalse(options.getBoolean(VanillaOption.VSYNC, true));
+        assertTrue(services.profiles().activate(mine.id()));
+        assertEquals(FpsLimitPreset.FPS_60, services.settings().get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+        assertEquals(60, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1));
+        assertFalse(options.getBoolean(VanillaOption.VSYNC, true));
     }
 }
