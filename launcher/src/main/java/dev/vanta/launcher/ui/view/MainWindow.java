@@ -6,7 +6,6 @@ import dev.vanta.launcher.core.update.UpdateInfo;
 import dev.vanta.launcher.ui.model.NavigationModel;
 import dev.vanta.launcher.ui.model.SettingsViewModel;
 import dev.vanta.launcher.ui.model.UpdateViewModel;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.ScrollPane;
@@ -31,9 +30,14 @@ public final class MainWindow extends StackPane {
     private final StackPane pageHost = new StackPane();
     private final DialogLayer dialogs = new DialogLayer();
     private final Map<NavigationModel.Page, Node> pages = new EnumMap<>(NavigationModel.Page.class);
+    private final Map<NavigationModel.Page, Node> headers = new EnumMap<>(NavigationModel.Page.class);
     private final Map<NavigationModel.Page, Supplier<Node>> factories = new EnumMap<>(NavigationModel.Page.class);
     private final Sidebar sidebar;
+    private final UpdateBanner banner;
+    private final ToastLayer toasts;
+    private final Runnable placeToasts = this::placeToasts;
     private Node currentPage;
+    private Node currentHeader;
     private Runnable onInstallerOpened = () -> { };
 
     /**
@@ -53,7 +57,7 @@ public final class MainWindow extends StackPane {
 
         sidebar = new Sidebar(ctx, this::showSignIn, this::showAccounts);
 
-        final UpdateBanner banner = new UpdateBanner(ctx, this::showUpdates);
+        banner = new UpdateBanner(ctx, this::showUpdates);
         VBox.setMargin(banner, Ui.insets(18, 32, -6, 32));
         final Region glow = new Region();
         glow.getStyleClass().add("content-glow");
@@ -74,10 +78,19 @@ public final class MainWindow extends StackPane {
         final HBox shell = new HBox(sidebar, content);
         shell.setMinHeight(0);
         shell.setMinWidth(0);
-        final ToastLayer toasts = new ToastLayer(ctx.toasts(), ctx.t("common.dismiss"));
-        StackPane.setAlignment(toasts, Pos.BOTTOM_RIGHT);
-        toasts.setMaxHeight(Region.USE_PREF_SIZE);
+        toasts = new ToastLayer(ctx.toasts(), ctx.t("common.dismiss"));
         getChildren().addAll(shell, dialogs, toasts);
+        // In a small window the toasts lie top-right, below the banner and the page header. Both move (the banner
+        // comes and goes, the header scrolls with its page and reflows with the window), so their lower edge is read
+        // after every layout pass and handed to the toast layer; it is ignored while the toasts lie bottom-right.
+        sceneProperty().addListener((obs, old, now) -> {
+            if (old != null) {
+                old.removePostLayoutPulseListener(placeToasts);
+            }
+            if (now != null) {
+                now.addPostLayoutPulseListener(placeToasts);
+            }
+        });
 
         ctx.navigation().currentProperty().addListener((obs, old, now) -> show(now, true));
         show(ctx.navigation().current(), false);
@@ -91,6 +104,8 @@ public final class MainWindow extends StackPane {
     public Node page(final NavigationModel.Page page) {
         return pages.computeIfAbsent(page, p -> {
             final Node content = factories.get(p).get();
+            // Looked up on the page itself: through the ScrollPane the header is reachable only once its skin exists.
+            headers.put(p, content.lookup(".page-header"));
             if (content instanceof LogsPage) {
                 // The log list is virtualised and must own the vertical space.
                 return content;
@@ -115,6 +130,39 @@ public final class MainWindow extends StackPane {
     /** @return the dialog layer */
     public DialogLayer dialogs() {
         return dialogs;
+    }
+
+    /** @return the toast layer */
+    public ToastLayer toasts() {
+        return toasts;
+    }
+
+    /**
+     * @return the y coordinate (in this window's coordinates) below which the toasts lie when they are anchored
+     *     top-right: just under the update banner and the current page's header, whichever reaches lower; the window edge
+     *     distance when neither is shown
+     */
+    double toastTopInset() {
+        double inset = ToastLayer.EDGE;
+        if (banner.isVisible() && banner.getScene() != null) {
+            inset = Math.max(inset, bottomOf(banner) + ToastLayer.EDGE / 2);
+        }
+        if (currentHeader != null && currentHeader.isVisible() && currentHeader.getScene() != null) {
+            // The header scrolls with its page: once it has left the viewport its bottom lies above the banner's.
+            inset = Math.max(inset, bottomOf(currentHeader) + ToastLayer.EDGE / 2);
+        }
+        return inset;
+    }
+
+    private double bottomOf(final Node node) {
+        return sceneToLocal(node.localToScene(node.getBoundsInLocal())).getMaxY();
+    }
+
+    private void placeToasts() {
+        final double inset = toastTopInset();
+        if (Math.abs(inset - toasts.topInsetProperty().get()) > 0.5) {
+            toasts.topInsetProperty().set(inset);
+        }
     }
 
     /** @return the sidebar */
@@ -317,6 +365,7 @@ public final class MainWindow extends StackPane {
         }
         final Node previous = currentPage;
         currentPage = next;
+        currentHeader = headers.get(page);
         if (page == NavigationModel.Page.VERSIONS) {
             ctx.versions().refresh();
         }
