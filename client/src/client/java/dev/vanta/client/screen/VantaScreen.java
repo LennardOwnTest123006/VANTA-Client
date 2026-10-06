@@ -1,6 +1,7 @@
 package dev.vanta.client.screen;
 
 import dev.vanta.client.VantaRuntime;
+import dev.vanta.client.perf.FrameProbe;
 import dev.vanta.client.render.GuiGraphicsCanvas;
 import dev.vanta.client.render.MinecraftTextMetrics;
 import dev.vanta.core.cosmetics.MenuBackground;
@@ -145,12 +146,17 @@ public final class VantaScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float deltaTicks) {
         runtime.frames().onScreenFrame(minecraft);
+        boolean probe = FrameProbe.isEnabled();
+        long start = probe ? System.nanoTime() : 0L;
         GuiGraphicsCanvas canvas = new GuiGraphicsCanvas(graphics, font, width, height, true);
         try {
             ui.render(canvas, mouseX, mouseY, deltaTicks);
             runtime.notifications().render(canvas, width, height, deltaTicks);
         } finally {
             canvas.finish();
+            if (probe) {
+                FrameProbe.recordScreen(System.nanoTime() - start);
+            }
         }
     }
 

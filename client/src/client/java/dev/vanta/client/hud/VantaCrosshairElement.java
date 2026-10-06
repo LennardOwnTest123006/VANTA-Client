@@ -1,6 +1,7 @@
 package dev.vanta.client.hud;
 
 import dev.vanta.client.VantaRuntime;
+import dev.vanta.client.perf.FrameProbe;
 import dev.vanta.client.render.GuiGraphicsCanvas;
 import dev.vanta.client.screen.VantaScreens;
 import dev.vanta.core.screen.ScreenId;
@@ -16,6 +17,9 @@ import net.minecraft.client.gui.GuiGraphics;
  * <p>
  * Vanilla keeps the crosshair in every situation where it carries information the custom style cannot (third-person
  * camera, spectator mode, the F3 debug axes) and while the crosshair editor previews the style itself.
+ * <p>
+ * The wall time of a custom crosshair draw (not of the vanilla delegate) is reported to the {@link FrameProbe} while
+ * the client game test's probe is enabled.
  */
 public final class VantaCrosshairElement implements HudElement {
     private final HudElement vanilla;
@@ -35,6 +39,8 @@ public final class VantaCrosshairElement implements HudElement {
             vanilla.render(graphics, deltaTracker);
             return;
         }
+        boolean probe = FrameProbe.isEnabled();
+        long start = probe ? System.nanoTime() : 0L;
         int width = graphics.guiWidth();
         int height = graphics.guiHeight();
         GuiGraphicsCanvas canvas = new GuiGraphicsCanvas(graphics, minecraft.font, width, height, false);
@@ -42,6 +48,9 @@ public final class VantaCrosshairElement implements HudElement {
             runtime.crosshair().render(canvas, width, height, deltaTracker.getRealtimeDeltaTicks());
         } finally {
             canvas.finish();
+            if (probe) {
+                FrameProbe.recordCrosshair(System.nanoTime() - start);
+            }
         }
     }
 
