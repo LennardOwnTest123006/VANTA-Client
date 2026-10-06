@@ -308,7 +308,7 @@ public final class HudEditorScreen extends UiScreen {
                 toolbar.refresh();
             }
             toolbar.setCompact(compact);
-            int barH = toolbar.barHeight();
+            int barH = toolbar.barHeightFor(ctx, b.w());
             toolbar.setBounds(b.x(), b.y(), b.w(), barH);
             toolbar.layout(ctx);
             int top = b.y() + barH;

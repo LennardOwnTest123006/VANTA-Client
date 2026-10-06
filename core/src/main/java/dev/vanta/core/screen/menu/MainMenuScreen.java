@@ -35,15 +35,13 @@ import java.util.Optional;
 
 /**
  * The VANTA title screen: brand block (logo + wordmark + tagline), the vanilla entry points as a centred button
- * stack (two columns on short windows), a quick-access icon row for the VANTA screens, the version label in the
- * bottom-left corner and the active profile in the bottom-right corner. The background follows the
- * {@code menu.background} setting and the particle layer the {@code menu.particles} setting.
+ * stack (two columns on windows where the single column would not fit), a quick-access icon row for the VANTA
+ * screens, the version label in the bottom-left corner and the active profile in the bottom-right corner. The
+ * background follows the {@code menu.background} setting and the particle layer the {@code menu.particles} setting.
  * <p>
  * PLAY continues the last singleplayer world when the game knows one and opens the world list otherwise.
  */
 public final class MainMenuScreen extends VantaUiScreen {
-    /** Windows shorter than this use the compact two-column layout. */
-    public static final int WIDE_MIN_HEIGHT = 300;
     /** Total duration of the staggered button entrance. */
     public static final long ENTER_TOTAL_MS = 240L;
     /** Duration of one button's entrance. */
@@ -55,6 +53,68 @@ public final class MainMenuScreen extends VantaUiScreen {
     private static final int COMPACT_BUTTON_W = 118;
     private static final int BUTTON_GAP = Theme.SPACE_3;
     private static final int CORNER_PAD = Theme.SPACE_4;
+    private static final int QUICK_H = 22;
+    /** Space kept above and below the stack when deciding whether an arrangement fits. */
+    private static final int FIT_MARGIN = Theme.SPACE_5;
+    /** Smallest margin the stack is pushed up to when nothing fits. */
+    private static final int MIN_MARGIN = Theme.SPACE_2;
+    /** Number of buttons in the middle of the stack (between PLAY and Quit). */
+    private static final int STACK_SIZE = 7;
+
+    /**
+     * One way of arranging the stack: the wide single column, the compact two-column layout, and two tighter
+     * fallbacks for very short windows (large text at 427x240 leaves 209 logical pixels).
+     */
+    record Arrangement(boolean compact, int columns, int buttonW, int buttonGap, int gapBrand, int gapQuick) {
+        static final Arrangement WIDE = new Arrangement(false, 1, BUTTON_W, BUTTON_GAP, Theme.SPACE_7, Theme.SPACE_6);
+        static final Arrangement COMPACT = new Arrangement(true, 2, COMPACT_BUTTON_W, BUTTON_GAP, Theme.SPACE_5,
+                Theme.SPACE_4);
+        static final Arrangement TIGHT = new Arrangement(true, 2, COMPACT_BUTTON_W, Theme.SPACE_2, Theme.SPACE_2,
+                Theme.SPACE_2);
+        static final Arrangement TIGHT_3 = new Arrangement(true, 3, COMPACT_BUTTON_W, Theme.SPACE_2, Theme.SPACE_2,
+                Theme.SPACE_2);
+        static final List<Arrangement> CANDIDATES = List.of(WIDE, COMPACT, TIGHT, TIGHT_3);
+
+        int rows() {
+            return (STACK_SIZE + columns - 1) / columns;
+        }
+
+        int stackWidth() {
+            return columns * buttonW + (columns - 1) * buttonGap;
+        }
+
+        /** PLAY, the rows of the stack and Quit. */
+        int stackHeight() {
+            return Button.HEIGHT + buttonGap + rows() * (Button.HEIGHT + buttonGap) + Button.HEIGHT;
+        }
+
+        /** Brand block, stack and quick row with their gaps. */
+        int totalHeight() {
+            return BrandBlock.sizeFor(compact).h() + gapBrand + stackHeight() + gapQuick + QUICK_H;
+        }
+
+        boolean fits(int width, int height) {
+            return stackWidth() + 2 * FIT_MARGIN <= width && totalHeight() + 2 * FIT_MARGIN <= height;
+        }
+
+        /**
+         * The first arrangement whose measured height and width fit the window; when none fits vertically, the
+         * shortest one that fits horizontally.
+         */
+        static Arrangement forSize(int width, int height) {
+            Arrangement fallback = TIGHT;
+            for (Arrangement a : CANDIDATES) {
+                if (a.stackWidth() + 2 * FIT_MARGIN > width) {
+                    continue;
+                }
+                if (a.fits(width, height)) {
+                    return a;
+                }
+                fallback = a;
+            }
+            return fallback;
+        }
+    }
 
     private final GameBridge game;
     private final List<MenuButton> stack = new ArrayList<>();
@@ -116,9 +176,9 @@ public final class MainMenuScreen extends VantaUiScreen {
         return play;
     }
 
-    /** Whether the compact (two-column) layout is active. */
+    /** Whether the compact (two- or three-column) layout is active: the wide stack would not fit the window. */
     public boolean isCompact() {
-        return height() < WIDE_MIN_HEIGHT;
+        return Arrangement.forSize(width(), height()).compact();
     }
 
     /** Lines of the bottom-left version label. */
@@ -237,49 +297,69 @@ public final class MainMenuScreen extends VantaUiScreen {
         @Override
         public void layout(UiContext ctx) {
             Rect b = bounds();
-            boolean compact = b.h() < WIDE_MIN_HEIGHT;
+            Arrangement a = Arrangement.forSize(b.w(), b.h());
+            boolean compact = a.compact();
             int buttonH = Button.HEIGHT;
-            int columns = compact ? 2 : 1;
-            int buttonW = compact ? COMPACT_BUTTON_W : BUTTON_W;
-            int stackW = columns * buttonW + (columns - 1) * BUTTON_GAP;
-            int rows = (stack.size() + columns - 1) / columns;
-            int stackH = buttonH + BUTTON_GAP + rows * (buttonH + BUTTON_GAP) + buttonH;
-            Size brandSize = brand.sizeFor(compact);
-            int quickH = 22;
-            int gapBrand = compact ? Theme.SPACE_5 : Theme.SPACE_7;
-            int gapQuick = compact ? Theme.SPACE_4 : Theme.SPACE_6;
-            int total = brandSize.h() + gapBrand + stackH + gapQuick + quickH;
-            int top = Math.max(Theme.SPACE_5, b.y() + (b.h() - total) / 2 - b.h() / 24);
+            int columns = a.columns();
+            int buttonW = a.buttonW();
+            int buttonGap = a.buttonGap();
+            int stackW = a.stackWidth();
+            int rows = a.rows();
+            Size brandSize = BrandBlock.sizeFor(compact);
+            int total = a.totalHeight();
+            int top = Math.max(b.y() + FIT_MARGIN, b.y() + (b.h() - total) / 2 - b.h() / 24);
+            // Never let the quick row run off the bottom: move the whole stack up to the minimum margin first.
+            int lowestTop = b.bottom() - FIT_MARGIN - total;
+            top = Math.min(top, Math.max(b.y() + MIN_MARGIN, lowestTop));
             int cx = b.centerX();
 
+            brand.compact = compact;
             brand.setBounds(cx - brandSize.w() / 2, top, brandSize.w(), brandSize.h());
             brand.layout(ctx);
-            int y = top + brandSize.h() + gapBrand;
+            int y = top + brandSize.h() + a.gapBrand();
             int left = cx - stackW / 2;
             play.setBounds(left, y, stackW, buttonH);
             play.layout(ctx);
-            y += buttonH + BUTTON_GAP;
+            y += buttonH + buttonGap;
             for (int i = 0; i < stack.size(); i++) {
                 int col = i % columns;
                 int row = i / columns;
                 MenuButton button = stack.get(i);
-                button.setBounds(left + col * (buttonW + BUTTON_GAP), y + row * (buttonH + BUTTON_GAP), buttonW, buttonH);
+                button.setBounds(left + col * (buttonW + buttonGap), y + row * (buttonH + buttonGap), buttonW, buttonH);
                 button.layout(ctx);
             }
-            y += rows * (buttonH + BUTTON_GAP);
+            y += rows * (buttonH + buttonGap);
             quit.setBounds(left, y, stackW, buttonH);
             quit.layout(ctx);
-            y += buttonH + gapQuick;
-            int quickW = quick.size() * quickH + (quick.size() - 1) * BUTTON_GAP;
+            y += buttonH + a.gapQuick();
+            int quickW = quick.size() * QUICK_H + (quick.size() - 1) * BUTTON_GAP;
             int qx = cx - quickW / 2;
             for (IconButton button : quick) {
-                button.setBounds(qx, y, quickH, quickH);
+                button.setBounds(qx, y, QUICK_H, QUICK_H);
                 button.layout(ctx);
-                qx += quickH + BUTTON_GAP;
+                qx += QUICK_H + BUTTON_GAP;
             }
             Size chip = profileChip.preferredSize(ctx);
-            profileChip.setBounds(b.right() - CORNER_PAD - chip.w(), b.bottom() - CORNER_PAD - chip.h(), chip.w(), chip.h());
+            int chipY = b.bottom() - CORNER_PAD - chip.h();
+            int chipW = chip.w();
+            if (chipY < y + QUICK_H) {
+                // The quick row reaches down into the corner on short windows: the chip gives way (its name is
+                // clipped) so the two never share pixels.
+                chipW = Math.min(chipW, Math.max(0, b.right() - CORNER_PAD - (qx - BUTTON_GAP + Theme.SPACE_3)));
+            }
+            profileChip.setBounds(b.right() - CORNER_PAD - chipW, chipY, chipW, chip.h());
             profileChip.layout(ctx);
+        }
+
+        /** Whether the version label with these lines would run into the quick row. */
+        private boolean collidesWithQuickRow(Canvas canvas, Rect b, List<String> lines, int lh) {
+            int widest = 0;
+            for (int i = 0; i < lines.size(); i++) {
+                widest = Math.max(widest, canvas.textWidth(lines.get(i), i == 0 ? FontKind.UI_BOLD : FontKind.UI));
+            }
+            Rect first = quick.get(0).bounds();
+            return b.x() + CORNER_PAD + widest + Theme.SPACE_3 > first.x()
+                    && b.bottom() - CORNER_PAD - lines.size() * lh < first.bottom();
         }
 
         @Override
@@ -291,6 +371,14 @@ public final class MainMenuScreen extends VantaUiScreen {
             Rect b = bounds();
             List<String> lines = versionLines();
             int lh = canvas.lineHeight(FontKind.UI);
+            // On short windows the quick row comes down into the corner: drop to the version line alone first,
+            // and leave the corner empty when even that would overlap (About lists the full set).
+            if (collidesWithQuickRow(canvas, b, lines, lh)) {
+                lines = lines.subList(0, 1);
+                if (collidesWithQuickRow(canvas, b, lines, lh)) {
+                    return;
+                }
+            }
             int y = b.bottom() - CORNER_PAD - lines.size() * lh;
             for (int i = 0; i < lines.size(); i++) {
                 int color = i == 0 ? Colors.withAlpha(theme.textSecondary(), 0.95f) : theme.textMuted();
@@ -306,7 +394,10 @@ public final class MainMenuScreen extends VantaUiScreen {
         private static final int LOGO_COMPACT = 28;
         private static final int WORD_WIDE = 150;
 
-        Size sizeFor(boolean compact) {
+        /** Set by {@link MenuLayout} to the arrangement in use. */
+        boolean compact;
+
+        static Size sizeFor(boolean compact) {
             if (compact) {
                 int wordW = LOGO_COMPACT * 3;
                 return new Size(LOGO_COMPACT + Theme.SPACE_4 + wordW, LOGO_COMPACT);
@@ -317,14 +408,13 @@ public final class MainMenuScreen extends VantaUiScreen {
 
         @Override
         protected Size measure(UiContext ctx) {
-            return sizeFor(ctx.screenHeight() < WIDE_MIN_HEIGHT);
+            return sizeFor(compact);
         }
 
         @Override
         protected void renderSelf(Canvas canvas, UiContext ctx) {
             Theme theme = ctx.theme();
             Rect b = bounds();
-            boolean compact = ctx.screenHeight() < WIDE_MIN_HEIGHT;
             if (compact) {
                 int logo = LOGO_COMPACT;
                 Brand.drawLogo(canvas, theme, b.x(), b.y(), logo);
