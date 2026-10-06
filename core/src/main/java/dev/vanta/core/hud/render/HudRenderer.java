@@ -14,16 +14,19 @@ import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.Size;
 import dev.vanta.core.ui.TextMetrics;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Renders the active {@link HudLayout} every frame while the player is in a world.
  * <p>
  * Driving it from the client:
  * <ul>
- *   <li>{@link #tick()} once per client tick: captures the {@link HudData} snapshot and refreshes the
- *       {@link HudPaint} from the settings (HUD theme, text shadow, accessibility).</li>
+ *   <li>{@link #tick()} once per client tick: captures the {@link HudData} snapshot (only the values the enabled
+ *       widgets display) and refreshes the {@link HudPaint} from the settings (HUD theme, text shadow,
+ *       accessibility).</li>
  *   <li>{@link #render(Canvas, int, int, float)} every frame from the HUD element: draws every enabled widget of
  *       {@code services.hud().layout()} except the crosshair (which {@code CrosshairRenderer} draws in the vanilla
  *       crosshair slot).</li>
@@ -65,15 +68,37 @@ public final class HudRenderer {
 
     // ---- per tick ------------------------------------------------------------------------------------------------
 
-    /** Called once per client tick (20/s): snapshots the game data and refreshes the paint from the settings. */
+    /**
+     * Called once per client tick (20/s): snapshots the game data the enabled widgets need and refreshes the paint
+     * from the settings.
+     */
     public void tick() {
+        tick(enabledTypes(services.hud().layout()));
+    }
+
+    /**
+     * Once per client tick with an explicit set of widget types to capture. The HUD editor passes every type because
+     * its preview also shows widgets that are disabled or absent in the live layout.
+     */
+    public void tick(Set<HudWidgetType> types) {
         long now = services.clock().millis();
         data = sampleSource
                 ? HudData.sample()
                 : HudData.capture(source, leftCps.cps(now), rightCps.cps(now), services.performance().frameTimes(),
-                        services.clock().getZone());
+                        services.clock().getZone(), types);
         captured = true;
         refreshPaint();
+    }
+
+    /** The widget types enabled in a layout (what a tick has to capture). */
+    public static Set<HudWidgetType> enabledTypes(HudLayout layout) {
+        Set<HudWidgetType> types = EnumSet.noneOf(HudWidgetType.class);
+        for (HudWidgetState widget : layout.widgets()) {
+            if (widget.enabled()) {
+                types.add(widget.type());
+            }
+        }
+        return types;
     }
 
     /** Records a mouse press for the click counters ({@link Keys#MOUSE_LEFT} / {@link Keys#MOUSE_RIGHT}). */
