@@ -327,9 +327,9 @@ and the msiexec log are published to the `ci-artifacts` branch under `launcher-w
 
 The same hook drives `./gradlew uiSmoke -PsmokePage=mods -PsmokeSize=1000x600 -PsmokeOut=build/ui-smoke/mods.png`
 (`UiSmokeMain`, test class path): the real window with the scripted fake services of the screenshot tool, one page at
-one window size, as a PNG; with `-PsmokeToast` a toast is shown first (bottom-right in a wide window, top-right below
-the banner and page header when the window is narrower than 1100 px). Run it under `xvfb-run -a` on a headless Linux
-box, or with `-Pheadless` for the Monocle platform.
+one window size, as a PNG; with `-PsmokeToast` a toast is shown first (bottom-right in a wide window whose page fits,
+top-right below the banner and page header when the window is narrower than 1100 px or the page scrolls). Run it under
+`xvfb-run -a` on a headless Linux box, or with `-Pheadless` for the Monocle platform.
 
 ## Installed client and update checks
 

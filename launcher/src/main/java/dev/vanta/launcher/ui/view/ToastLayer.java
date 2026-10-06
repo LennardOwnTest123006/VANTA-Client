@@ -4,7 +4,9 @@ import dev.vanta.launcher.ui.model.ToastModel;
 import javafx.animation.PauseTransition;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.DoubleBinding;
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Insets;
@@ -28,12 +30,14 @@ import java.util.Map;
  * Notification stack bound to a {@link ToastModel}. Each toast fades in, stays for its TTL and fades out; the close
  * button or a click anywhere on it dismisses it immediately.
  *
- * <p>Where the stack lies depends on the window: in a wide window ({@value #TOP_RIGHT_BELOW} px and more) it sits in the
- * bottom-right corner, over empty space. In a smaller window that corner holds controls (at the 960 x 600 minimum the
- * Mods page's lower Install buttons and the installed pane), so the stack moves to the top-right corner, below the
- * update banner and the page header ({@link #topInsetProperty()}), where nothing but the page's title row lies. A card
- * is at most {@value #MAX_WIDTH} px wide and never wider than {@value #WIDTH_SHARE_PERCENT} percent of the window, so it
- * never reaches the Install column.</p>
+ * <p>Where the stack lies depends on the window and the page: in a wide window ({@value #TOP_RIGHT_BELOW} px and more)
+ * whose page fits, it sits in the bottom-right corner, over empty space. In a smaller window that corner holds controls
+ * (at the 960 x 600 minimum the Mods page's lower Install buttons and the installed pane), and so it does in any window
+ * in which the page is taller than the viewport and scrolls ({@link #pageScrollsProperty()}: at the 1120 x 720 default the
+ * installed pane's lowest switches lie in that corner). Then the stack moves to the top-right corner, below the update
+ * banner and the page header ({@link #topInsetProperty()}), where nothing but the page's title row lies. A card is at
+ * most {@value #MAX_WIDTH} px wide and never wider than {@value #WIDTH_SHARE_PERCENT} percent of the window, so it never
+ * reaches the Install column.</p>
  */
 public final class ToastLayer extends VBox {
 
@@ -53,6 +57,7 @@ public final class ToastLayer extends VBox {
     private final Map<Long, Node> nodes = new HashMap<>();
     private final DoubleProperty sceneWidth = new SimpleDoubleProperty(0);
     private final DoubleProperty topInset = new SimpleDoubleProperty(EDGE);
+    private final BooleanProperty pageScrolls = new SimpleBooleanProperty(false);
     private final DoubleBinding cardWidth = Bindings.createDoubleBinding(() -> cardWidth(sceneWidth.get()), sceneWidth);
 
     /**
@@ -71,6 +76,7 @@ public final class ToastLayer extends VBox {
         bindSceneWidth(getScene());
         sceneWidth.addListener((obs, old, now) -> place());
         topInset.addListener((obs, old, now) -> place());
+        pageScrolls.addListener((obs, old, now) -> place());
         place();
         model.toasts().addListener((ListChangeListener<ToastModel.Toast>) change -> {
             while (change.next()) {
@@ -103,11 +109,24 @@ public final class ToastLayer extends VBox {
     }
 
     /**
-     * @param sceneWidth window (scene) width in pixels; 0 or less when unknown
-     * @return whether the stack is anchored top-right (small window) rather than bottom-right
+     * @param sceneWidth  window (scene) width in pixels; 0 or less when unknown
+     * @param pageScrolls whether the shown page is taller than its viewport, so its content reaches the window's lower edge
+     * @return whether the stack is anchored top-right (small window, or a page whose content fills the bottom-right corner)
+     *     rather than bottom-right
      */
-    public static boolean anchorsTop(final double sceneWidth) {
-        return sceneWidth > 0 && sceneWidth < TOP_RIGHT_BELOW;
+    public static boolean anchorsTop(final double sceneWidth, final boolean pageScrolls) {
+        return pageScrolls || (sceneWidth > 0 && sceneWidth < TOP_RIGHT_BELOW);
+    }
+
+    /**
+     * Whether the shown page is taller than its viewport and scrolls. Then its content reaches the window's lower edge and
+     * the bottom-right corner holds whatever ends the page (on the Mods page the installed pane's lowest switches), so the
+     * stack lies top-right regardless of the window width. The owner keeps it up to date.
+     *
+     * @return the page-scrolls property
+     */
+    public BooleanProperty pageScrollsProperty() {
+        return pageScrolls;
     }
 
     /**
@@ -123,7 +142,7 @@ public final class ToastLayer extends VBox {
 
     /** @return whether the stack currently lies in the top-right corner */
     public boolean isAnchoredTop() {
-        return anchorsTop(sceneWidth.get());
+        return anchorsTop(sceneWidth.get(), pageScrolls.get());
     }
 
     private void bindSceneWidth(final Scene scene) {
@@ -137,7 +156,7 @@ public final class ToastLayer extends VBox {
 
     /** Anchors the stack to the corner that fits the window and keeps it clear of the banner and header. */
     private void place() {
-        if (anchorsTop(sceneWidth.get())) {
+        if (isAnchoredTop()) {
             StackPane.setAlignment(this, Pos.TOP_RIGHT);
             setAlignment(Pos.TOP_RIGHT);
             setPadding(new Insets(Math.max(EDGE, topInset.get()), EDGE, EDGE, 0));

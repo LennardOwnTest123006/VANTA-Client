@@ -1265,8 +1265,9 @@
 
 /* ------------------------------------------------------------------ toasts */
 
-/* Corner, padding and card width come from ToastLayer: bottom-right in a wide window, top-right below the banner and
-   page header in one narrower than 1100 px; a card is min(360 px, 30 % of the window) wide. */
+/* Corner, padding and card width come from ToastLayer: bottom-right in a wide window whose page fits, top-right below the
+   banner and page header in one narrower than 1100 px or whose page scrolls; a card is min(360 px, 30 % of the window)
+   wide. */
 .toast-layer {
     -fx-spacing: 10;
 }
