@@ -10,6 +10,27 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 ### VANTA Client
 
+#### Added
+- **Performance pack in the mods bundle.** `vanta-client-<version>-mods.zip` now carries the newest Minecraft 1.21.11
+  Fabric build of every Performance pack mod whose licence allows redistribution (Sodium, Lithium, FerriteCore,
+  ImmediatelyFast, Iris), unmodified as published on Modrinth and verified by size and SHA-512 when the release is
+  built, next to the VANTA jar and Fabric API. The zip gains `THIRD-PARTY-LICENSES.txt` (every licence text, with the
+  file it covers, source and authors; Sodium's PolyForm Shield 1.0.0 terms are passed on), `PERFORMANCE-PACK.txt`
+  (the resolved versions, also printed into the GitHub Release notes) and `performance-pack.json`
+  (`shared/schemas/performance-pack.schema.json`). `INSTALL.txt` lists the pack jars, the Iris/Sodium pairing and a
+  warning about duplicate mod copies. No mod version is fixed in the repository: `scripts/release/performance-pack.mjs`
+  resolves them live at release time, excludes any member outside the licence allow-list, follows required
+  dependencies (the bundled Sodium must be exactly the version Iris requires) and fails the release when a licence
+  text cannot be fetched. CI runs the resolver against the live API on every push.
+- **EntityCulling stays a download.** Its licence does not allow redistribution, so it is not in the zip; the game
+  offers it with one click on the *Performance pack* card of *Mods & Shaders*.
+- **One-time offer at start.** A game that the VANTA Launcher did not start asks once at the main menu, *Boost your
+  FPS?*, when Performance pack members are missing. *Install* records the pack jars that came with the bundle in
+  `config/vanta/modrinth.json` (so the Installed tab manages them) and installs the missing members from Modrinth
+  with the usual toasts; *Not now* turns the offer off (new setting *Settings → Performance → Offer the Performance
+  pack at start*, `performance.offerPack`). Nothing is downloaded without that click; the game test never sees the
+  dialog.
+
 #### Fixed
 - In a small game window (854 x 480 at GUI scale 2, the 320 x 240 minimum, or with large text) several buttons were
   drawn but could not be clicked because their panel had run out of room: *Install*, *View on Modrinth*, *Disable*,

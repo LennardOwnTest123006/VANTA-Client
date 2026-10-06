@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -265,6 +267,94 @@ public final class ModrinthService implements AutoCloseable {
     /** Installs the selected members of the {@link PerformancePack}. */
     public void installPerformancePack(List<String> slugs, Consumer<InstallResult> onDone) {
         install(PerformancePack.requests(slugs), Lang.tr("vanta.mods.pack.installing"), onDone);
+    }
+
+    /**
+     * Records jars in {@code mods/} that VANTA did not install but that Modrinth identifies (by SHA-512) as a
+     * {@link PerformancePack} member, so the Installed tab manages them like its own installs. This is how the
+     * Performance pack jars of the mods bundle ({@code vanta-client-<version>-mods.zip}) become regular entries of
+     * {@code modrinth.json}. Nothing is downloaded or deleted; files of other projects stay untouched.
+     *
+     * @param onDone receives the newly written entries (possibly empty) on the main thread; may be {@code null}
+     */
+    public void adoptKnownFiles(Consumer<List<InstalledEntry>> onDone) {
+        submit(this::adoptKnownFilesNow, adopted -> {
+            if (!adopted.isEmpty()) {
+                fireChanged();
+            }
+            if (onDone != null) {
+                onDone.accept(adopted);
+            }
+        }, error -> {
+            CoreLog.debug("Could not adopt bundled jars: {}", error.getMessage());
+            if (onDone != null) {
+                onDone.accept(List.of());
+            }
+        });
+    }
+
+    /** Worker-thread part of {@link #adoptKnownFiles}. */
+    List<InstalledEntry> adoptKnownFilesNow() throws ModrinthException {
+        Map<String, Path> byHash = new LinkedHashMap<>();
+        for (Path jar : library.unknownModJars()) {
+            try {
+                if (Files.size(jar) <= MAX_HASHED_JAR_BYTES) {
+                    byHash.put(Sha512.hex(jar), jar);
+                }
+            } catch (IOException e) {
+                CoreLog.debug("Could not hash {}: {}", jar, e.getMessage());
+            }
+        }
+        if (byHash.isEmpty()) {
+            return List.of();
+        }
+        Map<String, ModrinthVersion> known = api.versionsByHash(byHash.keySet());
+        List<InstalledEntry> adopted = new ArrayList<>();
+        Map<String, ModrinthVersion> versionsByProject = new LinkedHashMap<>();
+        for (Map.Entry<String, ModrinthVersion> hit : known.entrySet()) {
+            Path jar = byHash.get(hit.getKey());
+            ModrinthVersion version = hit.getValue();
+            if (jar == null || version == null || versionsByProject.containsKey(version.projectId())) {
+                continue;
+            }
+            ModrinthProject project = api.project(version.projectId());
+            Optional<PerformancePack.Item> member = PerformancePack.item(project.slug());
+            if (member.isEmpty()) {
+                continue;
+            }
+            String name = jar.getFileName().toString();
+            boolean enabled = !name.endsWith(InstalledEntry.DISABLED_SUFFIX);
+            String relative = ModrinthProjectType.MOD.directory() + "/" + name;
+            adopted.add(new InstalledEntry(project.id(), project.slug(), project.title(), version.id(),
+                    version.versionNumber(), ModrinthProjectType.MOD.apiName(), relative, hit.getKey(), enabled,
+                    List.of(), Instant.now(clock).truncatedTo(ChronoUnit.SECONDS).toString(), null));
+            versionsByProject.put(project.id(), version);
+        }
+        if (adopted.isEmpty()) {
+            return List.of();
+        }
+        library.update(index -> {
+            for (InstalledEntry entry : adopted) {
+                if (index.find(entry.projectId()).isEmpty()) {
+                    index.put(entry);
+                }
+            }
+            // Iris requires Sodium: record the link so removing Sodium warns, exactly as after a VANTA install.
+            for (InstalledEntry entry : adopted) {
+                for (ModrinthDependency dep : versionsByProject.get(entry.projectId())
+                        .dependencies(ModrinthDependency.Type.REQUIRED)) {
+                    if (dep.projectId() != null) {
+                        index.find(dep.projectId()).ifPresent(parent ->
+                                index.put(parent.withRequiredByAdded(List.of(entry.projectId()))));
+                    }
+                }
+            }
+            return null;
+        });
+        for (InstalledEntry entry : adopted) {
+            CoreLog.info("Adopted {} {} ({}) into modrinth.json", entry.title(), entry.versionNumber(), entry.file());
+        }
+        return adopted;
     }
 
     private void finishToast(long id) {

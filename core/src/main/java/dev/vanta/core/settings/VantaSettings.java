@@ -118,6 +118,12 @@ public final class VantaSettings {
     /** Button: open the Performance Center. */
     public static final Setting<String> PERFORMANCE_OPEN_CENTER = add(Setting.action("performance.openCenter",
             PERFORMANCE, "open_performance").keywords("fps", "monitor", "memory"));
+    /**
+     * Offer the Performance pack once per game start when members are missing (see {@code PackOffer}). "Not now" in
+     * that dialog turns this off.
+     */
+    public static final Setting<Boolean> MODS_PACK_OFFER = add(Setting.bool("performance.offerPack", PERFORMANCE, true)
+            .keywords("performance pack", "sodium", "mods", "modrinth", "boost", "offer", "prompt", "start"));
 
     // ---- accessibility ----------------------------------------------------------------------------------------------
     /** Disable animations and transitions in VANTA screens. */

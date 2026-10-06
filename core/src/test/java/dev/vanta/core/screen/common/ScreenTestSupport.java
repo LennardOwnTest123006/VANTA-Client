@@ -47,6 +47,9 @@ public final class ScreenTestSupport {
         services.load();
         Screens1.register(services);
         navigator = ScreenNavigator.forServices(services);
+        // The main menu would otherwise open the one-time Performance pack dialog in every test that installs a
+        // Modrinth service; tests of that offer re-enable it with services.packOffer() of their own.
+        services.packOffer().suppress();
     }
 
     /** Creates the fixture with the config root inside {@code dir}. */

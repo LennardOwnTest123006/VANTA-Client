@@ -86,8 +86,10 @@ window has not been tested yet. Details:
 ## Can I use VANTA without the VANTA Launcher?
 
 Yes. Download `vanta-client-1.1.0-mods.zip`: it contains `vanta-client-1.1.0.jar` and Fabric API
-0.141.6+1.21.11 in a `mods/` folder, plus `INSTALL.txt` with the steps. Start the official Minecraft Launcher once,
-install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer (keep *Create profile* checked) and copy both jars
+0.141.6+1.21.11 in a `mods/` folder, plus `INSTALL.txt` with the steps (client releases after 1.1.0 also put the
+redistributable Performance pack mods into that folder, see
+[Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)). Start the official Minecraft Launcher once,
+install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer (keep *Create profile* checked) and copy all jars
 into the `mods/` folder of that profile (official launcher, Prism, MultiMC). On Windows take the Fabric installer
 `.exe`, which needs no separate Java; on macOS and Linux take the universal `.jar`, which needs Java installed (install
 Java 21 first, then run `java -jar fabric-installer-<version>.jar`). If both Minecraft Launchers are installed, the

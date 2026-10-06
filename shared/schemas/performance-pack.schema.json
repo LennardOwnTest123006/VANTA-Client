@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vanta.dev/schemas/performance-pack.schema.json",
+  "title": "VANTA Performance pack resolution",
+  "description": "What scripts/release/performance-pack.mjs resolved on Modrinth for one client release: the Performance pack mods bundled in vanta-client-<version>-mods.zip (items) and the members left out of the zip because their licence does not allow redistribution (excluded). Written into the zip as performance-pack.json; never committed to the repository, because the versions are resolved live at release time.",
+  "type": "object",
+  "required": ["schemaVersion", "gameVersion", "resolvedAt", "items", "excluded"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "description": "Schema version. Only 1 exists.",
+      "const": 1
+    },
+    "gameVersion": {
+      "description": "Minecraft version the versions were resolved for (from client/gradle.properties).",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?$"
+    },
+    "resolvedAt": {
+      "description": "When the Modrinth API was queried (UTC).",
+      "type": "string",
+      "format": "date-time"
+    },
+    "items": {
+      "description": "Bundled mods in Performance pack order.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slug", "title", "projectId", "versionId", "versionNumber", "file", "size", "sha512", "license", "sourceUrl"],
+        "additionalProperties": false,
+        "properties": {
+          "slug": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "projectId": { "type": "string", "minLength": 1 },
+          "versionId": { "type": "string", "minLength": 1 },
+          "versionNumber": { "type": "string", "minLength": 1 },
+          "file": {
+            "description": "File name below mods/ in the zip, exactly as Modrinth names the primary file.",
+            "type": "string",
+            "pattern": "^[^/\\\\:]+\\.jar$"
+          },
+          "size": { "type": "integer", "minimum": 1 },
+          "sha512": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+          "license": {
+            "type": "object",
+            "required": ["id", "name", "url"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "description": "SPDX id or LicenseRef-… as Modrinth reports it.", "type": "string", "minLength": 1 },
+              "name": { "type": ["string", "null"] },
+              "url": { "type": ["string", "null"] }
+            }
+          },
+          "sourceUrl": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "excluded": {
+      "description": "Pack members that are not in the zip; the game offers them for download under Mods & Shaders.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slug", "title", "license", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "slug": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "license": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

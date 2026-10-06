@@ -4,10 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.cosmetics.MenuBackground;
 import dev.vanta.core.cosmetics.MenuParticles;
+import dev.vanta.core.modrinth.FakeModPlatform;
+import dev.vanta.core.modrinth.FakeModrinthApi;
+import dev.vanta.core.modrinth.RestartMarker;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.common.ScreenTestSupport;
 import dev.vanta.core.settings.VantaSettings;
@@ -16,6 +20,7 @@ import dev.vanta.core.ui.TestCanvas;
 import dev.vanta.core.ui.TextureRef;
 import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.widget.Button;
+import dev.vanta.core.ui.widget.Dialog;
 import java.nio.file.Path;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,6 +74,40 @@ class MainMenuScreenTest {
         assertTrue(t.host.events().contains("openScreen:ABOUT"));
         ScreenTestSupport.click(menu, menu.root().findById("menu.profile"));
         assertTrue(t.host.events().contains("openScreen:PROFILES"));
+    }
+
+    @Test
+    void firstShowOffersThePerformancePackOnceAndNotNowSwitchesItOff() {
+        new FakeModPlatform(dir).installInto(t.services, FakeModrinthApi.standard());
+        t.services.packOffer().setSuppressed(false);
+        MainMenuScreen menu = t.show(ScreenId.MAIN_MENU, 854, 480);
+        Dialog dialog = ScreenTestSupport.openDialog(menu);
+        assertNotNull(dialog, "the one-time offer opens with the main menu");
+        assertEquals("Boost your FPS?", dialog.title());
+        assertTrue(t.services.settings().get(VantaSettings.MODS_PACK_OFFER));
+        ScreenTestSupport.cancelDialog(menu);
+        assertNull(ScreenTestSupport.openDialog(menu));
+        assertFalse(t.services.settings().get(VantaSettings.MODS_PACK_OFFER), "Not now turns the offer off");
+        MainMenuScreen again = t.show(ScreenId.MAIN_MENU, 854, 480);
+        assertNull(ScreenTestSupport.openDialog(again), "shown once per session at most");
+        // The menu itself still works with the dialog gone.
+        ScreenTestSupport.click(again, again.root().findById("menu.options"));
+        assertTrue(t.host.events().contains("openScreen:SETTINGS"));
+    }
+
+    @Test
+    void noOfferForSuppressedHostsOrLauncherStartedGames() {
+        new FakeModPlatform(dir).installInto(t.services, FakeModrinthApi.standard());
+        assertNull(ScreenTestSupport.openDialog(t.show(ScreenId.MAIN_MENU, 854, 480)), "the fixture suppresses it");
+        t.services.packOffer().setSuppressed(false);
+        System.setProperty(RestartMarker.RESTARTABLE_PROPERTY, "true");
+        try {
+            assertNull(ScreenTestSupport.openDialog(t.show(ScreenId.MAIN_MENU, 854, 480)),
+                    "the VANTA launcher installs the pack itself");
+        } finally {
+            System.clearProperty(RestartMarker.RESTARTABLE_PROPERTY);
+        }
+        assertFalse(t.services.packOffer().wasShown());
     }
 
     @Test
