@@ -636,7 +636,8 @@ class LauncherAppSmokeTest {
      * lower Install buttons and the installed pane, so there the toasts sit top-right, below the update banner and the
      * page header, and a card is at most 30 percent of the window wide (it never reaches the Install column): no Install
      * button, no header action and no banner button intersects the toast card. In a wide window (1200 x 700 here) the
-     * toasts stay bottom-right at their full 360 px.
+     * Mods page still scrolls, so the toasts stay top-right and clear of the Install buttons; on a page that fits the
+     * window (About) they lie bottom-right at their full 360 px.
      */
     @Test
     void toastsKeepClearOfTheInstallButtonsInASmallWindow() throws Exception {
@@ -695,7 +696,7 @@ class LauncherAppSmokeTest {
                 final double w = scene.getWidth();
                 final double h = scene.getHeight();
                 assertTrue(w <= 960.5 && h <= 600.5, "the window really is small (" + w + " x " + h + ")");
-                assertTrue(ToastLayer.anchorsTop(w) && app.window().toasts().isAnchoredTop(), "below 1100 px the toasts are anchored top-right");
+                assertTrue(ToastLayer.anchorsTop(w, false) && app.window().toasts().isAnchoredTop(), "below 1100 px the toasts are anchored top-right");
                 final Node toast = app.window().lookup(".toast");
                 final javafx.geometry.Bounds card = sceneBounds(toast);
                 assertWithinScene(card, w, h, "toast card");
@@ -716,7 +717,8 @@ class LauncherAppSmokeTest {
                 assertFalse(card.intersects(sceneBounds(app.window().sidebar())), "the toast is not over the sidebar: " + card);
                 return null;
             });
-            // The same toast in a wide window: bottom-right, full width.
+            // The same toast in a wide window: the Mods page with six results still scrolls at 1200 x 700, so the toast
+            // stays top-right (the bottom-right corner would hold the installed pane) and clear of the Install buttons.
             fx(() -> {
                 app.stage().setWidth(1200);
                 app.stage().setHeight(700);
@@ -724,13 +726,39 @@ class LauncherAppSmokeTest {
             });
             waitUntil(() -> {
                 final Node toast = app.window().lookup(".toast");
-                return toast != null && scene.getWidth() >= 1199 && toast.getTranslateY() == 0
+                return toast != null && scene.getWidth() >= 1199 && scene.getHeight() >= 699 && toast.getTranslateY() == 0
+                    && sceneBounds(toast).getMinY() >= sceneBounds(header).getMaxY();
+            });
+            fx(() -> {
+                final double w = scene.getWidth();
+                final double h = scene.getHeight();
+                assertFalse(ToastLayer.anchorsTop(w, false), "from 1100 px on the window width alone no longer anchors the toasts top-right");
+                assertTrue(app.window().pageScrolls(), "the Mods page with six results scrolls at " + w + " x " + h);
+                assertTrue(app.window().toasts().isAnchoredTop(), "a scrolling page keeps the toasts top-right");
+                final javafx.geometry.Bounds card = sceneBounds(app.window().lookup(".toast"));
+                assertWithinScene(card, w, h, "toast card");
+                assertEquals(ToastLayer.MAX_WIDTH, card.getWidth(), 1.0, "a card is 360 px wide in a wide window: " + card);
+                assertTrue(card.getMaxY() < h / 2, "the toast lies in the upper half of the window: " + card);
+                for (Button install : installButtons()) {
+                    assertFalse(card.intersects(sceneBounds(install)), "the toast " + card + " does not cover the Install button of "
+                        + install.getTooltip().getText() + " at " + sceneBounds(install));
+                }
+                return null;
+            });
+            // On a page that fits the window the toasts lie bottom-right, flush with the 24 px edges, at full width.
+            fx(() -> {
+                app.context().navigation().navigate(NavigationModel.Page.ABOUT);
+                return null;
+            });
+            waitUntil(() -> {
+                final Node toast = app.window().lookup(".toast");
+                return toast != null && !app.window().pageScrolls() && toast.getTranslateY() == 0
                     && sceneBounds(toast).getMaxY() > scene.getHeight() / 2;
             });
             fx(() -> {
                 final double w = scene.getWidth();
                 final double h = scene.getHeight();
-                assertFalse(ToastLayer.anchorsTop(w) || app.window().toasts().isAnchoredTop(), "from 1100 px on the toasts are anchored bottom-right");
+                assertFalse(app.window().toasts().isAnchoredTop(), "on a page that fits the window the toasts are anchored bottom-right");
                 final javafx.geometry.Bounds card = sceneBounds(app.window().lookup(".toast"));
                 assertWithinScene(card, w, h, "toast card");
                 assertEquals(ToastLayer.MAX_WIDTH, card.getWidth(), 1.0, "a card is 360 px wide in a wide window: " + card);
@@ -751,6 +779,147 @@ class LauncherAppSmokeTest {
             });
         }
         assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+    }
+
+    /**
+     * The installed pane's switches and remove buttons are controls too, and they sit in the bottom-right corner of every
+     * window in which the Mods page scrolls, however wide it is: with six installed mods at the 1120 x 720 default size
+     * and at 1100 x 600 (just above the 1100 px width threshold) the lowest rows lie under a bottom-right toast. There the
+     * toasts have to sit top-right as well, so no switch, no remove button and no Install button is under the card; on a
+     * page that fits its window (About at 1200 x 700) the toasts stay bottom-right.
+     */
+    @Test
+    void toastsKeepClearOfTheInstalledSwitchesWhenTheModsPageScrolls() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        waitUntil(() -> app.context().updates().checkedOnce());
+        final dev.vanta.launcher.core.modrinth.ContentType mod = dev.vanta.launcher.core.modrinth.ContentType.MOD;
+        final int pageSize = backend.searchPageSize;
+        backend.searchPageSize = 20;
+        backend.modrinthHits.put(mod, List.of(
+            FakeBackend.hit("P7dR8mSH", "fabric-api", "Fabric API", "modmuss50", mod, 268_200_000L, "Lightweight and modular API"),
+            FakeBackend.hit("mOgUt4GM", "modmenu", "Mod Menu", "Prospector", mod, 150_014_581L, "Adds a mod menu to view the list of mods you have installed."),
+            FakeBackend.hit("9s6osm5g", "cloth-config", "Cloth Config API", "shedaniel", mod, 174_200_000L, "Configuration Library for Minecraft Mods"),
+            FakeBackend.hit("1IjD5062", "continuity", "Continuity", "PepperCode1", mod, 90_000_000L, "Connected textures"),
+            FakeBackend.hit("Orvt0mRa", "indium", "Indium", "comp500", mod, 80_000_000L, "Sodium addon for the Fabric Rendering API"),
+            FakeBackend.hit("YL57xq9U", "iris", "Iris Shaders", "coderbot", mod, 184_174_507L, "A modern shader pack loader")));
+        final Path mods = backend.paths().modsDir();
+        backend.content.add(new dev.vanta.launcher.core.modrinth.ModrinthService.InstalledContent(mod, "fabric-api.jar", "", mods.resolve("fabric-api.jar"),
+            true, false, true, "", List.of(), false));
+        backend.content.add(installedMod(mods, "Sodium", "mc1.21.11-0.8.14-fabric", "sodium.jar", "AANobbMI"));
+        backend.content.add(installedMod(mods, "Lithium", "mc1.21.11-0.21.4-fabric", "lithium.jar", "gvQqBUqZ"));
+        backend.content.add(installedMod(mods, "FerriteCore", "8.2.0-fabric", "ferritecore.jar", "uXXizFIs"));
+        backend.content.add(installedMod(mods, "ImmediatelyFast", "1.14.3+1.21.11-fabric", "immediatelyfast.jar", "5ZwdcRci"));
+        backend.content.add(installedMod(mods, "Entity Culling", "1.11.2", "entityculling.jar", "NNAgCjsB"));
+        backend.content.add(installedMod(mods, "Iris Shaders", "1.10.8+1.21.11-fabric", "iris.jar", "YL57xq9U"));
+        final double width = fx(() -> app.stage().getWidth());
+        final double height = fx(() -> app.stage().getHeight());
+        final boolean maximized = fx(() -> app.stage().isMaximized());
+        final javafx.scene.Scene scene = app.stage().getScene();
+        try {
+            fx(() -> {
+                app.context().toasts().clear();
+                app.stage().setMaximized(false);
+                app.context().navigation().navigate(NavigationModel.Page.MODS);
+                app.context().mods().refreshInstalled();
+                app.context().mods().search();
+                return null;
+            });
+            // Fabric API is included and Iris installed, so four of the six results offer Install; six installed rows carry a switch.
+            waitUntil(() -> installButtons().size() == 4 && switches().size() == 6
+                && switches().stream().allMatch(n -> n.getScene() != null && n.getLayoutBounds().getWidth() > 0));
+            for (double[] size : new double[][] {{1120, 720}, {1100, 600}}) {
+                final String at = " at " + (int) size[0] + " x " + (int) size[1];
+                fx(() -> {
+                    app.context().toasts().clear();
+                    app.stage().setWidth(size[0]);
+                    app.stage().setHeight(size[1]);
+                    return null;
+                });
+                waitUntil(() -> Math.abs(scene.getWidth() - size[0]) < 1 && Math.abs(scene.getHeight() - size[1]) < 1
+                    && app.window().lookup(".toast") == null);
+                fx(() -> {
+                    final javafx.scene.control.ScrollPane scroll = (javafx.scene.control.ScrollPane) app.window().page(NavigationModel.Page.MODS);
+                    assertTrue(scroll.getContent().getLayoutBounds().getHeight() > scroll.getViewportBounds().getHeight(), "the Mods page scrolls" + at);
+                    app.context().toasts().success("Sodium installed", "It loads the next time the game starts.");
+                    return null;
+                });
+                waitUntil(() -> {
+                    final Node toast = app.window().lookup(".toast");
+                    return toast != null && toast.getScene() != null && toast.getLayoutBounds().getWidth() > 0 && toast.getTranslateY() == 0;
+                });
+                fx(() -> {
+                    final javafx.geometry.Bounds card = sceneBounds(app.window().lookup(".toast"));
+                    assertWithinScene(card, scene.getWidth(), scene.getHeight(), "toast card" + at);
+                    for (Node control : controls()) {
+                        final javafx.geometry.Bounds bounds = sceneBounds(control);
+                        assertFalse(card.intersects(bounds), "the toast " + card + at + " does not cover the " + control.getStyleClass()
+                            + " (" + control.getAccessibleText() + ") at " + bounds);
+                    }
+                    return null;
+                });
+            }
+            // A page that fits its window keeps the toasts bottom-right: About at 1200 x 700.
+            fx(() -> {
+                app.context().toasts().clear();
+                app.context().navigation().navigate(NavigationModel.Page.ABOUT);
+                app.stage().setWidth(1200);
+                app.stage().setHeight(700);
+                return null;
+            });
+            waitUntil(() -> Math.abs(scene.getWidth() - 1200) < 1 && Math.abs(scene.getHeight() - 700) < 1 && app.window().lookup(".toast") == null
+                && !app.window().pageScrolls());
+            fx(() -> {
+                app.context().toasts().success("Sodium installed", "It loads the next time the game starts.");
+                return null;
+            });
+            waitUntil(() -> {
+                final Node toast = app.window().lookup(".toast");
+                return toast != null && toast.getScene() != null && toast.getTranslateY() == 0 && sceneBounds(toast).getMaxY() > scene.getHeight() / 2;
+            });
+            fx(() -> {
+                final javafx.geometry.Bounds card = sceneBounds(app.window().lookup(".toast"));
+                assertFalse(app.window().toasts().isAnchoredTop(), "on a page that fits the window the toasts lie bottom-right");
+                assertEquals(scene.getHeight() - ToastLayer.EDGE, card.getMaxY(), 1.0, "the toast sits at the bottom edge: " + card);
+                assertEquals(scene.getWidth() - ToastLayer.EDGE, card.getMaxX(), 1.0, "the toast sits at the right edge: " + card);
+                return null;
+            });
+        } finally {
+            backend.searchPageSize = pageSize;
+            backend.modrinthHits.clear();
+            backend.content.clear();
+            fx(() -> {
+                app.context().toasts().clear();
+                app.context().mods().refreshInstalled();
+                app.stage().setWidth(width);
+                app.stage().setHeight(height);
+                app.stage().setMaximized(maximized);
+                app.context().navigation().navigate(NavigationModel.Page.HOME);
+                return null;
+            });
+            waitUntil(() -> app.context().mods().installed().isEmpty());
+        }
+        assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+    }
+
+    private static dev.vanta.launcher.core.modrinth.ModrinthService.InstalledContent installedMod(final Path mods, final String title,
+                                                                                                 final String version, final String file,
+                                                                                                 final String projectId) {
+        return new dev.vanta.launcher.core.modrinth.ModrinthService.InstalledContent(dev.vanta.launcher.core.modrinth.ContentType.MOD, title, version,
+            mods.resolve(file), true, true, false, projectId, List.of(), false);
+    }
+
+    /** @return the installed pane's switches */
+    private List<Node> switches() {
+        return List.copyOf(app.window().page(NavigationModel.Page.MODS).lookupAll(".switch"));
+    }
+
+    /** @return every control of the Mods page a toast must not cover: Install buttons, switches and remove buttons */
+    private List<Node> controls() {
+        final Node page = app.window().page(NavigationModel.Page.MODS);
+        final List<Node> all = new java.util.ArrayList<>(page.lookupAll(".mods-install"));
+        all.addAll(page.lookupAll(".switch"));
+        all.addAll(page.lookupAll(".mods-remove"));
+        return all;
     }
 
     /** @return the node's layout bounds (without its drop shadow) in scene coordinates */

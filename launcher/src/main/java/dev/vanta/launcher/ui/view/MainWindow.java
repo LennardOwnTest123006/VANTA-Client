@@ -80,9 +80,10 @@ public final class MainWindow extends StackPane {
         shell.setMinWidth(0);
         toasts = new ToastLayer(ctx.toasts(), ctx.t("common.dismiss"));
         getChildren().addAll(shell, dialogs, toasts);
-        // In a small window the toasts lie top-right, below the banner and the page header. Both move (the banner
-        // comes and goes, the header scrolls with its page and reflows with the window), so their lower edge is read
-        // after every layout pass and handed to the toast layer; it is ignored while the toasts lie bottom-right.
+        // In a small window, and whenever the page is taller than the window and scrolls, the toasts lie top-right,
+        // below the banner and the page header. All of that moves (the banner comes and goes, the header scrolls with
+        // its page and reflows with the window, the page grows with its content), so it is read after every layout pass
+        // and handed to the toast layer; the inset is ignored while the toasts lie bottom-right.
         sceneProperty().addListener((obs, old, now) -> {
             if (old != null) {
                 old.removePostLayoutPulseListener(placeToasts);
@@ -158,10 +159,26 @@ public final class MainWindow extends StackPane {
         return sceneToLocal(node.localToScene(node.getBoundsInLocal())).getMaxY();
     }
 
+    /**
+     * @return whether the current page is taller than its viewport and scrolls, so its content reaches the window's lower
+     *     edge (the log list owns its space and never does)
+     */
+    boolean pageScrolls() {
+        if (currentPage instanceof ScrollPane scroll && scroll.getContent() != null) {
+            final double viewport = scroll.getViewportBounds().getHeight();
+            return viewport > 0 && scroll.getContent().getLayoutBounds().getHeight() > viewport + 0.5;
+        }
+        return false;
+    }
+
     private void placeToasts() {
         final double inset = toastTopInset();
         if (Math.abs(inset - toasts.topInsetProperty().get()) > 0.5) {
             toasts.topInsetProperty().set(inset);
+        }
+        final boolean scrolls = pageScrolls();
+        if (scrolls != toasts.pageScrollsProperty().get()) {
+            toasts.pageScrollsProperty().set(scrolls);
         }
     }
 

@@ -49,10 +49,13 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
   mouse rested on it, a mouse moved onto such a button kept the toast open and every click did nothing (in a
   maximised window the Install column is nowhere near that corner). A click anywhere on a toast now dismisses it, and
   the pause while the mouse is over a toast ends after 8 seconds at the latest.
-- In a window narrower than 1100 px the toasts now appear top-right, below the update banner and the page header, and
-  a toast is never wider than 30 percent of the window (at most 360 px), so at 960 x 600 the Mods page's *Install*
-  buttons, its header actions and the installed list's switches are no longer under a toast; in wider windows the
-  toasts stay bottom-right. The headless UI test checks this at 960 x 600 and 1200 x 700.
+- In a window narrower than 1100 px, and in any window in which the shown page is taller than the window and scrolls
+  (its content then reaches the lower edge: at the 1120 x 720 default the Mods page's lowest installed switches and
+  remove buttons sit in the bottom-right corner), the toasts now appear top-right, below the update banner and the
+  page header, and a toast is never wider than 30 percent of the window (at most 360 px), so the Mods page's *Install*
+  buttons, its header actions and the installed list's switches are no longer under a toast; on a page that fits the
+  window the toasts stay bottom-right. The headless UI test checks this at 960 x 600, 1100 x 600, 1120 x 720 and
+  1200 x 700.
 
 #### Added
 - For automated tests the launcher also reads `VANTA_UI_SMOKE_PAGE=<home|mods|versions|logs|settings|about>` (the
