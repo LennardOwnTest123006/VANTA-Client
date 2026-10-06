@@ -10,11 +10,20 @@ public enum Icons {
     GRID, LIST, ARROW_UP, ARROW_DOWN, EXTERNAL_LINK, SLIDERS, PALETTE, KEYBOARD, CHART, CROSSHAIR, PROFILE,
     PACKAGE, ACCESSIBILITY;
 
-    /** Draws the icon into the square {@code (x, y, size, size)}. */
+    /**
+     * Draws the icon into the square {@code (x, y, size, size)}. The pixels come from {@link IconRaster}, which
+     * rasterises each icon once per size and replays it as merged row spans; the result covers exactly the pixels
+     * {@link #paint} would.
+     */
     public void draw(Canvas canvas, int x, int y, int size, int argb) {
         if (size <= 0 || Colors.alpha(argb) == 0) {
             return;
         }
+        IconRaster.draw(canvas, this, x, y, size, argb);
+    }
+
+    /** Paints the icon stroke by stroke with an {@link IconPen} (the uncached path the raster cache is built from). */
+    void paint(Canvas canvas, int x, int y, int size, int argb) {
         IconPen p = new IconPen(canvas, x, y, size, argb);
         switch (this) {
             case CLOSE -> {

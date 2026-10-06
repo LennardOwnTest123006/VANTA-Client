@@ -17,6 +17,7 @@ import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.Size;
 import dev.vanta.core.ui.TextMetrics;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -84,9 +85,9 @@ public final class HudEditorSession {
 
     // ---- lifecycle -----------------------------------------------------------------------------------------------
 
-    /** Once per client tick: refreshes the preview data. */
+    /** Once per client tick: refreshes the preview data (every value, the preview shows disabled widgets too). */
     public void tick() {
-        renderer.tick();
+        renderer.tick(EnumSet.allOf(HudWidgetType.class));
     }
 
     /** Updates the game screen size. */

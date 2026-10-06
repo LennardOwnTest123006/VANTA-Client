@@ -2,7 +2,9 @@ package dev.vanta.core.notifications.render;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.bridge.FakeGameBridge;
@@ -141,6 +143,36 @@ class NotificationOverlayTest {
         assertEquals(-1f, NotificationOverlay.progressOf(
                 new Notification(9, NotificationKind.INFO, "Sticky", "", clock.millis(), 0,
                         java.util.OptionalDouble.empty(), null), clock.millis()));
+    }
+
+    @Test
+    void themeIsRebuiltOnlyWhenAccessibilityOrCosmeticsChange() {
+        var before = overlay.theme();
+        for (int tick = 0; tick < 20; tick++) {
+            overlay.tick();
+        }
+        assertSame(before, overlay.theme(), "quiet ticks keep the theme instance");
+
+        services.settings().set(VantaSettings.ACCESSIBILITY_HIGH_CONTRAST, true);
+        assertSame(before, overlay.theme(), "the change is picked up on the next tick");
+        overlay.tick();
+        assertNotSame(before, overlay.theme());
+        assertTrue(overlay.theme().isHighContrast());
+
+        var contrast = overlay.theme();
+        services.cosmetics().load();
+        overlay.tick();
+        assertSame(contrast, overlay.theme(), "a cosmetics reload that changes nothing keeps the instance");
+        assertTrue(services.cosmetics().selectTheme("midnight"));
+        overlay.tick();
+        assertNotSame(contrast, overlay.theme(), "a cosmetics selection change rebuilds");
+        assertEquals("midnight", overlay.theme().id());
+
+        var current = overlay.theme();
+        overlay.dispose();
+        services.settings().set(VantaSettings.ACCESSIBILITY_HIGH_CONTRAST, false);
+        overlay.tick();
+        assertSame(current, overlay.theme(), "a disposed overlay no longer listens");
     }
 
     @Test

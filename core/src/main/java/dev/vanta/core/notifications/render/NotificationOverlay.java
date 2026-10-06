@@ -98,8 +98,11 @@ public final class NotificationOverlay {
     private final MetricsProxy metrics = new MetricsProxy();
     private final UiContext ctx;
     private final NotificationCenter.Listener listener;
+    private final Runnable unlistenAccessibility;
+    private final Runnable unlistenCosmetics;
     private final List<Slot> slots = new ArrayList<>();
     private Theme theme;
+    private boolean themeDirty;
 
     /** Overlay for the services' notification centre, themed from the cosmetics and accessibility settings. */
     public NotificationOverlay(VantaServices services) {
@@ -123,11 +126,17 @@ public final class NotificationOverlay {
         for (Notification visible : center.visible()) {
             addSlot(visible);
         }
+        // The theme is rebuilt on the next tick after a change instead of being rebuilt and compared every tick.
+        this.unlistenAccessibility = services.accessibility().listen(state -> themeDirty = true);
+        this.unlistenCosmetics = services.cosmetics().onSelectionChanged(selection -> themeDirty = true);
+        this.themeDirty = false;
     }
 
-    /** Stops listening to the notification centre. */
+    /** Stops listening to the notification centre and the theme sources. */
     public void dispose() {
         center.removeListener(listener);
+        unlistenAccessibility.run();
+        unlistenCosmetics.run();
     }
 
     // ---- state ---------------------------------------------------------------------------------------------------
@@ -179,9 +188,12 @@ public final class NotificationOverlay {
         slots.removeIf(slot -> slot.isExiting() && now - slot.dismissedAt >= out);
     }
 
-    /** Once per client tick: refreshes the theme and prunes finished toasts. */
+    /** Once per client tick: picks up a changed theme and prunes finished toasts. */
     public void tick() {
-        refreshTheme();
+        if (themeDirty) {
+            themeDirty = false;
+            refreshTheme();
+        }
         sync();
     }
 

@@ -75,7 +75,16 @@ public final class CanvasText {
         line.append(chunk);
     }
 
-    /** Returns the text itself when it fits, otherwise the longest prefix plus an ellipsis that fits. */
+    /**
+     * Returns the text itself when it fits, otherwise the longest prefix (trailing whitespace stripped) plus an
+     * ellipsis that fits.
+     * <p>
+     * The prefix is found by binary search over the number of leading code points kept, so clipping costs
+     * {@code O(log n)} measurements instead of one per removed character. The stripped prefixes grow with that count,
+     * so with monotone metrics (every glyph has a non-negative advance, as in the game and the previews) "prefix plus
+     * ellipsis fits" holds up to some count and fails beyond it, and the search returns exactly what a linear scan
+     * from the end would.
+     */
     public static String ellipsize(String text, int maxWidth, FontKind font, TextMetrics metrics) {
         if (text == null) {
             return "";
@@ -87,15 +96,21 @@ public final class CanvasText {
         if (ellipsisWidth > maxWidth) {
             return "";
         }
-        int end = text.length();
-        while (end > 0) {
-            end = text.offsetByCodePoints(end, -1);
-            String prefix = text.substring(0, end).stripTrailing();
+        // Zero code points always fit (the ellipsis alone was just checked); the whole text did not.
+        int lo = 0;
+        int hi = text.codePointCount(0, text.length()) - 1;
+        String best = "";
+        while (lo < hi) {
+            int mid = (lo + hi + 1) >>> 1;
+            String prefix = text.substring(0, text.offsetByCodePoints(0, mid)).stripTrailing();
             if (metrics.textWidth(prefix, font) + ellipsisWidth <= maxWidth) {
-                return prefix + ELLIPSIS;
+                lo = mid;
+                best = prefix;
+            } else {
+                hi = mid - 1;
             }
         }
-        return ELLIPSIS;
+        return best + ELLIPSIS;
     }
 
     /** Height in pixels of {@code lines} lines of the font. */

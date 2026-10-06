@@ -14,24 +14,30 @@ import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.Size;
 import dev.vanta.core.ui.TextMetrics;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Renders the active {@link HudLayout} every frame while the player is in a world.
  * <p>
  * Driving it from the client:
  * <ul>
- *   <li>{@link #tick()} once per client tick: captures the {@link HudData} snapshot and refreshes the
- *       {@link HudPaint} from the settings (HUD theme, text shadow, accessibility).</li>
+ *   <li>{@link #tick()} once per client tick: captures the {@link HudData} snapshot (only the values the enabled
+ *       widgets display) and refreshes the {@link HudPaint} from the settings (HUD theme, text shadow,
+ *       accessibility).</li>
  *   <li>{@link #render(Canvas, int, int, float)} every frame from the HUD element: draws every enabled widget of
  *       {@code services.hud().layout()} except the crosshair (which {@code CrosshairRenderer} draws in the vanilla
  *       crosshair slot).</li>
  *   <li>{@link #onMouseClick(int)} for every mouse press the game receives, so the CPS and keystroke widgets can
  *       count clicks. VANTA never generates clicks.</li>
  * </ul>
- * The render pass does no settings lookups beyond the master switch, no bridge calls apart from {@code isInWorld}
- * and the frame time sample, and allocates only the short strings the widgets format.
+ * The render pass does no settings lookups beyond the master switch and the global scale/opacity, no bridge calls
+ * apart from {@code isInWorld}, and allocates only the short strings the widgets format. Frame times are not sampled
+ * here: the client's {@code FrameTimer} feeds {@code PerformanceCenter.onFrame} exactly once per frame (from the HUD
+ * element in a world, from {@code VantaScreen} otherwise), so recording them again in the render pass would count
+ * every in-world frame twice.
  */
 public final class HudRenderer {
 
@@ -52,7 +58,6 @@ public final class HudRenderer {
 
     /**
      * Renderer fed by another data source, e.g. {@link SampleGameData} for the HUD editor when no world is loaded.
-     * Frame times are only recorded into the performance centre for the live game.
      */
     public HudRenderer(VantaServices services, GameBridge source) {
         this.services = Objects.requireNonNull(services, "services");
@@ -63,15 +68,37 @@ public final class HudRenderer {
 
     // ---- per tick ------------------------------------------------------------------------------------------------
 
-    /** Called once per client tick (20/s): snapshots the game data and refreshes the paint from the settings. */
+    /**
+     * Called once per client tick (20/s): snapshots the game data the enabled widgets need and refreshes the paint
+     * from the settings.
+     */
     public void tick() {
+        tick(enabledTypes(services.hud().layout()));
+    }
+
+    /**
+     * Once per client tick with an explicit set of widget types to capture. The HUD editor passes every type because
+     * its preview also shows widgets that are disabled or absent in the live layout.
+     */
+    public void tick(Set<HudWidgetType> types) {
         long now = services.clock().millis();
         data = sampleSource
                 ? HudData.sample()
                 : HudData.capture(source, leftCps.cps(now), rightCps.cps(now), services.performance().frameTimes(),
-                        services.clock().getZone());
+                        services.clock().getZone(), types);
         captured = true;
         refreshPaint();
+    }
+
+    /** The widget types enabled in a layout (what a tick has to capture). */
+    public static Set<HudWidgetType> enabledTypes(HudLayout layout) {
+        Set<HudWidgetType> types = EnumSet.noneOf(HudWidgetType.class);
+        for (HudWidgetState widget : layout.widgets()) {
+            if (widget.enabled()) {
+                types.add(widget.type());
+            }
+        }
+        return types;
     }
 
     /** Records a mouse press for the click counters ({@link Keys#MOUSE_LEFT} / {@link Keys#MOUSE_RIGHT}). */
@@ -102,9 +129,6 @@ public final class HudRenderer {
         }
         if (!captured) {
             tick();
-        }
-        if (!sampleSource) {
-            services.performance().onFrame(source.frameTimeMillis());
         }
         renderLayout(canvas, services.hud().layout(), screenWidth, screenHeight, data, false);
     }

@@ -63,7 +63,22 @@ class HudRendererTest {
         TestCanvas withCrosshair = new TestCanvas(W, H);
         renderer.renderLayout(withCrosshair, services.hud().layout(), W, H, renderer.data(), true);
         assertTrue(withCrosshair.fills().size() > canvas.fills().size());
-        assertTrue(services.performance().frameTimes().size() > 0, "live frames feed the performance centre");
+    }
+
+    /**
+     * The client's {@code FrameTimer} is the single source of frame time samples (HUD element in a world, VantaScreen
+     * otherwise), so the core render pass must not record a second sample per frame.
+     */
+    @Test
+    void renderRecordsNoFrameTimeSample() {
+        HudRenderer renderer = new HudRenderer(services);
+        renderer.tick();
+        for (int frame = 0; frame < 10; frame++) {
+            render(renderer);
+        }
+        assertEquals(0, services.performance().frameTimes().size(), "frame times come from the client FrameTimer");
+        services.performance().onFrame(game.frameTimeMillis);
+        assertEquals(1, services.performance().frameTimes().size(), "one FrameTimer call is one sample");
     }
 
     @Test
