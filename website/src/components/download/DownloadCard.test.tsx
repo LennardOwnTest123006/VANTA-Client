@@ -319,7 +319,7 @@ describe('DownloadCard file list (published release)', () => {
     expect(items).toHaveLength(CLIENT_FILE_NAMES.length);
     expect(items[0]).toHaveTextContent('VANTA Client mod');
     expect(items[0]).toHaveTextContent('Recommended');
-    expect(items[1]).toHaveTextContent('Mods folder bundle (VANTA + Fabric API)');
+    expect(items[1]).toHaveTextContent('Mods folder bundle (VANTA, Fabric API, Performance pack)');
     expect(items[2]).toHaveTextContent('Fabric API (required dependency)');
     expect(screen.getByRole('link', { name: 'Release page on GitHub' })).toHaveAttribute(
       'href',

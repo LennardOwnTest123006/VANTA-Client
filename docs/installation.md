@@ -24,7 +24,7 @@ Details are in [Minecraft requirements](minecraft-requirements.md) and [Java 21]
 
 | | A. VANTA Launcher → *PLAY* | B. VANTA Launcher → *PLAY via Minecraft Launcher* | C. Manual |
 | --- | --- | --- | --- |
-| You download | the launcher file for your system | the launcher file for your system | `vanta-client-1.1.0-mods.zip` and the Fabric installer (`.exe` on Windows, `.jar` on macOS and Linux) |
+| You download | the launcher file for your system | the launcher file for your system | `vanta-client-1.2.0-mods.zip` and the Fabric installer (`.exe` on Windows, `.jar` on macOS and Linux) |
 | Who installs Minecraft and Java | the VANTA Launcher | the official Minecraft Launcher | the official Minecraft Launcher |
 | Who signs you in | the VANTA Launcher (needs a Microsoft client id, see below) | the official Minecraft Launcher | the official Minecraft Launcher |
 | Game folder | `<data directory>/instances/vanta-1.21.11` | the same VANTA instance | your `.minecraft` folder |
@@ -40,8 +40,8 @@ showed a disabled PLAY instead and offered path B as the button *Use with Minecr
 
 The **Performance pack** is six optimisation mods from Modrinth: Sodium, Lithium, FerriteCore, ImmediatelyFast,
 EntityCulling and Iris Shaders. Paths A and B install it by default (from launcher 1.1.0 on; *Settings → Game →
-Install the performance pack* turns it off). With path C the mods bundle brings it along (from the client release
-after 1.1.0 on): every pack mod whose licence allows redistribution is in the zip's `mods/` folder; EntityCulling is
+Install the performance pack* turns it off). With path C the mods bundle brings it along (from client 1.2.0 on): every
+pack mod whose licence allows redistribution is in the zip's `mods/` folder; EntityCulling is
 not, because its licence forbids it, and the game offers it with one click (*Mods & Shaders → Performance pack*, or
 the one-time *Boost your FPS?* dialog at start). See
 [Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle).
@@ -53,33 +53,35 @@ Every file is published on GitHub Releases by the project's release workflow, an
 SHA-256:
 
 - all releases: [github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases)
-- VANTA Launcher 1.1.0: release [`launcher-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.1.0)
-- VANTA Client 1.1.0: release [`client-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.1.0)
-- the previous releases [`launcher-v1.0.2`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.2),
+- VANTA Launcher 1.2.0: release [`launcher-v1.2.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.2.0)
+- VANTA Client 1.2.0: release [`client-v1.2.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.2.0)
+- the previous releases [`launcher-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.1.0),
+  [`client-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.1.0),
+  [`launcher-v1.0.2`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.2),
   [`launcher-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.1),
   [`launcher-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.0),
   [`client-v1.0.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.1) and
   [`client-v1.0.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.0.0) stay available
 
 Each file's direct address is `https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/<release>/<file>`.
-Treat a VANTA download from anywhere else as untrusted. The tables below name the files of launcher 1.1.0 and
-client 1.1.0; another version has the same names with its own version number. Sizes on the Download page, in the
+Treat a VANTA download from anywhere else as untrusted. The tables below name the files of launcher 1.2.0 and
+client 1.2.0; another version has the same names with its own version number. Sizes on the Download page, in the
 release notes and in the launcher are decimal with one decimal place (1 MB = 1,000,000 bytes), so a file of
 66,900,000 bytes is shown as "66.9 MB".
 
 ### VANTA Launcher files
 
-From the release `launcher-v1.1.0`:
+From the release `launcher-v1.2.0`:
 
 | Your system | File | What it is |
 | --- | --- | --- |
-| Windows 10/11 x64 | `VANTA-Launcher-1.1.0.msi` | **recommended**: per-user installer, no administrator rights, includes the Java 21 runtime |
-| Windows 10/11 x64 | `VANTA-Launcher-1.1.0.exe` | the same installer as an `.exe`, for systems that block `.msi` files |
-| Windows 10/11 x64 | `VANTA-Launcher-1.1.0-windows-portable.zip` | no installation: unzip and run `VANTA Launcher\VANTA Launcher.exe`; includes the Java 21 runtime |
-| Windows 10/11 x64 | `vanta-launcher-1.1.0-windows-all.jar` | single jar for Windows x64; needs Java 21 installed |
-| Linux x64 | `VANTA-Launcher-1.1.0-linux-x64.tar.gz` | **recommended**: app image, includes the Java 21 runtime; run `VANTA Launcher/bin/VANTA Launcher` |
-| Linux x64 | `vanta-launcher-1.1.0-linux-all.jar` | single jar for Linux x64; needs Java 21 installed |
-| macOS, Apple Silicon (M1 or newer) | `vanta-launcher-1.1.0-macos-aarch64-all.jar` | single jar for Apple Silicon; needs Java 21 installed; not signed. It is built and tested from the command line on a macOS machine in CI; its window has not been tested |
+| Windows 10/11 x64 | `VANTA-Launcher-1.2.0.msi` | **recommended**: per-user installer, no administrator rights, includes the Java 21 runtime |
+| Windows 10/11 x64 | `VANTA-Launcher-1.2.0.exe` | the same installer as an `.exe`, for systems that block `.msi` files |
+| Windows 10/11 x64 | `VANTA-Launcher-1.2.0-windows-portable.zip` | no installation: unzip and run `VANTA Launcher\VANTA Launcher.exe`; includes the Java 21 runtime |
+| Windows 10/11 x64 | `vanta-launcher-1.2.0-windows-all.jar` | single jar for Windows x64; needs Java 21 installed |
+| Linux x64 | `VANTA-Launcher-1.2.0-linux-x64.tar.gz` | **recommended**: app image, includes the Java 21 runtime; run `VANTA Launcher/bin/VANTA Launcher` |
+| Linux x64 | `vanta-launcher-1.2.0-linux-all.jar` | single jar for Linux x64; needs Java 21 installed |
+| macOS, Apple Silicon (M1 or newer) | `vanta-launcher-1.2.0-macos-aarch64-all.jar` | single jar for Apple Silicon; needs Java 21 installed; not signed. It is built and tested from the command line on a macOS machine in CI; its window has not been tested |
 | macOS on Intel, Linux on ARM, other | — | no launcher build: use [path C](#c-manual-installation) |
 
 **There is no single launcher jar for every system.** Each `-all.jar` contains the JavaFX libraries of one system
@@ -91,18 +93,18 @@ jar.
 
 ### VANTA Client files
 
-From the release `client-v1.1.0`:
+From the release `client-v1.2.0`:
 
 | File | What it is |
 | --- | --- |
-| `vanta-client-1.1.0.jar` | the VANTA Client Fabric mod. The VANTA Launcher downloads it for you (paths A and B) |
-| `vanta-client-1.1.0-mods.zip` | for path C: a `mods/` folder with `vanta-client-1.1.0.jar` and `fabric-api-0.141.6+1.21.11.jar`, plus `INSTALL.txt` (the steps of path C) and `SHA256SUMS`. From the client release after 1.1.0 on, `mods/` also holds the Performance pack mods that may be redistributed (all but EntityCulling), with `THIRD-PARTY-LICENSES.txt`, `PERFORMANCE-PACK.txt` and `performance-pack.json` |
+| `vanta-client-1.2.0.jar` | the VANTA Client Fabric mod. The VANTA Launcher downloads it for you (paths A and B) |
+| `vanta-client-1.2.0-mods.zip` | for path C: a `mods/` folder with `vanta-client-1.2.0.jar` and `fabric-api-0.141.6+1.21.11.jar`, plus `INSTALL.txt` (the steps of path C) and `SHA256SUMS`. From client 1.2.0 on, `mods/` also holds the Performance pack mods that may be redistributed (all but EntityCulling; the 1.1.0 bundle held only the two jars), with `THIRD-PARTY-LICENSES.txt`, `PERFORMANCE-PACK.txt` and `performance-pack.json` |
 | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0). VANTA requires it; it is also inside the mods bundle |
 
 Both releases also contain `SHA256SUMS.txt` (the SHA-256 of every file above) and the release manifest
-(`launcher-1.1.0.json`, `client-1.1.0.json`) that the website and the launcher read. The Performance pack mods are
-third-party projects under their own licences; they are never published as VANTA files of their own. Newer mods
-bundles carry the redistributable ones inside the zip (with their licence texts), EntityCulling is downloaded from
+(`launcher-1.2.0.json`, `client-1.2.0.json`) that the website and the launcher read. The Performance pack mods are
+third-party projects under their own licences; they are never published as VANTA files of their own. From client 1.2.0 on
+the mods bundle carries the redistributable ones inside the zip (with their licence texts), EntityCulling is downloaded from
 Modrinth when it is installed, and the launcher downloads the whole pack from Modrinth
 ([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)).
 
@@ -119,8 +121,8 @@ Check before you run or install anything.
 **Windows** (PowerShell; the second command also works in `cmd`):
 
 ```powershell
-Get-FileHash .\VANTA-Launcher-1.1.0.msi -Algorithm SHA256
-certutil -hashfile VANTA-Launcher-1.1.0.msi SHA256
+Get-FileHash .\VANTA-Launcher-1.2.0.msi -Algorithm SHA256
+certutil -hashfile VANTA-Launcher-1.2.0.msi SHA256
 ```
 
 Compare the printed value with the line for the same file in `SHA256SUMS.txt`. `Get-FileHash` prints upper-case
@@ -129,9 +131,9 @@ letters and `SHA256SUMS.txt` uses lower-case; that difference does not matter.
 **macOS** (Terminal, in the folder with the download and `SHA256SUMS.txt`):
 
 ```bash
-shasum -a 256 vanta-launcher-1.1.0-macos-aarch64-all.jar
+shasum -a 256 vanta-launcher-1.2.0-macos-aarch64-all.jar
 # or let shasum compare it with SHA256SUMS.txt (prints "OK"):
-grep -F '  vanta-launcher-1.1.0-macos-aarch64-all.jar' SHA256SUMS.txt | shasum -a 256 -c
+grep -F '  vanta-launcher-1.2.0-macos-aarch64-all.jar' SHA256SUMS.txt | shasum -a 256 -c
 ```
 
 **Linux** (checks every file from `SHA256SUMS.txt` that is in the current folder and prints `OK` for each):
@@ -144,7 +146,7 @@ sha256sum -c --ignore-missing SHA256SUMS.txt
 unzipping, run `sha256sum -c SHA256SUMS` (Linux) or `shasum -a 256 -c SHA256SUMS` (macOS) in the unzipped folder. On
 Windows run `Get-FileHash mods\*.jar -Algorithm SHA256 | Format-List Hash, Path` in PowerShell, which prints the full
 path of each jar (or `certutil -hashfile mods\<jar> SHA256` for each jar in the Command Prompt, for example
-`certutil -hashfile mods\vanta-client-1.1.0.jar SHA256`), and compare the hash of **every** jar with the line for the
+`certutil -hashfile mods\vanta-client-1.2.0.jar SHA256`), and compare the hash of **every** jar with the line for the
 same file in `SHA256SUMS`. `INSTALL.txt` in the bundle lists the same commands.
 
 The value must match character for character (upper or lower case aside). If it does not, delete the file and download
@@ -171,7 +173,7 @@ may warn about this file as well; the same rule applies.
 **Linux app image (`-linux-x64.tar.gz`)**
 
 ```bash
-tar -xzf VANTA-Launcher-1.1.0-linux-x64.tar.gz
+tar -xzf VANTA-Launcher-1.2.0-linux-x64.tar.gz
 "./VANTA Launcher/bin/VANTA Launcher"
 ```
 
@@ -180,7 +182,7 @@ The app image contains its own Java runtime; no system Java is needed for the la
 **Launcher jar (`-windows-all.jar`, `-linux-all.jar`, `-macos-aarch64-all.jar`)**
 
 ```bash
-java -jar vanta-launcher-1.1.0-macos-aarch64-all.jar   # use the file for your system
+java -jar vanta-launcher-1.2.0-macos-aarch64-all.jar   # use the file for your system
 ```
 
 This needs Java 21 (`java -version` must print 21; see [Java 21](java-21.md)). On macOS start the jar from Terminal
@@ -293,15 +295,15 @@ No VANTA Launcher involved; any launcher that runs Fabric works the same way.
    checked and click *Install*. If both Minecraft Launchers are installed (the one from minecraft.net and the one from
    the Microsoft Store or the Xbox app), the Fabric installer asks which one to use: choose the one you play with. It
    adds the profile to that launcher only.
-3. Download `vanta-client-1.1.0-mods.zip`, verify it ([Verify the checksum](#2-verify-the-checksum)), unzip it and
+3. Download `vanta-client-1.2.0-mods.zip`, verify it ([Verify the checksum](#2-verify-the-checksum)), unzip it and
    copy **all** jars from its `mods/` folder into the `mods` folder of your Minecraft directory (create it if it does
    not exist):
    - Windows: `%APPDATA%\.minecraft\mods`
    - macOS: `~/Library/Application Support/minecraft/mods`
    - Linux: `~/.minecraft/mods`
 
-   In the 1.1.0 bundle these are the VANTA jar and Fabric API. From the client release after 1.1.0 on, the folder
-   also holds the Performance pack mods that may be redistributed (Iris and Sodium belong together: copy both). If
+   From client 1.2.0 on these are the VANTA jar, Fabric API and the Performance pack mods that may be redistributed
+   (Iris and Sodium belong together: copy both); the 1.1.0 bundle held only the two jars. If
    your `mods` folder already contains another Sodium, Iris, Lithium, FerriteCore or ImmediatelyFast jar, delete the
    older one first: Fabric refuses to start with two copies of one mod (*Duplicate mod*). The pack mods are
    third-party projects under their own licences; `THIRD-PARTY-LICENSES.txt` in the zip has the texts
@@ -321,8 +323,8 @@ macOS and Linux), that the Fabric installer asks which launcher to use when both
 and to keep *Create profile* checked. It shows how to verify every jar on Linux, macOS and Windows (PowerShell or
 Command Prompt), mentions Mods & Shaders and the Performance pack, and explains that the zoom key C is also vanilla's
 *Save Hotbar Activator* ([Keybinds → Zoom](keybinds.md#zoom)). The notes on the Fabric installer per system, the
-launcher choice and Mods & Shaders are new in `vanta-client-1.1.0-mods.zip`; the `INSTALL.txt` of 1.0.1 does not have
-them. From the client release after 1.1.0 on, `INSTALL.txt` also lists the Performance pack jars in the zip (written
+launcher choice and Mods & Shaders are new in `vanta-client-1.2.0-mods.zip`; the `INSTALL.txt` of 1.0.1 does not have
+them. From client 1.2.0 on, `INSTALL.txt` also lists the Performance pack jars in the zip (written
 from `performance-pack.json` when the release is built), says that EntityCulling is not among them and why, and warns
 about duplicate copies of a mod. For Prism Launcher, MultiMC and other details see
 [Fabric → Manual installation](fabric.md#manual-installation-into-an-existing-fabric-profile).
@@ -387,28 +389,28 @@ VANTA's own configuration lives in the game directory under `config/vanta/`: `se
   - Intel Macs and other systems without a launcher build: the update dialog opens the release page.
 
   This choice by installation type exists from launcher 1.0.1 on. The update is offered by the launcher you are
-  running, and **launcher 1.0.0 still picks the file by system only**, for the update to 1.1.0 as for every earlier
-  one: on Windows it offers `VANTA-Launcher-1.1.0.msi` (also in the portable folder and when started as a jar), on
-  Linux x64 `VANTA-Launcher-1.1.0-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a portable
+  running, and **launcher 1.0.0 still picks the file by system only**, for the update to 1.2.0 as for every earlier
+  one: on Windows it offers `VANTA-Launcher-1.2.0.msi` (also in the portable folder and when started as a jar), on
+  Linux x64 `VANTA-Launcher-1.2.0-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a portable
   folder or a jar gives you a second, installed launcher while your portable copy or jar stays at 1.0.0. To keep a
   portable or jar setup, choose *Not now* when the 1.0.0 launcher offers to open the installer (or *Close* before
   downloading; on Linux, ignore the downloaded `.tar.gz`), close the launcher and download
-  `VANTA-Launcher-1.1.0-windows-portable.zip` or the jar for your system yourself from the release
-  [`launcher-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.1.0). Verify it
+  `VANTA-Launcher-1.2.0-windows-portable.zip` or the jar for your system yourself from the release
+  [`launcher-v1.2.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.2.0). Verify it
   ([step 2](#2-verify-the-checksum)), then replace the portable folder's files as described above or start the new
   jar instead of the old one. Launcher 1.0.1 and newer pick the matching file themselves.
 
   **Downloaded by launcher 1.0.0 or 1.0.1.** These versions save the update in `cache/updates/` as
-  `<version>-<file name>`, so the update to 1.1.0 lands there as, for example,
-  `1.1.0-vanta-launcher-1.1.0-linux-all.jar` or `1.1.0-VANTA-Launcher-1.1.0-windows-portable.zip`. It is the
+  `<version>-<file name>`, so the update to 1.2.0 lands there as, for example,
+  `1.2.0-vanta-launcher-1.2.0-linux-all.jar` or `1.2.0-VANTA-Launcher-1.2.0-windows-portable.zip`. It is the
   verified release file under a different name: *Show in folder* opens that folder, and
-  `java -jar 1.1.0-vanta-launcher-1.1.0-linux-all.jar` works there. To check it yourself with
+  `java -jar 1.2.0-vanta-launcher-1.2.0-linux-all.jar` works there. To check it yourself with
   `sha256sum -c --ignore-missing SHA256SUMS.txt` from the release, rename it to the release name first (here
-  `vanta-launcher-1.1.0-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name.
+  `vanta-launcher-1.2.0-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name.
 
   Details: [Launcher → Updates and rollback](launcher.md#updates-and-rollback).
 - **Path C.** Download the new mods bundle, verify it and replace the jars in `.minecraft/mods` with the ones from
-  the zip: the VANTA jar, Fabric API and (from the client release after 1.1.0 on) the Performance pack jars. Delete
+  the zip: the VANTA jar, Fabric API and (from client 1.2.0 on) the Performance pack jars. Delete
   the older copy of each pack mod first, so Fabric never sees two copies of one mod. The game does not update mods
   you installed with *Mods & Shaders*; to get a newer version, remove the project there and install it again.
 

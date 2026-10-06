@@ -18,8 +18,11 @@ the release workflow, `bump-version.mjs` and the checks below.
 Client (`client-v<version>`):
 
 1. `vanta-client-<version>.jar`: the Fabric mod
-2. `vanta-client-<version>-mods.zip`: `mods/vanta-client-<version>.jar`, `mods/fabric-api-<fabric api>.jar`, `INSTALL.txt`
-   and `SHA256SUMS` (paths relative to the zip root, `sha256sum -c` compatible)
+2. `vanta-client-<version>-mods.zip`: `mods/vanta-client-<version>.jar`, `mods/fabric-api-<fabric api>.jar`, from
+   client 1.2.0 on the Performance pack jars whose licences allow redistribution (`mods/<file as published on Modrinth>`,
+   resolved live at release time; EntityCulling excluded) with `THIRD-PARTY-LICENSES.txt`, `PERFORMANCE-PACK.txt` and
+   `performance-pack.json`, plus `INSTALL.txt` and `SHA256SUMS` (paths relative to the zip root, `sha256sum -c`
+   compatible); see `RELEASE.md`
 3. `fabric-api-<fabric api>.jar`: the unmodified Fabric API jar from FabricMC (Apache-2.0, contains `LICENSE-fabric-api`)
 
 Launcher (`launcher-v<version>`):

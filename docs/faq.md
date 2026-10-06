@@ -16,13 +16,15 @@ We cannot promise that any particular server accepts VANTA.
 
 ## Does it include Sodium, OptiFine or other performance mods?
 
-VANTA ships no third-party mods in its own files. From client 1.1.0 and launcher 1.1.0 on it can **install** the
+VANTA's own jar contains no third-party mods. From client 1.1.0 and launcher 1.1.0 on it can **install** the
 **Performance pack** for you: Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling and Iris Shaders, downloaded
 from Modrinth in their newest Fabric versions for 1.21.11 and checked with the SHA-512 Modrinth publishes. The VANTA
 Launcher installs it by default (*Settings → Game → Install the performance pack* turns it off); in the game it is one
 click on the Mods & Shaders screen. OptiFine is not part of it; shader packs run with Iris. The mods are made by their
-own authors under their own licences. VANTA's own Performance Center still changes only **vanilla** video options and
-shows you exactly which ones before applying. See [Mods & Shaders](mods-and-shaders.md#the-performance-pack).
+own authors under their own licences. From client 1.2.0 on, the mods bundle for the manual installation also carries
+the pack mods whose licences allow redistribution (all but EntityCulling), unmodified and with their licence texts in
+`THIRD-PARTY-LICENSES.txt`. VANTA's own Performance Center still changes only **vanilla** video options and shows you
+exactly which ones before applying. See [Mods & Shaders](mods-and-shaders.md#the-performance-pack).
 
 ## How do I use shaders?
 
@@ -75,8 +77,8 @@ notarised macOS app.
 
 ## Which launcher file do I need on Linux or macOS?
 
-Linux x64: `VANTA-Launcher-1.1.0-linux-x64.tar.gz` (or `vanta-launcher-1.1.0-linux-all.jar` with Java 21). Apple
-Silicon Mac: `vanta-launcher-1.1.0-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
+Linux x64: `VANTA-Launcher-1.2.0-linux-x64.tar.gz` (or `vanta-launcher-1.2.0-linux-all.jar` with Java 21). Apple
+Silicon Mac: `vanta-launcher-1.2.0-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
 interchangeable: each contains JavaFX for one system only, so the Windows or Linux jar does not run on a Mac. Started on
 the wrong system, a jar does not open its window; it names the file to download instead (in a message window as well
 when you double-clicked it) and exits with code 1. The macOS jar is built and tested from the command line in CI; its
@@ -85,10 +87,9 @@ window has not been tested yet. Details:
 
 ## Can I use VANTA without the VANTA Launcher?
 
-Yes. Download `vanta-client-1.1.0-mods.zip`: it contains `vanta-client-1.1.0.jar` and Fabric API
-0.141.6+1.21.11 in a `mods/` folder, plus `INSTALL.txt` with the steps (client releases after 1.1.0 also put the
-redistributable Performance pack mods into that folder, see
-[Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)). Start the official Minecraft Launcher once,
+Yes. Download `vanta-client-1.2.0-mods.zip`: it contains `vanta-client-1.2.0.jar`, Fabric API 0.141.6+1.21.11 and,
+from client 1.2.0 on, the redistributable Performance pack mods (all but EntityCulling) in a `mods/` folder, plus
+`INSTALL.txt` with the steps ([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)). Start the official Minecraft Launcher once,
 install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer (keep *Create profile* checked) and copy all jars
 into the `mods/` folder of that profile (official launcher, Prism, MultiMC). On Windows take the Fabric installer
 `.exe`, which needs no separate Java; on macOS and Linux take the universal `.jar`, which needs Java installed (install
@@ -157,16 +158,16 @@ third-party combinations; see [Fabric](fabric.md#using-vanta-with-other-fabric-m
 
 On the website's [Download page](https://vanta-client.netlify.app/download) or directly from
 [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases). The newest releases are
-`launcher-v1.1.0` and `client-v1.1.0`. Both places offer the same files, built and published by the project's release workflow with their SHA-256 checksums. Do
+`launcher-v1.2.0` and `client-v1.2.0`. Both places offer the same files, built and published by the project's release workflow with their SHA-256 checksums. Do
 not take VANTA files from anywhere else.
 
 | Your system | File |
 | --- | --- |
-| Windows 10/11 x64 | `VANTA-Launcher-1.1.0.msi` (installer with its own Java runtime), or `VANTA-Launcher-1.1.0.exe` if `.msi` files are blocked, or `VANTA-Launcher-1.1.0-windows-portable.zip` to run it without installing |
-| Linux x64 | `VANTA-Launcher-1.1.0-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.1.0-linux-all.jar` with Java 21 |
-| Mac with Apple Silicon | `vanta-launcher-1.1.0-macos-aarch64-all.jar` with Java 21 |
-| Windows 11 on ARM | `VANTA-Launcher-1.1.0.msi` or `VANTA-Launcher-1.1.0-windows-portable.zip` (x64 with their own x64 Java runtime, run under emulation; not tested on such a device; [details](troubleshooting.md#windows-on-arm-which-launcher-file)) |
-| Intel Mac, Linux on ARM, or no VANTA Launcher | `vanta-client-1.1.0-mods.zip` and the Fabric installer ([manual installation](installation.md#c-manual-installation)) |
+| Windows 10/11 x64 | `VANTA-Launcher-1.2.0.msi` (installer with its own Java runtime), or `VANTA-Launcher-1.2.0.exe` if `.msi` files are blocked, or `VANTA-Launcher-1.2.0-windows-portable.zip` to run it without installing |
+| Linux x64 | `VANTA-Launcher-1.2.0-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.2.0-linux-all.jar` with Java 21 |
+| Mac with Apple Silicon | `vanta-launcher-1.2.0-macos-aarch64-all.jar` with Java 21 |
+| Windows 11 on ARM | `VANTA-Launcher-1.2.0.msi` or `VANTA-Launcher-1.2.0-windows-portable.zip` (x64 with their own x64 Java runtime, run under emulation; not tested on such a device; [details](troubleshooting.md#windows-on-arm-which-launcher-file)) |
+| Intel Mac, Linux on ARM, or no VANTA Launcher | `vanta-client-1.2.0-mods.zip` and the Fabric installer ([manual installation](installation.md#c-manual-installation)) |
 
 Verify the file with `SHA256SUMS.txt` from the same release before you run it
 ([Installation → Verify the checksum](installation.md#2-verify-the-checksum)). Older versions stay available on
@@ -243,7 +244,9 @@ and we make no FPS claims. Its presets never cap the frame rate: the frame-rate 
 frame-rate limit chooser, and **Boost FPS** applies the MAX FPS preset, removes the limit and turns VSync off in one
 click. For more, it points to the Performance pack, separate mods such as Sodium that VANTA installs from Modrinth on
 request (Boost FPS installs it too when it is missing). See
-[Performance Center → Honest limits](performance.md#honest-limits).
+[Performance Center → Honest limits](performance.md#honest-limits). If VANTA 1.1.0's *Low* preset or a profile left
+you at 60 or exactly 30 FPS, choose *Unlimited* once after updating to 1.2.0:
+[Troubleshooting](troubleshooting.md#low-fps-or-exactly-30-fps-after-choosing-a-preset-or-profile-in-vanta-110).
 
 ## Why Java 21 and not the Java I already have?
 

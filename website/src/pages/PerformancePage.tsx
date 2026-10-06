@@ -195,12 +195,14 @@ export default function PerformancePage() {
               own machine with the Performance Center and keep what works.
             </p>
           </Callout>
-          <Callout tone="info" title="Rendering mods are optional, not bundled">
+          <Callout tone="info" title="Rendering mods are optional and third-party">
             <p>
-              Sodium and the other mods of the Performance pack are not part of VANTA’s files. From
-              client 1.1.0 on, Mods & Shaders installs them from Modrinth when you ask for it (the
-              VANTA Launcher 1.1.0 does so by default); the presets keep changing vanilla options
-              only.
+              Sodium and the other mods of the Performance pack are independent projects under their
+              own licences, not part of VANTA’s code. From client 1.1.0 on, Mods & Shaders installs
+              them from Modrinth when you ask for it (the VANTA Launcher 1.1.0 does so by default);
+              from client 1.2.0 on, the mods bundle for manual installs carries the five that may be
+              redistributed, unmodified with their licence texts, and EntityCulling is offered in
+              game. The presets keep changing vanilla options only, and never the frame-rate limit.
             </p>
           </Callout>
         </div>

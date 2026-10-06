@@ -118,7 +118,7 @@ one of them is not loaded, the game crashes or a step of the test fails. Other m
 
 ### The pack in the mods bundle
 
-From the client release after 1.1.0 on, the manual-installation download `vanta-client-<version>-mods.zip`
+From client 1.2.0 on, the manual-installation download `vanta-client-<version>-mods.zip`
 ([Installation → path C](installation.md#c-manual-installation)) also contains the Performance pack: next to the
 VANTA jar and Fabric API, its `mods/` folder holds the newest 1.21.11 Fabric build of every pack mod whose licence
 allows redistribution, exactly as published on Modrinth (same file name, same bytes, checked by size and SHA-512 when

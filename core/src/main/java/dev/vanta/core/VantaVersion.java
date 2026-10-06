@@ -8,7 +8,7 @@ package dev.vanta.core;
  */
 public final class VantaVersion {
     /** VANTA Client semantic version. */
-    public static final String CLIENT = "1.1.0";
+    public static final String CLIENT = "1.2.0";
     /** Exact Minecraft Java Edition version this client is built for. */
     public static final String MINECRAFT = "1.21.11";
     /** Fabric Loader version the client is built against. */

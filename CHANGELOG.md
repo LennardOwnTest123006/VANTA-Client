@@ -8,9 +8,33 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 ## [Unreleased]
 
-### VANTA Client
+No changes yet.
+
+## [1.2.0] - 2026-10-06
+
+Release of both products. VANTA Client 1.2.0 and VANTA Launcher 1.2.0 are published on
+[GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases) as `client-v1.2.0` and
+`launcher-v1.2.0` by the release workflow, with the same file names as before and the new version number
+(`vanta-client-1.2.0.jar`, `vanta-client-1.2.0-mods.zip`, `fabric-api-0.141.6+1.21.11.jar`;
+`VANTA-Launcher-1.2.0.msi`, `.exe`, `-windows-portable.zip`, `-linux-x64.tar.gz` and
+`vanta-launcher-1.2.0-windows-all.jar`, `-linux-all.jar`, `-macos-aarch64-all.jar`). Minecraft 1.21.11, Fabric
+Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged. The client release fixes the frame-rate caps that
+VANTA 1.1.0's presets and profiles wrote (the cause of the "30 FPS after choosing Low" reports), adds *Max FPS* and
+one-click *Boost FPS*, makes every button reachable in small windows and ships the redistributable Performance pack
+mods inside the mods bundle. The launcher release fixes a notification that could swallow clicks on the Mods page in a
+small window.
+
+### VANTA Client 1.2.0
 
 #### Added
+- **Max FPS preset** (`BOOST`): Fast graphics, 5 chunks render and simulation distance, minimal particles, clouds off,
+  smooth lighting and entity shadows off, entity distance 50 %, biome blend 0, mipmaps 0 and the menu background blur
+  off. It is the first tab of the Performance Center's preset card, next to LOW, BALANCED, HIGH and ULTRA.
+- **Boost FPS**, the primary button of the preset card and an entry of the command palette: applies Max FPS, sets the
+  frame-rate limit to Unlimited and VSync off, switches the VANTA menu to a solid background without particles and
+  installs the Performance pack when a member is neither loaded nor installed (only on that click; nothing is
+  downloaded when the pack is present or the Modrinth integration is not available). The notification says when a
+  restart is needed to load newly installed mods.
 - **Performance pack in the mods bundle.** `vanta-client-<version>-mods.zip` now carries the newest Minecraft 1.21.11
   Fabric build of every Performance pack mod whose licence allows redistribution (Sodium, Lithium, FerriteCore,
   ImmediatelyFast, Iris), unmodified as published on Modrinth and verified by size and SHA-512 when the release is
@@ -31,7 +55,34 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
   pack at start*, `performance.offerPack`). Nothing is downloaded without that click; the game test never sees the
   dialog.
 
+#### Changed
+- **Presets never cap the frame rate.** Every preset only tunes render work; the frame-rate limit and VSync are set
+  only by the *Frame rate limit* chooser, by Boost FPS and by profiles, which carry the choice made there. The preset
+  descriptions no longer mention a cap, and the built-in *Performance* profile uses Max FPS with the limit unlimited.
+- **The interface never shrinks below Minecraft's 320 x 240.** The UI scale (UI scale x large text) is lowered, never
+  below 1, so the logical screen is always at least 320 x 240 px: 320 x 240 at scale 1.25 or 1.5 renders at scale 1,
+  480 x 270 at 1.5 at 1.125. Layout, drawing and input use the same clamped scale, so every corner stays clickable.
+- **Less drawing work per frame.** Horizontal gradients (the main menu's horizon, vignette and PLAY button) are one
+  native gradient each instead of one fill per column (the default main menu went from 2 795 fills to about 3 native
+  gradients for those elements); icons are rasterised once per size and replayed as rectangles (fills per icon at
+  16 px: 19 to 11 on average, worst 48 to 21); text widths and styled components are cached (4096-entry LRU, cleared
+  on resource reload); a clipped label is ellipsized by binary search (65 to 8 width measurements for a typical
+  Modrinth description); the HUD captures only what enabled widgets show (25 to 15 bridge calls per tick for the
+  default layout; HUD width measurements 98 to 70); the crosshair samples inputs once per tick and caches its
+  geometry; the CPU reading is reused for 250 ms; frame times are sampled once per frame; themes are rebuilt only
+  when their sources change. Pixel output is unchanged and locked by identity tests.
+
 #### Fixed
+- **Exactly 30 FPS (or a 60 / 120 FPS cap) after choosing a preset or profile in 1.1.0.** The LOW preset wrote a
+  60 FPS cap and BALANCED a 120 FPS cap; activating a built-in profile replayed Minecraft's default 120 FPS limit
+  with VSync on. A player who picked *Low* or the *Performance* profile to get more frames was capped and, with a
+  driver-forced 60 Hz VSync on top of Minecraft's limiter, could land at exactly 30 FPS. Presets and profiles no
+  longer write a cap (see *Changed*); the built-in profiles derive their vanilla limit and VSync from their own
+  frame-rate choice, so none of them caps the frame rate any more. Anyone who applied a 1.1.0 preset keeps the cap it
+  wrote in `options.txt` until they choose *Unlimited* (or press *Boost FPS*) once.
+- The **Frame rate limit** row in *Settings → Performance* now really writes the vanilla *Max framerate* and *VSync*
+  options when it is changed there or by a profile; before, only the Performance Center's own chooser did. Loading the
+  settings at start never writes `options.txt`.
 - In a small game window (854 x 480 at GUI scale 2, the 320 x 240 minimum, or with large text) several buttons were
   drawn but could not be clicked because their panel had run out of room: *Install*, *View on Modrinth*, *Disable*,
   *Remove* and the other actions of the Mods & Shaders detail panel, *Quit Game* and the quick-access row of the main
@@ -39,9 +90,15 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
   panel toggles. The detail text now scrolls above a footer that keeps the actions on screen, the main menu picks an
   arrangement that fits the window, the Settings footer wraps, the HUD editor toolbar wraps onto two lines and the
   settings category rail scrolls when the window is too short for all entries. Every screen is now checked at 19
-  window sizes, at scale 1 and with large text, for buttons that cannot be clicked or that overlap each other.
+  window sizes, at scale 1 and with large text, for buttons that cannot be clicked or that overlap each other, and the
+  Mods & Shaders screen in 15 states at every size.
 
-### VANTA Launcher
+#### Privacy
+- Nothing new is sent anywhere. The *Boost your FPS?* dialog and *Boost FPS* contact Modrinth only after your click,
+  exactly like an *Install* on the Mods & Shaders screen; the bundled pack jars are recognised by their SHA-512 when
+  you accept the offer (the same lookup an install already did for mods you added by hand).
+
+### VANTA Launcher 1.2.0
 
 #### Fixed
 - A notification (toast) in the bottom-right corner could swallow clicks on what lay under it: in a small window
@@ -65,6 +122,64 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
   (`-PsmokeToast` shows a toast first).
 - The headless UI test opens the Mods page in a 960 x 600 window and clicks the first and the last *Install* button
   through the platform's robot (the last one after scrolling, and after the toast over it was dismissed by the click).
+
+#### Updating to 1.2.0
+- Launcher 1.1.0 (and 1.0.1, 1.0.2) sees the update by itself once the release is published and offers the file that
+  matches how it was installed. Launcher 1.0.0 still picks the update by system only: the `.msi` on Windows (also for
+  the portable folder or a jar) and the `.tar.gz` on Linux x64 (also for a jar); portable and jar users choose *Not
+  now* and download `VANTA-Launcher-1.2.0-windows-portable.zip` or the jar for their system from the release
+  `launcher-v1.2.0` instead ([Installation → Updating](docs/installation.md#updating)). Launchers 1.0.0 and 1.0.1 save
+  the update as `cache/updates/1.2.0-<file name>`; rename it to the release name before checking it with
+  `sha256sum -c --ignore-missing SHA256SUMS.txt`.
+- **Manual installations (mods bundle):** copy **all** jars from `mods/` of `vanta-client-1.2.0-mods.zip` into your
+  `mods` folder, and delete older copies of Sodium, Iris, Lithium, FerriteCore and ImmediatelyFast first (Fabric
+  refuses to start with two copies of one mod; Iris and Sodium belong together). EntityCulling is not in the zip: accept
+  the *Boost your FPS?* offer at the main menu or install it on the *Performance pack* card of Mods & Shaders.
+- If a 1.1.0 preset or profile capped your frame rate, choose *Unlimited* in the frame-rate limit chooser (or press
+  *Boost FPS*) once; 1.2.0 never writes a cap by itself but does not undo one already in `options.txt`.
+
+### CI
+- **Frame-cost probe in the real game**: the headless production game test measures 300 rendered frames each with the
+  VANTA HUD enabled, disabled and with the GUI hidden (frame time avg / p50 / p95 / fps, the wall time of the VANTA
+  HUD and crosshair elements, drawing primitives per HUD frame) and writes `screenshots/vanta-perf-probe.json`; the
+  only assertion is that the VANTA HUD element averages under 4 ms per call. In the CI run (software renderer) the
+  VANTA HUD cost about 0.5 ms per frame, so the HUD was never the cause of the FPS drop.
+- **Windowed click reproduction**: the same test opens Mods & Shaders at 854 x 480 / GUI scale 2, 1920 x 1080 / scale 4
+  and 1920 x 1080 / scale 2 and clicks a result row, the detail *Install* button, the *Performance pack* Install
+  button and the Shaders tab through the real mouse path; a click without effect fails the test (geometry explained
+  as `REPRODUCED`, otherwise `UNEXPECTED`). The in-game Install actions are swapped for a flag, so nothing is
+  downloaded in CI.
+- **Performance pack resolver job**: `node --test scripts/release/` plus a live run of `performance-pack.mjs`
+  against Modrinth on every push (five redistributable jars verified by size and SHA-512, EntityCulling excluded by
+  licence, every licence text fetched, `performance-pack.json` schema-valid), uploaded as the `performance-pack`
+  artifact. The release workflow runs the resolver before the mods bundle, prints `PERFORMANCE-PACK.txt` into the job
+  summary and into the GitHub Release notes (*Performance pack in the mods bundle*).
+- **Launcher**: the headless UI test clicks the Mods page's Install buttons at 960 x 600 with the platform robot and
+  checks the toast position and width at 960 x 600 and 1200 x 700; `./gradlew uiSmoke` renders one page at one size.
+- **Core**: every screen is walked for unreachable or overlapping controls at 19 window sizes, both scales and all
+  Mods states; render-cost bounds pin the optimised primitive counts and pixel-identity tests lock the output.
+
+### Website
+- Download page: the mods bundle is described as a complete `mods/` folder (VANTA, Fabric API and the redistributable
+  Performance pack mods; EntityCulling is downloaded in game) and *How to install → Manual* says to copy all jars and
+  to remove older copies of the pack mods first. Features page: *New in 1.2.0* for Boost FPS and the pack in the
+  bundle, the preset copy without caps. Performance page: the presets table with Max FPS and no framerate / VSync rows,
+  the 30 FPS trap explained, the "not bundled" note replaced by what the 1.2.0 bundle holds. Support page: a link to
+  the new troubleshooting section on 30 FPS after a 1.1.0 preset. A news post announces 1.2.0; the 1.1 post carries a
+  dated update note where the bundle contents changed.
+
+### Documentation
+- [Performance Center](docs/performance.md): Max FPS column, framerate / VSync rows removed with the 60 / 30 FPS trap
+  explained, the Boost FPS section, the measured HUD cost under *Honest limits*. [Profiles](docs/profiles.md): the
+  Performance profile uses Max FPS with the limit unlimited.
+- [Mods & Shaders](docs/mods-and-shaders.md): the pack in the mods bundle, the EntityCulling exception, the offer at
+  start. [Installation](docs/installation.md), [Fabric](docs/fabric.md), [FAQ](docs/faq.md), the documentation index
+  and the README name the 1.2.0 files and say to copy all jars of the bundle.
+- [Troubleshooting](docs/troubleshooting.md): *Low FPS or exactly 30 FPS after choosing a preset or profile in
+  VANTA 1.1.0*, buttons that cannot be clicked in a small window (fixed in 1.2.0), and the 1.2.0 update file names.
+- [Launcher](docs/launcher.md): notifications (click to dismiss, hover limit, position in small windows) and the
+  `VANTA_UI_SMOKE_PAGE` / `VANTA_UI_SMOKE_SIZE` variables; `RELEASE.md` and `shared/releases/README.md` describe the
+  bundle contents and the cases that stop a release on purpose.
 
 ## [1.1.0] - 2026-10-05
 
