@@ -194,9 +194,11 @@ class HudRenderCostTest {
                 description.length(), whenFitting, clipped.length(), whenClipped);
         assertTrue(fits.equals(description));
         assertTrue(whenFitting == 1);
-        // Linear scan from the end: a 90-char description clipped to ~24 chars costs ~70 measurements per frame.
-        assertTrue(whenClipped >= description.length() - clipped.length(), "linear in removed characters: " + whenClipped);
-        assertTrue(whenClipped <= description.length() + 2, "never more than one per character: " + whenClipped);
+        // Baseline (2026-10): the linear scan from the end cost 65 measurements for this clip; the binary search
+        // over code-point prefixes needs the full text, the ellipsis and one measurement per halving step.
+        int halvings = 32 - Integer.numberOfLeadingZeros(description.length());
+        assertTrue(whenClipped <= 2 + halvings, "logarithmic in the text length: " + whenClipped);
+        assertTrue(whenClipped <= 10, "clip measurements per frame: " + whenClipped);
     }
 
     // ---- (b) crosshair styles --------------------------------------------------------------------------------------
