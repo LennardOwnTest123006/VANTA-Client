@@ -13,6 +13,7 @@ import dev.vanta.core.notifications.NotificationCenter;
 import dev.vanta.core.settings.SettingsStore;
 import dev.vanta.core.settings.VantaSettings;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -25,6 +26,11 @@ class PerformanceTest {
 
     @Test
     void presetValuesMatchTheDocumentedTable() {
+        assertEquals(List.of(PerformancePreset.BOOST, PerformancePreset.LOW, PerformancePreset.BALANCED,
+                PerformancePreset.HIGH, PerformancePreset.ULTRA), List.of(PerformancePreset.values()),
+                "UI tabs list the presets in enum order, cheapest first");
+        assertEquals(5, PerformancePreset.BOOST.renderDistance());
+        assertEquals(5, PerformancePreset.BOOST.simulationDistance());
         assertEquals(6, PerformancePreset.LOW.renderDistance());
         assertEquals(10, PerformancePreset.BALANCED.renderDistance());
         assertEquals(16, PerformancePreset.HIGH.renderDistance());
@@ -33,8 +39,19 @@ class PerformanceTest {
         assertEquals(8, PerformancePreset.BALANCED.simulationDistance());
         assertEquals(12, PerformancePreset.HIGH.simulationDistance());
         assertEquals(16, PerformancePreset.ULTRA.simulationDistance());
+        Map<VanillaOption, Object> boost = PerformancePreset.BOOST.optionValues();
+        assertEquals("MINIMAL", boost.get(VanillaOption.PARTICLES));
+        assertEquals("OFF", boost.get(VanillaOption.CLOUDS));
+        assertEquals(false, boost.get(VanillaOption.SMOOTH_LIGHTING));
+        assertEquals(false, boost.get(VanillaOption.ENTITY_SHADOWS));
+        assertEquals(0.5, boost.get(VanillaOption.ENTITY_DISTANCE_SCALING));
+        assertEquals(0, boost.get(VanillaOption.BIOME_BLEND));
+        assertEquals(0, boost.get(VanillaOption.MIPMAP_LEVELS));
+        assertEquals(0, boost.get(VanillaOption.MENU_BLUR), "only BOOST turns the menu blur off");
+        assertEquals("FAST", boost.get(VanillaOption.GRAPHICS_MODE));
+        assertFalse(boost.containsKey(VanillaOption.INACTIVITY_FPS_LIMIT));
         Map<VanillaOption, Object> low = PerformancePreset.LOW.optionValues();
-        assertEquals(60, low.get(VanillaOption.FRAMERATE_LIMIT));
+        assertFalse(low.containsKey(VanillaOption.MENU_BLUR));
         assertEquals("MINIMAL", low.get(VanillaOption.PARTICLES));
         assertEquals("OFF", low.get(VanillaOption.CLOUDS));
         assertEquals(false, low.get(VanillaOption.SMOOTH_LIGHTING));
@@ -44,13 +61,11 @@ class PerformanceTest {
         assertEquals(0, low.get(VanillaOption.MIPMAP_LEVELS));
         assertEquals("FAST", low.get(VanillaOption.GRAPHICS_MODE));
         Map<VanillaOption, Object> balanced = PerformancePreset.BALANCED.optionValues();
-        assertEquals(120, balanced.get(VanillaOption.FRAMERATE_LIMIT));
         assertEquals("DECREASED", balanced.get(VanillaOption.PARTICLES));
         assertEquals("FAST", balanced.get(VanillaOption.CLOUDS));
         assertEquals(2, balanced.get(VanillaOption.BIOME_BLEND));
         assertEquals(2, balanced.get(VanillaOption.MIPMAP_LEVELS));
         Map<VanillaOption, Object> high = PerformancePreset.HIGH.optionValues();
-        assertEquals(260, high.get(VanillaOption.FRAMERATE_LIMIT));
         assertEquals("ALL", high.get(VanillaOption.PARTICLES));
         assertEquals(4, high.get(VanillaOption.BIOME_BLEND));
         Map<VanillaOption, Object> ultra = PerformancePreset.ULTRA.optionValues();
@@ -58,13 +73,17 @@ class PerformanceTest {
         assertEquals(6, ultra.get(VanillaOption.BIOME_BLEND));
         assertEquals("FANCY", ultra.get(VanillaOption.GRAPHICS_MODE), "ULTRA deliberately avoids FABULOUS");
         for (PerformancePreset preset : PerformancePreset.values()) {
-            assertEquals(false, preset.optionValues().get(VanillaOption.VSYNC));
+            // The cap that once came with LOW/BALANCED left players at 60 FPS (30 with a driver-forced VSync).
+            assertFalse(preset.optionValues().containsKey(VanillaOption.FRAMERATE_LIMIT),
+                    preset + " must never cap the frame rate");
+            assertFalse(preset.optionValues().containsKey(VanillaOption.VSYNC), preset + " must never touch VSync");
             for (Map.Entry<VanillaOption, Object> e : preset.optionValues().entrySet()) {
                 assertTrue(e.getKey().normalize(e.getValue()).isPresent(), preset + " " + e.getKey());
             }
             assertTrue(preset.simulationDistance() <= preset.renderDistance());
         }
         assertEquals(Optional.of(PerformancePreset.ULTRA), PerformancePreset.fromId("ultra"));
+        assertEquals(Optional.of(PerformancePreset.BOOST), PerformancePreset.fromId("boost"));
     }
 
     @Test
@@ -171,12 +190,24 @@ class PerformanceTest {
         assertEquals(PerformancePreset.LOW, settings.get(VantaSettings.PERFORMANCE_PRESET));
         assertEquals(Optional.of(PerformancePreset.LOW), center.detectPreset());
         assertEquals("Preset applied", notifications.visible().get(0).title());
-        assertEquals(60, center.targetFps());
+        assertEquals(120, options.getInt(VanillaOption.FRAMERATE_LIMIT, 0), "preset leaves the vanilla limit alone");
+        assertTrue(options.getBoolean(VanillaOption.VSYNC, false), "preset leaves VSync alone");
+        assertEquals(120, center.targetFps());
         assertTrue(center.isFpsCapped());
 
         center.applyFpsLimit(FpsLimitPreset.UNLIMITED);
+        assertEquals(260, options.getInt(VanillaOption.FRAMERATE_LIMIT, 0));
+        assertFalse(options.getBoolean(VanillaOption.VSYNC, true));
         assertFalse(center.isFpsCapped());
         assertEquals(PerformanceCenter.DEFAULT_TARGET_FPS, center.targetFps());
+        assertEquals(FpsLimitPreset.UNLIMITED, settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+        assertEquals(Optional.of(PerformancePreset.LOW), center.detectPreset(), "the limit is not part of a preset");
+
+        center.applyPreset(PerformancePreset.BOOST);
+        assertEquals(5, options.getInt(VanillaOption.RENDER_DISTANCE, 0));
+        assertEquals(0, options.getInt(VanillaOption.MENU_BLUR, -1));
+        assertEquals(Optional.of(PerformancePreset.BOOST), center.detectPreset());
+        assertEquals(260, options.getInt(VanillaOption.FRAMERATE_LIMIT, 0), "still uncapped");
 
         center.onFrame(16.0);
         center.onFrame(33.0);

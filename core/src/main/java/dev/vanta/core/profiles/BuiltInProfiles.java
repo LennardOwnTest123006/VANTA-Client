@@ -59,12 +59,12 @@ public final class BuiltInProfiles {
                 build(registry, now, BUILDING, "grid", HudPresets.MINIMAL, PerformancePreset.ULTRA,
                         CrosshairPresets.THIN,
                         Map.of(VantaSettings.VIDEO_FOV, 85, VantaSettings.HUD_GLOBAL_OPACITY, 0.8)),
-                build(registry, now, PERFORMANCE, "chart", HudPresets.PERFORMANCE, PerformancePreset.LOW,
+                build(registry, now, PERFORMANCE, "chart", HudPresets.PERFORMANCE, PerformancePreset.BOOST,
                         CrosshairPresets.DEFAULT,
                         Map.of(VantaSettings.MENU_BACKGROUND, MenuBackground.SOLID,
                                 VantaSettings.MENU_PARTICLES, MenuParticles.NONE,
                                 VantaSettings.HUD_TEXT_SHADOW, Boolean.FALSE,
-                                VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.FPS_60)),
+                                VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.UNLIMITED)),
                 build(registry, now, RECORDING, "play", HudPresets.STREAMER, PerformancePreset.HIGH,
                         CrosshairPresets.DOT,
                         Map.of(VantaSettings.HUD_GLOBAL_OPACITY, 0.85,
@@ -84,6 +84,13 @@ public final class BuiltInProfiles {
         encodeInto(settings, VantaSettings.COSMETICS_CROSSHAIR_PRESET, crosshairPresetId);
         for (Map.Entry<Setting<?>, Object> entry : overrides.entrySet()) {
             encodeInto(settings, entry.getKey(), entry.getValue());
+        }
+        // A profile's frame-rate choice is only real once the vanilla limit and VSync it stands for are in the
+        // profile too; the performance preset deliberately leaves both alone.
+        Object fpsLimit = overrides.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET);
+        if (fpsLimit instanceof FpsLimitPreset limit) {
+            encodeInto(settings, VantaSettings.VIDEO_FRAMERATE_LIMIT, limit.framerateLimit());
+            encodeInto(settings, VantaSettings.VIDEO_VSYNC, limit.vsync());
         }
         CrosshairStyle crosshair = CrosshairPresets.find(crosshairPresetId).map(p -> p.style())
                 .orElse(CrosshairStyle.DEFAULT);

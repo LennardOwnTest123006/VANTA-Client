@@ -250,6 +250,16 @@ public final class NotificationCenter {
                 Lang.tr("vanta.notification.performance_preset_applied.body", presetName));
     }
 
+    /**
+     * The one-click FPS boost finished; {@code restartRequired} when it installed Performance pack mods the game has
+     * to restart for.
+     */
+    public Optional<Notification> boostApplied(boolean restartRequired) {
+        return post(NotificationKind.SUCCESS, Lang.tr("vanta.notification.boost_applied.title"),
+                Lang.tr(restartRequired ? "vanta.notification.boost_applied.restart"
+                        : "vanta.notification.boost_applied.body"), restartRequired ? 8000 : 5000);
+    }
+
     public Optional<Notification> hudPresetApplied(String presetName) {
         return post(NotificationKind.SUCCESS, Lang.tr("vanta.notification.hud_preset_applied.title"),
                 Lang.tr("vanta.notification.hud_preset_applied.body", presetName));
