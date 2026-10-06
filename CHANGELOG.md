@@ -8,6 +8,18 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 ## [Unreleased]
 
+### VANTA Client
+
+#### Fixed
+- In a small game window (854 x 480 at GUI scale 2, the 320 x 240 minimum, or with large text) several buttons were
+  drawn but could not be clicked because their panel had run out of room: *Install*, *View on Modrinth*, *Disable*,
+  *Remove* and the other actions of the Mods & Shaders detail panel, *Quit Game* and the quick-access row of the main
+  menu at 640 x 360, *Vanilla options* in Settings and the HUD editor's grid and snap switches, which overlapped the
+  panel toggles. The detail text now scrolls above a footer that keeps the actions on screen, the main menu picks an
+  arrangement that fits the window, the Settings footer wraps, the HUD editor toolbar wraps onto two lines and the
+  settings category rail scrolls when the window is too short for all entries. Every screen is now checked at 19
+  window sizes, at scale 1 and with large text, for buttons that cannot be clicked or that overlap each other.
+
 ### VANTA Launcher
 
 #### Fixed

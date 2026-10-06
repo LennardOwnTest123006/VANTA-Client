@@ -73,7 +73,8 @@ public final class MainMenuScreen extends VantaUiScreen {
                 Theme.SPACE_2);
         static final Arrangement TIGHT_3 = new Arrangement(true, 3, COMPACT_BUTTON_W, Theme.SPACE_2, Theme.SPACE_2,
                 Theme.SPACE_2);
-        static final List<Arrangement> CANDIDATES = List.of(WIDE, COMPACT, TIGHT, TIGHT_3);
+        /** Narrowest button of the three-column arrangement when it is squeezed into a narrow window. */
+        static final int TIGHT_3_MIN_BUTTON_W = 96;
 
         int rows() {
             return (STACK_SIZE + columns - 1) / columns;
@@ -98,21 +99,34 @@ public final class MainMenuScreen extends VantaUiScreen {
         }
 
         /**
+         * The three-column arrangement with its buttons narrowed to the window when the full compact width would
+         * not fit (a window that is both short and narrow, such as 400x225 with large text); the unnarrowed one
+         * when even {@link #TIGHT_3_MIN_BUTTON_W} does not fit, which the width check then rejects.
+         */
+        static Arrangement tight3For(int width) {
+            int buttonW = Math.min(COMPACT_BUTTON_W, (width - 2 * FIT_MARGIN - 2 * Theme.SPACE_2) / 3);
+            return buttonW >= TIGHT_3_MIN_BUTTON_W
+                    ? new Arrangement(true, 3, buttonW, Theme.SPACE_2, Theme.SPACE_2, Theme.SPACE_2) : TIGHT_3;
+        }
+
+        /**
          * The first arrangement whose measured height and width fit the window; when none fits vertically, the
          * shortest one that fits horizontally.
          */
         static Arrangement forSize(int width, int height) {
-            Arrangement fallback = TIGHT;
-            for (Arrangement a : CANDIDATES) {
+            Arrangement fallback = null;
+            for (Arrangement a : List.of(WIDE, COMPACT, TIGHT, tight3For(width))) {
                 if (a.stackWidth() + 2 * FIT_MARGIN > width) {
                     continue;
                 }
                 if (a.fits(width, height)) {
                     return a;
                 }
-                fallback = a;
+                if (fallback == null || a.totalHeight() < fallback.totalHeight()) {
+                    fallback = a;
+                }
             }
-            return fallback;
+            return fallback == null ? TIGHT : fallback;
         }
     }
 
@@ -342,11 +356,20 @@ public final class MainMenuScreen extends VantaUiScreen {
             Size chip = profileChip.preferredSize(ctx);
             int chipY = b.bottom() - CORNER_PAD - chip.h();
             int chipW = chip.w();
-            if (chipY < y + QUICK_H) {
-                // The quick row reaches down into the corner on short windows: the chip gives way (its name is
-                // clipped) so the two never share pixels.
-                chipW = Math.min(chipW, Math.max(0, b.right() - CORNER_PAD - (qx - BUTTON_GAP + Theme.SPACE_3)));
+            // The stack or the quick row reaches down into the corner on short windows: the chip gives way to
+            // whatever shares its line (its name is clipped) so the two never share pixels, and disappears when
+            // not even its icon fits (the quick row keeps a Profiles button).
+            int obstacle = Integer.MIN_VALUE;
+            if (chipY < quit.bounds().bottom()) {
+                obstacle = left + stackW;
             }
+            if (chipY < y + QUICK_H) {
+                obstacle = Math.max(obstacle, qx - BUTTON_GAP);
+            }
+            if (obstacle != Integer.MIN_VALUE) {
+                chipW = Math.min(chipW, Math.max(0, b.right() - CORNER_PAD - (obstacle + Theme.SPACE_3)));
+            }
+            profileChip.setVisible(chipW >= ProfileChip.MIN_W);
             profileChip.setBounds(b.right() - CORNER_PAD - chipW, chipY, chipW, chip.h());
             profileChip.layout(ctx);
         }
@@ -437,6 +460,8 @@ public final class MainMenuScreen extends VantaUiScreen {
     private final class ProfileChip extends UiNode {
         private static final int H = 18;
         private static final int ICON = 9;
+        /** Narrowest the chip is shown at: the icon with its padding. */
+        private static final int MIN_W = Theme.SPACE_4 + ICON + Theme.SPACE_4;
         private AnimatedValue hoverT;
 
         ProfileChip() {

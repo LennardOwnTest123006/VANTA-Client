@@ -1,6 +1,7 @@
 package dev.vanta.core.screen.mods;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,12 +36,14 @@ class ModsScreenSmallWindowTest {
     Path dir;
 
     private ScreenTestSupport t;
+    private FakeModrinthApi api;
 
     @BeforeEach
     void setUp() {
         t = ScreenTestSupport.create(dir);
         t.game.onTitleScreen();
-        new FakeModPlatform(dir).installInto(t.services, FakeModrinthApi.standard());
+        api = FakeModrinthApi.standard();
+        new FakeModPlatform(dir).installInto(t.services, api);
     }
 
     private ModsScreen open(int w, int h) {
@@ -115,6 +118,67 @@ class ModsScreenSmallWindowTest {
         assertReachable(screen, "mods.action.remove", size);
         List<ReachabilityWalker.Failure> failures = ReachabilityWalker.walk(screen, "MODS", size).failures();
         assertTrue(failures.isEmpty(), () -> String.join("\n", failures.stream().map(Object::toString).toList()));
+    }
+
+    /**
+     * The detail text scrolls above a pinned action footer. With a long title and description the text area must
+     * overflow in a small window, a wheel turn over it must move the text (not the footer), the footer must never
+     * share pixels with the text area or anything scrolled inside it, and Install must stay clickable afterwards.
+     */
+    @ParameterizedTest(name = "{0}x{1} large text {2}")
+    @CsvSource({"320, 240, false", "427, 240, false", "427, 240, true", "320, 240, true"})
+    void detailTextScrollsWithTheWheelAndTheFooterStaysClear(int w, int h, boolean largeText) {
+        t.services.settings().set(VantaSettings.ACCESSIBILITY_LARGE_TEXT, largeText);
+        api.add("LONGTITL", "a-very-long-slug", "A Very Long Project Title That Keeps Going Without Any End", "mod",
+                "an-author-with-an-extremely-long-account-name", "This description is deliberately long so the "
+                        + "detail panel has to wrap it over many lines and the text area has to scroll in a small "
+                        + "window: rendering, chunk meshing, entity culling, memory usage, shader compatibility, "
+                        + "resource pack reloads, world generation, networking and mod compatibility.",
+                999_999_999_999L, -1);
+        ModsScreen screen = open(w, h);
+        assertEquals("a-very-long-slug", screen.results().hits().get(0).slug(), "the long project is selected");
+        UiNode install = screen.root().findById("mods.action.install");
+        assertNotNull(install);
+        ScrollPanel footer = ReachabilityWalker.enclosingScroll(install);
+        assertNotNull(footer, "the actions sit in the footer scroll panel");
+        ScrollPanel text = (ScrollPanel) footer.parent().children().get(0);
+        String size = w + "x" + h + (largeText ? " large text" : "");
+        assertTrue(text.isScrollable(), () -> size + ": the long text overflows the text area ("
+                + text.contentHeight() + " in " + text.bounds().h() + ")");
+        assertFalse(footer.isScrollable(), () -> size + ": the footer fits at its full height");
+        assertFalse(text.bounds().intersects(footer.bounds()), "footer pinned below the text area");
+        assertEquals(0f, text.targetScrollY());
+        float s = screen.effectiveScale();
+        Rect tb = text.bounds();
+        assertTrue(screen.mouseScroll(tb.centerX() * s, tb.centerY() * s, 0, -1), "the wheel is consumed");
+        assertTrue(text.targetScrollY() > 0f, "a wheel turn over the text scrolls it");
+        assertEquals(0f, footer.targetScrollY(), "the footer does not move");
+        t.advance(screen, 1_000);
+        assertTrue(text.scrollY() > 0f, "the scroll animation arrived");
+        // Nothing scrolled inside the text area may show up over the footer.
+        List<UiNode> inText = new ArrayList<>();
+        collect(text.content(), inText);
+        for (UiNode node : inText) {
+            Rect visible = ReachabilityWalker.visibleRect(screen, node);
+            assertFalse(visible.intersects(footer.bounds()), () -> ReachabilityWalker.describe(node)
+                    + " visible at " + visible + " overlaps the footer " + footer.bounds());
+        }
+        // A wheel turn over the footer scrolls nothing (the footer fits) and the text keeps its offset.
+        float before = text.targetScrollY();
+        Rect fb = footer.bounds();
+        screen.mouseScroll(fb.centerX() * s, fb.centerY() * s, 0, -1);
+        assertEquals(before, text.targetScrollY(), "the footer does not forward the wheel to the text");
+        List<ReachabilityWalker.Failure> failures = ReachabilityWalker.walk(screen, "MODS", size).failures();
+        assertTrue(failures.isEmpty(), () -> String.join("\n", failures.stream().map(Object::toString).toList()));
+        clickVisibleCentre(screen, install);
+        assertTrue(Files.exists(dir.resolve("mods/a-very-long-slug-1.0.0.jar")), "the click reached Install");
+    }
+
+    private static void collect(UiNode node, List<UiNode> out) {
+        out.add(node);
+        for (UiNode child : node.children()) {
+            collect(child, out);
+        }
     }
 
     /** At 480x270 the detail column still (just) fits; lock that in. */

@@ -70,6 +70,25 @@ class HudEditorScreenTest {
         return screen;
     }
 
+    /**
+     * The toolbar keeps one line while its controls fit side by side (427x240, the common windowed size) and wraps
+     * onto two lines at the 320x240 minimum, where the grid / snap icons would otherwise overlap the panel toggles;
+     * the screen gives the bar exactly the height the toolbar asks for.
+     */
+    @Test
+    void toolbarWrapsOntoTwoLinesOnlyWhenControlsWouldOverlap() {
+        HudEditorScreen oneLine = open(427, 240);
+        assertEquals(1, oneLine.toolbar().rows());
+        assertEquals(EditorToolbar.COMPACT_HEIGHT, oneLine.toolbar().bounds().h());
+        HudEditorScreen twoLines = open(320, 240);
+        assertEquals(2, twoLines.toolbar().rows());
+        assertEquals(2 * EditorToolbar.COMPACT_HEIGHT, twoLines.toolbar().bounds().h());
+        assertEquals(twoLines.toolbar().barHeight(), twoLines.toolbar().barHeightFor(twoLines.context(), 320));
+        Rect snap = twoLines.root().findById("hud.toolbar.snapIcon").bounds();
+        Rect widgets = twoLines.toolbar().widgetsToggleButton().bounds();
+        assertFalse(snap.intersects(widgets), "snap " + snap + " and widgets " + widgets + " share no pixels");
+    }
+
     private TestCanvas frame() {
         TestCanvas canvas = new TestCanvas(screen.width(), screen.height());
         screen.render(canvas, -100, -100, 0f);

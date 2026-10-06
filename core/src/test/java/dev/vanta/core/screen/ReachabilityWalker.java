@@ -30,6 +30,9 @@ import java.util.List;
  * <p>
  * Nodes inside a scroll panel that are scrolled completely out of the viewport are skipped: the user can reach
  * them with the wheel. Nodes that overflow a plain container are the bug this walker hunts.
+ * <p>
+ * Two interactive nodes that are not nested must not share a visible pixel either: the one drawn later would
+ * swallow clicks meant for the other (the toolbar overlap of the HUD editor at 320x240).
  */
 public final class ReachabilityWalker {
 
@@ -67,21 +70,46 @@ public final class ReachabilityWalker {
                 || node instanceof WidgetListPanel.WidgetRow;
     }
 
+    /** An interactive node and the part of it that is visible (clipped to the screen and its scroll viewports). */
+    private record Placed(UiNode node, Rect visible) {
+    }
+
     /** Walks the screen's root tree (or the top popup when a modal popup is open). */
     public static Report walk(UiScreen screen, String screenName, String sizeName) {
         List<Failure> failures = new ArrayList<>();
+        List<Placed> placed = new ArrayList<>();
         int[] counters = new int[2];
         Rect screenRect = new Rect(0, 0, screen.width(), screen.height());
         PopupLayer popups = screen.context().popups();
         if (popups.isOpen() && popups.top().modal()) {
             UiNode popup = popups.top().node();
             visit(popup, popup, new ArrayList<>(), screenRect, screenRect, false, screenName, sizeName, counters,
-                    failures);
+                    failures, placed);
         } else {
             visit(screen.root(), screen.root(), new ArrayList<>(), screenRect, screenRect, false, screenName,
-                    sizeName, counters, failures);
+                    sizeName, counters, failures, placed);
         }
+        checkOverlaps(placed, screenName, sizeName, failures);
         return new Report(counters[0], counters[1], List.copyOf(failures));
+    }
+
+    /** Every pair of visible interactive nodes that are not nested in each other must be disjoint. */
+    private static void checkOverlaps(List<Placed> placed, String screenName, String sizeName,
+                                      List<Failure> failures) {
+        for (int i = 0; i < placed.size(); i++) {
+            Placed a = placed.get(i);
+            for (int j = i + 1; j < placed.size(); j++) {
+                Placed b = placed.get(j);
+                if (isSelfOrDescendant(a.node(), b.node()) || isSelfOrDescendant(b.node(), a.node())) {
+                    continue;
+                }
+                if (a.visible().intersects(b.visible())) {
+                    failures.add(new Failure(screenName, sizeName, describe(a.node()), a.node().bounds(),
+                            "OVERLAP: shares pixels " + fmt(a.visible().intersect(b.visible())) + " with "
+                                    + describe(b.node()) + " bounds=" + fmt(b.node().bounds())));
+                }
+            }
+        }
     }
 
     /** Checks one specific node of a laid-out screen. */
@@ -136,13 +164,17 @@ public final class ReachabilityWalker {
 
     private static void visit(UiNode root, UiNode node, List<UiNode> ancestors, Rect screenRect, Rect clip,
                               boolean inScroll, String screenName, String sizeName, int[] counters,
-                              List<Failure> failures) {
+                              List<Failure> failures, List<Placed> placed) {
         if (!node.isVisible()) {
             return; // not rendered, nothing to reach
         }
         boolean enabled = node.isEnabled() && ancestors.stream().allMatch(UiNode::isEnabled);
         if (node != root && enabled && isInteractive(node)) {
             checkNode(root, node, ancestors, clip, inScroll, screenName, sizeName, counters, failures);
+            Rect visible = clip.intersect(node.bounds());
+            if (!visible.isEmpty()) {
+                placed.add(new Placed(node, visible));
+            }
         }
         Rect childClip = clip;
         boolean childInScroll = inScroll;
@@ -153,7 +185,7 @@ public final class ReachabilityWalker {
         ancestors.add(node);
         for (UiNode child : node.children()) {
             visit(root, child, ancestors, screenRect, childClip, childInScroll, screenName, sizeName, counters,
-                    failures);
+                    failures, placed);
         }
         ancestors.remove(ancestors.size() - 1);
     }
