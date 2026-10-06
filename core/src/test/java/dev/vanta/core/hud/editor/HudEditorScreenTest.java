@@ -89,6 +89,35 @@ class HudEditorScreenTest {
         assertFalse(snap.intersects(widgets), "snap " + snap + " and widgets " + widgets + " share no pixels");
     }
 
+    /**
+     * With a UI zoom the screen clamps its scale so 320x240 logical pixels remain (480x270 at 1.5 renders at
+     * 1.125); the editor must still report the real game size, since the HUD layout lives in GUI pixels.
+     */
+    @Test
+    void viewportKeepsTheGameSizeWhenTheZoomIsClamped() {
+        screen = new HudEditorScreen(services);
+        screen.attach(new UiEnvironment(host, Theme.DEFAULT.withScale(1.5f), uiClock, TestCanvas.metrics(),
+                Function.identity()));
+        screen.init(480, 270);
+        frame();
+        assertEquals(1.125f, screen.effectiveScale(), 1e-6f);
+        assertEquals(427, screen.width());
+        assertEquals(240, screen.height());
+        assertEquals(480, screen.hostWidth());
+        assertEquals(270, screen.hostHeight());
+        assertTrue(screen.isCompact());
+        EditorViewport vp = screen.canvasArea().viewport();
+        assertEquals(480, vp.hostWidth());
+        assertEquals(270, vp.hostHeight());
+        screen.resize(1920, 1080);
+        frame();
+        assertEquals(1.5f, screen.effectiveScale(), 1e-6f, "the clamp lifts in a large window");
+        assertEquals(1920, screen.hostWidth());
+        assertEquals(1080, screen.hostHeight());
+        assertEquals(1920, screen.canvasArea().viewport().hostWidth());
+        assertEquals(1080, screen.canvasArea().viewport().hostHeight());
+    }
+
     private TestCanvas frame() {
         TestCanvas canvas = new TestCanvas(screen.width(), screen.height());
         screen.render(canvas, -100, -100, 0f);

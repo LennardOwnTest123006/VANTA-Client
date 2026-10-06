@@ -182,13 +182,129 @@ class UiScreenTest {
         assertEquals(1.15f, screen.effectiveScale(), 1e-6f, "the clamp lifts as soon as the window allows it");
     }
 
-    private void assertZoomClamped(float themeScale, int hostW, int hostH, float expectedScale, int expectedW,
-                                   int expectedH) {
-        t.theme = Theme.DEFAULT.withScale(themeScale);
+    /** Swapping the theme while the screen is open goes through the same clamp as {@link UiScreen#init}. */
+    @Test
+    void zoomClampFollowsARuntimeThemeSwap() {
         int[] clicks = {0};
         Button a = new Button("a", () -> clicks[0]++);
-        // A second button at the far corner proves the clamped layout still fits the host.
         Button far = new Button("far", () -> clicks[0] += 10);
+        UiScreen screen = t.screen(cornerRoot(a, far), 320, 240);
+        assertEquals(1f, screen.effectiveScale(), 1e-6f);
+        screen.setTheme(Theme.DEFAULT.withScale(1.5f));
+        assertEquals(1f, screen.effectiveScale(), 1e-6f, "clamped after a runtime theme swap");
+        assertEquals(320, screen.width());
+        assertEquals(240, screen.height());
+        assertEquals(new Rect(280, 220, 40, 20), far.bounds());
+        UiTestSupport.click(screen, far.bounds().centerX(), far.bounds().centerY());
+        assertEquals(10, clicks[0]);
+        screen.resize(1280, 720);
+        assertEquals(1.5f, screen.effectiveScale(), 1e-6f);
+        assertEquals(853, screen.width());
+        assertEquals(480, screen.height());
+        UiTestSupport.click(screen, far.bounds().centerX() * 1.5f, far.bounds().centerY() * 1.5f);
+        assertEquals(20, clicks[0]);
+        screen.setTheme(Theme.DEFAULT.withScale(0.5f));
+        assertEquals(0.5f, screen.effectiveScale(), 1e-6f, "below 1 is never touched");
+        assertEquals(2560, screen.width());
+    }
+
+    /**
+     * Odd window sizes and zooms: the used scale stays within [1, zoom], the logical area never drops below
+     * 320x240 when the host offers it, covers the host (within rounding), and both corners are clickable and
+     * hoverable through host coordinates.
+     */
+    @Test
+    void zoomClampHoldsAtOddSizes() {
+        int[][] sizes = {{321, 241}, {322, 242}, {333, 250}, {359, 269}, {367, 275}, {368, 276}, {369, 277},
+            {640, 240}, {320, 480}, {400, 225}, {455, 256}, {319, 239}};
+        for (float zoom : new float[] {1.05f, 1.1f, 1.15f, 1.25f, 1.4375f, 1.5f, 1.725f, 2f, 3f}) {
+            t.theme = Theme.DEFAULT.withScale(zoom);
+            for (int[] size : sizes) {
+                int[] clicks = {0};
+                Button a = new Button("a", () -> clicks[0]++);
+                Button far = new Button("far", () -> clicks[0] += 10);
+                UiScreen screen = t.screen(cornerRoot(a, far), size[0], size[1]);
+                float s = screen.effectiveScale();
+                String what = size[0] + "x" + size[1] + " @ " + zoom + " -> " + s + " (" + screen.width() + "x"
+                        + screen.height() + ")";
+                assertTrue(s >= 1f && s <= zoom + 1e-6f, what);
+                if (size[0] >= UiScreen.MIN_LOGICAL_WIDTH && size[1] >= UiScreen.MIN_LOGICAL_HEIGHT) {
+                    assertTrue(screen.width() >= UiScreen.MIN_LOGICAL_WIDTH
+                            && screen.height() >= UiScreen.MIN_LOGICAL_HEIGHT, what);
+                } else {
+                    assertEquals(1f, s, 1e-6f, what);
+                }
+                assertTrue(Math.abs(screen.width() * s - size[0]) <= s + 0.5f, what);
+                assertTrue(Math.abs(screen.height() * s - size[1]) <= s + 0.5f, what);
+                Rect fb = far.bounds();
+                UiTestSupport.click(screen, fb.centerX() * s, fb.centerY() * s);
+                UiTestSupport.click(screen, s, s);
+                assertEquals(11, clicks[0], what);
+                t.frame(screen, Math.round(fb.centerX() * s), Math.round(fb.centerY() * s));
+                assertTrue(far.isHovered(), what);
+                assertFalse(a.isHovered(), what);
+            }
+        }
+    }
+
+    /** Windows with room for the zoom are rendered at the full theme scale. */
+    @Test
+    void zoomIsKeptInLargeWindows() {
+        t.theme = Theme.DEFAULT.withScale(2f);
+        UiScreen screen = t.screen(new Column(), 3840, 2160);
+        assertEquals(2f, screen.effectiveScale(), 1e-6f);
+        assertEquals(1920, screen.width());
+        assertEquals(1080, screen.height());
+        t.theme = Theme.DEFAULT.withScale(3f).withLargeText(true);
+        screen = t.screen(new Column(), 1920, 1080);
+        assertEquals(3f * 1.15f, screen.effectiveScale(), 1e-6f, "3.45 fits (1080/240 allows 4.5)");
+    }
+
+    /** Drag deltas and wheel positions divide by the clamped scale too. */
+    @Test
+    void dragAndScrollUseTheClampedScale() {
+        t.theme = Theme.DEFAULT.withScale(1.5f);
+        double[] drag = new double[4];
+        double[] scroll = new double[2];
+        UiNode root = new UiNode() {
+            @Override
+            public boolean mouseDown(UiContext ctx, double x, double y, int button) {
+                ctx.captureMouse(this);
+                return true;
+            }
+
+            @Override
+            public boolean mouseDrag(UiContext ctx, double x, double y, int button, double dx, double dy) {
+                drag[0] = x;
+                drag[1] = y;
+                drag[2] = dx;
+                drag[3] = dy;
+                return true;
+            }
+
+            @Override
+            public boolean mouseScroll(UiContext ctx, double x, double y, double sx, double sy) {
+                scroll[0] = x;
+                scroll[1] = y;
+                return true;
+            }
+        };
+        UiScreen screen = t.screen(root, 480, 270);
+        assertEquals(1.125f, screen.effectiveScale(), 1e-6f);
+        assertTrue(screen.mouseDown(450, 225, Keys.MOUSE_LEFT));
+        assertTrue(screen.mouseDrag(459, 234, Keys.MOUSE_LEFT, 9, 9));
+        assertEquals(408, drag[0], 1e-6);
+        assertEquals(208, drag[1], 1e-6);
+        assertEquals(8, drag[2], 1e-6);
+        assertEquals(8, drag[3], 1e-6);
+        screen.mouseUp(459, 234, Keys.MOUSE_LEFT);
+        assertTrue(screen.mouseScroll(225, 135, 0, 1));
+        assertEquals(200, scroll[0], 1e-6);
+        assertEquals(120, scroll[1], 1e-6);
+    }
+
+    /** A root with {@code a} at the origin and {@code far} in the bottom-right corner, whatever the size. */
+    private static UiNode cornerRoot(Button a, Button far) {
         UiNode root = new UiNode() {
             @Override
             public void layout(UiContext ctx) {
@@ -199,7 +315,17 @@ class UiScreenTest {
         };
         root.add(a);
         root.add(far);
-        UiScreen screen = t.screen(root, hostW, hostH);
+        return root;
+    }
+
+    private void assertZoomClamped(float themeScale, int hostW, int hostH, float expectedScale, int expectedW,
+                                   int expectedH) {
+        t.theme = Theme.DEFAULT.withScale(themeScale);
+        int[] clicks = {0};
+        Button a = new Button("a", () -> clicks[0]++);
+        // A second button at the far corner proves the clamped layout still fits the host.
+        Button far = new Button("far", () -> clicks[0] += 10);
+        UiScreen screen = t.screen(cornerRoot(a, far), hostW, hostH);
         assertEquals(expectedScale, screen.effectiveScale(), 1e-6f, "used scale");
         assertEquals(expectedW, screen.width(), "logical width");
         assertEquals(expectedH, screen.height(), "logical height");
