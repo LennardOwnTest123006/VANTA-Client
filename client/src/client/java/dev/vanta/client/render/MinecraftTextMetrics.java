@@ -1,5 +1,6 @@
 package dev.vanta.client.render;
 
+import dev.vanta.client.perf.FrameProbe;
 import dev.vanta.core.ui.FontKind;
 import dev.vanta.core.ui.TextMetrics;
 import net.minecraft.client.Minecraft;
@@ -21,6 +22,7 @@ public final class MinecraftTextMetrics implements TextMetrics {
         if (text == null || text.isEmpty()) {
             return 0;
         }
+        FrameProbe.countTextWidth();
         if (VantaFonts.isCustom(kind)) {
             return font.width(VantaFonts.styled(text, kind));
         }

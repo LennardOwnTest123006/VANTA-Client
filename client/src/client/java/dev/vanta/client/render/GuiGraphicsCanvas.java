@@ -1,5 +1,6 @@
 package dev.vanta.client.render;
 
+import dev.vanta.client.perf.FrameProbe;
 import dev.vanta.core.ui.AbstractCanvas;
 import dev.vanta.core.ui.Colors;
 import dev.vanta.core.ui.FontKind;
@@ -65,6 +66,7 @@ public final class GuiGraphicsCanvas extends AbstractCanvas {
 
     @Override
     protected void fillImpl(int x, int y, int w, int h, int argb) {
+        FrameProbe.countFill();
         graphics.fill(x, y, x + w, y + h, argb);
     }
 
@@ -78,6 +80,7 @@ public final class GuiGraphicsCanvas extends AbstractCanvas {
         if (Colors.alpha(top) == 0 && Colors.alpha(bottom) == 0) {
             return;
         }
+        FrameProbe.countGradient();
         graphics.fillGradient(x, y, x + w, y + h, top, bottom);
     }
 
@@ -86,6 +89,7 @@ public final class GuiGraphicsCanvas extends AbstractCanvas {
         if (Colors.alpha(argb) < 4) {
             return;
         }
+        FrameProbe.countText();
         if (VantaFonts.isCustom(kind)) {
             graphics.drawString(font, VantaFonts.styled(text, kind), x, y, argb, shadow);
         } else {
@@ -99,6 +103,7 @@ public final class GuiGraphicsCanvas extends AbstractCanvas {
         if (alpha <= 0f) {
             return;
         }
+        FrameProbe.countImage();
         Identifier id = Identifier.fromNamespaceAndPath(texture.namespace(), texture.path());
         int regionW = Math.max(1, Math.round(uw));
         int regionH = Math.max(1, Math.round(vh));
@@ -123,12 +128,14 @@ public final class GuiGraphicsCanvas extends AbstractCanvas {
 
     @Override
     protected void onPushTranslate(float dx, float dy) {
+        FrameProbe.countTransformPush();
         graphics.pose().pushMatrix();
         graphics.pose().translate(dx, dy);
     }
 
     @Override
     protected void onPushScale(float sx, float sy) {
+        FrameProbe.countTransformPush();
         graphics.pose().pushMatrix();
         graphics.pose().scale(sx, sy);
     }
@@ -142,6 +149,7 @@ public final class GuiGraphicsCanvas extends AbstractCanvas {
 
     @Override
     protected void onScissorChanged(Rect deviceClip) {
+        FrameProbe.countScissorChange();
         if (nativeScissorActive) {
             graphics.disableScissor();
             nativeScissorActive = false;
