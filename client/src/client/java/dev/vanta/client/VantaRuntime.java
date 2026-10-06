@@ -95,14 +95,17 @@ public final class VantaRuntime {
 
     // ---- theme -------------------------------------------------------------------------------------------------
 
-    /** The theme VANTA screens render with. */
+    /** The theme VANTA screens render with. The instance is replaced only when the theme actually changes. */
     public Theme theme() {
         return theme;
     }
 
-    /** Rebuilds the theme from cosmetics and accessibility settings. */
+    /** Rebuilds the theme from cosmetics and accessibility settings; keeps the current instance when it is equal. */
     public void refreshTheme() {
-        theme = ThemeFactory.build(services);
+        Theme next = ThemeFactory.build(services);
+        if (!next.equals(theme)) {
+            theme = next;
+        }
     }
 
     // ---- rendering helpers -------------------------------------------------------------------------------------

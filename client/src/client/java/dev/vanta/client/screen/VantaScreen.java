@@ -81,9 +81,13 @@ public final class VantaScreen extends Screen {
         ui.tick();
     }
 
+    /**
+     * The runtime replaces its theme instance only on a real change, so the per-tick check is an identity compare;
+     * the equality fallback only runs when a core screen applied an equal theme instance of its own.
+     */
     private void syncTheme() {
         Theme current = runtime.theme();
-        if (ui.context() != null && !current.equals(ui.theme())) {
+        if (ui.context() != null && current != ui.theme() && !current.equals(ui.theme())) {
             ui.setTheme(current);
         }
     }
