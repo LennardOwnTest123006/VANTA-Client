@@ -33,6 +33,7 @@ public final class PerformanceCenter {
     private final CpuSampler cpu;
     private final RenderDistanceAdvisor advisor = new RenderDistanceAdvisor();
     private RenderDistanceAdvisor.Suggestion pendingSuggestion;
+    private boolean applyingFpsLimit;
 
     public PerformanceCenter(GameBridge game, OptionsBridge options, SettingsStore settings,
                              NotificationCenter notifications, Clock clock) {
@@ -51,6 +52,10 @@ public final class PerformanceCenter {
         this.frameTimes = Objects.requireNonNull(frameTimes, "frameTimes");
         this.memory = Objects.requireNonNull(memory, "memory");
         this.cpu = Objects.requireNonNull(cpu, "cpu");
+        // The frame-rate limit setting is also edited in the Settings screen and by profiles; a change there has to
+        // reach the vanilla options too, or picking "144 FPS" would only rewrite settings.json. Loading
+        // settings.json does not fire listeners, so the user's options.txt is never overridden at startup.
+        settings.onChange(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, (old, preset) -> syncFpsLimit(preset));
     }
 
     /** Frame time history. */
@@ -159,14 +164,44 @@ public final class PerformanceCenter {
         notifications.performancePresetApplied(Lang.tr(preset.langKey()));
     }
 
-    /** Applies a frame-rate limit choice (limit + vsync). */
+    /** Applies a frame-rate limit choice (limit + vsync) to the vanilla options and records it in the setting. */
     public void applyFpsLimit(FpsLimitPreset preset) {
         Objects.requireNonNull(preset, "preset");
+        writeFpsLimit(preset);
+        applyingFpsLimit = true;
+        try {
+            settings.set(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, preset);
+        } finally {
+            applyingFpsLimit = false;
+        }
+    }
+
+    /**
+     * Listener side of {@link #applyFpsLimit}: a change of the setting from elsewhere (Settings screen, profile,
+     * search action) writes the options it stands for. Nothing happens while {@link #applyFpsLimit} itself is
+     * storing the setting, or when the options already match.
+     */
+    private void syncFpsLimit(FpsLimitPreset preset) {
+        if (applyingFpsLimit || preset == null || matchesOptions(preset)) {
+            return;
+        }
+        writeFpsLimit(preset);
+    }
+
+    private void writeFpsLimit(FpsLimitPreset preset) {
         options.set(VanillaOption.FRAMERATE_LIMIT, preset.framerateLimit());
         options.set(VanillaOption.VSYNC, preset.vsync());
         options.save();
-        settings.set(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, preset);
         advisor.reset();
+    }
+
+    /** True when both vanilla options already hold the preset's values (unsupported options count as matching). */
+    private boolean matchesOptions(FpsLimitPreset preset) {
+        boolean limit = !options.supports(VanillaOption.FRAMERATE_LIMIT)
+                || options.getInt(VanillaOption.FRAMERATE_LIMIT, -1) == preset.framerateLimit();
+        boolean vsync = !options.supports(VanillaOption.VSYNC)
+                || options.get(VanillaOption.VSYNC).map(v -> v.equals(preset.vsync())).orElse(false);
+        return limit && vsync;
     }
 
     /** The preset whose supported options all match the current values, if any. */
