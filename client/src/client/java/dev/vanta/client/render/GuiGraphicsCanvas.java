@@ -1,9 +1,11 @@
 package dev.vanta.client.render;
 
 import dev.vanta.core.ui.AbstractCanvas;
+import dev.vanta.core.ui.Canvas;
 import dev.vanta.core.ui.Colors;
 import dev.vanta.core.ui.FontKind;
 import dev.vanta.core.ui.Rect;
+import dev.vanta.core.ui.RoundedCorners;
 import dev.vanta.core.ui.TextureRef;
 import java.util.Objects;
 import net.minecraft.client.Minecraft;
@@ -20,9 +22,10 @@ import net.minecraft.util.ARGB;
  * {@link AbstractCanvas} owns the transform stack, the scissor intersection and the partial-alpha multiplier; this
  * class maps the resulting primitives to the game:
  * <ul>
- *   <li>fills go to {@link GuiGraphics#fill}, vertical gradients to {@link GuiGraphics#fillGradient}; every other shape
- *       (rounded corners, horizontal gradients, lines, circles) is composed of fills by the core defaults so it looks
- *       identical to the Java2D previews;</li>
+ *   <li>fills go to {@link GuiGraphics#fill}, vertical gradients to {@link GuiGraphics#fillGradient} and horizontal
+ *       gradients to one {@link GuiGraphics#fillGradient} under a rotated pose (see {@link #fillGradientH}); every
+ *       other shape (rounded corners, lines, circles) is composed of fills by the core defaults so it looks identical
+ *       to the Java2D previews;</li>
  *   <li>text is drawn with {@link GuiGraphics#drawString} using a {@link net.minecraft.network.chat.Component} styled with
  *       the VANTA font provider ({@link VantaFonts}), or as a plain string for the vanilla font;</li>
  *   <li>images use {@link GuiGraphics#blit} with {@link RenderPipelines#GUI_TEXTURED}; partial alpha is applied through the
@@ -35,6 +38,9 @@ import net.minecraft.util.ARGB;
  * Colours with an alpha below 4 are skipped for text because the vanilla font treats such colours as opaque.
  */
 public final class GuiGraphicsCanvas extends AbstractCanvas {
+    /** Pose rotation that turns the game's vertical gradient into a left-to-right one (see {@link #fillGradientH}). */
+    private static final float QUARTER_TURN_LEFT = (float) (-Math.PI / 2.0);
+
     private final GuiGraphics graphics;
     private final Font font;
     private final boolean allowBlur;
@@ -79,6 +85,71 @@ public final class GuiGraphicsCanvas extends AbstractCanvas {
             return;
         }
         graphics.fillGradient(x, y, x + w, y + h, top, bottom);
+    }
+
+    /**
+     * One native gradient instead of one fill per column: the game only interpolates along its y axis, so the pose
+     * is rotated a quarter turn and the gradient is drawn sideways.
+     * <p>
+     * Derivation: {@code world = Translate(x, y) * Rotate(theta) * local} with the standard rotation matrix
+     * {@code [cos -sin; sin cos]} (what {@code Matrix3x2fStack.rotate(float)} applies) and {@code theta = -PI/2}
+     * ({@code cos 0, sin -1}) maps a local point {@code (lx, ly)} to {@code (x + ly, y - lx)}: local +Y becomes world
+     * +X and local +X becomes world -Y. The local rectangle {@code lx in [-h, 0], ly in [0, w]} therefore covers
+     * exactly world {@code [x, x + w] x [y, y + h]}, and since {@code fillGradient} varies the colour along local +Y
+     * from the first colour at {@code y1} to the second at {@code y2}, {@code argbLeft} lands on the left edge and
+     * {@code argbRight} on the right edge. Anchoring the rotation at the corner rather than the centre keeps every
+     * coordinate integral for odd widths and heights.
+     */
+    @Override
+    public void fillGradientH(int x, int y, int w, int h, int argbLeft, int argbRight) {
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+        if (argbLeft == argbRight) {
+            fill(x, y, w, h, argbLeft);
+            return;
+        }
+        int left = applyAlpha(argbLeft);
+        int right = applyAlpha(argbRight);
+        if (Colors.alpha(left) == 0 && Colors.alpha(right) == 0) {
+            return;
+        }
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(x, y);
+        graphics.pose().rotate(QUARTER_TURN_LEFT);
+        graphics.fillGradient(-h, 0, 0, w, left, right);
+        graphics.pose().popMatrix();
+    }
+
+    /**
+     * Rounded horizontal gradient as one native gradient for the centre band plus one per corner row, using the same
+     * inset table as {@link Canvas#fillRounded} and {@link Canvas#strokeRounded} so the corners still line up. Each
+     * corner row starts and ends with the colour the full-width gradient has at that column, exactly like the
+     * per-column default.
+     */
+    @Override
+    public void fillRoundedGradientH(int x, int y, int w, int h, int radius, int argbLeft, int argbRight) {
+        int r = Canvas.clampRadius(radius, w, h);
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+        if (r <= 0) {
+            fillGradientH(x, y, w, h, argbLeft, argbRight);
+            return;
+        }
+        int[] insets = RoundedCorners.insets(r);
+        fillGradientH(x, y + r, w, h - 2 * r, argbLeft, argbRight);
+        for (int i = 0; i < r; i++) {
+            int inset = insets[i];
+            int rowWidth = w - 2 * inset;
+            if (rowWidth <= 0) {
+                continue;
+            }
+            int rowLeft = w == 1 ? argbLeft : Colors.lerp(argbLeft, argbRight, inset / (float) (w - 1));
+            int rowRight = w == 1 ? argbLeft : Colors.lerp(argbLeft, argbRight, (w - 1 - inset) / (float) (w - 1));
+            fillGradientH(x + inset, y + i, rowWidth, 1, rowLeft, rowRight);
+            fillGradientH(x + inset, y + h - 1 - i, rowWidth, 1, rowLeft, rowRight);
+        }
     }
 
     @Override
