@@ -1,6 +1,7 @@
 package dev.vanta.core.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Random;
@@ -125,5 +126,57 @@ class CanvasTextEllipsizeTest {
         assertEquals("", CanvasText.ellipsize("Hello world", 4, FontKind.UI, five), "no room for the ellipsis");
         assertEquals("", CanvasText.ellipsize(null, 100, FontKind.UI, five));
         assertEquals("", CanvasText.ellipsize("", 100, FontKind.UI, five));
+    }
+
+    /** Metrics counting code points (so a surrogate pair is one glyph), with a 3 px ellipsis. */
+    private static final TextMetrics CODE_POINTS = (text, font) -> {
+        if (text == null) {
+            return 0;
+        }
+        int width = 0;
+        for (int i = 0; i < text.length(); ) {
+            int cp = text.codePointAt(i);
+            width += cp == '\u2026' ? 3 : 10;
+            i += Character.charCount(cp);
+        }
+        return width;
+    };
+
+    @Test
+    void edgeCases() {
+        String emoji = new StringBuilder().appendCodePoint(0x1F600).appendCodePoint(0x1F601).appendCodePoint(0x1F602)
+                .appendCodePoint(0x1F603).toString();
+        assertEquals(40, CODE_POINTS.textWidth(emoji, FontKind.UI));
+        assertEquals(emoji, CanvasText.ellipsize(emoji, 40, FontKind.UI, CODE_POINTS), "exactly fitting text is kept");
+        assertEquals(emoji.substring(0, 6) + CanvasText.ELLIPSIS,
+                CanvasText.ellipsize(emoji, 39, FontKind.UI, CODE_POINTS),
+                "three emoji (30 px) plus the ellipsis (3 px) fit in 39 px");
+        assertEquals(emoji.substring(0, 4) + CanvasText.ELLIPSIS,
+                CanvasText.ellipsize(emoji, 32, FontKind.UI, CODE_POINTS),
+                "two emoji (20 px) plus the ellipsis (3 px); a third would need 33 px");
+        for (int width = 0; width <= 45; width++) {
+            String result = CanvasText.ellipsize(emoji, width, FontKind.UI, CODE_POINTS);
+            for (int i = 0; i < result.length(); i++) {
+                char c = result.charAt(i);
+                assertFalse(Character.isHighSurrogate(c) && (i + 1 >= result.length()
+                        || !Character.isLowSurrogate(result.charAt(i + 1))), "no half surrogate pair at " + width);
+                assertFalse(Character.isLowSurrogate(c) && (i == 0 || !Character.isHighSurrogate(result.charAt(i - 1))),
+                        "no half surrogate pair at " + width);
+            }
+            assertTrue(CODE_POINTS.textWidth(result, FontKind.UI) <= Math.max(0, width), "fits at " + width);
+        }
+        assertEquals(CanvasText.ELLIPSIS, CanvasText.ellipsize(emoji, 3, FontKind.UI, CODE_POINTS),
+                "room for the ellipsis only");
+        assertEquals(CanvasText.ELLIPSIS, CanvasText.ellipsize(emoji, 12, FontKind.UI, CODE_POINTS),
+                "one glyph plus the ellipsis would be 13 px");
+        assertEquals("", CanvasText.ellipsize(emoji, 2, FontKind.UI, CODE_POINTS), "narrower than the ellipsis");
+        assertEquals("", CanvasText.ellipsize("", 0, FontKind.UI, CODE_POINTS), "empty text fits a zero width");
+        assertEquals("", CanvasText.ellipsize("", -1, FontKind.UI, CODE_POINTS));
+        assertEquals("a b", CanvasText.ellipsize("a b", 30, FontKind.UI, CODE_POINTS), "exact fit with a space");
+        assertEquals("a b ", CanvasText.ellipsize("a b ", 40, FontKind.UI, CODE_POINTS),
+                "trailing whitespace is only stripped when clipping");
+        assertEquals("a" + CanvasText.ELLIPSIS, CanvasText.ellipsize("a b ", 23, FontKind.UI, CODE_POINTS),
+                "the space before the cut is stripped");
+        assertEquals("a b" + CanvasText.ELLIPSIS, CanvasText.ellipsize("a b  cd", 33, FontKind.UI, CODE_POINTS));
     }
 }

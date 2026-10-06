@@ -27,7 +27,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The cached per-frame path of {@link CrosshairRenderer} must draw exactly what the stateless
  * {@link CrosshairRenderer#draw(dev.vanta.core.ui.Canvas, CrosshairStyle, int, int, int)} painter draws, for every
- * built-in preset and every expansion step, while reading the game once per tick rather than once per frame.
+ * built-in preset with and without outline, static and dynamic, at every expansion step, while reading the game
+ * once per tick rather than once per frame.
  */
 class CrosshairRendererCacheTest {
     private static final int W = 320;
@@ -52,8 +53,11 @@ class CrosshairRendererCacheTest {
         services.load();
         int comparisons = 0;
         for (CrosshairPreset preset : CrosshairPresets.builtIns()) {
-            for (boolean dynamic : new boolean[] {false, true}) {
-                CrosshairStyle style = preset.style().withDynamic(dynamic);
+            for (int variant = 0; variant < 4; variant++) {
+                boolean dynamic = (variant & 1) != 0;
+                boolean outline = (variant & 2) != 0;
+                CrosshairStyle style = preset.style().withDynamic(dynamic)
+                        .withOutline(outline, Math.max(1, preset.style().outlineThickness()));
                 services.crosshair().setStyle(style);
                 CrosshairRenderer renderer = new CrosshairRenderer(services);
                 for (int expansion = 0; expansion <= 4; expansion++) {
@@ -73,10 +77,10 @@ class CrosshairRendererCacheTest {
                         assertEquals(effective, renderer.currentExpansion(), preset.id() + " settles at " + effective);
                         TestCanvas reference = new TestCanvas(W, H);
                         CrosshairRenderer.draw(reference, style, W / 2, H / 2, effective);
-                        assertEquals(reference.fills(), first.fills(), preset.id() + " dynamic=" + dynamic
-                                + " expansion=" + expansion + " (first frame builds the geometry)");
-                        assertEquals(reference.fills(), second.fills(), preset.id() + " dynamic=" + dynamic
-                                + " expansion=" + expansion + " (second frame replays it)");
+                        String label = preset.id() + " dynamic=" + dynamic + " outline=" + outline + " expansion="
+                                + expansion;
+                        assertEquals(reference.fills(), first.fills(), label + " (first frame builds the geometry)");
+                        assertEquals(reference.fills(), second.fills(), label + " (second frame replays it)");
                     }
                     // The stateless painter itself is unchanged: expansion only matters for dynamic styles.
                     TestCanvas base = new TestCanvas(W, H);
@@ -88,7 +92,7 @@ class CrosshairRendererCacheTest {
                 }
             }
         }
-        assertEquals(CrosshairPresets.builtIns().size() * 2 * 5, comparisons);
+        assertEquals(CrosshairPresets.builtIns().size() * 4 * 5, comparisons);
     }
 
     @Test

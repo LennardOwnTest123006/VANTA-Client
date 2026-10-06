@@ -10,10 +10,11 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The cached rectangle replay of {@link Icons#draw} must cover exactly the pixels the stroke-by-stroke
- * {@link Icons#paint} covers, for every icon and the sizes the UI uses, while issuing far fewer fills overall.
+ * {@link Icons#paint} covers, for every icon and the sizes the UI uses (plus 8 and 24 px, below and above
+ * them), while issuing far fewer fills overall.
  */
 class IconRasterTest {
-    private static final int[] SIZES = {9, 10, 11, 12, 14, 16, 20, 22};
+    private static final int[] SIZES = {8, 9, 10, 11, 12, 14, 16, 20, 22, 24};
 
     private static Set<Long> pixels(TestCanvas canvas) {
         Set<Long> pixels = new HashSet<>();
@@ -57,8 +58,9 @@ class IconRasterTest {
             }
         }
         assertEquals(Icons.values().length * SIZES.length, comparisons);
-        // Measured 2026-10: 3 453 rectangles vs 5 762 stroke fills over every icon at these eight sizes (-40 %);
-        // the saving grows with the icon size because stroke fills grow per pixel and rectangles per feature.
+        // Measured 2026-10: 3 453 rectangles vs 5 762 stroke fills over every icon at the eight UI sizes (-40 %),
+        // 4 380 vs 7 342 with 8 and 24 px included; the saving grows with the icon size because stroke fills grow per
+        // pixel and rectangles per feature.
         assertTrue(cachedFills * 4 < strokeFills * 3, "cached " + cachedFills + " vs stroked " + strokeFills);
     }
 

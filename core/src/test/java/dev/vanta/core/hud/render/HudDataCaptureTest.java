@@ -1,6 +1,7 @@
 package dev.vanta.core.hud.render;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.bridge.CountingGameBridge;
@@ -126,5 +127,29 @@ class HudDataCaptureTest {
                 "fps only", 1, game.total()));
         assertEquals(3, game.total(), "fps widget: isInWorld + fps + frameTimeMillis: " + game.calls());
         System.out.print(report);
+    }
+
+    @Test
+    void everyWidgetAloneRendersIdenticallyFromTheLeanSnapshot() {
+        MutableClock clock = MutableClock.standard();
+        FakeGameBridge fake = new FakeGameBridge().onServer("play.example.net", "Example", 42);
+        VantaServices services = VantaServices.create(VantaPaths.inGameDirectory(dir), fake, new FakeOptionsBridge(),
+                new FakeKeybindBridge(), new FakeResourcePackBridge(), clock);
+        services.load();
+        for (HudWidgetType type : HudWidgetType.values()) {
+            services.hud().setLayout(new HudLayout(List.of(HudWidgetState.defaults("only", type))));
+            HudRenderer lean = new HudRenderer(services);
+            lean.tick();
+            TestCanvas leanCanvas = new TestCanvas(854, 480);
+            lean.render(leanCanvas, 854, 480, 0f);
+            HudRenderer full = new HudRenderer(services);
+            full.tick(EnumSet.allOf(HudWidgetType.class));
+            TestCanvas fullCanvas = new TestCanvas(854, 480);
+            full.render(fullCanvas, 854, 480, 0f);
+            assertEquals(fullCanvas.ops(), leanCanvas.ops(), type + " alone renders identically from the lean data");
+            if (type != HudWidgetType.CROSSHAIR) {
+                assertFalse(leanCanvas.ops().isEmpty(), type + " draws something");
+            }
+        }
     }
 }
