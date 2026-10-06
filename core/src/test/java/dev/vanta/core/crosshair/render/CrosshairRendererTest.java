@@ -160,9 +160,14 @@ class CrosshairRendererTest {
         CrosshairRenderer renderer = new CrosshairRenderer(services);
         TestCanvas canvas = new TestCanvas(200, 100);
         renderer.render(canvas, 200, 100, 0f);
-        assertEquals(CrosshairRenderer.MOVE_EXPANSION, renderer.currentExpansion(), "first frame snaps");
+        assertEquals(CrosshairRenderer.MOVE_EXPANSION, renderer.currentExpansion(),
+                "first frame samples the inputs itself and snaps");
         game.keyStates = KeyStates.NONE;
         clock.advance(30);
+        renderer.render(canvas, 200, 100, 0f);
+        assertEquals(CrosshairRenderer.MOVE_EXPANSION, renderer.currentExpansion(),
+                "inputs are sampled per tick, not per frame");
+        renderer.tick();
         renderer.render(canvas, 200, 100, 0f);
         assertTrue(renderer.currentExpansion() <= CrosshairRenderer.MOVE_EXPANSION);
         clock.advance(500);

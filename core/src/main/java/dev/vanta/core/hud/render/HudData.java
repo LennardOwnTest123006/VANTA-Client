@@ -7,18 +7,21 @@ import dev.vanta.core.bridge.ItemInfo;
 import dev.vanta.core.bridge.KeyStates;
 import dev.vanta.core.bridge.Vec3d;
 import dev.vanta.core.hud.FrameTimeTracker;
+import dev.vanta.core.hud.HudWidgetType;
 import dev.vanta.core.i18n.Lang;
 
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
+import java.util.Set;
 
 /**
  * Immutable snapshot of everything the HUD widgets display, captured once per client tick by {@link HudRenderer}.
@@ -119,7 +122,7 @@ public final class HudData {
     }
 
     /**
-     * Captures a snapshot from the game.
+     * Captures a complete snapshot from the game (every bridge value, whatever the layout shows).
      *
      * @param game       live or sample game data
      * @param cpsLeft    left-button clicks in the last second
@@ -129,16 +132,65 @@ public final class HudData {
      */
     public static HudData capture(GameBridge game, int cpsLeft, int cpsRight, FrameTimeTracker frameTimes,
                                   ZoneId zone) {
+        return capture(game, cpsLeft, cpsRight, frameTimes, zone, EnumSet.allOf(HudWidgetType.class));
+    }
+
+    /**
+     * Captures a snapshot holding only what the enabled widgets display. Every other value stays at its empty
+     * default and the matching bridge method is never called, so a layout with three widgets costs three or four
+     * bridge round-trips per tick instead of twenty-five. {@code isInWorld} is always read.
+     *
+     * @param enabled the widget types enabled in the live layout
+     */
+    public static HudData capture(GameBridge game, int cpsLeft, int cpsRight, FrameTimeTracker frameTimes,
+                                  ZoneId zone, Set<HudWidgetType> enabled) {
         Objects.requireNonNull(game, "game");
+        Objects.requireNonNull(enabled, "enabled");
         boolean inWorld = game.isInWorld();
-        return new HudData(inWorld, game.isSingleplayer(), game.fps(), game.frameTimeMillis(),
-                frameTimes == null ? 0.0 : frameTimes.onePercentLowFps(), game.pingMillis(),
-                inWorld ? game.playerPosition() : Optional.empty(), game.yaw(), game.biomeId(), game.dimensionId(),
-                game.serverName(), game.serverAddress(), cpsLeft, cpsRight, game.currentTimeMillis(),
-                game.gameTicks(), zone == null ? ZoneOffset.UTC : zone, game.armorValue(), game.armorPieces(),
-                game.heldItems(), game.activeEffects(), game.keyStates(), game.memoryUsedBytes(),
-                game.memoryAllocatedBytes(), game.memoryMaxBytes(), game.cpuLoad(), game.entityCount(),
-                game.minecraftVersion(), game.fabricLoaderVersion(), game.clientVersion(),
+        boolean fps = enabled.contains(HudWidgetType.FPS);
+        boolean ping = enabled.contains(HudWidgetType.PING);
+        boolean coordinates = enabled.contains(HudWidgetType.COORDINATES);
+        boolean direction = enabled.contains(HudWidgetType.DIRECTION);
+        boolean biome = enabled.contains(HudWidgetType.BIOME);
+        boolean server = enabled.contains(HudWidgetType.SERVER);
+        boolean clock = enabled.contains(HudWidgetType.CLOCK);
+        boolean armor = enabled.contains(HudWidgetType.ARMOR);
+        boolean held = enabled.contains(HudWidgetType.ITEM_DURABILITY);
+        boolean effects = enabled.contains(HudWidgetType.POTION_EFFECTS);
+        boolean keys = enabled.contains(HudWidgetType.KEYSTROKES);
+        boolean memory = enabled.contains(HudWidgetType.MEMORY);
+        boolean cpu = enabled.contains(HudWidgetType.CPU);
+        boolean entities = enabled.contains(HudWidgetType.ENTITY_COUNT);
+        boolean versions = enabled.contains(HudWidgetType.MINECRAFT_VERSION);
+        return new HudData(inWorld,
+                ping || server ? game.isSingleplayer() : true,
+                fps ? game.fps() : 0,
+                fps ? game.frameTimeMillis() : 0.0,
+                fps && frameTimes != null ? frameTimes.onePercentLowFps() : 0.0,
+                ping ? game.pingMillis() : OptionalInt.empty(),
+                coordinates && inWorld ? game.playerPosition() : Optional.empty(),
+                direction ? game.yaw() : 0f,
+                biome ? game.biomeId() : Optional.empty(),
+                coordinates ? game.dimensionId() : Optional.empty(),
+                server ? game.serverName() : Optional.empty(),
+                server ? game.serverAddress() : Optional.empty(),
+                cpsLeft, cpsRight,
+                clock ? game.currentTimeMillis() : 0L,
+                clock ? game.gameTicks() : 0L,
+                zone == null ? ZoneOffset.UTC : zone,
+                armor ? game.armorValue() : 0,
+                armor ? game.armorPieces() : List.of(),
+                held ? game.heldItems() : List.of(),
+                effects ? game.activeEffects() : List.of(),
+                keys ? game.keyStates() : KeyStates.NONE,
+                memory ? game.memoryUsedBytes() : 0L,
+                memory ? game.memoryAllocatedBytes() : 0L,
+                memory ? game.memoryMaxBytes() : 0L,
+                cpu ? game.cpuLoad() : OptionalDouble.empty(),
+                entities ? game.entityCount() : 0,
+                versions ? game.minecraftVersion() : "",
+                versions ? game.fabricLoaderVersion() : "",
+                versions ? game.clientVersion() : "",
                 game instanceof SampleGameData);
     }
 
