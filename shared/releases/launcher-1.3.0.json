@@ -11,45 +11,45 @@
   "files": [
     {
       "name": "VANTA-Launcher-1.3.0.msi",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.3.0/VANTA-Launcher-1.3.0.msi",
+      "size": 67105817,
+      "sha256": "ee633e8125cf5fd322c208f7105c1e5606e0b900b1d8f24ae442ab3f1518d430"
     },
     {
       "name": "VANTA-Launcher-1.3.0.exe",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.3.0/VANTA-Launcher-1.3.0.exe",
+      "size": 67728384,
+      "sha256": "e4d171980d8361707a472bf3a84b327cd194c2c94371259a6e74aa63a889eae8"
     },
     {
       "name": "VANTA-Launcher-1.3.0-windows-portable.zip",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.3.0/VANTA-Launcher-1.3.0-windows-portable.zip",
+      "size": 65300994,
+      "sha256": "b0c2592bfe3bda8c93dae6009b95b9b2b9538dfae26cfe01f139b00601b6300b"
     },
     {
       "name": "vanta-launcher-1.3.0-windows-all.jar",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.3.0/vanta-launcher-1.3.0-windows-all.jar",
+      "size": 14481760,
+      "sha256": "3cfcec186ced4fd2eabc2077cb71d31279f2241426863ee9521103afa0388cdb"
     },
     {
       "name": "VANTA-Launcher-1.3.0-linux-x64.tar.gz",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.3.0/VANTA-Launcher-1.3.0-linux-x64.tar.gz",
+      "size": 67108488,
+      "sha256": "745526c083af60be0cbfc942a488a937ad0854211fef65dcdce616e3b3e0c8fa"
     },
     {
       "name": "vanta-launcher-1.3.0-linux-all.jar",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.3.0/vanta-launcher-1.3.0-linux-all.jar",
+      "size": 13254879,
+      "sha256": "f79e57e036c1c922f3853341a213cb822e26553ded685e49618fe94dbb6078cd"
     },
     {
       "name": "vanta-launcher-1.3.0-macos-aarch64-all.jar",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.3.0/vanta-launcher-1.3.0-macos-aarch64-all.jar",
+      "size": 13341704,
+      "sha256": "990bbaf2d3be50b0c027dbe445b3f4ce5cd6ccba95ef650e155a160e7888e630"
     }
   ],
   "changelog": "website/content/changelog/launcher-1.3.0.md"
