@@ -33,6 +33,11 @@ pressing *Apply* in the [Performance Center](performance.md). Presets never set 
 profile carries them separately, as the *Frame rate limit* choice it was saved with (unlimited and VSync off in every
 built-in profile, so no profile caps your frame rate).
 
+Upgrading from 1.1.0 or earlier: on the first start with 1.2.0, built-in profiles you never changed are refreshed to
+the current defaults and every profile file moves to schema version 2; renamed or edited built-ins and your own
+profiles keep their content. Whatever a profile says, activating it derives the vanilla frame-rate limit and VSync
+from the profile's *Frame rate limit* choice. A 1.1.0 client cannot read schema-2 files and recreates its built-ins.
+
 ## The Profiles screen
 
 Open it from the main menu's Profiles button. In a world, `/vanta profiles` lists the profiles in the chat and

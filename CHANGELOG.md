@@ -93,6 +93,30 @@ small window.
   settings category rail scrolls when the window is too short for all entries. Every screen is now checked at 19
   window sizes, at scale 1 and with large text, for buttons that cannot be clicked or that overlap each other, and the
   Mods & Shaders screen in 15 states at every size.
+- Profiles written by 1.1.0 or earlier no longer re-apply a 60 / 120 FPS cap on an upgraded install: on the first
+  start, built-in profiles you never changed are refreshed from the current defaults (profile files move to schema
+  version 2; renamed or edited built-ins and your own profiles keep their content), and activating any profile derives
+  the vanilla frame-rate limit and VSync from the profile's own frame-rate choice. *Reset all settings* now ends at
+  *Unlimited* with VSync off. If you downgrade, a 1.1.0 client ignores schema-2 profile files and recreates its
+  built-ins.
+- *Boost FPS* and the *Boost your FPS?* offer install only the Performance pack members that are really missing; a
+  member Fabric already loaded from a jar Modrinth does not recognise is never downloaded a second time, not even as
+  Iris' dependency. While a Modrinth download is still running, *Boost FPS* applies its settings, queues no second
+  pack install and shows *Download still running*; the Performance Center's button waits until the install is done,
+  and one *Boost applied* toast follows per click.
+- A pack jar you switched off by hand (`.jar.disabled`), or one built for another Minecraft version, is no longer
+  taken over into VANTA's index behind your back; *Install* then switches an identical disabled copy back on and says
+  so, or downloads the current version next to it.
+- The Mods & Shaders restart banner's *Restart* / *Quit* button waits until a running download has landed, so quitting
+  can no longer abandon a half-finished install.
+- Escape (or any other way of closing) the *Boost your FPS?* dialog counts as *Not now*, and the dialog says so.
+- Cosmetics cards no longer overlap the section below or sit beyond the end of the list after switching sections in a
+  small window; layouts that need a second pass now get it in the same frame.
+- Confirmation, profile-name, import and save-preset dialogs follow the window after a resize, a fullscreen toggle or
+  a UI-scale change instead of sitting off-screen while blocking every click; dropdown lists and the colour palette
+  stay on the screen on short windows.
+- Ctrl+F and other screen shortcuts no longer steal the keyboard from an open dialog or dropdown; Enter keeps
+  activating the dialog's default button.
 
 #### Privacy
 - Nothing new is sent anywhere. The *Boost your FPS?* dialog and *Boost FPS* contact Modrinth only after your click,
