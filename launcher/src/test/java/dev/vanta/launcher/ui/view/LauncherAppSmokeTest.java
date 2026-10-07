@@ -174,6 +174,11 @@ class LauncherAppSmokeTest {
     }
 
     @Test
+    void theStartCheckRunsWhenTheWindowOpens() throws Exception {
+        waitUntil(() -> backend.calls.contains("startupCheck"));
+    }
+
+    @Test
     void everyPageRendersAndDialogsOpen() throws Exception {
         for (NavigationModel.Page page : NavigationModel.Page.values()) {
             fx(() -> {

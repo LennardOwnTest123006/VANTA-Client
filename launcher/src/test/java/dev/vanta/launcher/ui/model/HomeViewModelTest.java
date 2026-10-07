@@ -5,6 +5,7 @@ import dev.vanta.launcher.core.auth.Account;
 import dev.vanta.launcher.core.install.InstallException;
 import dev.vanta.launcher.core.install.InstallStep;
 import dev.vanta.launcher.core.install.NotPublishedException;
+import dev.vanta.launcher.core.launch.StartupGuard;
 import dev.vanta.launcher.ui.testutil.FakeBackend;
 import dev.vanta.launcher.ui.testutil.TestContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -455,6 +456,180 @@ class HomeViewModelTest {
         assertEquals(HomeViewModel.MAX_RESTARTS + 1, backend.calls.stream().filter("consumeRestartRequest"::equals).count(),
             "the exit at the limit consumes the marker instead of leaving it for the next PLAY");
         assertEquals(1, backend.restartRequests, "only the request that was never written remains");
+    }
+
+    // ---------------------------------------------------------------- start check
+
+    private static final String SMART = "smart-fps-booster-1.0.0+mc1.21.4.jar";
+
+    private StartupGuard.Report switchedOffByTheCheck() {
+        return new StartupGuard.Report(3, List.of(backend.switchedOff(SMART, "Smart FPS Booster", "1.0.0+mc1.21.4", StartupGuard.Source.CHECK)));
+    }
+
+    private StartupGuard.Report switchedOffByACrashReport() {
+        return new StartupGuard.Report(0, List.of(backend.switchedOff(SMART, "Smart FPS Booster", "1.0.0+mc1.21.4",
+            StartupGuard.Source.CRASH_REPORT)));
+    }
+
+    private List<String> order(final String... names) {
+        final List<String> wanted = List.of(names);
+        return backend.calls.stream().filter(wanted::contains).toList();
+    }
+
+    private ToastModel.Toast lastToast() {
+        return ctx.toasts.toasts().get(ctx.toasts.toasts().size() - 1);
+    }
+
+    @Test
+    void playRunsTheStartCheckAfterTheInstallAndBeforeTheGameStarts() {
+        signedInWithJava();
+        backend.startupReport = switchedOffByTheCheck();
+        final HomeViewModel vm = ctx.home();
+
+        vm.play();
+
+        assertEquals(List.of("install", "startupCheck", "refreshIfExpired", "launch"), order("install", "startupCheck", "refreshIfExpired", "launch"));
+        assertEquals(HomeViewModel.State.RUNNING, vm.state());
+        final ToastModel.Toast toast = ctx.toasts.toasts().stream().filter(t -> t.title().equals("Switched off Smart FPS Booster")).findFirst()
+            .orElseThrow(() -> new AssertionError(ctx.toasts.toasts().toString()));
+        assertEquals(ToastModel.Kind.WARNING, toast.kind());
+        assertEquals("Smart FPS Booster 1.0.0+mc1.21.4 was switched off because it was built for an older Minecraft: it creates key bindings"
+            + " the way Minecraft did before 1.21.9, so Minecraft 1.21.11 would stop while starting. You can switch it on again on the Mods page.",
+            toast.message());
+        assertTrue(ctx.launcherLog.snapshot().stream().anyMatch(l -> l.level() == LogLevel.WARN
+            && l.text().startsWith("Startup check: switched off " + SMART + " (Smart FPS Booster 1.0.0+mc1.21.4): built for an older Minecraft")),
+            ctx.launcherLog.snapshot().toString());
+    }
+
+    @Test
+    void aStartCheckThatCannotRunNeverStopsPlay() {
+        signedInWithJava();
+        backend.startupCheckFailure = new java.io.IOException("mods/ is not readable");
+        final HomeViewModel vm = ctx.home();
+        vm.play();
+        assertEquals(HomeViewModel.State.RUNNING, vm.state());
+        assertTrue(ctx.launcherLog.snapshot().stream().anyMatch(l -> l.text().contains("Startup check could not run")));
+    }
+
+    @Test
+    void playViaMinecraftLauncherRunsTheStartCheckAfterTheFilesAndBeforeOpeningIt() {
+        backend.signInConfigured = false;
+        ctx.session.refreshAll();
+        backend.startupReport = switchedOffByTheCheck();
+        final HomeViewModel vm = ctx.home();
+        final List<Runnable> ticks = new ArrayList<>();
+        vm.setWatchScheduler((period, task) -> {
+            assertEquals(HomeViewModel.WATCH_PERIOD, period);
+            ticks.add(task);
+            return () -> ticks.clear();
+        });
+
+        vm.installOfficialProfile(true);
+
+        assertEquals(List.of("installOfficialProfile", "startupCheck", "openOfficialLauncher"),
+            order("installOfficialProfile", "startupCheck", "openOfficialLauncher"), "checked once, after the files, before opening");
+        assertTrue(ctx.toasts.toasts().stream().anyMatch(t -> t.title().equals("Switched off Smart FPS Booster")), ctx.toasts.toasts().toString());
+        assertTrue(vm.watchingCrashReports(), "crash-reports/ is watched while the Minecraft Launcher plays");
+        assertEquals(1, ticks.size());
+
+        // The Minecraft Launcher started the game and it crashed: the report names the mod.
+        final List<ToastModel.Toast> before = List.copyOf(ctx.toasts.toasts());
+        ticks.get(0).run();
+        assertEquals(before, ctx.toasts.toasts(), "no new report, nothing to say");
+        backend.crashReports.add(switchedOffByACrashReport());
+        ticks.get(0).run();
+        assertEquals("Switched off Smart FPS Booster", lastToast().title());
+        assertEquals("Smart FPS Booster 1.0.0+mc1.21.4 was switched off because Minecraft stopped while starting because of it (crash report"
+            + " crash-2026-10-04_12.00.00-client.txt). You can switch it on again on the Mods page. Press Play in the Minecraft Launcher again.",
+            lastToast().message());
+        assertEquals(2, backend.calls.stream().filter("crashReportCheck"::equals).count());
+    }
+
+    @Test
+    void useWithMinecraftLauncherAndOpenMinecraftLauncherRunTheStartCheckToo() {
+        ctx.session.refreshAll();
+        final HomeViewModel vm = ctx.home();
+        vm.setWatchScheduler((period, task) -> () -> { });
+        backend.startupReport = switchedOffByTheCheck();
+        vm.installOfficialProfile(false);
+        assertEquals(List.of("installOfficialProfile", "startupCheck"), order("installOfficialProfile", "startupCheck", "openOfficialLauncher"));
+        assertTrue(ctx.toasts.toasts().stream().anyMatch(t -> t.title().equals("Switched off Smart FPS Booster")));
+
+        backend.calls.clear();
+        vm.openOfficialLauncher();
+        assertEquals(List.of("startupCheck", "openOfficialLauncher"), order("startupCheck", "openOfficialLauncher"));
+        assertTrue(vm.watchingCrashReports());
+        vm.stopWatchingCrashReports();
+        assertFalse(vm.watchingCrashReports());
+    }
+
+    @Test
+    void theCrashReportWatchStopsAfterThirtyMinutes() {
+        ctx.session.refreshAll();
+        final HomeViewModel vm = ctx.home();
+        final List<Runnable> ticks = new ArrayList<>();
+        final boolean[] stopped = {false};
+        vm.setWatchScheduler((period, task) -> {
+            ticks.add(task);
+            return () -> stopped[0] = true;
+        });
+        vm.watchCrashReports();
+        final long perHalfHour = HomeViewModel.WATCH_LIMIT.toMillis() / HomeViewModel.WATCH_PERIOD.toMillis();
+        for (long i = 0; i < perHalfHour; i++) {
+            ticks.get(0).run();
+        }
+        assertTrue(vm.watchingCrashReports());
+        assertFalse(stopped[0]);
+        ticks.get(0).run();
+        assertFalse(vm.watchingCrashReports());
+        assertTrue(stopped[0]);
+        assertEquals(perHalfHour, backend.calls.stream().filter("crashReportCheck"::equals).count());
+        ticks.get(0).run();
+        assertEquals(perHalfHour, backend.calls.stream().filter("crashReportCheck"::equals).count(), "a stopped watch does nothing");
+    }
+
+    @Test
+    void aRestartTheGameAskedForRunsTheStartCheckBeforeItStartsAgain() {
+        signedInWithJava();
+        final HomeViewModel vm = ctx.home();
+        vm.play();
+        // In the game, VANTA's Mods screen installed a mod and the player pressed "Restart game".
+        backend.calls.clear();
+        backend.restartRequests = 1;
+        backend.startupReport = switchedOffByTheCheck();
+        backend.game.exit(0);
+
+        assertEquals(List.of("consumeRestartRequest", "startupCheck", "launch"), order("consumeRestartRequest", "startupCheck", "launch"));
+        assertEquals(HomeViewModel.State.RUNNING, vm.state());
+        assertTrue(ctx.toasts.toasts().stream().anyMatch(t -> t.title().equals("Switched off Smart FPS Booster")), ctx.toasts.toasts().toString());
+    }
+
+    @Test
+    void afterTheGameExitsTheNewestCrashReportIsChecked() {
+        signedInWithJava();
+        final HomeViewModel vm = ctx.home();
+        vm.play();
+        backend.crashReports.add(switchedOffByACrashReport());
+        backend.game.exit(255);
+        assertTrue(backend.calls.contains("crashReportCheck"));
+        assertTrue(ctx.toasts.toasts().stream().anyMatch(t -> t.title().equals("Switched off Smart FPS Booster")
+            && !t.message().contains("Minecraft Launcher")), ctx.toasts.toasts().toString());
+        assertEquals(HomeViewModel.State.READY, vm.state());
+    }
+
+    @Test
+    void theWindowRunsTheStartCheckOnceWhenItOpensAndAProtectedModIsOnlyReported() {
+        ctx.session.refreshAll();
+        final HomeViewModel vm = ctx.home();
+        backend.startupReport = new StartupGuard.Report(0, List.of(new StartupGuard.Action(backend.paths().modsDir().resolve("vanta-client-1.2.0.jar"),
+            "vanta", "VANTA", "1.2.0", "Minecraft stopped while starting because of it (crash report crash-1.txt); VANTA does not switch off vanta",
+            StartupGuard.Source.CRASH_REPORT, false, "crash-1.txt")));
+        vm.runStartupCheck();
+        assertEquals(1, backend.calls.stream().filter("startupCheck"::equals).count());
+        assertEquals(ctx.messages.get("startup.toast.notSwitchedOff.title"), lastToast().title());
+        assertEquals("VANTA did not switch off VANTA 1.2.0: Minecraft stopped while starting because of it (crash report crash-1.txt)."
+            + " The Logs page has the details.", lastToast().message());
+        assertTrue(ctx.launcherLog.snapshot().stream().anyMatch(l -> l.text().startsWith("Startup check: did not switch off vanta-client-1.2.0.jar")));
     }
 
     private void signedInWithJava() {

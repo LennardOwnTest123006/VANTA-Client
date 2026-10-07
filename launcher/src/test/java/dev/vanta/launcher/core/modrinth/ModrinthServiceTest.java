@@ -566,4 +566,70 @@ class ModrinthServiceTest {
             .map(ModrinthService.InstalledContent::title).collect(Collectors.toSet()));
         assertTrue(Files.isRegularFile(paths.modsDir().resolve("lithium-fabric-0.21.4+mc1.21.11.jar")), "nothing was removed");
     }
+
+    // ---------------------------------------------------------------- built for an older Minecraft
+
+    private static final String LITHIUM_NEW = "lithium-fabric-0.21.4+mc1.21.11.jar";
+    private static final String OLDER_MINECRAFT = "built for an older Minecraft: it creates key bindings the way Minecraft did before 1.21.9,"
+        + " so Minecraft 1.21.11 would stop while starting";
+
+    /** Lithium's newest file served with a client entrypoint that creates key bindings the 1.21.8 way (real bytecode). */
+    private byte[] serveLithiumBuiltForAnOlderMinecraft() throws IOException {
+        final dev.vanta.launcher.testutil.ModJars fixtures = dev.vanta.launcher.testutil.ModJars.compile(tmp.resolve("fixtures"));
+        final byte[] jar = fixtures.modJar("lithium", "Lithium", "mc1.21.11-0.21.4-fabric", dev.vanta.launcher.testutil.ModJars.OLD_KEYBINDS);
+        world.replaceModrinthFile("lithium", LITHIUM_NEW, jar);
+        return jar;
+    }
+
+    @Test
+    void aVerifiedModBuiltForAnOlderMinecraftIsNotInstalled() throws Exception {
+        serveLithiumBuiltForAnOlderMinecraft();
+        final List<String> log = new ArrayList<>();
+        final ModrinthService.ApplyResult result = service.apply(service.resolve(List.of(new ModrinthService.Root("lithium", ContentType.MOD)),
+            false, CancellationToken.NONE), DownloadProgressListener.NONE, log::add, false, CancellationToken.NONE);
+        assertTrue(result.applied().isEmpty());
+        assertEquals(List.of("Lithium mc1.21.11-0.21.4-fabric was not installed: " + OLDER_MINECRAFT), result.warnings());
+        assertTrue(log.contains("Skipped Lithium mc1.21.11-0.21.4-fabric: " + OLDER_MINECRAFT), log.toString());
+        assertEquals(1, world.server().hits("/modrinth/cdn/" + LITHIUM_NEW), "it was downloaded and verified");
+        assertFalse(Files.exists(paths.modsDir().resolve(LITHIUM_NEW)), "the download is deleted again");
+        try (var left = Files.list(paths.modsDir())) {
+            assertEquals(List.of(), left.toList(), "nothing is left behind (no temporary file, no .disabled copy)");
+        }
+        assertFalse(ModrinthIndex.load(paths.modrinthIndexFile()).byProjectId("gvQqBUqZ").isPresent(), "not tracked");
+    }
+
+    @Test
+    void aFlaggedFileThatWasAlreadyThereIsKeptButNotTracked() throws Exception {
+        final byte[] jar = serveLithiumBuiltForAnOlderMinecraft();
+        Files.createDirectories(paths.modsDir());
+        Files.write(paths.modsDir().resolve(LITHIUM_NEW), jar);
+        final ModrinthService.ApplyResult result = service.apply(service.resolve(List.of(new ModrinthService.Root("lithium", ContentType.MOD)),
+            false, CancellationToken.NONE), DownloadProgressListener.NONE, s -> { }, true, CancellationToken.NONE);
+        assertTrue(result.applied().isEmpty());
+        assertTrue(Files.isRegularFile(paths.modsDir().resolve(LITHIUM_NEW)), "a player's file is never deleted");
+        assertFalse(ModrinthIndex.load(paths.modrinthIndexFile()).byProjectId("gvQqBUqZ").isPresent());
+    }
+
+    @Test
+    void anUpdateToAVersionBuiltForAnOlderMinecraftKeepsTheInstalledVersion() throws Exception {
+        serveLithiumBuiltForAnOlderMinecraft();
+        Files.createDirectories(paths.modsDir());
+        Files.createDirectories(paths.vantaConfigDir());
+        final Path old = paths.modsDir().resolve("lithium-fabric-0.21.3+mc1.21.11.jar");
+        Files.write(old, FakeWorld.modJar("lithium", "mc1.21.11-0.21.3-fabric"));
+        final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
+        index.upsert("gvQqBUqZ").slug("lithium").title("Lithium").versionId("qvNsoO3l").versionNumber("mc1.21.11-0.21.3-fabric")
+            .type(ContentType.MOD).file("mods/lithium-fabric-0.21.3+mc1.21.11.jar").enabled(true).requiredBy(List.of());
+        index.save();
+
+        final ModrinthService.ApplyResult result = service.updateAll(DownloadProgressListener.NONE, s -> { }, CancellationToken.NONE);
+
+        assertTrue(result.applied().isEmpty());
+        assertTrue(result.warnings().contains("Lithium mc1.21.11-0.21.4-fabric was not installed: " + OLDER_MINECRAFT), result.warnings().toString());
+        assertTrue(Files.isRegularFile(old), "the installed version stays");
+        assertFalse(Files.exists(paths.modsDir().resolve(LITHIUM_NEW)));
+        final ModrinthIndex.Entry entry = ModrinthIndex.load(paths.modrinthIndexFile()).byProjectId("gvQqBUqZ").orElseThrow();
+        assertEquals("qvNsoO3l", entry.versionId());
+        assertEquals("mods/lithium-fabric-0.21.3+mc1.21.11.jar", entry.file());
+    }
 }

@@ -20,6 +20,7 @@ import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.launch.GameProcess;
 import dev.vanta.launcher.core.launch.LaunchRequest;
+import dev.vanta.launcher.core.launch.StartupGuard;
 import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.modrinth.ContentChangeRefusedException;
@@ -47,7 +48,9 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -224,6 +227,14 @@ public final class FakeBackend implements LauncherBackend {
     public final List<ModrinthService.InstalledContent> content = new ArrayList<>();
     /** Failure of {@link #installFromModrinth}. */
     public IOException modrinthInstallFailure;
+    /** When not empty, {@link #installFromModrinth} installs nothing and returns these warnings (the core's skip path). */
+    public final List<String> modrinthInstallWarnings = new ArrayList<>();
+    /** What the next {@link #startupCheck()} reports (one-shot, like the core: a mod is switched off once). */
+    public StartupGuard.Report startupReport = StartupGuard.Report.EMPTY;
+    /** Failure of {@link #startupCheck()}. */
+    public IOException startupCheckFailure;
+    /** What the next {@link #crashReportCheck()} calls report, in order (empty: nothing). */
+    public final Deque<StartupGuard.Report> crashReports = new ArrayDeque<>();
     /** How many game exits find the restart marker ("Restart game" in VANTA); each one is consumed. */
     public int restartRequests;
     /** Memory in MiB. */
@@ -675,6 +686,9 @@ public final class FakeBackend implements LauncherBackend {
         if (modrinthInstallFailure != null) {
             throw modrinthInstallFailure;
         }
+        if (!modrinthInstallWarnings.isEmpty()) {
+            return new ModrinthService.ApplyResult(List.of(), modrinthInstallWarnings);
+        }
         final ModrinthModels.SearchHit hit = modrinthHits.values().stream().flatMap(List::stream).filter(h -> h.projectId().equals(projectId))
             .findFirst().orElseThrow(() -> new IOException(projectId + " was not found on Modrinth"));
         final Path file = paths.instanceDir().resolve(type.folder()).resolve(hit.slug() + "-1.0.0" + (type == ContentType.MOD ? ".jar" : ".zip"));
@@ -718,6 +732,38 @@ public final class FakeBackend implements LauncherBackend {
                                                         final CancellationToken token) {
         calls.add("updateAllContent");
         return new ModrinthService.ApplyResult(List.of(), List.of());
+    }
+
+    @Override
+    public StartupGuard.Report startupCheck() throws IOException {
+        calls.add("startupCheck");
+        if (startupCheckFailure != null) {
+            throw startupCheckFailure;
+        }
+        final StartupGuard.Report report = startupReport;
+        startupReport = StartupGuard.Report.EMPTY;
+        return report;
+    }
+
+    @Override
+    public StartupGuard.Report crashReportCheck() {
+        calls.add("crashReportCheck");
+        final StartupGuard.Report report = crashReports.poll();
+        return report == null ? StartupGuard.Report.EMPTY : report;
+    }
+
+    /**
+     * @param fileName jar name
+     * @param name     mod name
+     * @param version  mod version
+     * @param source   check or crash report
+     * @return what the core reports for a jar it switched off
+     */
+    public StartupGuard.Action switchedOff(final String fileName, final String name, final String version, final StartupGuard.Source source) {
+        return new StartupGuard.Action(paths.modsDir().resolve(fileName), "smartfpsbooster", name, version,
+            source == StartupGuard.Source.CHECK ? dev.vanta.launcher.core.modrinth.ModJarCheck.REASON
+                : "Minecraft stopped while starting because of it (crash report crash-2026-10-04_12.00.00-client.txt)",
+            source, true, source == StartupGuard.Source.CHECK ? "" : "crash-2026-10-04_12.00.00-client.txt");
     }
 
     @Override

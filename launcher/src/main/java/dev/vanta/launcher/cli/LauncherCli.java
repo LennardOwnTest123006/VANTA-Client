@@ -24,6 +24,7 @@ import dev.vanta.launcher.core.launch.GameProcess;
 import dev.vanta.launcher.core.launch.LaunchCommand;
 import dev.vanta.launcher.core.launch.LaunchRequest;
 import dev.vanta.launcher.core.launch.RestartRequest;
+import dev.vanta.launcher.core.launch.StartupGuard;
 import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
@@ -70,6 +71,10 @@ import java.util.function.Function;
  * vanta-launcher --version | --help
  * common: --data-dir path, --memory mb, --java path, --resolution WxH
  * </pre>
+ *
+ * <p>{@code --launch} and {@code --install-official-profile} first run the start check
+ * ({@link dev.vanta.launcher.core.launch.StartupGuard}) and print {@code Startup check: switched off <file> (<mod name>
+ * <version>): <reason>} for every mod it switched off, or {@code Startup check: <n> mods checked, nothing to switch off}.</p>
  */
 public final class LauncherCli {
 
@@ -259,6 +264,7 @@ public final class LauncherCli {
     }
 
     private ExitCode installOfficialProfile(final LauncherServices services, final CliArgs args, final PrintStream out) throws Exception {
+        startupCheck(services, out);
         final Path minecraftDir = args.option("minecraft-dir").map(Path::of).map(Path::toAbsolutePath)
             .orElseGet(() -> LauncherPaths.officialMinecraftDirCandidate(os, env, userHome));
         printRunningLauncherWarning(services, out);
@@ -294,6 +300,19 @@ public final class LauncherCli {
         }
         out.println("Start it with: --open-official-launcher");
         return ExitCode.OK;
+    }
+
+    /**
+     * The start check ({@link StartupGuard}): switches off mods in the instance that would stop Minecraft while starting
+     * and prints one line per mod, or that there was nothing to switch off. A failure of the check never stops the
+     * command.
+     */
+    private static void startupCheck(final LauncherServices services, final PrintStream out) {
+        try {
+            services.startupGuard().run().cliLines().forEach(out::println);
+        } catch (IOException | RuntimeException e) {
+            out.println("Startup check: could not run (" + messageOf(e) + ")");
+        }
     }
 
     /**
@@ -351,6 +370,7 @@ public final class LauncherCli {
     }
 
     private ExitCode launch(final LauncherServices services, final CliArgs args, final PrintStream out, final PrintStream err) throws Exception {
+        startupCheck(services, out);
         final Optional<InstanceInfo> instance = services.installer().loadInstance();
         if (instance.isEmpty()) {
             err.println("Nothing is installed yet. Run --install first.");
@@ -392,6 +412,8 @@ public final class LauncherCli {
                 break;
             }
             out.println("The game asked for a restart; starting it again.");
+            // The game may have installed mods before it asked (VANTA's in-game Mods screen): check them first.
+            startupCheck(services, out);
             process = services.launch().start(services.launch().buildCommand(new LaunchRequest(instance.get(),
                     resolveAccount(services, args, false), runtime.get().executable(), services.settings(),
                     args.option("world").orElse(null), args.option("server").orElse(null))),

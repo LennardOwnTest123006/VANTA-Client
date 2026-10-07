@@ -238,6 +238,13 @@ public final class ModsViewModel {
             statusText.set("");
             changedSinceStart.set(true);
             final long extra = result.applied().stream().filter(a -> !a.item().projectId().equals(hit.projectId())).count();
+            if (!result.warnings().isEmpty() && result.applied().stream().noneMatch(a -> a.item().projectId().equals(hit.projectId()))) {
+                // Skipped after the verified download (another jar provides it, or it is built for an older Minecraft).
+                result.warnings().forEach(w -> launcherLog.append(LogLevel.WARN, w));
+                toasts.warning(messages.format("mods.toast.notInstalled.title", hit.title()), String.join("\n", result.warnings()));
+                refreshInstalled();
+                return;
+            }
             toasts.success(messages.format("mods.toast.installed.title", hit.title()), extra == 0 ? messages.get("mods.toast.installed.message")
                 : messages.format("mods.toast.installed.withDependencies", Long.toString(extra)));
             result.warnings().forEach(w -> launcherLog.append(LogLevel.WARN, w));

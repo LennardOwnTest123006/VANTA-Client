@@ -192,6 +192,8 @@ public final class LauncherApp extends Application {
             }));
 
         context.session().refreshAll();
+        // Once per start: a player who just updated gets mods that would stop Minecraft switched off right away.
+        context.home().runStartupCheck();
         context.session().loadedProperty().addListener((obs, old, now) -> {
             if (now && backend.settings().autoUpdateCheck()) {
                 context.updates().check(false);
@@ -292,6 +294,9 @@ public final class LauncherApp extends Application {
     }
 
     private void closeResources() {
+        if (context != null) {
+            context.home().stopWatchingCrashReports();
+        }
         if (logBridge != null) {
             logBridge.detach();
             logBridge = null;

@@ -13,6 +13,7 @@ import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.launch.GameProcess;
 import dev.vanta.launcher.core.launch.LaunchRequest;
+import dev.vanta.launcher.core.launch.StartupGuard;
 import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.core.modrinth.ContentType;
 import dev.vanta.launcher.core.modrinth.ModrinthModels;
@@ -434,6 +435,27 @@ public interface LauncherBackend extends AutoCloseable {
      * @throws IOException when the marker cannot be deleted
      */
     boolean consumeRestartRequest() throws IOException;
+
+    // ---------------------------------------------------------------- start check
+
+    /**
+     * The start check ({@link StartupGuard#run()}): switches off mods in the VANTA instance that would stop Minecraft while
+     * starting (built for an older Minecraft, or named by the newest crash report). Runs before PLAY launches, before the
+     * Minecraft Launcher is opened and once when the window opens.
+     *
+     * @return what was switched off or reported
+     * @throws IOException when {@code mods/} cannot be read
+     */
+    StartupGuard.Report startupCheck() throws IOException;
+
+    /**
+     * Only the crash report part of the start check ({@link StartupGuard#recoverFromCrashReport()}): after the game exited,
+     * and while the Minecraft Launcher plays the VANTA profile.
+     *
+     * @return what was switched off or reported
+     * @throws IOException when a folder cannot be read
+     */
+    StartupGuard.Report crashReportCheck() throws IOException;
 
     // ---------------------------------------------------------------- misc
 

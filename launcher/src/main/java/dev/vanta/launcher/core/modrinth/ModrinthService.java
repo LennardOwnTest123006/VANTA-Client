@@ -1,7 +1,5 @@
 package dev.vanta.launcher.core.modrinth;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
 import dev.vanta.launcher.core.install.FabricApiService;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.log.LauncherLog;
@@ -15,9 +13,7 @@ import dev.vanta.launcher.core.net.HttpStatusException;
 import dev.vanta.launcher.core.paths.LauncherPaths;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,8 +38,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
 /**
  * Installs Modrinth content into the VANTA instance: mods into {@code mods/}, Iris shader packs into
@@ -61,7 +55,9 @@ import java.util.zip.ZipFile;
  *       SHA-512 (and size) Modrinth returned; an existing file that already matches is not downloaded again. A newer
  *       version of an installed project replaces the old file. A disabled project stays disabled. A mod is not
  *       installed when an untracked jar in {@code mods/} already provides the same Fabric mod id (Fabric would refuse
- *       to start with two copies).</li>
+ *       to start with two copies), and when the verified jar is built for an older Minecraft ({@link ModJarCheck}: it
+ *       would stop Minecraft while starting). Such a download is deleted again (unless the file was there before), not
+ *       tracked and reported as skipped; an update then keeps the version that is installed.</li>
  * </ol>
  *
  * <p>Every operation that changes {@code modrinth.json} ({@link #apply}, {@link #setEnabled}, {@link #remove},
@@ -542,8 +538,12 @@ public final class ModrinthService {
                 for (ResolvedItem item : resolution.items()) {
                     t.throwIfCancelled();
                     try {
-                        applyOne(item, index, listener, out, t).ifPresentOrElse(applied::add,
-                            () -> warnings.add(item.label() + " was not installed: a jar in mods/ already provides the same mod"));
+                        final ApplyOutcome outcome = applyOne(item, index, listener, out, t);
+                        if (outcome.applied() != null) {
+                            applied.add(outcome.applied());
+                        } else {
+                            warnings.add(item.label() + " was not installed: " + outcome.skipped());
+                        }
                     } catch (CancellationException | InterruptedException e) {
                         throw e;
                     } catch (IOException | RuntimeException e) {
@@ -621,8 +621,20 @@ public final class ModrinthService {
         return describe(e);
     }
 
-    private Optional<Applied> applyOne(final ResolvedItem item, final ModrinthIndex index, final DownloadProgressListener listener,
-                                       final Consumer<String> log, final CancellationToken token) throws IOException, InterruptedException {
+    /** Why a downloaded mod is not installed: a jar in {@code mods/} already provides the same mod. */
+    static final String SKIPPED_DUPLICATE = "a jar in mods/ already provides the same mod";
+
+    /**
+     * What {@link #applyOne} did: exactly one of the two is set.
+     *
+     * @param applied the installed item
+     * @param skipped why the verified download was not installed (the file is gone again unless it was there before)
+     */
+    private record ApplyOutcome(Applied applied, String skipped) {
+    }
+
+    private ApplyOutcome applyOne(final ResolvedItem item, final ModrinthIndex index, final DownloadProgressListener listener,
+                                  final Consumer<String> log, final CancellationToken token) throws IOException, InterruptedException {
         final URI url = URI.create(item.file().url());
         if (!"https".equalsIgnoreCase(url.getScheme()) && !"http".equalsIgnoreCase(url.getScheme())) {
             throw new IOException("Modrinth returned a download URL that is not http(s): " + url);
@@ -637,6 +649,20 @@ public final class ModrinthService {
         final DownloadRequest request = new DownloadRequest(url, target, item.file().size() > 0 ? item.file().size() : -1L,
             Checksum.sha512(item.file().sha512()), item.label() + " (" + name + ")");
         final DownloadResult result = downloader.download(request, listener, token);
+        if (item.type() == ContentType.MOD) {
+            // Verified, but would it start? A mod built for an older Minecraft stops 1.21.11 while starting: it is not
+            // installed (an update keeps the version that is installed now).
+            final ModJarCheck.Result check = ModJarCheck.check(target);
+            if (check.flagged()) {
+                if (!wasPresent) {
+                    Files.deleteIfExists(target);
+                }
+                LOG.log(Level.INFO, "{0} was not installed: {1} ({2} in {3} uses the constructor {4})", new Object[] {item.label(),
+                    ModJarCheck.REASON, check.className(), name, check.descriptor()});
+                log.accept("Skipped " + item.label() + ": " + ModJarCheck.REASON);
+                return new ApplyOutcome(null, ModJarCheck.REASON);
+            }
+        }
         if (item.type() == ContentType.MOD && enabled && existing.isEmpty()) {
             final Optional<Path> duplicate = untrackedDuplicate(target, index);
             if (duplicate.isPresent()) {
@@ -644,7 +670,7 @@ public final class ModrinthService {
                     Files.deleteIfExists(target);
                 }
                 log.accept("Skipped " + item.label() + ": " + duplicate.get().getFileName() + " in mods/ already provides this mod");
-                return Optional.empty();
+                return new ApplyOutcome(null, SKIPPED_DUPLICATE);
             }
         }
         final List<Path> replaced = new ArrayList<>();
@@ -668,7 +694,7 @@ public final class ModrinthService {
             entry.installedAt(Instant.now(clock).toString());
         }
         log.accept((result.skipped() ? "Verified " : "Downloaded ") + item.label() + " (" + name + ")");
-        return Optional.of(new Applied(item, target, !result.skipped(), replaced));
+        return new ApplyOutcome(new Applied(item, target, !result.skipped(), replaced), null);
     }
 
     /**
@@ -704,21 +730,7 @@ public final class ModrinthService {
      * @return the {@code id} in its {@code fabric.mod.json}
      */
     static Optional<String> fabricModId(final Path jar) {
-        try (ZipFile zip = new ZipFile(jar.toFile())) {
-            final ZipEntry entry = zip.getEntry("fabric.mod.json");
-            if (entry == null) {
-                return Optional.empty();
-            }
-            try (InputStream in = zip.getInputStream(entry)) {
-                final JsonElement tree = JsonParser.parseString(new String(in.readAllBytes(), StandardCharsets.UTF_8));
-                if (tree.isJsonObject() && tree.getAsJsonObject().has("id")) {
-                    return Optional.of(tree.getAsJsonObject().get("id").getAsString());
-                }
-            }
-        } catch (IOException | RuntimeException e) {
-            LOG.log(Level.FINE, "No Fabric mod id in {0}: {1}", new Object[] {jar, e.toString()});
-        }
-        return Optional.empty();
+        return FabricModInfo.read(jar).map(FabricModInfo::id);
     }
 
     // ---------------------------------------------------------------- installed content

@@ -212,6 +212,20 @@ public final class LauncherPaths {
         return vantaConfigDir().resolve("restart.request");
     }
 
+    /** @return {@code <instance>/crash-reports}: where Minecraft writes {@code crash-<time>-client.txt} */
+    public Path crashReportsDir() {
+        return instanceDir().resolve("crash-reports");
+    }
+
+    /**
+     * What the start check remembers between runs: the crash reports it handled and the mod jars that passed.
+     *
+     * @return {@code startup-check.json} in the data directory
+     */
+    public Path startupCheckFile() {
+        return dataDir.resolve("startup-check.json");
+    }
+
     /** @return {@code <instance>/saves} */
     public Path savesDir() {
         return instanceDir().resolve("saves");
