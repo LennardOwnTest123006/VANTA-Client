@@ -423,7 +423,7 @@ class LauncherCliTest {
         assertEquals("fabric-loader-0.19.5-1.21.11", vanta.get("lastVersionId").getAsString());
         final Path gameDir = data.resolve("instances/vanta-1.21.11").toAbsolutePath();
         assertEquals(gameDir.toString(), vanta.get("gameDir").getAsString());
-        assertEquals("-Xmx3072M", vanta.get("javaArgs").getAsString());
+        assertEquals(dev.vanta.launcher.core.install.OfficialProfileService.profileJavaArgs(3072, java.util.List.of()), vanta.get("javaArgs").getAsString());
         assertTrue(vanta.get("created").getAsString().matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z"), vanta.toString());
         assertEquals(vanta.get("created"), vanta.get("lastUsed"));
         final String icon = vanta.get("icon").getAsString();
@@ -458,7 +458,7 @@ class LauncherCliTest {
         final com.google.gson.JsonObject updated = readJson(mc.resolve("launcher_profiles.json")).getAsJsonObject("profiles")
             .getAsJsonObject("vanta-1.21.11");
         assertEquals("/opt/java21/bin/java", updated.get("javaDir").getAsString());
-        assertEquals("-Xmx4096M", updated.get("javaArgs").getAsString());
+        assertEquals(dev.vanta.launcher.core.install.OfficialProfileService.profileJavaArgs(4096, java.util.List.of()), updated.get("javaArgs").getAsString());
         assertEquals(vanta.get("created"), updated.get("created"));
         assertEquals(PROFILES, Files.readString(mc.resolve("launcher_profiles.json.vanta-backup")));
         assertEquals(2, readJson(mc.resolve("launcher_profiles.json")).getAsJsonObject("profiles").size());

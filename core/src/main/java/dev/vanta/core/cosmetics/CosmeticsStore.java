@@ -43,6 +43,8 @@ public final class CosmeticsStore {
     private final VantaPaths paths;
     private final List<Consumer<CosmeticsSelection>> listeners = new CopyOnWriteArrayList<>();
     private final List<String> loadErrors = new ArrayList<>();
+    /** Pack ids of the last successful {@link #save()}; null until the first one. */
+    private List<String> savedPackIds;
 
     public CosmeticsStore(SettingsStore settings, CosmeticsRegistry registry, JsonStore store, VantaPaths paths) {
         this.settings = Objects.requireNonNull(settings, "settings");
@@ -85,14 +87,40 @@ public final class CosmeticsStore {
 
     /** Writes {@code cosmetics.json} (installed pack ids). */
     public void save() {
+        List<String> ids = installedPackIds();
         JsonObject root = new JsonObject();
         root.addProperty(JsonStore.SCHEMA_VERSION, SCHEMA_VERSION);
         JsonArray packs = new JsonArray();
-        for (CosmeticPack pack : registry.packs()) {
-            packs.add(pack.id());
+        for (String id : ids) {
+            packs.add(id);
         }
         root.add("installedPacks", packs);
         store.writeObject(paths.cosmeticsFile(), root);
+        savedPackIds = ids;
+    }
+
+    /**
+     * Writes {@code cosmetics.json} only when the installed packs differ from what this store last wrote (the first
+     * call after start-up writes once). Runs whenever a VANTA screen closes, on the render thread, so an unchanged
+     * file is not rewritten every time.
+     */
+    public void saveIfDirty() {
+        if (isDirty()) {
+            save();
+        }
+    }
+
+    /** Whether the installed packs differ from what was last written (true before the first write). */
+    public boolean isDirty() {
+        return !installedPackIds().equals(savedPackIds);
+    }
+
+    private List<String> installedPackIds() {
+        List<String> ids = new ArrayList<>();
+        for (CosmeticPack pack : registry.packs()) {
+            ids.add(pack.id());
+        }
+        return ids;
     }
 
     /** The registry. */

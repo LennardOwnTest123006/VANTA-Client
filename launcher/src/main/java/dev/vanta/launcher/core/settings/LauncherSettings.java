@@ -100,7 +100,10 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
     }
 
     /**
-     * Heap default: half of the physical memory, clamped to [2048, 8192] MiB; 4096 when memory is unknown.
+     * Heap default: half of the physical memory, clamped to [2048, 8192] MiB, but never more than half of the memory
+     * (so on a PC with less than 4 GiB the heap is half the memory, at least {@value #MIN_MEMORY_MB} MiB: a heap that
+     * leaves the system too little memory makes Windows swap, which stutters far worse than a smaller heap); 4096 when
+     * memory is unknown.
      *
      * @param totalRamMb physical memory in MiB
      * @return heap in MiB
@@ -110,7 +113,8 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
             return DEFAULT_MEMORY_MB;
         }
         final long half = totalRamMb / 2;
-        return (int) Math.max(MIN_DEFAULT_MEMORY_MB, Math.min(MAX_DEFAULT_MEMORY_MB, half));
+        final long clamped = Math.max(MIN_DEFAULT_MEMORY_MB, Math.min(MAX_DEFAULT_MEMORY_MB, half));
+        return (int) Math.max(MIN_MEMORY_MB, Math.min(clamped, half));
     }
 
     /** @return explicit Java path when configured */

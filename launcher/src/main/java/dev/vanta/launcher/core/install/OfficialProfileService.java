@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.core.launch.JvmArgsBuilder;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.modrinth.ModrinthIndex;
 import dev.vanta.launcher.core.modrinth.ModrinthService;
@@ -29,13 +30,17 @@ import java.time.Clock;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
+import java.util.zip.CRC32;
 
 /**
  * "Use with the Minecraft Launcher": makes the VANTA instance playable from the official Minecraft Launcher, which
@@ -73,6 +78,12 @@ public final class OfficialProfileService {
     public static final String BACKUP_SUFFIX = ".vanta-backup";
     /** Class path resource of the 128 px VANTA icon used for the profile. */
     public static final String ICON_RESOURCE = "/dev/vanta/launcher/ui/icon-128.png";
+    /** Profile member holding the JVM arguments. */
+    public static final String JAVA_ARGS = "javaArgs";
+    /** Last argument of the {@code javaArgs} VANTA writes: a system property with the checksum of the line before it. */
+    public static final String JAVA_ARGS_MARKER = "-Dvanta.javaArgs=";
+    /** The whole {@code javaArgs} VANTA 1.2.1 and earlier wrote. */
+    private static final Pattern LEGACY_JAVA_ARGS = Pattern.compile("-Xmx\\d+M");
 
     private static final DateTimeFormatter ISO_INSTANT_MILLIS = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
         .withZone(ZoneOffset.UTC);
@@ -218,9 +229,12 @@ public final class OfficialProfileService {
      * @param fabricLoaderVersion Fabric Loader version
      * @param fabricApiVersion    Fabric API version
      * @param includePerformancePack whether the performance pack (Modrinth) is installed into the instance as well
+     * @param jvmArgs             the player's extra JVM arguments from VANTA's Settings; the ones that fit into the
+     *                            profile's single space-separated {@code javaArgs} string are appended to it
+     *                            ({@link #profileJavaArgs})
      */
     public record Request(Path minecraftDir, Path localClientJar, int memoryMb, String minecraftVersion, String fabricLoaderVersion,
-                          String fabricApiVersion, boolean includePerformancePack) {
+                          String fabricApiVersion, boolean includePerformancePack, List<String> jvmArgs) {
 
         public Request {
             Objects.requireNonNull(minecraftDir, "minecraftDir");
@@ -232,6 +246,24 @@ public final class OfficialProfileService {
             if (memoryMb <= 0) {
                 throw new IllegalArgumentException("memoryMb must be positive");
             }
+            jvmArgs = jvmArgs == null ? List.of() : List.copyOf(jvmArgs);
+        }
+
+        /**
+         * A request without extra JVM arguments.
+         *
+         * @param minecraftDir           official Minecraft directory
+         * @param localClientJar         local client jar (may be null)
+         * @param memoryMb               heap in MiB
+         * @param minecraftVersion       Minecraft version
+         * @param fabricLoaderVersion    Fabric Loader version
+         * @param fabricApiVersion       Fabric API version
+         * @param includePerformancePack whether to install the performance pack
+         */
+        public Request(final Path minecraftDir, final Path localClientJar, final int memoryMb, final String minecraftVersion,
+                       final String fabricLoaderVersion, final String fabricApiVersion, final boolean includePerformancePack) {
+            this(minecraftDir, localClientJar, memoryMb, minecraftVersion, fabricLoaderVersion, fabricApiVersion,
+                includePerformancePack, List.of());
         }
 
         /**
@@ -271,8 +303,23 @@ public final class OfficialProfileService {
          * @return request
          */
         public static Request standard(final Path minecraftDir, final Path localClientJar, final int memoryMb, final boolean performancePack) {
+            return standard(minecraftDir, localClientJar, memoryMb, performancePack, List.of());
+        }
+
+        /**
+         * The pinned VANTA versions with the player's extra JVM arguments.
+         *
+         * @param minecraftDir    official Minecraft directory
+         * @param localClientJar  local client jar (may be null)
+         * @param memoryMb        heap in MiB
+         * @param performancePack whether to install the performance pack
+         * @param jvmArgs         extra JVM arguments from VANTA's Settings (may be null)
+         * @return request
+         */
+        public static Request standard(final Path minecraftDir, final Path localClientJar, final int memoryMb, final boolean performancePack,
+                                       final List<String> jvmArgs) {
             return new Request(minecraftDir, localClientJar, memoryMb, LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER,
-                LauncherVersion.FABRIC_API, performancePack);
+                LauncherVersion.FABRIC_API, performancePack, jvmArgs);
         }
 
         /** @return the local client jar when set */
@@ -657,7 +704,11 @@ public final class OfficialProfileService {
             }
             written.add(versionJar);
 
-            final JsonObject profile = profile(name, versionId, request.memoryMb());
+            final JsonObject profile = profile(name, versionId, request.memoryMb(), request.jvmArgs());
+            for (String skipped : unsafeProfileArgs(request.jvmArgs())) {
+                l.onLog("The JVM argument '" + skipped + "' from VANTA's Settings is not written to the Minecraft Launcher profile"
+                    + " (its JVM arguments are one space-separated line, so arguments with spaces or quotes do not fit)");
+            }
             boolean isNew = true;
             for (Map.Entry<Path, String> entry : profileSnapshots.entrySet()) {
                 final Path file = entry.getKey();
@@ -668,6 +719,12 @@ public final class OfficialProfileService {
                 }
                 final JsonObject root = readProfiles(file);
                 isNew &= !profilesObject(root, file).has(key);
+                final JsonElement existingEntry = profilesObject(root, file).get(key);
+                if (existingEntry != null && existingEntry.isJsonObject()
+                    && !vantaOwnsJavaArgs(existingEntry.getAsJsonObject().get(JAVA_ARGS))) {
+                    l.onLog("Kept the JVM arguments of '" + name + "' in " + file.getFileName()
+                        + ": they were changed in the Minecraft Launcher, so VANTA does not replace them");
+                }
                 writeProfiles(file, root, key, profile).ifPresent(backup -> {
                     backups.add(backup);
                     written.add(backup);
@@ -697,6 +754,19 @@ public final class OfficialProfileService {
      * @return profile JSON
      */
     JsonObject profile(final String name, final String versionId, final int memoryMb) {
+        return profile(name, versionId, memoryMb, List.of());
+    }
+
+    /**
+     * Builds the VANTA profile entry (without {@code created}; that is kept from an existing entry).
+     *
+     * @param name      profile name
+     * @param versionId Fabric version id
+     * @param memoryMb  heap in MiB
+     * @param jvmArgs   the player's extra JVM arguments from VANTA's Settings
+     * @return profile JSON
+     */
+    JsonObject profile(final String name, final String versionId, final int memoryMb, final List<String> jvmArgs) {
         final String now = ISO_INSTANT_MILLIS.format(clock.instant());
         final JsonObject p = new JsonObject();
         p.addProperty("name", name);
@@ -706,8 +776,103 @@ public final class OfficialProfileService {
         p.addProperty("icon", "data:image/png;base64," + Base64.getEncoder().encodeToString(icon.get()));
         p.addProperty("lastVersionId", versionId);
         p.addProperty("gameDir", paths.instanceDir().toAbsolutePath().toString());
-        p.addProperty("javaArgs", "-Xmx" + memoryMb + "M");
+        p.addProperty(JAVA_ARGS, profileJavaArgs(memoryMb, jvmArgs));
         return p;
+    }
+
+    // ---------------------------------------------------------------- JVM arguments of the profile
+
+    /**
+     * The profile's {@code javaArgs}: the same heap and garbage collector arguments direct PLAY uses
+     * ({@link JvmArgsBuilder#heapAndGcArgs}), the player's extra JVM arguments that fit into one space-separated line
+     * ({@link #unsafeProfileArgs} lists the others), and last {@value #JAVA_ARGS_MARKER}{@code <checksum>}: a
+     * harmless system property holding the CRC-32 of everything before it. The checksum is how a later install tells
+     * a line VANTA wrote (replaced with the current settings) from one the player edited in the Minecraft Launcher
+     * (kept, see {@link #vantaOwnsJavaArgs}).
+     *
+     * <p>A profile that sets {@code javaArgs} runs with exactly these arguments instead of the Minecraft Launcher's
+     * defaults, which is why the G1 tuning has to be in the line: with only {@code -Xmx} (VANTA 1.2.1 and earlier)
+     * the game ran on plain JVM defaults, a 200 ms pause target and a heap that starts small and grows.</p>
+     *
+     * @param memoryMb maximum heap in MiB
+     * @param jvmArgs  the player's extra JVM arguments (may be null)
+     * @return the {@code javaArgs} line
+     */
+    public static String profileJavaArgs(final int memoryMb, final List<String> jvmArgs) {
+        final List<String> extra = new ArrayList<>();
+        if (jvmArgs != null) {
+            for (String arg : jvmArgs) {
+                if (fitsProfileLine(arg)) {
+                    extra.add(arg);
+                }
+            }
+        }
+        final List<String> tokens = new ArrayList<>(JvmArgsBuilder.heapAndGcArgs(memoryMb, extra));
+        tokens.addAll(extra);
+        final String body = String.join(" ", tokens);
+        return body + " " + JAVA_ARGS_MARKER + checksum(body);
+    }
+
+    /**
+     * @param jvmArgs the player's extra JVM arguments (may be null)
+     * @return the ones {@link #profileJavaArgs} leaves out (blank, not starting with {@code -}, containing whitespace or
+     *     quotes, a class path or {@code -jar} switch, or VANTA's own marker)
+     */
+    public static List<String> unsafeProfileArgs(final List<String> jvmArgs) {
+        final List<String> out = new ArrayList<>();
+        if (jvmArgs != null) {
+            for (String arg : jvmArgs) {
+                if (arg != null && !arg.isBlank() && !fitsProfileLine(arg)) {
+                    out.add(arg);
+                }
+            }
+        }
+        return out;
+    }
+
+    private static boolean fitsProfileLine(final String arg) {
+        if (arg == null || arg.length() < 2 || arg.charAt(0) != '-') {
+            return false;
+        }
+        for (int i = 0; i < arg.length(); i++) {
+            final char c = arg.charAt(i);
+            if (Character.isWhitespace(c) || c == '"' || c == '\'') {
+                return false;
+            }
+        }
+        return !List.of("-cp", "-classpath", "--class-path", "-jar").contains(arg) && !arg.startsWith(JAVA_ARGS_MARKER);
+    }
+
+    /**
+     * Whether a profile's {@code javaArgs} belong to VANTA and may be replaced: missing, blank or not a string; exactly
+     * {@code -Xmx<n>M} (all VANTA 1.2.1 and earlier wrote); or a line ending in a {@value #JAVA_ARGS_MARKER} checksum
+     * that still matches the arguments before it. Anything else was set or edited by the player in the Minecraft
+     * Launcher and is kept.
+     *
+     * @param javaArgs the existing {@code javaArgs} member (may be null)
+     * @return whether VANTA may write its own line
+     */
+    public static boolean vantaOwnsJavaArgs(final JsonElement javaArgs) {
+        if (javaArgs == null || !javaArgs.isJsonPrimitive() || !javaArgs.getAsJsonPrimitive().isString()) {
+            return true;
+        }
+        final String text = javaArgs.getAsString().trim();
+        if (text.isEmpty() || LEGACY_JAVA_ARGS.matcher(text).matches()) {
+            return true;
+        }
+        final String[] tokens = text.split("\\s+");
+        final String last = tokens[tokens.length - 1];
+        if (tokens.length < 2 || !last.startsWith(JAVA_ARGS_MARKER)) {
+            return false;
+        }
+        final String body = String.join(" ", Arrays.asList(tokens).subList(0, tokens.length - 1));
+        return last.substring(JAVA_ARGS_MARKER.length()).equalsIgnoreCase(checksum(body));
+    }
+
+    private static String checksum(final String body) {
+        final CRC32 crc = new CRC32();
+        crc.update(body.getBytes(StandardCharsets.UTF_8));
+        return String.format(Locale.ROOT, "%08x", crc.getValue());
     }
 
     /**
@@ -726,8 +891,12 @@ public final class OfficialProfileService {
         final JsonObject merged = existing != null && existing.isJsonObject() ? existing.getAsJsonObject().deepCopy() : new JsonObject();
         final boolean keepCreated = merged.has("created") && merged.get("created").isJsonPrimitive()
             && !merged.get("created").getAsString().isBlank();
+        final boolean keepJavaArgs = !vantaOwnsJavaArgs(merged.get(JAVA_ARGS));
         for (var e : profile.entrySet()) {
             if ("created".equals(e.getKey()) && keepCreated) {
+                continue;
+            }
+            if (JAVA_ARGS.equals(e.getKey()) && keepJavaArgs) {
                 continue;
             }
             merged.add(e.getKey(), e.getValue().deepCopy());

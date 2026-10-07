@@ -73,6 +73,16 @@ public final class FrameProbe {
         return frames;
     }
 
+    /** Slowest single VANTA HUD element call since the last reset, in nanoseconds (render thread, no allocation). */
+    public static long hudMaxNanos() {
+        return hud.max;
+    }
+
+    /** Slowest single custom crosshair draw since the last reset, in nanoseconds (render thread, no allocation). */
+    public static long crosshairMaxNanos() {
+        return crosshair.max;
+    }
+
     // ---- hooks -------------------------------------------------------------------------------------------------
 
     /** One rendered level frame; records the duration of the previous frame as the game measured it. */

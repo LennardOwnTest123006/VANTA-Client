@@ -82,6 +82,20 @@ class ArgsBuildersTest {
     }
 
     @Test
+    void directPlayStartsWithTheSharedHeapAndGcArguments() {
+        for (int memory : new int[] {1024, 2048, 4096, 8192}) {
+            final List<String> args = new JvmArgsBuilder(new RuleEvaluator(new OsInfo("linux", "x64", "6.8")), "1.0.0")
+                .build(MERGED, new ArgumentExpander(values()), memory, List.of());
+            final List<String> shared = JvmArgsBuilder.heapAndGcArgs(memory, List.of());
+            assertEquals(shared, args.subList(0, shared.size()), "the Minecraft Launcher profile uses this same list");
+        }
+        assertEquals(List.of("-Xmx4096M", "-Xms1024M", "-XX:+UseG1GC", "-XX:+UnlockExperimentalVMOptions", "-XX:G1NewSizePercent=20",
+            "-XX:G1ReservePercent=20", "-XX:MaxGCPauseMillis=50", "-XX:G1HeapRegionSize=32M"), JvmArgsBuilder.heapAndGcArgs(4096, null));
+        assertEquals(List.of("-Xmx3072M"), JvmArgsBuilder.heapAndGcArgs(3072, List.of("-XX:+UseZGC", "-Xms1G")),
+            "the user's -Xms and GC choice replace VANTA's (the user arguments themselves are added by the caller)");
+    }
+
+    @Test
     void userArgsWinAndDisableGcDefaults() {
         final List<String> args = new JvmArgsBuilder(new RuleEvaluator(new OsInfo("linux", "x64", "")), "1.0.0")
             .build(MERGED, new ArgumentExpander(values()), 3072, List.of("-XX:+UseZGC", "-Dfile.encoding=ISO-8859-1", "-Xms2048M"));
