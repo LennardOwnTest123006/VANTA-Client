@@ -716,13 +716,18 @@ public final class HomeViewModel {
     private void onExit(final int code) {
         game.set(null);
         final Launched previous = lastLaunch;
-        if (previous != null && lastJava != null && restarts < MAX_RESTARTS) {
-            // "Restart game" in VANTA writes config/vanta/restart.request before the game closes itself.
+        if (previous != null && lastJava != null) {
+            // "Restart game" in VANTA writes config/vanta/restart.request before the game closes itself. The marker is
+            // consumed (deleted) even once the restart limit is reached, so it cannot restart the game after a later PLAY.
             Async.run(executors, backend::consumeRestartRequest, restart -> {
-                if (restart) {
+                if (restart && restarts < MAX_RESTARTS) {
                     restarts++;
                     relaunch(previous);
                 } else {
+                    if (restart) {
+                        launcherLog.append(LogLevel.WARN, "The game asked for a restart again; after " + MAX_RESTARTS
+                            + " restarts in a row it stays closed");
+                    }
                     finishExit(code);
                 }
             }, error -> {

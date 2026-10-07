@@ -384,8 +384,13 @@ public final class LauncherCli {
             }
         }
         int code = waitForExit(process);
-        // "Restart game" inside VANTA: the game wrote config/vanta/restart.request and closed itself.
-        for (int restarts = 0; restarts < MAX_RESTARTS && RestartRequest.consume(services.paths().instanceDir()); restarts++) {
+        // "Restart game" inside VANTA: the game wrote config/vanta/restart.request and closed itself. The marker is
+        // consumed before the limit is checked, so a marker left at the limit cannot restart the game on a later launch.
+        for (int restarts = 0; RestartRequest.consume(services.paths().instanceDir()); restarts++) {
+            if (restarts >= MAX_RESTARTS) {
+                out.println("The game asked for a restart again; after " + MAX_RESTARTS + " restarts in a row it stays closed.");
+                break;
+            }
             out.println("The game asked for a restart; starting it again.");
             process = services.launch().start(services.launch().buildCommand(new LaunchRequest(instance.get(),
                     resolveAccount(services, args, false), runtime.get().executable(), services.settings(),

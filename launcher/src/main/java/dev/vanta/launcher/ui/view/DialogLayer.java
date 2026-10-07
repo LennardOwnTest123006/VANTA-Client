@@ -52,6 +52,13 @@ public final class DialogLayer extends StackPane {
         setVisible(false);
         setManaged(false);
         addEventFilter(KeyEvent.KEY_PRESSED, this::onKey);
+        // One listener for the layer's lifetime that follows the open dialog: a listener per shown dialog would never
+        // be removed and would keep every closed dialog's card alive for the whole session.
+        heightProperty().addListener((obs, old, now) -> {
+            if (current != null && current.node() instanceof Region region) {
+                clampHeight(region);
+            }
+        });
     }
 
     /** @return whether a dialog is open */
@@ -73,11 +80,6 @@ public final class DialogLayer extends StackPane {
         final Node card = dialog.node();
         if (card instanceof Region region) {
             clampHeight(region);
-            heightProperty().addListener((obs, old, now) -> {
-                if (current == dialog) {
-                    clampHeight(region);
-                }
-            });
         }
         StackPane.setAlignment(card, Pos.CENTER);
         getChildren().setAll(backdrop, card);

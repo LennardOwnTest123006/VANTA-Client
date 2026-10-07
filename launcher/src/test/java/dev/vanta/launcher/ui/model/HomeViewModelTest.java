@@ -440,6 +440,23 @@ class HomeViewModelTest {
         assertEquals(HomeViewModel.State.READY, vm.state(), "a client asking on every start does not loop forever");
     }
 
+    /** At the limit the marker is still consumed (deleted), so it cannot restart the game after a later PLAY. */
+    @Test
+    void theRestartMarkerIsConsumedEvenWhenTheLimitIsReached() {
+        signedInWithJava();
+        final HomeViewModel vm = ctx.home();
+        vm.play();
+        backend.restartRequests = HomeViewModel.MAX_RESTARTS + 2;
+        for (int i = 0; i <= HomeViewModel.MAX_RESTARTS; i++) {
+            backend.game.exit(0);
+        }
+        assertEquals(HomeViewModel.State.READY, vm.state());
+        assertEquals(HomeViewModel.MAX_RESTARTS + 1, backend.calls.stream().filter("launch"::equals).count());
+        assertEquals(HomeViewModel.MAX_RESTARTS + 1, backend.calls.stream().filter("consumeRestartRequest"::equals).count(),
+            "the exit at the limit consumes the marker instead of leaving it for the next PLAY");
+        assertEquals(1, backend.restartRequests, "only the request that was never written remains");
+    }
+
     private void signedInWithJava() {
         backend.accounts.add(FakeBackend.microsoftAccount("Nova"));
         backend.javaInstalls.add(backend.temurin21());

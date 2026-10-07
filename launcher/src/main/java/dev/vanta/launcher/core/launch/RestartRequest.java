@@ -9,7 +9,9 @@ import java.nio.file.Path;
  * {@code -D}{@value #PROPERTY}{@code =true}; the VANTA Client then offers a "Restart game" button that writes
  * {@code <gameDir>/config/vanta/restart.request} and closes the game. After the game exited the launcher deletes the
  * file and starts the game again ({@link #consume(Path)}). Without the launcher (Minecraft Launcher profile) the
- * property is absent and the client does not offer the button.
+ * property is absent and the client does not offer the button. A marker that nobody consumed (the launcher was closed
+ * while the game ran, the restart limit was reached) is deleted when the game is next started
+ * ({@link LaunchService#start}), so only a marker written by the process that just exited counts.
  */
 public final class RestartRequest {
 

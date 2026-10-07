@@ -83,6 +83,9 @@ public final class ToastLayer extends VBox {
                 for (ToastModel.Toast removed : change.getRemoved()) {
                     final Node n = nodes.remove(removed.id());
                     if (n != null) {
+                        // A dismissed toast is gone for the mouse at once, not after its fade-out: a second click within
+                        // those milliseconds (a double-click on the control under the toast) must reach that control.
+                        n.setMouseTransparent(true);
                         Motion.fadeOut(n, Motion.FAST, () -> getChildren().remove(n));
                     }
                 }
