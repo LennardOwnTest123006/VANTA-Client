@@ -1,12 +1,12 @@
 ---
 product: launcher
 version: 1.2.0
-date: 2026-10-06
+date: 2026-10-07
 title: VANTA Launcher 1.2.0
 minecraftVersion: 1.21.11
 ---
 
-Maintenance release of the VANTA Launcher. A notification (toast) in a small window could cover the lower Install buttons of the Mods page and, because it stayed open while the mouse rested on it, swallow every click there. Toasts now close on a click, pause for at most 8 seconds, and in narrow windows, or whenever the shown page is taller than the window and scrolls, move to the top-right corner where they cover no controls. Minecraft 1.21.11, Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged, and the launcher installs VANTA Client 1.2.0.
+Maintenance release of the VANTA Launcher. A notification (toast) in a small window could cover the lower Install buttons of the Mods page and, because it stayed open while the mouse rested on it, swallow every click there. Toasts now close on a click, pause for at most 8 seconds, and in narrow windows, or whenever the shown page is taller than the window and scrolls, move to the top-right corner where they cover no controls. It also fixes lost changes when two Mods-page operations ran at once, a stale restart request, profiles the Minecraft Launcher saved during an install, and three smaller issues. Minecraft 1.21.11, Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged, and the launcher installs VANTA Client 1.2.0.
 
 ## Added
 
@@ -17,6 +17,12 @@ Maintenance release of the VANTA Launcher. A notification (toast) in a small win
 
 - A notification in the bottom-right corner could swallow clicks on what lay under it. In a small window (960 x 600) that corner holds the lower *Install* buttons of the Mods page, and because a toast stayed as long as the mouse rested on it, a mouse moved onto such a button kept the toast open and every click did nothing (in a maximised window the Install column is nowhere near that corner). A click anywhere on a toast now dismisses it, and the pause while the mouse is over a toast ends after 8 seconds at the latest
 - In a window narrower than 1100 px, and in any window in which the shown page is taller than the window and scrolls (at the 1120 x 720 default the Mods page's lowest installed switches and remove buttons sit in the bottom-right corner), the toasts now appear top-right, below the update banner and the page header, and a toast is never wider than 30 percent of the window (at most 360 px), so the Mods page's *Install* buttons, its header actions and the installed list's switches are no longer under a toast. On a page that fits the window the toasts stay bottom-right
+- Mods page: removing, enabling, disabling, installing or updating mods while another install runs no longer loses changes. Every operation that writes `config/vanta/modrinth.json` waits for the one before it and starts from the file it wrote, so a mod removed during an install stays removed and two installs started together are both tracked. A removal or toggle started during a long install waits in the background until that install is done; the page shows no waiting state for it yet
+- A left-over restart request (for example *Restart game* pressed after the launcher had been closed while the game ran) no longer restarts the game after its next normal quit: the marker is removed before every launch and consumed even once the restart limit is reached
+- *PLAY via Minecraft Launcher* re-reads `launcher_profiles.json` (and the Microsoft Store variant) right before writing and merges only the VANTA profile, so profiles, account switches and settings the still-running Minecraft Launcher saved during the downloads survive. If that file is unreadable at that point, the install fails at its last step instead of overwriting the file with the earlier copy
+- When the Performance pack's jars are installed but `modrinth.json` cannot be written, the launcher reports the real counts (for example "6 mods in place, 1 skipped") with a warning that names the cause, instead of "0 mods in place"
+- In-window dialogs (Remove mod, sign-in, account, update and Minecraft Launcher confirmations) no longer leave a listener behind each time they are shown; closed dialogs are released instead of being kept for the whole session
+- A dismissed toast lets clicks through at once while it fades out, so a quick second click on the *Install* button underneath is no longer swallowed during the 120 ms fade
 
 ## Notes
 

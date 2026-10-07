@@ -1,7 +1,7 @@
 ---
 product: client
 version: 1.2.0
-date: 2026-10-06
+date: 2026-10-07
 title: VANTA Client 1.2.0
 minecraftVersion: 1.21.11
 ---
@@ -36,6 +36,8 @@ Release of VANTA Client for Minecraft Java Edition 1.21.11 (Fabric Loader 0.19.5
 - Cosmetics cards no longer overlap the section below or sit beyond the end of the list after switching sections in a small window; layouts that need a second pass now get it in the same frame
 - Confirmation, profile-name, import and save-preset dialogs follow the window after a resize, a fullscreen toggle or a UI-scale change instead of sitting off-screen while blocking every click; dropdown lists and the colour palette stay on the screen on short windows
 - Ctrl+F and other screen shortcuts no longer steal the keyboard from an open dialog or dropdown; Enter keeps activating the dialog's default button
+- Wrapped text no longer draws over the control below it right after a screen is built or rebuilt: a wrapped label used to report one line of height until its first layout, so the next button or field could sit on its text (Cosmetics, the crosshair editor descriptions, info banners) until another layout ran; containers now measure their children at the width they will give them
+- The info banners of Mods & Shaders and Cosmetics take the width of their column, so in a column narrower than 240 px (the Mods list at 320 x 240 or 427 x 240) the banner's button no longer overlaps its text
 
 ## Notes
 

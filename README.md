@@ -77,7 +77,7 @@ This is a monorepo. Each product is an independent build with its own README.
 
 ## Status
 
-The latest releases are **VANTA Client 1.2.0** and **VANTA Launcher 1.2.0**, released on 2026-10-06 as the GitHub
+The latest releases are **VANTA Client 1.2.0** and **VANTA Launcher 1.2.0**, released on 2026-10-07 as the GitHub
 Releases [`client-v1.2.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.2.0) and
 [`launcher-v1.2.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.2.0). The client
 fixes the frame-rate caps that 1.1.0's presets and profiles wrote (the "30 FPS after choosing Low" reports), adds

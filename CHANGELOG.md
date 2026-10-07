@@ -10,7 +10,7 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 No changes yet.
 
-## [1.2.0] - 2026-10-06
+## [1.2.0] - 2026-10-07
 
 Release of both products. VANTA Client 1.2.0 and VANTA Launcher 1.2.0 are published on
 [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases) as `client-v1.2.0` and
@@ -22,7 +22,8 @@ Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged. The client 
 VANTA 1.1.0's presets and profiles wrote (the cause of the "30 FPS after choosing Low" reports), adds *Max FPS* and
 one-click *Boost FPS*, makes every button reachable in small windows and ships the redistributable Performance pack
 mods inside the mods bundle. The launcher release fixes a notification that could swallow clicks on the Mods page in a
-small window.
+small window, lost changes when two Mods-page operations ran at once, a stale restart request and profiles the
+Minecraft Launcher saved during an install.
 
 ### VANTA Client 1.2.0
 
@@ -117,6 +118,16 @@ small window.
   stay on the screen on short windows.
 - Ctrl+F and other screen shortcuts no longer steal the keyboard from an open dialog or dropdown; Enter keeps
   activating the dialog's default button.
+- Wrapped text no longer draws over the control below it right after a screen is built or rebuilt. A wrapped label
+  reported the height of a single line until it had been laid out once, so a one-pass layout placed the next button or
+  field on top of its text (visible in Cosmetics, the crosshair editor descriptions and the info banners until
+  something triggered another layout). Columns, Row flex children, grids, panels, stacks, cards and scroll panels now
+  measure their children against the width they are about to give them, so wrapped labels get their full height in the
+  first pass, and scroll panels account for the scrollbar column in the same pass.
+- The info banners of Mods & Shaders (the Iris banner) and Cosmetics measured themselves at a 240 px minimum
+  regardless of the column they sit in, so in a column narrower than 240 px (the Mods list at 320 x 240 or 427 x 240)
+  the banner was too short and its stacked button overlapped its text on every layout pass; they now take the width
+  they are offered.
 
 #### Privacy
 - Nothing new is sent anywhere. The *Boost your FPS?* dialog and *Boost FPS* contact Modrinth only after your click,
@@ -147,6 +158,27 @@ small window.
   buttons, its header actions and the installed list's switches are no longer under a toast; on a page that fits the
   window the toasts stay bottom-right. The headless UI test checks this at 960 x 600, 1100 x 600, 1120 x 720 and
   1200 x 700.
+- Mods page: removing, enabling, disabling, installing or updating mods while another install runs no longer loses
+  changes. Every operation that writes `config/vanta/modrinth.json` now waits for the one before it and starts from
+  the file it wrote, so a mod removed during an install stays removed and two installs started together are both
+  tracked. A removal or toggle started during a long install (or during *Update all*, which keeps its turn across the
+  Modrinth lookup) waits in the background until that install is done; the page shows no waiting state for it yet.
+- A left-over restart request (for example *Restart game* pressed after the launcher had been closed while the game
+  ran) no longer restarts the game after its next normal quit: the marker is removed before every launch and is
+  consumed even once the restart limit is reached.
+- *PLAY via Minecraft Launcher* / *Use with Minecraft Launcher* re-reads `launcher_profiles.json` (and the Microsoft
+  Store variant) right before writing and merges only the VANTA profile, so profiles, account switches and settings
+  the still-running Minecraft Launcher saved during the downloads survive; the log says when the file changed
+  meanwhile. If that file is unreadable at that point, the install fails at its last step instead of overwriting the
+  file with the earlier copy.
+- When the Performance pack's jars are installed but `modrinth.json` cannot be written, the launcher reports the real
+  counts (for example "6 mods in place, 1 skipped") with a warning that names the cause, instead of "0 mods in place".
+- In-window dialogs (Remove mod, sign-in, account, update and Minecraft Launcher confirmations) no longer leave a
+  window-height listener behind each time they are shown; closed dialogs are released instead of being kept for the
+  whole session.
+- A dismissed toast lets clicks through at once while it fades out, so a quick second click on the *Install* button
+  underneath is no longer swallowed during the 120 ms fade; the headless UI test clicks 0, 10 and 100 ms after the
+  dismiss.
 
 #### Updating to 1.2.0
 - Launcher 1.1.0 (and 1.0.1, 1.0.2) sees the update by itself once the release is published and offers the file that
@@ -185,6 +217,23 @@ small window.
   renders one page at one size.
 - **Core**: every screen is walked for unreachable or overlapping controls at 19 window sizes, both scales and all
   Mods states; render-cost bounds pin the optimised primitive counts and pixel-identity tests lock the output.
+- The Performance pack game test now picks Modrinth versions with the same rule as the in-game installer, the launcher
+  and the release bundle (primary file with a SHA-512 and a safe file name; newest release, else beta, else alpha,
+  else any). The rule lives in `scripts/ci/pick-version.jq`, and the release-script tests check it against the
+  resolver with shared fixtures (file-name length in UTF-16 units, blank names, a trailing newline in the hash,
+  trimmed and case-insensitive channel names, fractional-second dates), so the game test loads the jars the release
+  ships.
+- The frame probe also counts the native horizontal and rounded-horizontal gradients, so the "gradients per HUD frame"
+  figure in `vanta-perf-probe.json` no longer undercounts the primary buttons and bars drawn with them.
+
+### Release tooling
+- `scripts/release/build-mods-bundle.sh` accepts every pack file name the resolver and the in-game installer accept
+  (Modrinth names with spaces or parentheses such as `Iris Shaders 4.4.4.jar`) instead of aborting the release with
+  "names an unsafe pack file"; path separators, `..`, leading dots or dashes, control characters and `<>"|?*` are
+  still refused, and the licence-notice check copes with regex metacharacters in file names.
+- `scripts/release/bump-version.mjs` prints, after its checklist, every line of `README.md`, `RELEASE.md`, the product
+  READMEs, `docs/` and `website/src` that still names the previous version as a `[ ] path:line` checklist (changelog
+  history, news posts and old manifests excluded); prose is never edited automatically.
 
 ### Website
 - Download page: the mods bundle is described as a complete `mods/` folder (VANTA, Fabric API and the redistributable
