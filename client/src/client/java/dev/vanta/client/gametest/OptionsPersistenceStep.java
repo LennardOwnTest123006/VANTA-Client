@@ -324,6 +324,9 @@ final class OptionsPersistenceStep {
         int pendingScale = originalScale == 2 ? 3 : 2;
         boolean pending = context.computeOnClient(client -> sodiumModifyGuiScale(pendingScale));
         if (pending) {
+            // Let Sodium draw frames first, as a player's change does: only then does its screen know about the change,
+            // stop closing on the key press and undo the change on the key release.
+            context.waitTicks(SCREEN_TICKS);
             context.getInput().pressKey(InputConstants.KEY_ESCAPE);
             waitFor(context, OptionsPersistenceStep::onVantaMainMenu, "the VANTA main menu after Escape on Sodium");
             int applied = context.computeOnClient(client -> client.options.guiScale().get());

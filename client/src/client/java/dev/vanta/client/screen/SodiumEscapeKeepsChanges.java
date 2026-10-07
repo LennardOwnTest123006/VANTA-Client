@@ -11,13 +11,17 @@ import org.lwjgl.glfw.GLFW;
  * <p>
  * With the Performance pack, Sodium replaces Video Settings. In Sodium 0.8.x, Escape calls {@code undoChanges()} and
  * throws away every change that was not applied, and its Done button stays disabled until Apply is pressed. Players
- * change Graphics or Clouds there, press Escape and find the old value again. When Escape is released on that screen
- * with pending changes, this hook applies them exactly like Sodium's Apply button
+ * change Graphics or Clouds there, press Escape and find the old value again. When Escape is pressed or released on
+ * that screen with pending changes, this hook applies them exactly like Sodium's Apply button
  * ({@code ConfigManager.CONFIG.applyAllOptions()}) and closes the screen; Sodium's own Escape handling is then
  * skipped. Without pending changes, or if Sodium's classes differ from what is expected, Sodium behaves as before.
  * <p>
- * Uses Fabric API's {@link ScreenKeyboardEvents#allowKeyRelease}, which runs before the screen's {@code keyReleased},
- * and public Sodium members only (looked up by name, since Sodium is optional and not on the compile classpath).
+ * Both key events are needed: Sodium notices pending changes only when it draws the next frame, and until then its
+ * {@code shouldCloseOnEsc()} lets the vanilla key press close the screen without applying them. Once the screen knows,
+ * the press does nothing and Sodium undoes the changes on release. Uses Fabric API's
+ * {@link ScreenKeyboardEvents#allowKeyPress} and {@link ScreenKeyboardEvents#allowKeyRelease}, which run before the
+ * screen's own handlers, and public Sodium members only (looked up by name, since Sodium is optional and not on the
+ * compile classpath).
  */
 public final class SodiumEscapeKeepsChanges {
     /** Sodium's video settings screen. */
@@ -33,14 +37,17 @@ public final class SodiumEscapeKeepsChanges {
         if (!SODIUM_SCREEN.equals(screen.getClass().getName())) {
             return;
         }
-        ScreenKeyboardEvents.allowKeyRelease(screen).register((s, event) -> {
-            if (event.key() != GLFW.GLFW_KEY_ESCAPE || !applyPendingChanges()) {
-                return true;
-            }
-            VantaClient.LOGGER.info("Applied the pending changes of Sodium's video settings on Escape");
-            s.onClose();
+        ScreenKeyboardEvents.allowKeyPress(screen).register((s, event) -> !escapeAppliedAndClosed(s, event.key()));
+        ScreenKeyboardEvents.allowKeyRelease(screen).register((s, event) -> !escapeAppliedAndClosed(s, event.key()));
+    }
+
+    private static boolean escapeAppliedAndClosed(Screen screen, int key) {
+        if (key != GLFW.GLFW_KEY_ESCAPE || !applyPendingChanges()) {
             return false;
-        });
+        }
+        VantaClient.LOGGER.info("Applied the pending changes of Sodium's video settings on Escape");
+        screen.onClose();
+        return true;
     }
 
     /**
