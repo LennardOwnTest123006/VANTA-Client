@@ -88,8 +88,9 @@ as a GitHub pre-release) therefore never touches `latest/`: `build-manifest.mjs`
 nor the pull request contains a `latest/` file. Copy only `<product>-<version>.json` to `shared/releases/` and leave
 `shared/releases/latest/` as it is; never copy a beta manifest into `latest/` by hand.
 
-Once the manifest is on the default branch, Netlify rebuilds the website (the Download page reads the manifests at
-build time); once a stable release's `latest/` file is there too, the launcher's update check sees the release.
+Once the manifest is on the default branch, the website is built from that commit and deployed to Netlify by hand
+(the Download page reads the manifests at build time; see `website/README.md`); once a stable release's `latest/`
+file is there too, the launcher's update check sees the release.
 
 ## Field reference
 

@@ -32,8 +32,9 @@ manipulation or anything that gives an unfair advantage on multiplayer servers.
   and lets you disable or remove what VANTA installed.
 - **Performance pack** (client and launcher 1.1.0): Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling and
   Iris Shaders, the newest 1.21.11 Fabric versions from Modrinth at install time. One click in the game; installed by
-  default by the VANTA Launcher (can be switched off). These are third-party mods under their own licences; VANTA
-  does not ship them in its own files.
+  default by the VANTA Launcher (can be switched off). These are third-party mods under their own licences; from
+  client 1.2.0 on, the ones whose licences allow redistribution (all but EntityCulling) also ship unmodified in the
+  client's mods bundle `vanta-client-1.2.0-mods.zip`, with their licence texts in `THIRD-PARTY-LICENSES.txt`.
 - **Profiles, settings search, keybind manager, cosmetics, local statistics and accessibility options** (UI scale,
   reduced motion, high contrast, larger text, colour-blind palettes, keyboard navigation).
 - **VANTA Launcher**: installs Minecraft 1.21.11, Fabric and the client with checksum verification, or sets VANTA up
