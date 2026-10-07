@@ -412,7 +412,7 @@ class SmartBoostTunerTest {
         rig.options.graphicsPresetBundle = true;
         rig.machine = fpsOverDistance(900);
         rig.playUntilDone(300);
-        assertEquals(Optional.of(""), rig.tuner.state().graphicsAtWrite(), "the game reports custom now");
+        assertEquals(Optional.of("CUSTOM"), rig.tuner.state().graphicsAtWrite(), "the game reports custom now");
 
         rig.options.set(VanillaOption.GRAPHICS_MODE, "FAST"); // the player picks Fast in Video Settings
         rig.play(1);
@@ -471,7 +471,7 @@ class SmartBoostTunerTest {
         rig.machine = fpsOverDistance(900);
         rig.playUntilDone(300);
         assertTrue(rig.writes(VanillaOption.RENDER_DISTANCE) > 0, "the default Fancy is tuned");
-        assertEquals(Optional.of(""), rig.tuner.state().graphicsAtWrite(), "the game reports custom now");
+        assertEquals(Optional.of("CUSTOM"), rig.tuner.state().graphicsAtWrite(), "the game reports custom now");
 
         rig.options.set(VanillaOption.PARTICLES, "ALL"); // the player takes one option over
         rig.play(1);
