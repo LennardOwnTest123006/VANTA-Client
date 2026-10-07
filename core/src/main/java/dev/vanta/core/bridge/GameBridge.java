@@ -35,10 +35,26 @@ public interface GameBridge {
     /** Process CPU load in [0, 1] when the platform exposes it. */
     OptionalDouble cpuLoad();
 
+    /**
+     * The OpenGL renderer string ({@code GL_RENDERER}, e.g. "NVIDIA GeForce RTX 3060/PCIe/SSE2") when the client
+     * read it once at start-up; empty otherwise. Only used for Smart Boost's starting guess and the Performance screen.
+     */
+    default Optional<String> gpuRenderer() {
+        return Optional.empty();
+    }
+
     // ---- world -------------------------------------------------------------------------------------------------
 
     /** True while a world or server is loaded and the local player exists. */
     boolean isInWorld();
+
+    /**
+     * True while the player is actually playing: in a world with no screen open, the game not paused and the window
+     * focused. The default (for hosts without that information) is {@link #isInWorld()}.
+     */
+    default boolean isGameplayActive() {
+        return isInWorld();
+    }
 
     /** Player position (feet), empty outside a world. */
     Optional<Vec3d> playerPosition();

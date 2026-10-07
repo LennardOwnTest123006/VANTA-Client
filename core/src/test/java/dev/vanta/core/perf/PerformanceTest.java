@@ -222,6 +222,7 @@ class PerformanceTest {
         options.set(VanillaOption.RENDER_DISTANCE, 12);
         game.renderDistance = 12;
         for (int i = 0; i < 220; i++) {
+            game.look(); // the advisor only samples gameplay (an idle player is ignored)
             center.tick();
             clock.advance(50);
         }
@@ -237,6 +238,7 @@ class PerformanceTest {
         game.renderDistance = 10;
         clock.advance(RenderDistanceAdvisor.COOLDOWN_MS);
         for (int i = 0; i < 220; i++) {
+            game.look(); // the advisor only samples gameplay (an idle player is ignored)
             center.tick();
             clock.advance(50);
         }
@@ -247,6 +249,7 @@ class PerformanceTest {
         game.renderDistance = 8;
         clock.advance(RenderDistanceAdvisor.COOLDOWN_MS);
         for (int i = 0; i < 220; i++) {
+            game.look(); // the advisor only samples gameplay (an idle player is ignored)
             center.tick();
             clock.advance(50);
         }

@@ -176,6 +176,7 @@ class PerformanceScreenTest {
         t.game.fps = 30;
         for (int i = 0; i < 30; i++) {
             t.clock.advance(500);
+            t.game.look(); // the advisor only samples gameplay (an idle player is ignored)
             t.services.performance().tick();
         }
         assertTrue(t.services.performance().pendingSuggestion().isPresent(), "advisor suggests a lower distance");
@@ -209,5 +210,52 @@ class PerformanceScreenTest {
         var fps = small.root().findById("perf.fps");
         var memory = small.root().findById("perf.memory");
         assertTrue(memory.bounds().y() > fps.bounds().y(), "cards wrap onto more rows on narrow screens");
+    }
+
+    @Test
+    void smartBoostCardShowsTheResultInPlainWordsAndItsButtonsWork() {
+        PerformanceScreen screen = t.show(ScreenId.PERFORMANCE, 854, 480);
+        assertTrue(screen.root().findById("perf.smartBoost") != null, "Smart Boost card present");
+        assertTrue(screen.smartBoostStatus().startsWith("Not tuned yet"), screen.smartBoostStatus());
+        assertFalse(screen.smartBoostUndoButton().isEnabled(), "nothing to undo yet");
+        assertEquals(List.of(VantaSettings.PERFORMANCE_SMART_BOOST, VantaSettings.PERFORMANCE_SMART_BOOST_ADAPTIVE),
+                screen.smartBoostRows().stream().map(SettingRow::setting).toList());
+        assertEquals("Re-tune (overrides your manual video choices)", screen.smartBoostRetuneButton().label());
+
+        screen.scrollPanel().scrollIntoView(screen.context(), screen.smartBoostRetuneButton().bounds());
+        t.advance(screen, 500);
+        ScreenTestSupport.click(screen, screen.smartBoostRetuneButton());
+        assertTrue(t.services.smartBoost().isPending());
+        assertEquals("Starts when you play", screen.smartBoostStatus());
+
+        // A short measurement of a steady 125 FPS (the options keep vanilla's 120 FPS limit with VSync on).
+        t.services.smartBoost().configureTimingForTesting(2_000, 20, 0, 0);
+        for (int i = 0; i < 200 && (t.services.smartBoost().isRunning() || t.services.smartBoost().isPending()); i++) {
+            t.game.look();
+            t.services.performance().tick();
+            for (int f = 0; f < 6; f++) {
+                t.services.performance().onFrame(8.0);
+            }
+            t.clock.advance(50);
+        }
+        screen.tick();
+        assertTrue(screen.smartBoostStatus().startsWith("Smart Boost picked Balanced: about 125 FPS measured "
+                + "(target 60 FPS)"), screen.smartBoostStatus());
+        assertEquals(10, t.options.getInt(VanillaOption.RENDER_DISTANCE, -1));
+        assertTrue(screen.smartBoostUndoButton().isEnabled());
+        assertTrue(t.frame(screen, -1000, -1000).hasTextContaining("Smart Boost picked Balanced"));
+
+        t.options.set(VanillaOption.PARTICLES, "ALL"); // the player changes it by hand
+        t.services.performance().tick();
+        screen.tick();
+        assertTrue(t.frame(screen, -1000, -1000).hasTextContaining("Left alone (you changed them): Particles"));
+
+        screen.scrollPanel().scrollIntoView(screen.context(), screen.smartBoostUndoButton().bounds());
+        t.advance(screen, 500);
+        ScreenTestSupport.click(screen, screen.smartBoostUndoButton());
+        assertEquals(12, t.options.getInt(VanillaOption.RENDER_DISTANCE, -1), "Undo restored the distance");
+        assertEquals("ALL", t.options.getEnum(VanillaOption.PARTICLES, ""), "the player's own change stays");
+        assertFalse(t.services.settings().get(VantaSettings.PERFORMANCE_SMART_BOOST), "automatic tuning off");
+        assertFalse(screen.smartBoostUndoButton().isEnabled());
     }
 }

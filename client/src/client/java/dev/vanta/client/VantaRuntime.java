@@ -1,5 +1,6 @@
 package dev.vanta.client;
 
+import dev.vanta.client.bridge.MinecraftGameBridge;
 import dev.vanta.client.bridge.MinecraftResourcePackBridge;
 import dev.vanta.client.bridge.MinecraftScreenshotBridge;
 import dev.vanta.client.hud.FrameTimer;
@@ -69,6 +70,11 @@ public final class VantaRuntime {
 
     /** The game is fully constructed: options and key mappings exist now. */
     public void onClientStarted() {
+        // Smart Boost's starting guess uses the GPU name; it is read once here, on the render thread.
+        if (services.game() instanceof MinecraftGameBridge bridge) {
+            bridge.captureGpuRenderer();
+            bridge.gpuRenderer().ifPresent(gpu -> VantaClient.LOGGER.info("GPU renderer: {}", gpu));
+        }
         services.keybinds().refresh();
         services.search().rebuild();
         keys.syncZoomKey(services.settings());

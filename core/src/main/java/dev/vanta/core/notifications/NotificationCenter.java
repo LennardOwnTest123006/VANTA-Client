@@ -299,6 +299,36 @@ public final class NotificationCenter {
                 Lang.tr("vanta.notification.render_distance_applied.body", from, to));
     }
 
+    /** Smart Boost started measuring (it changes the video options a few times for about a minute). */
+    public Optional<Notification> smartBoostStarted() {
+        return post(NotificationKind.INFO, Lang.tr("vanta.notification.smart_boost_started.title"),
+                Lang.tr("vanta.notification.smart_boost_started.body"), 6000);
+    }
+
+    /** Smart Boost finished: the preset it picked, the median FPS it measured with it and the target. */
+    public Optional<Notification> smartBoostApplied(String presetName, long fps, int targetFps) {
+        return post(NotificationKind.SUCCESS, Lang.tr("vanta.notification.smart_boost_applied.title"),
+                Lang.tr("vanta.notification.smart_boost_applied.body", presetName, fps, targetFps), 8000);
+    }
+
+    /** Smart Boost's continuous mode changed the render distance. */
+    public Optional<Notification> smartBoostDistance(int from, int to) {
+        return post(NotificationKind.INFO, Lang.tr("vanta.notification.smart_boost_distance.title"),
+                Lang.tr("vanta.notification.smart_boost_distance.body", from, to));
+    }
+
+    /** Smart Boost stopped measuring because the player changed a video option meanwhile. */
+    public Optional<Notification> smartBoostStopped() {
+        return post(NotificationKind.INFO, Lang.tr("vanta.notification.smart_boost_stopped.title"),
+                Lang.tr("vanta.notification.smart_boost_stopped.body"));
+    }
+
+    /** Undo Smart Boost restored the earlier video options and turned the automatic run off. */
+    public Optional<Notification> smartBoostUndone() {
+        return post(NotificationKind.INFO, Lang.tr("vanta.notification.smart_boost_undone.title"),
+                Lang.tr("vanta.notification.smart_boost_undone.body"));
+    }
+
     public Optional<Notification> profileImported(String profileName) {
         return post(NotificationKind.SUCCESS, Lang.tr("vanta.notification.profile_imported.title"),
                 Lang.tr("vanta.notification.profile_imported.body", profileName));

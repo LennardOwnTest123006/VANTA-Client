@@ -72,6 +72,11 @@ public final class VantaPaths {
         return root.resolve("crosshair.json");
     }
 
+    /** {@code smart-boost.json}: what Smart Boost measured and which video options it wrote. */
+    public Path smartBoostFile() {
+        return root.resolve("smart-boost.json");
+    }
+
     /** {@code cosmetics.json}: cosmetics state (installed packs). */
     public Path cosmeticsFile() {
         return root.resolve("cosmetics.json");

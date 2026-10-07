@@ -22,7 +22,7 @@ public final class RenderDistanceAdvisor {
     /** Chunks per step. */
     public static final int STEP = 2;
     /** Smallest distance ever suggested. */
-    public static final int MIN_DISTANCE = 4;
+    public static final int MIN_DISTANCE = 6;
     /** Largest distance ever suggested. */
     public static final int MAX_DISTANCE = 32;
     private static final int CAPACITY = 1024;
