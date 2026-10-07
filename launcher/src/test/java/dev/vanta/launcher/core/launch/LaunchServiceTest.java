@@ -198,4 +198,22 @@ class LaunchServiceTest {
     void resolutionArgsHelper() {
         assertEquals(List.of("--width", "1280", "--height", "720"), LaunchService.resolutionArgs(new Resolution(1280, 720)));
     }
+
+    /**
+     * A restart.request nobody consumed (the launcher was closed while the game ran and "Restart game" was pressed
+     * afterwards) must not count for the next start: it is removed before the process starts, so after a normal quit
+     * no marker is found.
+     */
+    @Test
+    void aLeftOverRestartMarkerIsRemovedBeforeTheGameStarts() throws Exception {
+        final Path javaExe = Path.of(System.getProperty("java.home"), "bin", HOST.javaExecutableName());
+        final LaunchCommand command = service().buildCommand(LaunchRequest.of(instance, ACCOUNT, javaExe, LauncherSettings.defaults(0).withMemoryMb(1024)));
+        final Path marker = RestartRequest.markerFile(command.workingDirectory());
+        Files.createDirectories(marker.getParent());
+        Files.writeString(marker, "2026-10-06T12:00:00Z");
+        final GameProcess process = service().start(command, List.of());
+        assertFalse(Files.exists(marker), "the stale marker is deleted at the start");
+        assertEquals(0, process.exitCode().get(60, TimeUnit.SECONDS));
+        assertFalse(RestartRequest.consume(command.workingDirectory()), "the fake game did not ask for a restart");
+    }
 }

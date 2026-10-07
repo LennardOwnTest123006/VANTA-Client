@@ -609,8 +609,8 @@ class LauncherAppSmokeTest {
     @Test
     void aClickOnAToastDismissesIt() throws Exception {
         waitUntil(() -> app.context().session().loadedProperty().get());
+        clearToasts();
         fx(() -> {
-            app.context().toasts().clear();
             app.context().toasts().success("Smoke", "a click anywhere dismisses this");
             return null;
         });
@@ -628,6 +628,94 @@ class LauncherAppSmokeTest {
             return null;
         });
         waitUntil(() -> app.context().toasts().toasts().isEmpty());
+        waitUntil(() -> app.window().lookup(".toast") == null);
+    }
+
+    /**
+     * A dismissed toast fades out for {@link Motion#FAST}; it stays in the scene graph meanwhile. A click within that
+     * time (the second click of a double-click on the control the toast covered) must reach what lies under the card,
+     * not vanish into the fading toast.
+     */
+    @Test
+    void aDismissedToastDoesNotSwallowClicksWhileItFadesOut() throws Exception {
+        aDismissedToastLetsAClickThroughAfter(0);
+    }
+
+    /** The second click of a double-click, 10 ms after the first one dismissed the toast. */
+    @Test
+    void aDismissedToastLetsAClickThroughTenMillisecondsLater() throws Exception {
+        aDismissedToastLetsAClickThroughAfter(10);
+    }
+
+    /** A click near the end of the fade-out (or, on a slow machine, after it): still never the toast. */
+    @Test
+    void aDismissedToastLetsAClickThroughAHundredMillisecondsLater() throws Exception {
+        aDismissedToastLetsAClickThroughAfter(100);
+    }
+
+    private void aDismissedToastLetsAClickThroughAfter(final long delayMs) throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        clearToasts();
+        fx(() -> {
+            app.context().toasts().success("Smoke", "dismissed, then clicked again after " + delayMs + " ms");
+            return null;
+        });
+        waitUntil(() -> {
+            final Node toast = app.window().lookup(".toast");
+            return toast != null && toast.getScene() != null && toast.getLayoutBounds().getWidth() > 0 && toast.getOpacity() == 1;
+        });
+        final javafx.scene.Scene scene = app.stage().getScene();
+        // Every mouse event the click produces is recorded and consumed in the capturing phase: the test sees where it
+        // was aimed, and whatever lies under the toast (a button, a switch) does not act on it. Only the press, release
+        // and click count: a cursor resting on the toast (it was clicked a moment ago) is told the toast went away by a
+        // MOUSE_EXITED addressed to the toast, which is not a click the toast swallowed.
+        final List<javafx.scene.input.MouseEvent> events = new CopyOnWriteArrayList<>();
+        final javafx.event.EventHandler<javafx.scene.input.MouseEvent> record = e -> {
+            events.add(e);
+            e.consume();
+        };
+        final java.util.function.Predicate<javafx.scene.input.MouseEvent> clickPart = e ->
+            e.getEventType() == javafx.scene.input.MouseEvent.MOUSE_PRESSED || e.getEventType() == javafx.scene.input.MouseEvent.MOUSE_RELEASED
+                || e.getEventType() == javafx.scene.input.MouseEvent.MOUSE_CLICKED;
+        try {
+            final javafx.geometry.Point2D centre = fx(() -> {
+                scene.addEventFilter(javafx.scene.input.MouseEvent.ANY, record);
+                final Node toast = app.window().lookup(".toast");
+                final javafx.geometry.Bounds bounds = toast.localToScene(toast.getBoundsInLocal());
+                final javafx.geometry.Point2D c = new javafx.geometry.Point2D(bounds.getCenterX(), bounds.getCenterY());
+                assertEquals(toast, ancestorWithStyle(pickAt(scene.getRoot(), c.getX(), c.getY()), "toast"));
+                app.context().toasts().clear();
+                if (!Motion.reduced()) {
+                    assertNotNull(toast.getScene(), "the dismissed toast is still in the scene graph while it fades out");
+                }
+                final Node under = pickAt(scene.getRoot(), c.getX(), c.getY());
+                assertTrue(under == null || ancestorWithStyle(under, "toast") == null,
+                    "right after the dismiss the toast is transparent for the mouse; picked " + under);
+                return c;
+            });
+            if (delayMs > 0) {
+                Thread.sleep(delayMs);
+            }
+            fx(() -> {
+                final Node under = pickAt(scene.getRoot(), centre.getX(), centre.getY());
+                assertTrue(under == null || ancestorWithStyle(under, "toast") == null,
+                    delayMs + " ms after the dismiss the toast is transparent for the mouse; picked " + under);
+                clickAt(scene, centre.getX(), centre.getY());
+                return null;
+            });
+            waitUntil(() -> events.stream().anyMatch(e -> clickPart.test(e) && e.getTarget() instanceof Node));
+            for (javafx.scene.input.MouseEvent event : events) {
+                if (clickPart.test(event) && event.getTarget() instanceof Node node) {
+                    assertNull(ancestorWithStyle(node, "toast"), "the " + event.getEventType() + " " + delayMs
+                        + " ms after the dismiss reached " + node + ", not the fading toast");
+                }
+            }
+        } finally {
+            fx(() -> {
+                scene.removeEventFilter(javafx.scene.input.MouseEvent.ANY, record);
+                return null;
+            });
+        }
         waitUntil(() -> app.window().lookup(".toast") == null);
     }
 
@@ -922,6 +1010,15 @@ class LauncherAppSmokeTest {
         return all;
     }
 
+    /** Dismisses every toast a previous test left behind and waits until its card has faded out of the scene graph. */
+    private void clearToasts() throws Exception {
+        fx(() -> {
+            app.context().toasts().clear();
+            return null;
+        });
+        waitUntil(() -> app.window().lookup(".toast") == null);
+    }
+
     /** @return the node's layout bounds (without its drop shadow) in scene coordinates */
     private static javafx.geometry.Bounds sceneBounds(final Node node) {
         return node.localToScene(node.getLayoutBounds());
@@ -1013,6 +1110,34 @@ class LauncherAppSmokeTest {
                 true, false, false, false, false, true, pick));
             javafx.event.Event.fireEvent(node, new javafx.scene.input.MouseEvent(javafx.scene.input.MouseEvent.MOUSE_RELEASED, local.getX(),
                 local.getY(), screen.getCenterX(), screen.getCenterY(), javafx.scene.input.MouseButton.PRIMARY, 1, false, false, false, false,
+                false, false, false, false, false, true, pick));
+        }
+    }
+
+    /**
+     * Clicks a point of the scene (the point a node occupied before it was dismissed, so it needs no node): through the
+     * {@link javafx.scene.robot.Robot} when the platform has one, otherwise with synthetic press and release events fired
+     * at the node that lies there now.
+     */
+    private static void clickAt(final javafx.scene.Scene scene, final double sceneX, final double sceneY) {
+        final javafx.geometry.Point2D screen = scene.getRoot().localToScreen(sceneX, sceneY);
+        try {
+            final javafx.scene.robot.Robot robot = new javafx.scene.robot.Robot();
+            robot.mouseMove(screen.getX(), screen.getY());
+            robot.mousePress(javafx.scene.input.MouseButton.PRIMARY);
+            robot.mouseRelease(javafx.scene.input.MouseButton.PRIMARY);
+            CLICKED_WITH.compareAndSet(null, "robot");
+        } catch (RuntimeException noRobot) {
+            CLICKED_WITH.compareAndSet(null, "synthetic events (" + noRobot + ")");
+            final Node picked = pickAt(scene.getRoot(), sceneX, sceneY);
+            final Node target = picked == null ? scene.getRoot() : picked;
+            final javafx.geometry.Point2D local = target.sceneToLocal(sceneX, sceneY);
+            final javafx.scene.input.PickResult pick = new javafx.scene.input.PickResult(target, sceneX, sceneY);
+            javafx.event.Event.fireEvent(target, new javafx.scene.input.MouseEvent(javafx.scene.input.MouseEvent.MOUSE_PRESSED, local.getX(),
+                local.getY(), screen.getX(), screen.getY(), javafx.scene.input.MouseButton.PRIMARY, 1, false, false, false, false,
+                true, false, false, false, false, true, pick));
+            javafx.event.Event.fireEvent(target, new javafx.scene.input.MouseEvent(javafx.scene.input.MouseEvent.MOUSE_RELEASED, local.getX(),
+                local.getY(), screen.getX(), screen.getY(), javafx.scene.input.MouseButton.PRIMARY, 1, false, false, false, false,
                 false, false, false, false, false, true, pick));
         }
     }

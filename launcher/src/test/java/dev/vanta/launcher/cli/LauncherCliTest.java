@@ -262,6 +262,46 @@ class LauncherCliTest {
         assertFalse(Files.exists(vantaConfig.resolve("restart.request")), "the marker is consumed");
     }
 
+    /**
+     * A restart.request left behind by an earlier session (the launcher was closed while the game ran and "Restart
+     * game" was pressed afterwards, so nobody consumed it) must not restart the game after its next normal quit.
+     */
+    @Test
+    void aStaleRestartMarkerDoesNotRestartTheGameAfterANormalQuit() throws IOException {
+        final Path data = tmp.resolve("stale-restart-data");
+        final Run install = run("--install", "--no-assets", "--without-performance-pack", "--releases-url", world.releasesBase(),
+            "--data-dir", data.toString());
+        assertEquals(ExitCode.OK, install.code(), install.out() + install.err());
+        final Path vantaConfig = data.resolve("instances/vanta-1.21.11/config/vanta");
+        Files.createDirectories(vantaConfig);
+        Files.writeString(vantaConfig.resolve("restart.request"), "2026-10-06T12:00:00Z");
+        // No restart-once.test: the fake game quits normally without asking for a restart.
+        final Run launch = run("--launch", "--dev-offline", "--data-dir", data.toString(), "--memory", "1024");
+        assertEquals(ExitCode.OK, launch.code(), launch.out() + launch.err());
+        assertEquals(1, launch.out().split("FAKE_GAME_START", -1).length - 1, "started exactly once: " + launch.out());
+        assertFalse(launch.out().contains("The game asked for a restart"), launch.out());
+        assertFalse(Files.exists(vantaConfig.resolve("restart.request")), "the stale marker is gone");
+    }
+
+    /** A stale marker next to a real restart request: the game restarts once for the request it writes, not twice. */
+    @Test
+    void aStaleRestartMarkerDoesNotAddARestartToARequestedOne() throws IOException {
+        final Path data = tmp.resolve("stale-plus-requested-restart-data");
+        final Run install = run("--install", "--no-assets", "--without-performance-pack", "--releases-url", world.releasesBase(),
+            "--data-dir", data.toString());
+        assertEquals(ExitCode.OK, install.code(), install.out() + install.err());
+        final Path vantaConfig = data.resolve("instances/vanta-1.21.11/config/vanta");
+        Files.createDirectories(vantaConfig);
+        Files.writeString(vantaConfig.resolve("restart.request"), "2026-10-06T12:00:00Z");
+        Files.writeString(vantaConfig.resolve("restart-once.test"), "x");
+        final Run launch = run("--launch", "--dev-offline", "--data-dir", data.toString(), "--memory", "1024");
+        assertEquals(ExitCode.OK, launch.code(), launch.out() + launch.err());
+        assertTrue(launch.out().contains("FAKE_GAME_RESTART_REQUESTED"), launch.out());
+        assertEquals(2, launch.out().split("FAKE_GAME_START", -1).length - 1, "started exactly twice: " + launch.out());
+        assertEquals(1, launch.out().split("The game asked for a restart; starting it again.", -1).length - 1, launch.out());
+        assertFalse(Files.exists(vantaConfig.resolve("restart.request")), "the marker is consumed");
+    }
+
     @Test
     void openOfficialLauncherReportsAMissingLauncher() throws IOException {
         // No minecraft-launcher on the PATH, no Windows install folders, no macOS app: nothing can be started.

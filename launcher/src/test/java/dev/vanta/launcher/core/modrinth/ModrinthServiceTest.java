@@ -25,6 +25,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -333,5 +344,226 @@ class ModrinthServiceTest {
         assertEquals("iris", ModrinthService.fabricModId(jar).orElseThrow());
         Files.write(jar, new byte[] {1, 2, 3});
         assertTrue(ModrinthService.fabricModId(jar).isEmpty());
+    }
+
+    /**
+     * The Mods page runs its operations on a thread pool: a mod is removed while another one installs. Each operation
+     * loads modrinth.json, changes it and saves it; the install must not save its copy (still holding the removed mod)
+     * over the removal, and the removal must not drop the mod the install just recorded.
+     */
+    @Test
+    void aRemovalDuringAnInstallIsNotUndoneByTheInstallsIndexWrite() throws Exception {
+        service.apply(service.resolve(List.of(new ModrinthService.Root("lithium", ContentType.MOD)), false, CancellationToken.NONE),
+            DownloadProgressListener.NONE, s -> { }, false, CancellationToken.NONE);
+        final ModrinthService.InstalledContent lithium = find("Lithium");
+        final ModrinthService.Resolution sodium = service.resolve(List.of(new ModrinthService.Root("sodium", ContentType.MOD)), false,
+            CancellationToken.NONE);
+        assertEquals(1, sodium.items().size());
+
+        // The install has loaded the index and downloaded its file, and is about to record it and save.
+        final CountDownLatch downloaded = new CountDownLatch(1);
+        final CountDownLatch proceed = new CountDownLatch(1);
+        final DownloadProgressListener pause = new DownloadProgressListener() {
+            @Override
+            public void onComplete(final dev.vanta.launcher.core.net.DownloadRequest request, final boolean skipped, final long bytes) {
+                downloaded.countDown();
+                try {
+                    assertTrue(proceed.await(30, TimeUnit.SECONDS), "released");
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+            }
+        };
+        final ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            final Future<ModrinthService.ApplyResult> install = pool.submit(() -> service.apply(sodium, pause, s -> { }, false, CancellationToken.NONE));
+            assertTrue(downloaded.await(30, TimeUnit.SECONDS), "the install reached its download");
+            final Future<?> removal = pool.submit(() -> {
+                service.remove(lithium);
+                return null;
+            });
+            // The removal queues behind the install (or the other way round); neither completes on a stale index.
+            Thread.sleep(200);
+            proceed.countDown();
+            assertEquals(1, install.get(60, TimeUnit.SECONDS).applied().size());
+            removal.get(60, TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
+        assertTrue(index.byProjectId("AANobbMI").isPresent(), "Sodium, installed meanwhile, is tracked");
+        assertTrue(index.byProjectId(lithium.projectId()).isEmpty(), "the removed Lithium is not resurrected by the install's index write");
+        assertFalse(Files.exists(paths.modsDir().resolve("lithium-fabric-0.21.4+mc1.21.11.jar")));
+        assertTrue(Files.isRegularFile(paths.modsDir().resolve("sodium-fabric-0.8.14+mc1.21.11.jar")));
+        assertEquals(List.of("Sodium"), service.installed().stream().filter(ModrinthService.InstalledContent::tracked)
+            .map(ModrinthService.InstalledContent::title).toList());
+    }
+
+    /** Two installs started at the same time (two Install clicks) both end up tracked. */
+    @Test
+    void twoInstallsAtTheSameTimeAreBothTracked() throws Exception {
+        final ModrinthService.Resolution lithium = service.resolve(List.of(new ModrinthService.Root("lithium", ContentType.MOD)), false,
+            CancellationToken.NONE);
+        final ModrinthService.Resolution ferrite = service.resolve(List.of(new ModrinthService.Root("ferrite-core", ContentType.MOD)), false,
+            CancellationToken.NONE);
+        final CyclicBarrier both = new CyclicBarrier(2);
+        final DownloadProgressListener meet = new DownloadProgressListener() {
+            @Override
+            public void onComplete(final dev.vanta.launcher.core.net.DownloadRequest request, final boolean skipped, final long bytes) {
+                try {
+                    both.await(2, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } catch (BrokenBarrierException | TimeoutException ignored) {
+                    // The other install waits for this one's index write: fine, that is the point.
+                }
+            }
+        };
+        final ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            final Future<ModrinthService.ApplyResult> a = pool.submit(() -> service.apply(lithium, meet, s -> { }, false, CancellationToken.NONE));
+            final Future<ModrinthService.ApplyResult> b = pool.submit(() -> service.apply(ferrite, meet, s -> { }, false, CancellationToken.NONE));
+            assertEquals(1, a.get(60, TimeUnit.SECONDS).applied().size());
+            assertEquals(1, b.get(60, TimeUnit.SECONDS).applied().size());
+        } finally {
+            pool.shutdownNow();
+        }
+        assertEquals(Set.of("Lithium", "FerriteCore"), service.installed().stream().filter(ModrinthService.InstalledContent::tracked)
+            .map(ModrinthService.InstalledContent::title).collect(Collectors.toSet()));
+        assertEquals(2, ModrinthIndex.load(paths.modrinthIndexFile()).entries().size());
+    }
+
+    /** The jars are in place when modrinth.json cannot be written: a tolerant apply reports them and warns. */
+    @Test
+    void aTolerantApplyKeepsTheAppliedListWhenTheIndexCannotBeWritten() throws Exception {
+        Files.createDirectories(paths.modrinthIndexFile().resolve("child"));
+        final ModrinthService.Resolution r = service.resolve(packRoots(), true, CancellationToken.NONE);
+        final ModrinthService.ApplyResult result = service.apply(r, DownloadProgressListener.NONE, s -> { }, true, CancellationToken.NONE);
+        assertEquals(6, result.applied().size(), "every jar is in place");
+        assertEquals(6, result.downloadedCount());
+        assertEquals(1, result.warnings().size(), result.warnings().toString());
+        assertTrue(result.warnings().get(0).startsWith("modrinth.json could not be written (DirectoryNotEmptyException: "), result.warnings().get(0));
+        for (String file : PACK_FILES) {
+            assertTrue(Files.isRegularFile(paths.modsDir().resolve(file)), file);
+        }
+        // Not tolerant: the failure is the caller's.
+        assertThrows(IOException.class, () -> service.apply(r, DownloadProgressListener.NONE, s -> { }, false, CancellationToken.NONE));
+    }
+
+    /**
+     * A removal queued behind an install that is then cancelled (the player pressed Cancel): the cancel releases the
+     * lock, what the install had put in place before the cancel is recorded, and the removal completes on that index.
+     */
+    @Test
+    void aCancelledInstallReleasesTheRemovalWaitingBehindIt() throws Exception {
+        service.apply(service.resolve(List.of(new ModrinthService.Root("lithium", ContentType.MOD)), false, CancellationToken.NONE),
+            DownloadProgressListener.NONE, s -> { }, false, CancellationToken.NONE);
+        final ModrinthService.InstalledContent lithium = find("Lithium");
+        final ModrinthService.Resolution two = service.resolve(List.of(new ModrinthService.Root("ferrite-core", ContentType.MOD),
+            new ModrinthService.Root("sodium", ContentType.MOD)), false, CancellationToken.NONE);
+        assertEquals(2, two.items().size());
+        final String first = two.items().get(0).projectId();
+        final String second = two.items().get(1).projectId();
+
+        // The install has downloaded its first file and is about to record it; the second item is checked for a cancel first.
+        final CountDownLatch downloaded = new CountDownLatch(1);
+        final CountDownLatch proceed = new CountDownLatch(1);
+        final DownloadProgressListener pause = new DownloadProgressListener() {
+            @Override
+            public void onComplete(final dev.vanta.launcher.core.net.DownloadRequest request, final boolean skipped, final long bytes) {
+                if (downloaded.getCount() == 0) {
+                    return;
+                }
+                downloaded.countDown();
+                try {
+                    assertTrue(proceed.await(30, TimeUnit.SECONDS), "released");
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+            }
+        };
+        final CancellationToken token = new CancellationToken();
+        final ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            final Future<ModrinthService.ApplyResult> install = pool.submit(() -> service.apply(two, pause, s -> { }, false, token));
+            assertTrue(downloaded.await(30, TimeUnit.SECONDS), "the install reached its first download");
+            final Future<?> removal = pool.submit(() -> {
+                service.remove(lithium);
+                return null;
+            });
+            Thread.sleep(200);
+            assertFalse(removal.isDone(), "the removal waits for the install, which holds the index");
+            token.cancel();
+            proceed.countDown();
+            final ExecutionException cancelled = assertThrows(ExecutionException.class, () -> install.get(60, TimeUnit.SECONDS));
+            assertTrue(cancelled.getCause() instanceof CancellationException, String.valueOf(cancelled.getCause()));
+            removal.get(60, TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
+        assertTrue(index.byProjectId(first).isPresent(), "the item installed before the cancel is recorded");
+        assertTrue(index.byProjectId(second).isEmpty(), "the item the cancel stopped is not");
+        assertTrue(index.byProjectId(lithium.projectId()).isEmpty(), "the removal that waited behind the install went through");
+        assertFalse(Files.exists(paths.modsDir().resolve("lithium-fabric-0.21.4+mc1.21.11.jar")));
+        assertEquals(1, service.installed().stream().filter(ModrinthService.InstalledContent::tracked).count());
+    }
+
+    /**
+     * A removal interrupted while it waits for the index (its background task was cancelled) reports the interrupt and
+     * changes nothing; the install it waited for finishes untouched.
+     */
+    @Test
+    void aRemovalInterruptedWhileWaitingForTheIndexChangesNothing() throws Exception {
+        service.apply(service.resolve(List.of(new ModrinthService.Root("lithium", ContentType.MOD)), false, CancellationToken.NONE),
+            DownloadProgressListener.NONE, s -> { }, false, CancellationToken.NONE);
+        final ModrinthService.InstalledContent lithium = find("Lithium");
+        final ModrinthService.Resolution sodium = service.resolve(List.of(new ModrinthService.Root("sodium", ContentType.MOD)), false,
+            CancellationToken.NONE);
+        final CountDownLatch downloaded = new CountDownLatch(1);
+        final CountDownLatch proceed = new CountDownLatch(1);
+        final DownloadProgressListener pause = new DownloadProgressListener() {
+            @Override
+            public void onComplete(final dev.vanta.launcher.core.net.DownloadRequest request, final boolean skipped, final long bytes) {
+                downloaded.countDown();
+                try {
+                    assertTrue(proceed.await(30, TimeUnit.SECONDS), "released");
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+            }
+        };
+        final ExecutorService pool = Executors.newFixedThreadPool(1);
+        try {
+            final Future<ModrinthService.ApplyResult> install = pool.submit(() -> service.apply(sodium, pause, s -> { }, false, CancellationToken.NONE));
+            assertTrue(downloaded.await(30, TimeUnit.SECONDS), "the install reached its download");
+            final AtomicReference<Throwable> failure = new AtomicReference<>();
+            final Thread remover = new Thread(() -> {
+                try {
+                    service.remove(lithium);
+                } catch (Throwable t) {
+                    failure.set(t);
+                }
+            }, "remover");
+            remover.start();
+            Thread.sleep(200);
+            remover.interrupt();
+            remover.join(TimeUnit.SECONDS.toMillis(10));
+            assertFalse(remover.isAlive(), "the interrupted removal gives up");
+            assertTrue(failure.get() instanceof IOException, String.valueOf(failure.get()));
+            assertTrue(failure.get().getMessage().contains("Interrupted while waiting for another Modrinth operation"), failure.get().getMessage());
+            proceed.countDown();
+            assertEquals(1, install.get(60, TimeUnit.SECONDS).applied().size());
+        } finally {
+            pool.shutdownNow();
+        }
+        assertEquals(Set.of("Lithium", "Sodium"), service.installed().stream().filter(ModrinthService.InstalledContent::tracked)
+            .map(ModrinthService.InstalledContent::title).collect(Collectors.toSet()));
+        assertTrue(Files.isRegularFile(paths.modsDir().resolve("lithium-fabric-0.21.4+mc1.21.11.jar")), "nothing was removed");
     }
 }

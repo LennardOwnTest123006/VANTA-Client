@@ -500,4 +500,87 @@ class OfficialProfileServiceTest {
         assertEquals("-Xmx3000M", merged.get("javaArgs").getAsString());
         assertTrue(OfficialProfileService.upsertProfile(root, "vanta-other", profile));
     }
+
+    /**
+     * The Minecraft Launcher may still be running ("Continue anyway") and save its profiles file while VANTA downloads:
+     * a profile it created and the account it switched to must survive, and the VANTA profile is merged into that.
+     */
+    @Test
+    void changesTheRunningMinecraftLauncherSavesDuringTheDownloadsSurvive() throws Exception {
+        officialLauncherStartedOnce();
+        final Path store = mc.resolve(OfficialProfileService.STORE_PROFILES_FILE);
+        Files.writeString(store, "{\"profiles\":{\"storeOther\":{\"name\":\"Store\"}},\"selectedUser\":{\"account\":\"A\"}}");
+        final List<String> log = new ArrayList<>();
+        final boolean[] mutated = {false};
+        final OfficialProfileService.Result result = service.install(request(), new InstallListener() {
+            @Override
+            public void onProgress(final InstallProgress progress) {
+                if (progress.step() == InstallStep.VANTA_CLIENT && !mutated[0]) {
+                    mutated[0] = true;
+                    try {
+                        for (Path file : List.of(mc.resolve(OfficialProfileService.PROFILES_FILE), store)) {
+                            // What the official launcher does on "new profile" and an account switch: a full rewrite.
+                            final JsonObject root = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+                            final JsonObject made = new JsonObject();
+                            made.addProperty("name", "Made meanwhile");
+                            made.addProperty("type", "custom");
+                            root.getAsJsonObject("profiles").add("madeMeanwhile", made);
+                            final JsonObject selected = new JsonObject();
+                            selected.addProperty("account", "B");
+                            root.add("selectedUser", selected);
+                            Files.writeString(file, Json.GSON.toJson(root));
+                        }
+                    } catch (IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                }
+            }
+
+            @Override
+            public void onLog(final String message) {
+                log.add(message);
+            }
+        }, new CancellationToken());
+        assertTrue(mutated[0], "the profiles files were changed during the VANTA client step");
+        assertTrue(result.created());
+        for (Path file : List.of(mc.resolve(OfficialProfileService.PROFILES_FILE), store)) {
+            final JsonObject root = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+            assertTrue(root.getAsJsonObject("profiles").has("madeMeanwhile"), file + " keeps the profile the running launcher made");
+            assertEquals("B", root.getAsJsonObject("selectedUser").get("account").getAsString(), file + " keeps the account switch");
+            assertEquals("VANTA 1.21.11", root.getAsJsonObject("profiles").getAsJsonObject("vanta-1.21.11").get("name").getAsString());
+        }
+        assertTrue(log.stream().anyMatch(l -> l.startsWith(OfficialProfileService.PROFILES_FILE + " changed while VANTA was downloading")), log.toString());
+        assertTrue(log.stream().anyMatch(l -> l.startsWith(OfficialProfileService.STORE_PROFILES_FILE + " changed while VANTA was downloading")), log.toString());
+        // The one-time backup is taken right before VANTA's write, so it holds the launcher's latest state.
+        assertTrue(Files.readString(OfficialProfileService.backupOf(mc.resolve(OfficialProfileService.PROFILES_FILE))).contains("madeMeanwhile"));
+    }
+
+    /**
+     * The running launcher's rewrite during the downloads is half-written (not valid JSON) at the moment VANTA would
+     * write: the last step fails and names the file, and the file is left as it is rather than replaced by the stale
+     * copy VANTA parsed before the downloads.
+     */
+    @Test
+    void aProfilesFileBrokenDuringTheDownloadsIsNotOverwritten() throws Exception {
+        officialLauncherStartedOnce();
+        final Path file = mc.resolve(OfficialProfileService.PROFILES_FILE);
+        final String halfWritten = "{\"profiles\":{\"other\":{\"name\":\"Oth";
+        final InstallException failure = assertThrows(InstallException.class, () -> service.install(request(), new InstallListener() {
+            @Override
+            public void onProgress(final InstallProgress progress) {
+                if (progress.step() == InstallStep.VANTA_CLIENT) {
+                    try {
+                        Files.writeString(file, halfWritten);
+                    } catch (IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                }
+            }
+        }, new CancellationToken()));
+        assertEquals(InstallStep.FINALIZE, failure.step());
+        assertTrue(failure.getMessage().contains(OfficialProfileService.PROFILES_FILE + " is not valid JSON, so VANTA did not change it"),
+            failure.getMessage());
+        assertEquals(halfWritten, Files.readString(file), "the launcher's file is left alone");
+        assertFalse(Files.exists(OfficialProfileService.backupOf(file)), "no backup is taken of a file that was not written");
+    }
 }
