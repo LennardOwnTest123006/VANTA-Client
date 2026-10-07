@@ -193,6 +193,9 @@ public final class VantaServices {
         switch (actionId) {
             case ActionEntry.RESET_SETTINGS -> {
                 settings.resetAll();
+                // The vanilla defaults (120 FPS, VSync on) and the frame-rate choice's default (Unlimited) disagree;
+                // the choice is the source of truth, so it is applied last.
+                performance.applyFpsLimit(settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
                 settings.save();
                 notifications.settingsSaved();
                 return true;
@@ -269,21 +272,34 @@ public final class VantaServices {
     /**
      * The one-click "Boost FPS": applies {@link PerformancePreset#BOOST}, removes the frame-rate cap and turns VSync
      * off ({@link FpsLimitPreset#UNLIMITED}), switches the VANTA menu to a solid background without particles and,
-     * when the Modrinth integration is installed and a Performance pack member is neither loaded nor installed,
-     * installs the pack. Nothing is ever downloaded except through this explicit action; the confirmation toast
-     * says when a restart is needed for the new mods.
+     * when the Modrinth integration is installed, installs the Performance pack members that are neither loaded nor
+     * installed (only those: a member Fabric already loaded from a jar Modrinth does not know is never downloaded a
+     * second time). Nothing is ever downloaded except through this explicit action; the one confirmation toast says
+     * when a restart is needed for the new mods. While a pack install is still running (a second click, or the
+     * main-menu offer's Install in the same session) nothing is queued: a toast says the boost is already running
+     * and the running install's own toast reports the outcome.
      */
     public void boostFps() {
-        performance.applyPreset(PerformancePreset.BOOST);
+        if (modrinth != null && modrinth.isBusy()) {
+            notifications.boostAlreadyRunning();
+            return;
+        }
+        performance.applyPreset(PerformancePreset.BOOST, false);
         performance.applyFpsLimit(FpsLimitPreset.UNLIMITED);
         settings.set(VantaSettings.MENU_BACKGROUND, MenuBackground.SOLID);
         settings.set(VantaSettings.MENU_PARTICLES, MenuParticles.NONE);
-        if (modrinth == null || missingPerformancePackMembers(modrinth).isEmpty()) {
-            notifications.boostApplied(false);
+        List<PerformancePack.Item> missing = modrinth == null ? List.of() : missingPerformancePackMembers(modrinth);
+        if (missing.isEmpty()) {
+            notifications.boostApplied(modrinth != null && modrinth.restartRequired());
             return;
         }
-        modrinth.installPerformancePack(PerformancePack.slugs(),
-                result -> notifications.boostApplied(result.modsChanged()));
+        ModrinthService service = modrinth;
+        service.installPerformancePack(missing.stream().map(PerformancePack.Item::slug).toList(), result -> {
+            if (result.installed().isEmpty() && result.enabled().isEmpty() && !result.problems().isEmpty()) {
+                return; // nothing landed; the install's own error toast already said so
+            }
+            notifications.boostApplied(result.modsChanged() || service.restartRequired());
+        });
     }
 
     /** Performance pack members that are neither loaded in this game nor in the Modrinth index. */

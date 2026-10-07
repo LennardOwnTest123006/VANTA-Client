@@ -12,11 +12,13 @@ import dev.vanta.core.bridge.FakeOptionsBridge;
 import dev.vanta.core.bridge.FakeResourcePackBridge;
 import dev.vanta.core.bridge.FakeScreenshotBridge;
 import dev.vanta.core.config.VantaPaths;
+import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.notifications.NotificationKind;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.screen.common.ScreenTestSupport;
 import dev.vanta.core.settings.VantaSettings;
+import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.UiScreen;
 import dev.vanta.core.ui.widget.Dialog;
 import java.io.IOException;
@@ -167,6 +169,77 @@ class PackOfferTest {
         assertFalse(fresh.settings().get(VantaSettings.MODS_PACK_OFFER), "persisted in settings.json");
         new FakeModPlatform(dir).installInto(fresh, FakeModrinthApi.standard());
         assertFalse(fresh.packOffer().shouldOffer(), "never nags again");
+    }
+
+    @Test
+    void escapeCountsAsNotNow() {
+        UiScreen screen = host();
+        assertTrue(offer.showIfWanted(screen.context()).isPresent());
+        int before = api.calls().size();
+        assertTrue(ScreenTestSupport.key(screen, Keys.ESCAPE));
+        assertNull(ScreenTestSupport.openDialog(screen), "Escape closes the dialog");
+        assertFalse(screen.isClosing(), "only the dialog");
+        assertFalse(t.services.settings().get(VantaSettings.MODS_PACK_OFFER), "Escape is Not now");
+        assertEquals(before, api.calls().size());
+        assertFalse(new PackOffer(t.services, () -> false).shouldOffer(), "the next start does not ask again");
+        assertTrue(Lang.tr("vanta.mods.offer.body", "x").contains("Escape"), "the dialog says so");
+    }
+
+    @Test
+    void installDoesNotDownloadALoadedMemberModrinthCannotIdentify() throws IOException {
+        // Sodium runs from a CurseForge build: Fabric loaded it, Modrinth's hash lookup does not know the jar.
+        Path mods = dir.resolve("mods");
+        Files.createDirectories(mods);
+        Files.write(mods.resolve("sodium-fabric-0.8.14+mc1.21.11.jar"), "unknown bytes".getBytes(StandardCharsets.UTF_8));
+        platform.loaded.add("sodium");
+        UiScreen screen = host();
+        Dialog dialog = offer.showIfWanted(screen.context()).orElseThrow();
+        assertFalse(dialog.message().contains("Sodium"), dialog.message());
+
+        ScreenTestSupport.confirmDialog(screen);
+
+        assertFalse(api.calls().contains("download:sodium-1.0.0.jar"), "a loaded member is never downloaded again");
+        assertFalse(Files.exists(mods.resolve("sodium-1.0.0.jar")), "no duplicate Sodium jar");
+        for (String file : List.of("lithium-1.0.0.jar", "ferrite-core-1.0.0.jar", "immediatelyfast-1.0.0.jar",
+                "entityculling-1.0.0.jar", "iris-1.0.0.jar")) {
+            assertTrue(api.calls().contains("download:" + file), file);
+        }
+        assertEquals(5, service.installedProjectIds().size());
+        assertTrue(PackOffer.missing(service).isEmpty());
+    }
+
+    @Test
+    void installWhileAPackInstallIsRunningQueuesNothing() {
+        java.util.Deque<Runnable> worker = new java.util.ArrayDeque<>();
+        ModrinthService queued = new ModrinthService(api, new ModrinthLibrary(dir, t.services.jsonStore()), platform,
+                t.services.notifications(), worker::add, Runnable::run, t.clock);
+        t.services.setModrinth(queued);
+        t.services.boostFps();
+        assertTrue(queued.isBusy());
+        int queuedTasks = worker.size();
+        offer.install(null);
+        assertEquals(queuedTasks, worker.size(), "no second install behind the running one");
+        assertTrue(t.services.notifications().history().stream().anyMatch(n -> n.title().equals("Boost is already running")));
+    }
+
+    @Test
+    void installSwitchesAHandDisabledMemberBackOnAndSaysSo() throws IOException {
+        // The player renamed Modrinth's own Sodium jar to .disabled by hand; the offer rightly calls it missing.
+        bundled("sodium", "sodium-1.0.0.jar.disabled");
+        assertTrue(PackOffer.missing(service).stream().anyMatch(i -> i.slug().equals("sodium")));
+        UiScreen screen = host();
+        offer.showIfWanted(screen.context());
+        ScreenTestSupport.confirmDialog(screen);
+
+        InstalledEntry sodium = service.installed("AANobbMI").orElseThrow();
+        assertTrue(sodium.enabled());
+        assertEquals("mods/sodium-1.0.0.jar", sodium.file());
+        assertTrue(Files.exists(dir.resolve("mods/sodium-1.0.0.jar")));
+        assertFalse(Files.exists(dir.resolve("mods/sodium-1.0.0.jar.disabled")));
+        assertFalse(api.calls().contains("download:sodium-1.0.0.jar"), "identical bytes are not downloaded again");
+        var toast = t.services.notifications().history().stream().filter(n -> n.title().equals("Installed")).findFirst()
+                .orElseThrow();
+        assertTrue(toast.body().startsWith("Sodium, "), "the player is told Sodium was switched on: " + toast.body());
     }
 
     @Test

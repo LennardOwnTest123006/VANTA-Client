@@ -102,7 +102,8 @@ class ModrinthServiceTest {
         long changes = service.changeCount();
         service.adoptKnownFiles(results::add);
         List<InstalledEntry> adopted = results.get(0);
-        assertEquals(List.of("AANobbMI", "YL57xq9U"), adopted.stream().map(InstalledEntry::projectId).sorted().toList());
+        assertEquals(List.of("AANobbMI"), adopted.stream().map(InstalledEntry::projectId).sorted().toList(),
+                "the enabled pack jar; a hand-disabled one stays the player's choice");
         assertTrue(service.changeCount() > changes);
         InstalledEntry sodium = service.installed("AANobbMI").orElseThrow();
         assertEquals("mods/sodium-fabric-bundled.jar", sodium.file());
@@ -112,28 +113,29 @@ class ModrinthServiceTest {
         assertEquals("mod", sodium.type());
         assertTrue(sodium.enabled());
         assertEquals(Sha512.hex("fake sodium content".getBytes(java.nio.charset.StandardCharsets.UTF_8)), sodium.sha512());
-        assertEquals(List.of("YL57xq9U"), sodium.requiredBy(), "Iris requires Sodium");
+        assertTrue(sodium.requiredBy().isEmpty(), "no link to an Iris that is not managed");
         assertEquals(Instant.parse(clock.instant().toString()).truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString(),
                 sodium.installedAt());
-        InstalledEntry iris = service.installed("YL57xq9U").orElseThrow();
-        assertEquals("mods/iris-fabric-bundled.jar", iris.file(), "the enabled path, without .disabled");
-        assertFalse(iris.enabled());
+        assertTrue(service.installed("YL57xq9U").isEmpty(), "a .jar.disabled file is never adopted");
         assertTrue(service.installed("MODMENU1").isEmpty(), "Mod Menu is on Modrinth but not a pack member");
         List<LocalItem> items = service.installedItems();
-        assertEquals(2, items.stream().filter(i -> i.state() == LocalItem.State.INSTALLED).count());
-        assertEquals(2, items.stream().filter(i -> i.state() == LocalItem.State.MANUAL).count(), items.toString());
+        assertEquals(1, items.stream().filter(i -> i.state() == LocalItem.State.INSTALLED).count());
+        assertEquals(3, items.stream().filter(i -> i.state() == LocalItem.State.MANUAL).count(), items.toString());
         assertFalse(service.restartRequired(), "adoption changes no files");
         assertTrue(toasts().isEmpty(), "adoption is silent");
 
         // Running it again changes nothing; installing the pack afterwards downloads only what is really missing.
+        // The hand-disabled Iris under its own name is not "installed": the player gets a loadable copy next to it.
         service.adoptKnownFiles(results::add);
         assertTrue(results.get(1).isEmpty());
         service.installPerformancePack(PerformancePack.slugs(), null);
         assertFalse(api.calls().contains("download:sodium-1.0.0.jar"));
-        assertFalse(api.calls().contains("download:iris-1.0.0.jar"));
+        assertTrue(api.calls().contains("download:iris-1.0.0.jar"));
         assertTrue(api.calls().contains("download:lithium-1.0.0.jar"));
         assertEquals(6, service.installedProjectIds().size());
-        assertTrue(service.installed("YL57xq9U").orElseThrow().enabled(), "the disabled bundled Iris was switched on");
+        assertTrue(service.installed("YL57xq9U").orElseThrow().enabled());
+        assertEquals(List.of("YL57xq9U"), service.installed("AANobbMI").orElseThrow().requiredBy(), "Iris requires Sodium");
+        assertTrue(Files.exists(mods.resolve("iris-fabric-bundled.jar.disabled")), "the switched-off jar is left alone");
     }
 
     @Test
@@ -230,6 +232,58 @@ class ModrinthServiceTest {
         String stamp = Files.readString(marker);
         assertEquals(Instant.ofEpochMilli(clock.millis()).toString(), stamp, "UTF-8 ISO-8601 timestamp only");
         assertEquals(2, game.actions.stream().filter("quit"::equals).count());
+    }
+
+    @Test
+    void restartWaitsUntilRunningWorkIsDone() throws Exception {
+        List<Runnable> mainQueue = new ArrayList<>();
+        ModrinthLibrary library = new ModrinthLibrary(gameDir, new dev.vanta.core.config.JsonStore(clock));
+        ModrinthService queued = new ModrinthService(api, library, platform, services.notifications(), Runnable::run,
+                mainQueue::add, clock);
+        queued.install(List.of(InstallRequest.of("lithium")), "Installing Lithium", null);
+        assertTrue(queued.isBusy(), "the download is still running");
+        Path marker = gameDir.resolve("config/vanta/restart.request");
+        assertFalse(queued.restartOrQuit(game));
+        System.setProperty(RestartMarker.RESTARTABLE_PROPERTY, "true");
+        assertFalse(queued.restartOrQuit(game), "no marker while busy either");
+        assertFalse(game.actions.contains("quit"), "quitting now would abandon the download");
+        assertFalse(Files.exists(marker));
+
+        mainQueue.forEach(Runnable::run);
+        assertFalse(queued.isBusy());
+        assertTrue(queued.restartOrQuit(game));
+        assertTrue(Files.exists(marker));
+        assertEquals("quit", game.actions.get(game.actions.size() - 1));
+    }
+
+    @Test
+    void adoptionSkipsHandDisabledAndWrongVersionJarsAndInstallGetsALoadableCopy() throws Exception {
+        api.addRelease("AANobbMI", "VOLDSOD", "0.9.0", "1.21.1", "sodium-0.9.0.jar");
+        Path mods = gameDir.resolve("mods");
+        Files.createDirectories(mods);
+        Files.write(mods.resolve("lithium-1.0.0.jar.disabled"), api.fileContent("VLITHIUM1"));
+        Files.write(mods.resolve("sodium-0.9.0.jar"), api.fileContent("VOLDSOD"));
+        Files.write(mods.resolve("iris-1.0.0.jar"), api.fileContent("VYL57xq9U"));
+
+        List<InstalledEntry> adopted = service.adoptKnownFilesNow();
+        assertEquals(List.of("YL57xq9U"), adopted.stream().map(InstalledEntry::projectId).toList(),
+                "only the enabled jar of a version for this game is adopted");
+        assertTrue(service.installed("LITHIUM1").isEmpty(), "a hand-disabled jar stays the player's choice");
+        assertTrue(service.installed("AANobbMI").isEmpty(), "a 1.21.1 jar is not Sodium for 1.21.11");
+        assertTrue(Files.exists(mods.resolve("lithium-1.0.0.jar.disabled")), "adoption renames nothing");
+
+        List<InstallResult> results = new ArrayList<>();
+        service.installPerformancePack(PerformancePack.slugs(), results::add);
+        assertTrue(api.calls().contains("download:sodium-1.0.0.jar"), "the old jar does not count as installed");
+        assertTrue(Files.exists(mods.resolve("sodium-0.9.0.jar")), "the old jar is left alone");
+        assertTrue(Files.exists(mods.resolve("sodium-1.0.0.jar")));
+        assertFalse(api.calls().contains("download:lithium-1.0.0.jar"), "identical bytes are not downloaded again");
+        assertTrue(Files.exists(mods.resolve("lithium-1.0.0.jar")), "Install switches the identical copy back on");
+        assertFalse(Files.exists(mods.resolve("lithium-1.0.0.jar.disabled")));
+        assertTrue(service.installed("LITHIUM1").orElseThrow().enabled());
+        assertTrue(results.get(0).installed().stream().anyMatch(i -> i.projectId().equals("LITHIUM1")),
+                "the toast names what was switched on");
+        assertTrue(results.get(0).modsChanged());
     }
 
     @Test

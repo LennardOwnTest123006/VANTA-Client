@@ -28,8 +28,11 @@ import java.util.Objects;
 public record Profile(int schemaVersion, String id, String name, String icon, long createdAt, long updatedAt,
                       Map<String, JsonElement> settings, HudLayout hud, Map<String, KeyRef> keybinds,
                       CrosshairStyle crosshair, CosmeticsSelection cosmetics) {
-    /** Current profile schema version. */
-    public static final int SCHEMA_VERSION = 1;
+    /**
+     * Current profile schema version. Schema 2 (client 1.2.0) marks files whose built-in profiles were re-seeded
+     * once by {@link ProfileManager#load()}; the JSON shape itself is unchanged.
+     */
+    public static final int SCHEMA_VERSION = 2;
     public static final int MAX_NAME = 64;
     public static final int MAX_ICON = 32;
     public static final int MAX_SETTINGS = 512;
@@ -58,6 +61,12 @@ public record Profile(int schemaVersion, String id, String name, String icon, lo
         if (keybinds.size() > MAX_KEYBINDS) {
             throw new IllegalArgumentException("Profile has too many key bindings");
         }
+    }
+
+    /** Copy carrying another schema version (content and timestamps unchanged). */
+    public Profile withSchemaVersion(int newSchemaVersion) {
+        return new Profile(newSchemaVersion, id, name, icon, createdAt, updatedAt, settings, hud, keybinds, crosshair,
+                cosmetics);
     }
 
     public Profile withId(String newId) {

@@ -133,6 +133,24 @@ class ModrinthInstallerTest {
     }
 
     @Test
+    void identicalDisabledFileIsSwitchedBackOnRatherThanRecordedAsInstalledWhileOff() throws Exception {
+        fx.performancePack();
+        Path enabled = gameDir.resolve("mods/lithium-fabric-0.21.4+mc1.21.11.jar");
+        Path disabled = gameDir.resolve("mods/lithium-fabric-0.21.4+mc1.21.11.jar.disabled");
+        Files.createDirectories(disabled.getParent());
+        Files.write(disabled, fx.content("lithium-mc1.21.11-0.21.4-fabric"));
+        int before = server.requests().size();
+        InstallResult result = installer.execute(plan("lithium"), null);
+        assertEquals(1, result.installed().size());
+        assertTrue(result.modsChanged(), "the restart hint is true: the jar now loads");
+        assertTrue(Files.exists(enabled), "the hand-disabled copy was switched back on");
+        assertFalse(Files.exists(disabled));
+        assertTrue(library.index().find("LITHIUM1").orElseThrow().enabled());
+        assertTrue(server.requests().subList(before, server.requests().size()).stream()
+                .noneMatch(r -> r.path().startsWith("/cdn/")), "no download");
+    }
+
+    @Test
     void disabledDependencyIsSwitchedBackOn() throws Exception {
         fx.performancePack();
         installer.execute(plan("sodium"), null);

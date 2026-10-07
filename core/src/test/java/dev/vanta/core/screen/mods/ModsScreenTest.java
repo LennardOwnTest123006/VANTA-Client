@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.vanta.core.modrinth.FakeModPlatform;
 import dev.vanta.core.modrinth.FakeModrinthApi;
 import dev.vanta.core.modrinth.ModrinthException;
+import dev.vanta.core.modrinth.ModrinthLibrary;
 import dev.vanta.core.modrinth.ModrinthSearchHit;
 import dev.vanta.core.modrinth.ModrinthService;
 import dev.vanta.core.modrinth.RestartMarker;
@@ -19,6 +20,8 @@ import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.widget.Button;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -246,6 +249,47 @@ class ModsScreenTest {
         click(screen, "mods.restart");
         assertTrue(Files.exists(dir.resolve("config/vanta/restart.request")));
         assertEquals("quit", t.game.actions.get(t.game.actions.size() - 1));
+    }
+
+    @Test
+    void restartWaitsForARunningDownload() {
+        Deque<Runnable> worker = new ArrayDeque<>();
+        ModrinthService queued = new ModrinthService(api, new ModrinthLibrary(dir, t.services.jsonStore()), platform,
+                t.services.notifications(), worker::add, Runnable::run, t.clock);
+        t.services.setModrinth(queued);
+        ModsScreen screen = open();
+        drain(worker);
+        screen.tick();
+        screen.install(hit(screen, "sodium"));
+        drain(worker);
+        screen.tick();
+        t.frame(screen, -1000, -1000);
+        assertTrue(screen.restartBanner().isVisible());
+        assertTrue(screen.restartButton().isEnabled());
+
+        // A second, large download is still running when the player reaches for the banner's button.
+        screen.install(hit(screen, "lithium"));
+        assertTrue(queued.isBusy());
+        screen.tick();
+        t.frame(screen, -1000, -1000);
+        assertFalse(screen.restartButton().isEnabled(), "quitting now would abandon the download");
+        assertTrue(screen.restartBanner().body().contains("download"), screen.restartBanner().body());
+        screen.restart();
+        assertFalse(t.game.actions.contains("quit"));
+
+        drain(worker);
+        screen.tick();
+        assertFalse(queued.isBusy());
+        assertTrue(screen.restartButton().isEnabled(), "unlocked once the download landed");
+        assertTrue(Files.exists(dir.resolve("mods/lithium-1.0.0.jar")));
+        screen.restart();
+        assertEquals("quit", t.game.actions.get(t.game.actions.size() - 1));
+    }
+
+    private static void drain(Deque<Runnable> worker) {
+        while (!worker.isEmpty()) {
+            worker.poll().run();
+        }
     }
 
     @Test

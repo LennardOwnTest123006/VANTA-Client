@@ -144,6 +144,14 @@ public final class PerformanceCenter {
 
     /** Applies every option of a preset that the running game supports, saves options and notifies. */
     public void applyPreset(PerformancePreset preset) {
+        applyPreset(preset, true);
+    }
+
+    /**
+     * {@link #applyPreset(PerformancePreset)} with the "Preset applied" toast optional, for callers that post their
+     * own summary (the one-click Boost).
+     */
+    public void applyPreset(PerformancePreset preset, boolean notify) {
         Objects.requireNonNull(preset, "preset");
         Map<VanillaOption, Object> values = preset.optionValues();
         // Minecraft 1.21.11's graphics preset (Fast / Fancy / Fabulous) is a bundle: applying it also rewrites the
@@ -161,7 +169,9 @@ public final class PerformanceCenter {
         options.save();
         settings.set(VantaSettings.PERFORMANCE_PRESET, preset);
         advisor.reset();
-        notifications.performancePresetApplied(Lang.tr(preset.langKey()));
+        if (notify) {
+            notifications.performancePresetApplied(Lang.tr(preset.langKey()));
+        }
     }
 
     /** Applies a frame-rate limit choice (limit + vsync) to the vanilla options and records it in the setting. */

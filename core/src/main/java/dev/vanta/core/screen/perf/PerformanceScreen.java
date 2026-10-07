@@ -3,6 +3,7 @@ package dev.vanta.core.screen.perf;
 import dev.vanta.core.bridge.GameBridge;
 import dev.vanta.core.bridge.OptionsBridge;
 import dev.vanta.core.i18n.Lang;
+import dev.vanta.core.modrinth.ModrinthService;
 import dev.vanta.core.perf.MemorySampler;
 import dev.vanta.core.perf.PerformanceCenter;
 import dev.vanta.core.perf.PerformancePreset;
@@ -380,6 +381,7 @@ public final class PerformanceScreen extends VantaUiScreen {
         services().boostFps();
         selectPreset(PerformancePreset.BOOST);
         onSettingsChanged();
+        refreshBoostButton();
     }
 
     private void refreshPreset() {
@@ -423,6 +425,19 @@ public final class PerformanceScreen extends VantaUiScreen {
         }
         snapshot = perf.snapshot();
         applySnapshot();
+        refreshBoostButton();
+    }
+
+    /** The Boost button waits while its Performance pack install is still running (a second click queues nothing). */
+    private void refreshBoostButton() {
+        if (boostFps == null) {
+            return;
+        }
+        boolean busy = services().modrinth().map(ModrinthService::isBusy).orElse(false);
+        if (boostFps.isEnabled() == busy) {
+            boostFps.setEnabled(!busy);
+            invalidateLayout();
+        }
     }
 
     private void applySnapshot() {

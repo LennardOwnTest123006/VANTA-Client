@@ -136,4 +136,22 @@ class VantaServicesTest {
         assertEquals(60, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1));
         assertFalse(options.getBoolean(VanillaOption.VSYNC, true));
     }
+
+    /** "Reset all settings" ends with the frame-rate choice's default (Unlimited) in the vanilla options too. */
+    @Test
+    void resetAllLeavesTheVanillaFrameRateMatchingTheDefaultPreset() {
+        FakeOptionsBridge options = new FakeOptionsBridge();
+        VantaServices services = VantaServices.create(VantaPaths.inGameDirectory(dir),
+                new FakeGameBridge().onTitleScreen(), options, new FakeKeybindBridge(), new FakeResourcePackBridge(),
+                MutableClock.standard());
+        services.load();
+        services.performance().applyFpsLimit(FpsLimitPreset.FPS_60);
+        assertEquals(60, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1));
+
+        assertTrue(services.runAction(ActionEntry.RESET_SETTINGS));
+
+        assertEquals(FpsLimitPreset.UNLIMITED, services.settings().get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+        assertEquals(260, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1), "no cap after a reset");
+        assertFalse(options.getBoolean(VanillaOption.VSYNC, true));
+    }
 }
