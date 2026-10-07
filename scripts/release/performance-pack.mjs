@@ -138,7 +138,8 @@ export function isInstallable(version, gameVersion) {
 export function selectVersion(versions, gameVersion) {
   const candidates = versions.filter((v) => isInstallable(v, gameVersion));
   candidates.sort((a, b) => {
-    const rank = (CHANNEL_RANK[String(a.version_type).toLowerCase()] ?? 3) - (CHANNEL_RANK[String(b.version_type).toLowerCase()] ?? 3);
+    // Trimmed and lower-cased like core ModrinthVersion.Channel.of; an unknown type ranks after alpha.
+    const rank = (CHANNEL_RANK[String(a.version_type).trim().toLowerCase()] ?? 3) - (CHANNEL_RANK[String(b.version_type).trim().toLowerCase()] ?? 3);
     if (rank !== 0) return rank;
     return Date.parse(b.date_published ?? 0) - Date.parse(a.date_published ?? 0);
   });

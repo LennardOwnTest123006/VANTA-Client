@@ -1,5 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -19,6 +20,7 @@ const CDN = 'https://cdn.modrinth.com/data/';
 const SCHEMA = join(REPO_ROOT, 'shared', 'schemas', 'performance-pack.schema.json');
 
 const sha512 = (bytes) => createHash('sha512').update(bytes).digest('hex');
+const hasJq = () => spawnSync('jq', ['--version'], { encoding: 'utf8' }).status === 0;
 const tmp = () => mkdtempSync(join(tmpdir(), 'vanta-performance-pack-'));
 
 /** One version document in the shape of GET /v2/project/<id>/version. */
@@ -161,7 +163,132 @@ describe('selectVersion()', () => {
 
   test('isSafeFilename() mirrors the core rule', () => {
     assert.ok(isSafeFilename('sodium-fabric-0.0.0.jar'));
+    assert.ok(isSafeFilename('Iris Shaders 4.4.4.jar'));
+    assert.ok(isSafeFilename('ferritecore-8.0.0 (fabric).jar'));
     for (const bad of ['', '.hidden.jar', 'a/b.jar', 'a\\b.jar', 'a:b.jar', 'a..b.jar', 'a?b.jar', `${'x'.repeat(201)}.jar`]) assert.ok(!isSafeFilename(bad), bad);
+  });
+
+  describe('scripts/ci/pick-version.jq (the CI game test) agrees with selectVersion()', { skip: hasJq() ? false : 'needs jq' }, () => {
+    const JQ = join(REPO_ROOT, 'scripts', 'ci', 'pick-version.jq');
+    const pick = (versions, game = GAME) => {
+      const r = spawnSync('jq', ['-r', '--arg', 'game', game, '-f', JQ], { input: JSON.stringify(versions), encoding: 'utf8' });
+      assert.equal(r.status, 0, r.stderr);
+      return r.stdout.trim() === '' ? null : r.stdout.trim();
+    };
+    const expected = (versions, game = GAME) => {
+      const best = selectVersion(versions, game);
+      return best === null ? null : `${best.id} ${best.version_number}`;
+    };
+    const check = (versions, game = GAME) => assert.equal(pick(versions, game), expected(versions, game));
+
+    test('channel and date ranking', () => {
+      const release = v('r1', 'release', '2026-01-01T00:00:00Z');
+      const olderRelease = v('r0', 'release', '2025-12-01T00:00:00Z');
+      const beta = v('b1', 'beta', '2026-02-01T00:00:00Z');
+      const alpha = v('a1', 'alpha', '2026-03-01T00:00:00Z');
+      assert.equal(pick([alpha, beta, olderRelease, release]), 'r1 r1');
+      check([alpha, beta, olderRelease, release]);
+      check([alpha, beta]);
+      check([alpha, v('a0', 'alpha', '2026-02-15T00:00:00Z')]);
+      check([]);
+    });
+
+    test('skips the newest version when its primary file lacks a SHA-512 or has an unsafe name', () => {
+      const sha = sha512(Buffer.from('ok'));
+      const old = v('old-ok', 'release', '2026-03-01T00:00:00Z', { filename: 'Mod Name (fabric) 0.6.0.jar' });
+      const noHash = v('new-nohash', 'release', '2026-03-02T00:00:00Z', { sha: '' });
+      const sha1Only = { ...v('new-sha1', 'release', '2026-03-02T06:00:00Z'), files: [{ filename: 'mod.jar', primary: true, hashes: { sha1: 'abc' } }] };
+      const shortHash = v('new-short', 'release', '2026-03-02T12:00:00Z', { sha: 'abc' });
+      const traversal = v('new-traversal', 'release', '2026-03-03T00:00:00Z', { filename: '../mod.jar' });
+      const hidden = v('new-hidden', 'release', '2026-03-03T06:00:00Z', { filename: '.mod.jar' });
+      const control = v('new-control', 'release', '2026-03-03T12:00:00Z', { filename: 'mod\t0.6.4.jar' });
+      const colon = v('new-colon', 'release', '2026-03-04T00:00:00Z', { filename: 'mod:0.6.4.jar' });
+      const tooLong = v('new-long', 'release', '2026-03-04T06:00:00Z', { filename: `${'x'.repeat(197)}.jar` });
+      const noFiles = { ...v('new-nofiles', 'release', '2026-03-04T12:00:00Z'), files: [] };
+      const all = [old, noHash, sha1Only, shortHash, traversal, hidden, control, colon, tooLong, noFiles];
+      assert.equal(pick(all), 'old-ok old-ok');
+      check(all);
+      for (const bad of all.slice(1)) {
+        assert.equal(pick([bad]), null, bad.id);
+        check([bad]);
+      }
+      // The first file counts when none is marked primary; a non-primary unsafe file does not matter.
+      const unmarked = { ...v('unmarked', 'release', '2026-03-05T00:00:00Z'), files: [{ filename: 'first.jar', primary: false, hashes: { sha512: sha } }] };
+      const extra = { ...v('extra', 'release', '2026-03-06T00:00:00Z'), files: [{ filename: 'sources.jar', primary: false, hashes: {} }, { filename: 'main.jar', primary: true, hashes: { sha512: sha } }] };
+      assert.equal(pick([unmarked]), 'unmarked unmarked');
+      assert.equal(pick([extra, unmarked]), 'extra extra');
+      check([extra, unmarked]);
+      // A beta is taken over a newer release that is not installable, and a newer beta over an alpha.
+      check([v('b1', 'beta', '2026-02-01T00:00:00Z'), noHash, v('a1', 'alpha', '2026-03-01T00:00:00Z')]);
+      assert.equal(pick([v('b1', 'beta', '2026-02-01T00:00:00Z'), noHash]), 'b1 b1');
+    });
+
+    test('game version and loader filter', () => {
+      check([v('x', 'release', '2026-01-01T00:00:00Z', { game: ['1.21.10'] })]);
+      check([v('x', 'release', '2026-01-01T00:00:00Z', { loaders: ['neoforge'] })]);
+      check([v('ok', 'release', '2026-01-01T00:00:00Z', { loaders: ['Fabric', 'quilt'] })]);
+      assert.equal(pick([v('ok', 'release', '2026-01-01T00:00:00Z', { loaders: ['Fabric', 'quilt'] })]), 'ok ok');
+      assert.equal(pick([v('x', 'release', '2026-01-01T00:00:00Z')], '1.21.10'), null);
+      assert.equal(pick([{ id: 'broken', version_number: '1', version_type: 'release', date_published: '2026-01-01T00:00:00Z' }]), null);
+    });
+
+    test('file names are measured and trimmed the way Java and JavaScript do (UTF-16 units, blank names, DEL)', () => {
+      const sha = sha512(Buffer.from('ok'));
+      const at = (id, filename, date = '2026-01-01T00:00:00Z') => v(id, 'release', date, { filename, sha });
+      // 150 emoji are 150 code points (jq length) but 300 UTF-16 units (String.length), over the 200 limit; 97 fit.
+      check([at('emoji-long', `${'😀'.repeat(150)}.jar`)]);
+      assert.equal(pick([at('emoji-long', `${'😀'.repeat(150)}.jar`)]), null);
+      check([at('emoji-ok', `${'😀'.repeat(97)}.jar`)]);
+      assert.equal(pick([at('emoji-ok', `${'😀'.repeat(97)}.jar`)]), 'emoji-ok emoji-ok');
+      check([at('unicode', 'Mod-ä-日本-0.1.jar')]);
+      assert.equal(pick([at('unicode', 'Mod-ä-日本-0.1.jar')]), 'unicode unicode');
+      for (const bad of ['   ', '', 'mod\x7f.jar', 'mod\u0000.jar', 'mod.jar\n']) {
+        check([at('bad', bad)]);
+        assert.equal(pick([at('bad', bad)]), null, JSON.stringify(bad));
+      }
+      // A SHA-512 followed by a line break is not a SHA-512 ($ must not match before the newline).
+      check([v('nl', 'release', '2026-01-01T00:00:00Z', { sha: `${sha}\n` })]);
+      assert.equal(pick([v('nl', 'release', '2026-01-01T00:00:00Z', { sha: `${sha}\n` })]), null);
+    });
+
+    test('version_type is compared trimmed and case-insensitively, an unknown type ranks after alpha', () => {
+      const capital = v('R', 'Release', '2026-01-01T00:00:00Z');
+      const padded = v('P', ' beta ', '2026-01-15T00:00:00Z');
+      const beta = v('b', 'beta', '2026-02-01T00:00:00Z');
+      const alpha = v('a', 'alpha', '2026-01-01T00:00:00Z');
+      const weird = v('x', 'weird', '2026-02-01T00:00:00Z');
+      const untyped = { ...v('u', 'release', '2026-03-01T00:00:00Z'), version_type: null };
+      check([capital, beta]);
+      assert.equal(pick([capital, beta]), 'R R');
+      check([padded, alpha]);
+      assert.equal(pick([padded, alpha]), 'P P');
+      check([alpha, weird]);
+      assert.equal(pick([alpha, weird]), 'a a');
+      check([weird, untyped]);
+      assert.equal(pick([weird, untyped]), 'u u');
+    });
+
+    test('date_published is compared as a time, so a fractional second and a whole second order correctly', () => {
+      const whole = v('p', 'release', '2026-01-01T00:00:00Z');
+      const fraction = v('q', 'release', '2026-01-01T00:00:00.500Z');
+      const micro = v('m', 'release', '2026-01-01T00:00:00.123456Z');
+      check([whole, fraction, micro]);
+      assert.equal(pick([whole, fraction, micro]), 'q q');
+      check([fraction, whole]);
+      check([micro, whole]);
+      assert.equal(pick([micro, whole]), 'm m');
+      check([v('old', 'release', '2025-12-31T23:59:59.999999Z'), whole]);
+      assert.equal(pick([v('old', 'release', '2025-12-31T23:59:59.999999Z'), whole]), 'p p');
+      // A non-string loader entry is ignored, not an error.
+      check([v('l', 'release', '2026-01-01T00:00:00Z', { loaders: [1, 'fabric'] })]);
+      assert.equal(pick([v('l', 'release', '2026-01-01T00:00:00Z', { loaders: [1, 'fabric'] })]), 'l l');
+    });
+
+    test('ci.yml runs this file with the game version as $game', () => {
+      const workflow = readFileSync(join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
+      assert.match(workflow, /jq -r --arg game 1\.21\.11 -f scripts\/ci\/pick-version\.jq <<< "\$JSON"/);
+      assert.doesNotMatch(workflow, /sort_by\(\.date_published\)/, 'the rule lives only in pick-version.jq');
+    });
   });
 });
 
