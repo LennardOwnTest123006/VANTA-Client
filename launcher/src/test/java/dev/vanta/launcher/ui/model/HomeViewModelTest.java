@@ -589,6 +589,22 @@ class HomeViewModelTest {
     }
 
     @Test
+    void aRestartTheGameAskedForRunsTheStartCheckBeforeItStartsAgain() {
+        signedInWithJava();
+        final HomeViewModel vm = ctx.home();
+        vm.play();
+        // In the game, VANTA's Mods screen installed a mod and the player pressed "Restart game".
+        backend.calls.clear();
+        backend.restartRequests = 1;
+        backend.startupReport = switchedOffByTheCheck();
+        backend.game.exit(0);
+
+        assertEquals(List.of("consumeRestartRequest", "startupCheck", "launch"), order("consumeRestartRequest", "startupCheck", "launch"));
+        assertEquals(HomeViewModel.State.RUNNING, vm.state());
+        assertTrue(ctx.toasts.toasts().stream().anyMatch(t -> t.title().equals("Switched off Smart FPS Booster")), ctx.toasts.toasts().toString());
+    }
+
+    @Test
     void afterTheGameExitsTheNewestCrashReportIsChecked() {
         signedInWithJava();
         final HomeViewModel vm = ctx.home();

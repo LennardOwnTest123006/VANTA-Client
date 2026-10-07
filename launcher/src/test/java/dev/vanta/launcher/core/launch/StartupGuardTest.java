@@ -267,4 +267,95 @@ class StartupGuardTest {
         final StartupGuard.Report report = guard.run();
         assertEquals(List.of("Startup check: 0 mods checked, nothing to switch off"), report.cliLines());
     }
+
+    // ---------------------------------------------------------------- adversarial
+
+    @Test
+    void vantaOrFabricUnderAnUnmanagedFileNameIsOnlyReportedEvenWhenFlagged() throws IOException {
+        final Path vanta = mod("vanta-dev-build.jar", fixtures.modJar("vanta", "VANTA", "dev", ModJars.OLD_KEYBINDS));
+        final Path module = mod("fabric-key-binding-api-v1-1.0.jar", fixtures.modJar("fabric-key-binding-api-v1", "Fabric Key Binding API (v1)",
+            "1.0", ModJars.OLD_KEYBINDS_WITH_TYPE));
+
+        final StartupGuard.Report report = guard.run();
+
+        assertTrue(report.switchedOff().isEmpty(), report.toString());
+        assertEquals(2, report.reportedOnly().size());
+        assertTrue(Files.isRegularFile(vanta));
+        assertTrue(Files.isRegularFile(module));
+        assertEquals("Startup check: 2 mods checked, nothing to switch off", report.cliLines().get(2));
+        assertTrue(report.cliLines().get(0).startsWith("Startup check: did not switch off "), report.cliLines().toString());
+    }
+
+    @Test
+    void theJarWhoseOwnIdTheReportNamesIsPreferredOverOneThatOnlyNestsIt() throws IOException {
+        final byte[] inner = fixtures.modJar("smartfpsbooster", "Smart FPS Booster", "0.9", ModJars.UNRELATED);
+        final Path bundle = mod("a-bundle-1.0.jar", fixtures.modJar("a-bundle", "A Bundle", "1.0", Map.of("META-INF/jars/smart.jar", inner)));
+        smartFpsBoosterThatPasses();
+        crashReport(CRASH, REAL_CRASH, CRASH_TIME);
+
+        final StartupGuard.Report report = guard.recoverFromCrashReport();
+
+        assertEquals(1, report.switchedOff().size(), report.toString());
+        assertEquals(SMART, report.switchedOff().get(0).fileName());
+        assertTrue(Files.isRegularFile(bundle), "the bundle that only nests it stays on");
+    }
+
+    @Test
+    void aCrashReportStillBeingWrittenIsLookedAtAgain() throws IOException {
+        smartFpsBoosterThatPasses();
+        final Clock now = Clock.fixed(Instant.parse("2026-10-06T18:21:50Z"), ZoneOffset.UTC);
+        final StartupGuard watching = new StartupGuard(paths, modrinth, now);
+        // Minecraft has created the file but not written it yet.
+        final Path report = crashReport(CRASH, "", CRASH_TIME);
+        assertTrue(watching.recoverFromCrashReport().actions().isEmpty());
+        assertFalse(Files.exists(paths.startupCheckFile()) && Files.readString(paths.startupCheckFile()).contains(CRASH),
+            "not handled while it may still be written");
+
+        Files.writeString(report, REAL_CRASH);
+        Files.setLastModifiedTime(report, CRASH_TIME);
+        assertEquals(1, watching.recoverFromCrashReport().switchedOff().size(), "acted on once it is written");
+
+        // A report without the line that has not changed for a while is handled (and never looked at again).
+        final Path other = crashReport("crash-2026-10-06_18.25.00-client.txt", "---- Minecraft Crash Report ----\nDescription: Ticking\n",
+            FileTime.from(Instant.parse("2026-10-06T18:25:00Z")));
+        assertTrue(new StartupGuard(paths, modrinth, Clock.fixed(Instant.parse("2026-10-06T18:26:00Z"), ZoneOffset.UTC))
+            .recoverFromCrashReport().actions().isEmpty());
+        assertTrue(Files.readString(paths.startupCheckFile()).contains(other.getFileName().toString()));
+    }
+
+    @Test
+    void aModAnotherTrackedModRequiresIsOnlyReportedAndNothingIsDeleted() throws IOException {
+        smartFpsBooster();
+        mod("addon-1.0.jar", fixtures.modJar("addon", "Addon", "1.0", ModJars.UNRELATED));
+        Files.createDirectories(paths.vantaConfigDir());
+        final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
+        index.upsert("PL3U5kms").slug("smart-fps-booster").title("Smart FPS Booster").versionId("hE70j3c1").versionNumber("1.0.0+mc1.21.4")
+            .type(ContentType.MOD).file("mods/" + SMART).enabled(true).requiredBy(List.of("ADDON001"));
+        index.upsert("ADDON001").slug("addon").title("Addon").versionId("a1").versionNumber("1.0")
+            .type(ContentType.MOD).file("mods/addon-1.0.jar").enabled(true).requiredBy(List.of());
+        index.save();
+
+        final StartupGuard.Report report = guard.run();
+
+        assertTrue(report.switchedOff().isEmpty(), report.toString());
+        assertEquals(1, report.reportedOnly().size());
+        assertTrue(report.reportedOnly().get(0).reason().contains("could not be switched off"), report.reportedOnly().get(0).reason());
+        assertTrue(report.cliLines().get(0).startsWith("Startup check: did not switch off " + SMART), report.cliLines().toString());
+        assertTrue(Files.isRegularFile(paths.modsDir().resolve(SMART)));
+        assertTrue(Files.isRegularFile(paths.modsDir().resolve("addon-1.0.jar")));
+    }
+
+    @Test
+    void anExistingDisabledCopyIsNeverOverwrittenOrDeleted() throws IOException {
+        final Path smart = smartFpsBooster();
+        final Path disabled = paths.modsDir().resolve(SMART + ".disabled");
+        Files.writeString(disabled, "an older copy the player switched off");
+
+        final StartupGuard.Report report = guard.run();
+
+        assertTrue(report.switchedOff().isEmpty(), report.toString());
+        assertEquals(1, report.reportedOnly().size());
+        assertTrue(Files.isRegularFile(smart));
+        assertEquals("an older copy the player switched off", Files.readString(disabled));
+    }
 }

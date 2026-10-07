@@ -40,6 +40,12 @@ public final class ModJars {
     public static final String UNRELATED = "com.example.unrelated.Settings";
     /** The class {@link #UNRELATED} constructs. */
     public static final String UNRELATED_OPTION = "com.example.unrelated.Option";
+    /** Creates its key binding with {@code KeyMapping(String, int, KeyMapping.Category)} only: a mod for 1.21.9+. */
+    public static final String NEW_API_ONLY = "com.example.modern.ModernKeybinds";
+    /** Uses both String-category constructors in one class. */
+    public static final String BOTH_OLD = "com.example.both.BothKeybinds";
+    /** Calls a static method of {@code class_304} with the old constructor's descriptor (not a constructor). */
+    public static final String LOOKALIKE = "com.example.lookalike.Lookalike";
 
     private static final Map<String, String> SOURCES = new LinkedHashMap<>();
 
@@ -57,6 +63,8 @@ public final class ModJars {
             public class class_304 {
                 public class_304(String name, int code, String category) { }
                 public class_304(String name, class_3675.class_307 type, int code, String category) { }
+                public class_304(String name, int code, class_11900 category) { }
+                public static void method_1234(String name, int code, String category) { }
                 public static class class_11900 {
                     public static final class_11900 field_62556 = new class_11900();
                 }
@@ -99,6 +107,38 @@ public final class ModJars {
                     } else {
                         open = new class_304("key.example.open", 72, "category.example");
                     }
+                }
+            }
+            """);
+        SOURCES.put(NEW_API_ONLY, """
+            package com.example.modern;
+            import net.minecraft.class_304;
+            public final class ModernKeybinds {
+                public static class_304 open;
+                public static void register() {
+                    open = new class_304("key.example.open", 72, class_304.class_11900.field_62556);
+                }
+            }
+            """);
+        SOURCES.put(BOTH_OLD, """
+            package com.example.both;
+            import net.minecraft.class_304;
+            import net.minecraft.class_3675;
+            public final class BothKeybinds {
+                public static class_304 a;
+                public static class_304 b;
+                public static void register() {
+                    a = new class_304("key.example.a", 65, "category.example");
+                    b = new class_304("key.example.b", class_3675.class_307.field_1668, 66, "category.example");
+                }
+            }
+            """);
+        SOURCES.put(LOOKALIKE, """
+            package com.example.lookalike;
+            import net.minecraft.class_304;
+            public final class Lookalike {
+                public static void run() {
+                    class_304.method_1234("key.example.look", 76, "category.example");
                 }
             }
             """);

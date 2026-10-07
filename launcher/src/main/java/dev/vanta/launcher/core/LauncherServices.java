@@ -149,7 +149,7 @@ public final class LauncherServices implements AutoCloseable {
         this.modrinth = new ModrinthService(new ModrinthApi(modrinthTransport, endpoints.modrinthApi(), sleeper, modrinthAgent),
             new Downloader(modrinthTransport, sleeper, Downloader.DEFAULT_ATTEMPTS, 3), paths, clock, LauncherVersion.MINECRAFT);
         this.performancePack = new PerformancePack(modrinth, clock);
-        this.startupGuard = new StartupGuard(paths, modrinth);
+        this.startupGuard = new StartupGuard(paths, modrinth, clock);
         this.officialProfiles = new OfficialProfileService(paths, downloader, fabric, fabricApi, vantaClient, clock, performancePack);
         this.userHome = Path.of(System.getProperty("user.home", "."));
         this.officialLauncher = OfficialLauncher.system(os, env, userHome);

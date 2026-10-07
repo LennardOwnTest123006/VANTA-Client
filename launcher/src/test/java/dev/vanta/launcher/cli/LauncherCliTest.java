@@ -586,6 +586,34 @@ class LauncherCliTest {
     }
 
     @Test
+    void aRestartTheGameAskedForRunsTheStartCheckBeforeTheGameStartsAgain() throws IOException {
+        final Path data = tmp.resolve("startup-check-restart-data");
+        final Run install = run("--install", "--no-assets", "--without-performance-pack", "--releases-url", world.releasesBase(),
+            "--data-dir", data.toString());
+        assertEquals(ExitCode.OK, install.code(), install.out() + install.err());
+        final Path instance = data.resolve("instances/vanta-1.21.11");
+        // In the game, VANTA's Mods screen installs Smart FPS Booster and the player presses "Restart game".
+        final dev.vanta.launcher.testutil.ModJars fixtures = dev.vanta.launcher.testutil.ModJars.compile(tmp.resolve("cli-restart-fixtures"));
+        Files.createDirectories(instance.resolve("staged-mods"));
+        Files.write(instance.resolve("staged-mods").resolve(SMART), fixtures.modJar("smartfpsbooster", "Smart FPS Booster", "1.0.0+mc1.21.4",
+            dev.vanta.launcher.testutil.ModJars.OLD_KEYBINDS));
+        Files.createDirectories(instance.resolve("config/vanta"));
+        Files.writeString(instance.resolve("config/vanta/restart-once.test"), "x");
+
+        final Run launch = run("--launch", "--dev-offline", "--data-dir", data.toString(), "--memory", "1024");
+        assertEquals(ExitCode.OK, launch.code(), launch.out() + launch.err());
+        final String out = launch.out();
+        assertTrue(out.contains("FAKE_GAME_INSTALLED " + SMART), out);
+        final String line = "Startup check: switched off " + SMART + " (Smart FPS Booster 1.0.0+mc1.21.4): " + OLDER_MINECRAFT + "\n";
+        final int restart = out.indexOf("The game asked for a restart; starting it again.");
+        assertTrue(restart > 0, out);
+        assertTrue(out.indexOf(line, restart) > restart, out);
+        assertTrue(out.indexOf(line, restart) < out.indexOf("FAKE_GAME_START", restart), "before the game starts again: " + out);
+        assertFalse(Files.exists(instance.resolve("mods").resolve(SMART)));
+        assertTrue(Files.isRegularFile(instance.resolve("mods").resolve(SMART + ".disabled")));
+    }
+
+    @Test
     void installOfficialProfileFirstSwitchesOffTheModTheNewestCrashReportNames() throws IOException {
         final Path mc = officialDir("dotminecraft-crashed");
         final Path data = tmp.resolve("official-crashed-data");

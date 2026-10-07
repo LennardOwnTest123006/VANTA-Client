@@ -592,6 +592,9 @@ class ModrinthServiceTest {
         assertTrue(log.contains("Skipped Lithium mc1.21.11-0.21.4-fabric: " + OLDER_MINECRAFT), log.toString());
         assertEquals(1, world.server().hits("/modrinth/cdn/" + LITHIUM_NEW), "it was downloaded and verified");
         assertFalse(Files.exists(paths.modsDir().resolve(LITHIUM_NEW)), "the download is deleted again");
+        try (var left = Files.list(paths.modsDir())) {
+            assertEquals(List.of(), left.toList(), "nothing is left behind (no temporary file, no .disabled copy)");
+        }
         assertFalse(ModrinthIndex.load(paths.modrinthIndexFile()).byProjectId("gvQqBUqZ").isPresent(), "not tracked");
     }
 

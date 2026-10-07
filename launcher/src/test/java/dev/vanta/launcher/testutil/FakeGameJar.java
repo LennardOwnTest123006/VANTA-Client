@@ -14,8 +14,9 @@ import java.util.jar.Manifest;
 /**
  * Compiles a tiny stand-in for Fabric's {@code KnotClient} into a jar. Its {@code main} prints every argument and
  * the {@code vanta.launcher} and {@code vanta.launcher.restartable} system properties on one line each and exits with 0
- * (when {@code config/vanta/restart-once.test} exists in the game directory it deletes it and writes
- * {@code config/vanta/restart.request} first, like the in-game "Restart game" button), so launch tests can exercise the
+ * (when {@code config/vanta/restart-once.test} exists in the game directory it deletes it, moves {@code staged-mods/*}
+ * into {@code mods/} and writes {@code config/vanta/restart.request} first, like installing mods in the game and pressing
+ * "Restart game"), so launch tests can exercise the
  * real {@link ProcessBuilder} path with the host JDK without Minecraft.
  */
 public final class FakeGameJar {
@@ -51,6 +52,17 @@ public final class FakeGameJar {
                     try {
                         java.nio.file.Path dir = java.nio.file.Path.of(System.getProperty("user.dir"), "config", "vanta");
                         if (java.nio.file.Files.deleteIfExists(dir.resolve("restart-once.test"))) {
+                            // Like VANTA's in-game Mods screen before "Restart game": staged-mods/* is installed into mods/.
+                            java.nio.file.Path staged = java.nio.file.Path.of(System.getProperty("user.dir"), "staged-mods");
+                            if (java.nio.file.Files.isDirectory(staged)) {
+                                try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(staged)) {
+                                    for (java.nio.file.Path f : files.toList()) {
+                                        java.nio.file.Files.move(f, java.nio.file.Path.of(System.getProperty("user.dir"), "mods")
+                                            .resolve(f.getFileName()));
+                                        System.out.println("FAKE_GAME_INSTALLED " + f.getFileName());
+                                    }
+                                }
+                            }
                             java.nio.file.Files.writeString(dir.resolve("restart.request"), "restart");
                             System.out.println("FAKE_GAME_RESTART_REQUESTED");
                         }

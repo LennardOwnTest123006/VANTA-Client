@@ -412,6 +412,8 @@ public final class LauncherCli {
                 break;
             }
             out.println("The game asked for a restart; starting it again.");
+            // The game may have installed mods before it asked (VANTA's in-game Mods screen): check them first.
+            startupCheck(services, out);
             process = services.launch().start(services.launch().buildCommand(new LaunchRequest(instance.get(),
                     resolveAccount(services, args, false), runtime.get().executable(), services.settings(),
                     args.option("world").orElse(null), args.option("server").orElse(null))),

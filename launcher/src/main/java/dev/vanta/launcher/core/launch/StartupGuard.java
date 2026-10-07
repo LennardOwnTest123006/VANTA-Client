@@ -19,6 +19,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -42,12 +44,15 @@ import java.util.regex.Pattern;
  *
  * <ol>
  *   <li><b>Check</b>: every enabled {@code mods/*.jar} except the VANTA Client and Fabric API (the launcher manages
- *       those) is checked with {@link ModJarCheck}; a flagged jar is switched off.</li>
+ *       those) is checked with {@link ModJarCheck}; a flagged jar is switched off (one whose {@code fabric.mod.json}
+ *       id is VANTA's or Fabric's is only reported).</li>
  *   <li><b>Crash report</b>: the newest {@code crash-reports/*.txt} that was not handled before. When it holds Fabric's
  *       {@code Could not execute entrypoint stage '<stage>' due to errors, provided by '<modid>'} and is newer than the
- *       enabled jar that provides {@code <modid>} (its {@code fabric.mod.json} id, or the id of a jar nested in it), that
- *       jar is switched off. VANTA, Fabric API and its modules, Fabric Loader, Minecraft and Java are never switched
- *       off; they are only reported. Each report is acted on once (remembered in {@link LauncherPaths#startupCheckFile()}).</li>
+ *       enabled jar that provides {@code <modid>} (its {@code fabric.mod.json} id, or else the id of a jar nested in it),
+ *       that jar is switched off. VANTA, Fabric API and its modules, Fabric Loader, Minecraft and Java are never switched
+ *       off; they are only reported. Each report is acted on once (remembered in {@link LauncherPaths#startupCheckFile()});
+ *       a report without that line that changed in the last {@link #WRITE_SETTLE} may still be being written and is
+ *       looked at again on the next run.</li>
  * </ol>
  *
  * <p>Switching off renames {@code x.jar} to {@code x.jar.disabled} through {@link ModrinthService#setEnabled}, so a jar
@@ -68,8 +73,12 @@ public final class StartupGuard {
     private static final Logger LOG = LauncherLog.get("StartupCheck");
     private static final ConcurrentHashMap<Path, ReentrantLock> LOCKS = new ConcurrentHashMap<>();
 
+    /** A crash report without the entrypoint line that changed more recently than this is looked at again later. */
+    static final Duration WRITE_SETTLE = Duration.ofSeconds(30);
+
     private final LauncherPaths paths;
     private final ModrinthService modrinth;
+    private final Clock clock;
 
     /** Where a switch-off comes from. */
     public enum Source {
@@ -175,8 +184,18 @@ public final class StartupGuard {
      * @param modrinth content service ({@link ModrinthService#setEnabled} switches mods off)
      */
     public StartupGuard(final LauncherPaths paths, final ModrinthService modrinth) {
+        this(paths, modrinth, Clock.systemUTC());
+    }
+
+    /**
+     * @param paths    launcher paths (the instance)
+     * @param modrinth content service ({@link ModrinthService#setEnabled} switches mods off)
+     * @param clock    clock (how old a crash report is)
+     */
+    public StartupGuard(final LauncherPaths paths, final ModrinthService modrinth, final Clock clock) {
         this.paths = Objects.requireNonNull(paths, "paths");
         this.modrinth = Objects.requireNonNull(modrinth, "modrinth");
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     /**
@@ -256,6 +275,12 @@ public final class StartupGuard {
                 state.passed.remove(name);
                 LOG.log(Level.FINE, "{0}: {1} uses KeyMapping{2}{3}", new Object[] {name, result.className(), result.descriptor(),
                     result.nestedJar().isEmpty() ? "" : " (in " + result.nestedJar() + ")"});
+                if (!result.modId().isEmpty() && isProtected(result.modId())) {
+                    // VANTA or Fabric under a file name the launcher does not manage: never switched off, only reported.
+                    actions.add(new Action(jar, result.modId(), result.modName(), result.modVersion(),
+                        ModJarCheck.REASON + "; VANTA does not switch off " + result.modId(), Source.CHECK, false, ""));
+                    continue;
+                }
                 actions.add(switchOff(jar, result.modId(), result.modName(), result.modVersion(), ModJarCheck.REASON, Source.CHECK, ""));
             } else if (result.status() == ModJarCheck.Status.PASSED) {
                 state.passed.put(name, stamp);
@@ -285,6 +310,9 @@ public final class StartupGuard {
         final Optional<String> modId = providerOf(readReport(report));
         if (modId.isPresent()) {
             act(report, reportName, modId.get(), actions);
+        } else if (beingWritten(report)) {
+            // Minecraft may still be writing it (the crash report watch looks every few seconds): look again later.
+            return Report.EMPTY;
         }
         state.handled.add(reportName);
         state.saveQuietly();
@@ -365,8 +393,24 @@ public final class StartupGuard {
         }
     }
 
+    /**
+     * @param report a crash report without Fabric's entrypoint line
+     * @return whether it changed in the last {@link #WRITE_SETTLE} (it may still be being written)
+     */
+    private boolean beingWritten(final Path report) {
+        final long age = clock.millis() - modifiedMillis(report);
+        return age >= 0 && age < WRITE_SETTLE.toMillis();
+    }
+
+    /** @return the enabled jar whose own id is {@code modId}, else the first one with a nested jar of that id */
     private Optional<Path> jarProviding(final String modId) throws IOException {
-        for (Path jar : enabledJars()) {
+        final List<Path> jars = enabledJars();
+        for (Path jar : jars) {
+            if (FabricModInfo.read(jar).map(FabricModInfo::id).filter(modId::equals).isPresent()) {
+                return Optional.of(jar);
+            }
+        }
+        for (Path jar : jars) {
             if (FabricModInfo.providedIds(jar).contains(modId)) {
                 return Optional.of(jar);
             }

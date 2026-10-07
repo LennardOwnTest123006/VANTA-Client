@@ -71,9 +71,9 @@ import java.util.function.Consumer;
  * per PLAY).</p>
  *
  * <p>The start check ({@link LauncherBackend#startupCheck()}) switches off mods that would stop Minecraft while starting:
- * PLAY runs it after the install/verify step and before launching, "PLAY via Minecraft Launcher" / "Use with Minecraft
- * Launcher" after the files are in place and before the Minecraft Launcher opens, and the window runs it once when it
- * opens ({@link #runStartupCheck()}). After the game PLAY started exits, the newest crash report is checked; after the
+ * PLAY runs it after the install/verify step and before launching (and before a restart the game asked for), "PLAY via
+ * Minecraft Launcher" / "Use with Minecraft Launcher" after the files are in place and before the Minecraft Launcher
+ * opens, and the window runs it once when it opens ({@link #runStartupCheck()}). After the game PLAY started exits, the newest crash report is checked; after the
  * Minecraft Launcher was opened (or set up), {@code crash-reports/} is watched every {@link #WATCH_PERIOD} for
  * {@link #WATCH_LIMIT} ({@link #watchCrashReports()}). Every mod switched off gets a toast and a launcher log line.</p>
  */
@@ -940,6 +940,10 @@ public final class HomeViewModel {
         launcherLog.append(LogLevel.INFO, "The game asked for a restart; starting it again");
         phaseText.set(messages.get("home.status.restarting"));
         Async.run(executors, () -> {
+            // The game may have installed mods before it asked for the restart (VANTA's in-game Mods screen): check them
+            // before it starts again.
+            final StartupGuard.Report guard = startupCheckQuietly();
+            executors.onUi(() -> announce(guard, false));
             final Account fresh = backend.refreshIfExpired(previous.account());
             final RunningGame started = backend.launch(LaunchRequest.of(previous.instance(), fresh, java.executable(), backend.settings()),
                 line -> gameLog.append(line.text()));
