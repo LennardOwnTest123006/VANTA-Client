@@ -112,6 +112,7 @@ public final class PerformanceScreen extends VantaUiScreen {
         this.perf = services.performance();
         this.game = services.game();
         this.options = services.options();
+        perf.reconcileFpsLimitChoice(); // settings.json only: the frame-rate choice follows the game's real limit
         this.snapshot = perf.snapshot();
         this.selectedPreset = snapshot.activePreset().orElse(services.settings().get(VantaSettings.PERFORMANCE_PRESET));
         seedHistory();

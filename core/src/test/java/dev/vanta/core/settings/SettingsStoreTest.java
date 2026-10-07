@@ -138,7 +138,8 @@ class SettingsStoreTest {
         Setting<String> graphics = (Setting<String>) VantaSettings.VIDEO_GRAPHICS_MODE;
         assertTrue(store.set(graphics, "fabulous"));
         assertEquals("FABULOUS", options.getEnum(VanillaOption.GRAPHICS_MODE, ""));
-        assertEquals(List.of("FAST", "FANCY", "FABULOUS"), graphics.options());
+        assertEquals(List.of("FAST", "FANCY", "FABULOUS", "CUSTOM"), graphics.options(),
+                "Custom is listed so the row can show the game's real state; it cannot be chosen");
     }
 
     @Test
@@ -170,6 +171,119 @@ class SettingsStoreTest {
         assertTrue(changed >= 2);
         assertFalse(store.get(VantaSettings.HUD_ENABLED));
         assertEquals(90, store.get(fov));
+    }
+
+    // ---- graphics preset persistence (Minecraft 1.21.11 Fast / Fancy / Fabulous / Custom) ---------------------------
+
+    @SuppressWarnings("unchecked")
+    private static Setting<String> graphics() {
+        return (Setting<String>) VantaSettings.VIDEO_GRAPHICS_MODE;
+    }
+
+    @Test
+    void customGraphicsPresetReadsAsCustomNotAsTheFancyFallback() {
+        options.graphicsPresetBundle = true;
+        options.setFromGame(VanillaOption.GRAPHICS_MODE, "FAST"); // the player picks Fast in Video Settings
+        assertEquals("FAST", store.get(graphics()));
+        options.setFromGame(VanillaOption.RENDER_DISTANCE, 5); // ...then moves a bundled slider
+        assertEquals("CUSTOM", options.values().get(VanillaOption.GRAPHICS_MODE), "the game now reports Custom");
+        assertEquals("CUSTOM", store.get(graphics()), "VANTA shows the real state, never the Fancy default");
+        assertFalse(store.isDefault(graphics()));
+    }
+
+    @Test
+    void choosingFancyWhileTheGameIsCustomApplies() {
+        options.graphicsPresetBundle = true;
+        options.setFromGame(VanillaOption.GRAPHICS_MODE, "FANCY");
+        options.setFromGame(VanillaOption.CLOUDS, "OFF");
+        assertEquals("CUSTOM", store.get(graphics()));
+        List<SettingChange> changes = new ArrayList<>();
+        store.addListener(changes::add);
+        assertTrue(store.set(graphics(), "FANCY"), "used to be a silent no-op: Custom read back as Fancy");
+        assertEquals("FANCY", options.values().get(VanillaOption.GRAPHICS_MODE));
+        assertEquals("FANCY", options.values().get(VanillaOption.CLOUDS), "the Fancy bundle was applied");
+        assertEquals(1, changes.size());
+        assertEquals("CUSTOM", changes.get(0).oldValue());
+        store.saveIfDirty();
+        assertEquals(1, options.saveCount, "options.txt is written once for the player's choice");
+    }
+
+    @Test
+    void selectingCustomIsRefusedAndStoresNothing() {
+        options.graphicsPresetBundle = true;
+        options.setFromGame(VanillaOption.GRAPHICS_MODE, "FAST");
+        List<SettingChange> changes = new ArrayList<>();
+        store.addListener(changes::add);
+        assertFalse(store.set(graphics(), "CUSTOM"));
+        assertEquals("FAST", store.get(graphics()));
+        assertEquals("FAST", options.values().get(VanillaOption.GRAPHICS_MODE));
+        assertTrue(changes.isEmpty());
+        assertFalse(store.isDirty());
+        assertTrue(options.setOrder.isEmpty(), "nothing was written to the game");
+
+        // Without a game (tests, previews) Custom is refused as well instead of being remembered.
+        SettingsStore offline = new SettingsStore(VantaSettings.registry(), jsonStore, dir.resolve("other.json"),
+                Optional.empty());
+        assertFalse(offline.set(graphics(), "CUSTOM"));
+        assertEquals("FANCY", offline.get(graphics()));
+    }
+
+    @Test
+    void aRefusedVanillaWriteIsNotRememberedAsAStaleValue() {
+        @SuppressWarnings("unchecked")
+        Setting<Integer> renderDistance = (Setting<Integer>) VantaSettings.VIDEO_RENDER_DISTANCE;
+        options.refusing.add(VanillaOption.RENDER_DISTANCE);
+        List<SettingChange> changes = new ArrayList<>();
+        store.addListener(changes::add);
+        assertFalse(store.set(renderDistance, 20), "the game refused the value");
+        assertEquals(12, store.get(renderDistance), "the game's value is shown");
+        assertTrue(changes.isEmpty());
+        assertFalse(store.isDirty());
+        // Later the game reports nothing for the option (it went away): the refused 20 must not surface.
+        options.values().remove(VanillaOption.RENDER_DISTANCE);
+        assertEquals(12, store.get(renderDistance), "the default, never the refused value");
+    }
+
+    @Test
+    void snapshotKeepsCustomAndApplyingItLeavesTheGraphicsPresetAlone() {
+        options.graphicsPresetBundle = true;
+        options.setFromGame(VanillaOption.GRAPHICS_MODE, "FANCY");
+        options.setFromGame(VanillaOption.RENDER_DISTANCE, 9);
+        Map<String, JsonElement> snapshot = store.snapshot(true);
+        assertEquals("CUSTOM", snapshot.get("video.graphicsMode").getAsString(), "no fake Fancy is captured");
+
+        options.setFromGame(VanillaOption.GRAPHICS_MODE, "FAST");
+        store.applySnapshot(snapshot);
+        assertFalse(options.setOrder.contains(VanillaOption.GRAPHICS_MODE), "Custom is never written back");
+        assertEquals(9, options.getInt(VanillaOption.RENDER_DISTANCE, 0), "the captured render distance applies");
+    }
+
+    @Test
+    void snapshotsApplyTheGraphicsPresetBeforeTheOptionsItBundles() {
+        options.graphicsPresetBundle = true;
+        Map<String, JsonElement> snapshot = new java.util.LinkedHashMap<>();
+        snapshot.put("video.renderDistance", new com.google.gson.JsonPrimitive(5)); // hand-edited / imported order
+        snapshot.put("video.graphicsMode", new com.google.gson.JsonPrimitive("fast"));
+        store.applySnapshot(snapshot);
+        assertEquals(5, options.getInt(VanillaOption.RENDER_DISTANCE, 0), "the bundle does not overwrite it");
+        assertEquals(VanillaOption.GRAPHICS_MODE, options.setOrder.get(0));
+    }
+
+    @Test
+    void readingLoadingSnapshottingAndSavingNeverWriteTheGame() {
+        options.graphicsPresetBundle = true;
+        options.setFromGame(VanillaOption.GRAPHICS_MODE, "FAST");
+        store.load();
+        for (Setting<?> setting : VantaSettings.registry().all()) {
+            store.get(setting);
+            store.isDefault(setting);
+        }
+        store.snapshot(true);
+        store.saveIfDirty();
+        store.save();
+        assertTrue(options.setOrder.isEmpty(), "no vanilla option was written: " + options.setOrder);
+        assertEquals(0, options.saveCount, "options.txt was not saved without a change");
+        assertEquals("FAST", options.values().get(VanillaOption.GRAPHICS_MODE));
     }
 
     @Test

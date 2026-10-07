@@ -252,7 +252,13 @@ public class SettingRow extends UiNode {
         if (refreshing) {
             return;
         }
-        store.set(s, value);
+        boolean changed = store.set(s, value);
+        if (!changed && s.isVanilla()) {
+            // The game did not take the value (e.g. "Custom" graphics, which only the game itself can report): show
+            // what the game really has again instead of a choice that was never applied.
+            refresh();
+            return;
+        }
         reset.setVisible(showsReset() && !isDefault());
         fireChanged();
     }

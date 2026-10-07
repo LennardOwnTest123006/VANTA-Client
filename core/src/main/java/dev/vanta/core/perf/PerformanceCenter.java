@@ -205,6 +205,47 @@ public final class PerformanceCenter {
         advisor.reset();
     }
 
+    /**
+     * Makes the frame-rate choice ({@code performance.fpsLimitPreset} in settings.json) follow the game: when the
+     * player set Max Framerate / VSync in vanilla Video Settings or Sodium to values one choice stands for, that choice
+     * is recorded. Only settings.json changes (the listener sees matching options and writes nothing), so a later
+     * profile save, Reset or the Settings row start from the player's real limit instead of a stale one. Values no
+     * choice stands for (e.g. 75 FPS) leave the choice alone.
+     *
+     * @return true when the recorded choice changed
+     */
+    public boolean reconcileFpsLimitChoice() {
+        if (!options.supports(VanillaOption.FRAMERATE_LIMIT) || !options.supports(VanillaOption.VSYNC)) {
+            return false;
+        }
+        Optional<FpsLimitPreset> live = liveFpsLimit();
+        if (live.isEmpty() || live.get() == settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET)) {
+            return false;
+        }
+        applyingFpsLimit = true;
+        try {
+            return settings.set(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, live.get());
+        } finally {
+            applyingFpsLimit = false;
+        }
+    }
+
+    /** The frame-rate choice the game's current Max Framerate and VSync stand for, if exactly one does. */
+    public Optional<FpsLimitPreset> liveFpsLimit() {
+        Optional<Object> limit = options.get(VanillaOption.FRAMERATE_LIMIT);
+        Optional<Object> vsync = options.get(VanillaOption.VSYNC);
+        if (limit.isEmpty() || vsync.isEmpty() || !(limit.get() instanceof Number n)
+                || !(vsync.get() instanceof Boolean on)) {
+            return Optional.empty();
+        }
+        for (FpsLimitPreset preset : FpsLimitPreset.values()) {
+            if (preset.framerateLimit() == n.intValue() && preset.vsync() == on) {
+                return Optional.of(preset);
+            }
+        }
+        return Optional.empty();
+    }
+
     /** True when both vanilla options already hold the preset's values (unsupported options count as matching). */
     private boolean matchesOptions(FpsLimitPreset preset) {
         boolean limit = !options.supports(VanillaOption.FRAMERATE_LIMIT)
@@ -224,9 +265,10 @@ public final class PerformanceCenter {
                 }
                 Optional<Object> current = options.get(entry.getKey());
                 Optional<Object> expected = entry.getKey().normalize(entry.getValue());
-                if (entry.getKey() == VanillaOption.GRAPHICS_MODE && current.isEmpty()) {
-                    // The game reports a graphics preset outside Fast / Fancy / Fabulous ("custom") as soon as any
-                    // bundled option differs, which is exactly the state every VANTA preset leaves behind.
+                if (entry.getKey() == VanillaOption.GRAPHICS_MODE
+                        && (current.isEmpty() || entry.getKey().isReadOnlyValue(current.get()))) {
+                    // The game reports the graphics preset as "Custom" as soon as any bundled option differs, which
+                    // is exactly the state every VANTA preset leaves behind.
                     continue;
                 }
                 if (current.isEmpty() || expected.isEmpty() || !valuesEqual(current.get(), expected.get())) {

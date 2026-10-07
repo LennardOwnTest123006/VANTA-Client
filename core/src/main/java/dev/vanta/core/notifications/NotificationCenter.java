@@ -50,6 +50,7 @@ public final class NotificationCenter {
     private long nextId = 1;
     private long lastPostAt;
     private String lastPostTitle;
+    private boolean sodiumHintShown;
 
     /**
      * @param clock             time source
@@ -267,6 +268,27 @@ public final class NotificationCenter {
     public Optional<Notification> downloadStillRunning() {
         return post(NotificationKind.INFO, Lang.tr("vanta.notification.download_running.title"),
                 Lang.tr("vanta.notification.download_running.body"));
+    }
+
+    /**
+     * Class of Sodium's video settings screen, which replaces vanilla Video Settings when the Performance pack is
+     * installed. A later Sodium that renames it only loses the hint.
+     */
+    public static final String SODIUM_VIDEO_SETTINGS_SCREEN =
+            "net.caffeinemc.mods.sodium.client.gui.VideoSettingsScreen";
+
+    /**
+     * Once per session, when Sodium's video settings screen opens ({@code screenClassName} is the class of every
+     * screen that opens): Sodium keeps changes pending until Apply, and Escape throws them away, which looks exactly
+     * like "my setting was reset". Empty for every other screen and after the first time.
+     */
+    public Optional<Notification> sodiumApplyHintFor(String screenClassName) {
+        if (sodiumHintShown || !SODIUM_VIDEO_SETTINGS_SCREEN.equals(screenClassName)) {
+            return Optional.empty();
+        }
+        sodiumHintShown = true;
+        return post(NotificationKind.INFO, Lang.tr("vanta.notification.sodium_apply.title"),
+                Lang.tr("vanta.notification.sodium_apply.body"), 8000);
     }
 
     public Optional<Notification> hudPresetApplied(String presetName) {

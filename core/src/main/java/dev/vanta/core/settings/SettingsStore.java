@@ -162,18 +162,31 @@ public final class SettingsStore {
 
     /**
      * Sets a value (normalised through the setting), notifying listeners when it changed.
+     * <p>
+     * Vanilla-bound settings compare against the game's live value and write the game's option; nothing else. A value
+     * the game cannot take (the read-only graphics preset "Custom", or a write the game refuses) changes nothing, is
+     * not remembered and fires no listener, so a stale or fallback value can never be shown or written back later.
+     * Only when the running game lacks the option entirely (tests, previews) is the value kept in memory.
      *
      * @return true when the stored value changed
      */
     public <T> boolean set(Setting<T> setting, T value) {
         Objects.requireNonNull(setting, "setting");
         T normalized = setting.normalize(value);
+        if (setting.vanillaBinding().isPresent()
+                && setting.vanillaBinding().get().isReadOnlyValue(setting.toBridgeValue(normalized))) {
+            return false;
+        }
         T old = get(setting);
         if (Objects.equals(old, normalized)) {
             return false;
         }
         if (setting.vanillaBinding().isPresent()) {
-            if (!writeVanilla(setting, normalized)) {
+            if (bridgeSupports(setting.vanillaBinding().get())) {
+                if (!writeVanilla(setting, normalized)) {
+                    return false;
+                }
+            } else {
                 values.put(setting.id(), normalized);
             }
         } else if (setting.kind() == SettingKind.ACTION) {
@@ -273,13 +286,27 @@ public final class SettingsStore {
     }
 
     /**
-     * Applies a snapshot; unknown ids and invalid values are ignored.
+     * Applies a snapshot; unknown ids and invalid values are ignored. The graphics preset goes first whatever the
+     * order of the map: in Minecraft 1.21.11 applying it rewrites the options it bundles (render distance, clouds,
+     * particles, …), so those must come after it to end up as the snapshot says. A captured "Custom" preset is
+     * skipped (it is read-only), leaving the preset to follow from the bundled options themselves.
      *
      * @return number of settings whose value changed
      */
     public int applySnapshot(Map<String, JsonElement> snapshot) {
-        int changed = 0;
+        Map<String, JsonElement> ordered = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> entry : snapshot.entrySet()) {
+            Optional<Setting<?>> setting = registry.find(entry.getKey());
+            if (setting.isPresent() && setting.get().vanillaBinding().filter(VanillaOption.GRAPHICS_MODE::equals)
+                    .isPresent()) {
+                ordered.put(entry.getKey(), entry.getValue());
+            }
+        }
+        for (Map.Entry<String, JsonElement> entry : snapshot.entrySet()) {
+            ordered.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        int changed = 0;
+        for (Map.Entry<String, JsonElement> entry : ordered.entrySet()) {
             Optional<Setting<?>> setting = registry.find(entry.getKey());
             if (setting.isPresent() && setting.get().kind() != SettingKind.ACTION
                     && setJson(setting.get(), entry.getValue())) {
@@ -343,9 +370,13 @@ public final class SettingsStore {
         return options.get().get(option).flatMap(setting::coerce);
     }
 
+    private boolean bridgeSupports(VanillaOption option) {
+        return options.isPresent() && options.get().supports(option);
+    }
+
     private <T> boolean writeVanilla(Setting<T> setting, T value) {
         VanillaOption option = setting.vanillaBinding().orElseThrow();
-        if (options.isEmpty() || !options.get().supports(option)) {
+        if (!bridgeSupports(option)) {
             return false;
         }
         boolean applied = options.get().set(option, setting.toBridgeValue(value));

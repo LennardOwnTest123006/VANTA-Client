@@ -45,8 +45,12 @@ public enum VanillaOption implements LangKeyed {
     FOV(Group.VIDEO, Kind.INT, 30, 110, 1),
     /** {@code menuBackgroundBlurriness}: 0–10. */
     MENU_BLUR(Group.VIDEO, Kind.INT, 0, 10, 1),
-    /** {@code graphicsMode}: FAST, FANCY, FABULOUS. */
-    GRAPHICS_MODE(Group.VIDEO, List.of("FAST", "FANCY", "FABULOUS")),
+    /**
+     * {@code graphicsPreset}: FAST, FANCY, FABULOUS and CUSTOM. Minecraft 1.21.11 reports CUSTOM as soon as any option
+     * of the preset bundle differs from the preset; it is read-only ({@link #isReadOnlyValue(Object)}): VANTA shows it
+     * but can never select it.
+     */
+    GRAPHICS_MODE(Group.VIDEO, List.of("FAST", "FANCY", "FABULOUS", "CUSTOM")),
     /** {@code inactivityFpsLimit}: MINIMIZED, AFK. */
     INACTIVITY_FPS_LIMIT(Group.VIDEO, List.of("MINIMIZED", "AFK")),
     /** {@code screenEffectScale}: 0–1. */
@@ -172,6 +176,15 @@ public enum VanillaOption implements LangKeyed {
     /** Allowed values for {@link Kind#ENUM} options (upper-case vanilla constant names). */
     public List<String> enumValues() {
         return enumValues;
+    }
+
+    /**
+     * True for a value the game reports but nobody can select: the graphics preset's {@code CUSTOM}, which only
+     * describes "the bundled options were changed one by one". Writing it is refused everywhere (the Fabric bridge,
+     * {@code SettingsStore}, profiles), so a captured Custom never turns into a preset change.
+     */
+    public boolean isReadOnlyValue(Object value) {
+        return this == GRAPHICS_MODE && normalize(value).map("CUSTOM"::equals).orElse(false);
     }
 
     /** Stable lower-case identifier used in JSON and lang keys, e.g. {@code render_distance}. */

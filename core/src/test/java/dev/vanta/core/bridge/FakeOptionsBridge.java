@@ -17,11 +17,21 @@ public final class FakeOptionsBridge implements OptionsBridge {
     /** Every option written through {@link #set}, in order. */
     public final java.util.List<VanillaOption> setOrder = new java.util.ArrayList<>();
     /**
-     * When true, emulates Minecraft 1.21.11 where the graphics preset is a bundle: setting it also rewrites the
-     * render and simulation distance (to 16 / 12 here) and afterwards reads back as the unknown value "CUSTOM" as
-     * soon as any bundled option differs.
+     * When true, emulates Minecraft 1.21.11 where the graphics preset is a bundle ({@code Options.applyGraphicsPreset}
+     * / {@code GraphicsPreset.apply}): setting FAST / FANCY / FABULOUS also rewrites every bundled option VANTA knows
+     * (render and simulation distance, clouds, particles, smooth lighting, …) with the game's own values, and changing
+     * any bundled option to a different value outside a preset switches the preset to "CUSTOM", exactly like
+     * {@code Options.setGraphicsPresetToCustom}. "CUSTOM" itself cannot be selected (the real bridge refuses it).
      */
     public boolean graphicsPresetBundle;
+    /** Options whose writes the fake refuses (the game rejected the value), for the "refused write" cases. */
+    public final Set<VanillaOption> refusing = EnumSet.noneOf(VanillaOption.class);
+
+    /** Options inside Minecraft 1.21.11's graphics preset bundle. */
+    public static final Set<VanillaOption> BUNDLED = EnumSet.of(VanillaOption.RENDER_DISTANCE,
+            VanillaOption.SIMULATION_DISTANCE, VanillaOption.PARTICLES, VanillaOption.CLOUDS,
+            VanillaOption.SMOOTH_LIGHTING, VanillaOption.ENTITY_SHADOWS, VanillaOption.ENTITY_DISTANCE_SCALING,
+            VanillaOption.BIOME_BLEND, VanillaOption.MIPMAP_LEVELS, VanillaOption.MENU_BLUR);
 
     public FakeOptionsBridge() {
         values.put(VanillaOption.FRAMERATE_LIMIT, 120);
@@ -85,8 +95,7 @@ public final class FakeOptionsBridge implements OptionsBridge {
             return Optional.empty();
         }
         Object raw = values.get(option);
-        // Like the real bridge: a value the option does not know (e.g. the game's "CUSTOM" graphics preset) reads
-        // back as empty rather than leaking through.
+        // Like the real bridge: a value the option does not know reads back as empty rather than leaking through.
         return raw == null ? Optional.empty() : option.normalize(raw);
     }
 
@@ -99,16 +108,70 @@ public final class FakeOptionsBridge implements OptionsBridge {
         if (normalized.isEmpty()) {
             return false;
         }
+        if (refusing.contains(option)
+                || (option == VanillaOption.GRAPHICS_MODE && "CUSTOM".equals(normalized.get()))) {
+            return false;
+        }
         setOrder.add(option);
         if (graphicsPresetBundle && option == VanillaOption.GRAPHICS_MODE) {
-            values.put(VanillaOption.RENDER_DISTANCE, 16);
-            values.put(VanillaOption.SIMULATION_DISTANCE, 12);
-        } else if (graphicsPresetBundle && (option == VanillaOption.RENDER_DISTANCE
-                || option == VanillaOption.SIMULATION_DISTANCE)) {
+            values.putAll(bundle((String) normalized.get()));
+        } else if (graphicsPresetBundle && BUNDLED.contains(option)
+                && !java.util.Objects.equals(values.get(option), normalized.get())) {
             values.put(VanillaOption.GRAPHICS_MODE, "CUSTOM");
         }
         values.put(option, normalized.get());
         return true;
+    }
+
+    /**
+     * Writes an option the way something outside VANTA does (a vanilla slider, Sodium's Apply, Iris): no VANTA code
+     * runs, but in {@link #graphicsPresetBundle} mode the game's own preset rules still apply.
+     */
+    public void setFromGame(VanillaOption option, Object value) {
+        if (option == VanillaOption.GRAPHICS_MODE && "CUSTOM".equals(value)) {
+            values.put(option, "CUSTOM"); // what Iris does with shaders on: graphicsPreset().set(CUSTOM)
+            return;
+        }
+        int before = setOrder.size();
+        set(option, value);
+        while (setOrder.size() > before) {
+            setOrder.remove(setOrder.size() - 1);
+        }
+    }
+
+    /** The options Minecraft 1.21.11's {@code GraphicsPreset.apply} writes for one preset (VANTA-known ones). */
+    public static Map<VanillaOption, Object> bundle(String preset) {
+        Map<VanillaOption, Object> out = new EnumMap<>(VanillaOption.class);
+        switch (preset) {
+            case "FAST" -> {
+                out.put(VanillaOption.BIOME_BLEND, 1);
+                out.put(VanillaOption.RENDER_DISTANCE, 8);
+                out.put(VanillaOption.SIMULATION_DISTANCE, 6);
+                out.put(VanillaOption.SMOOTH_LIGHTING, false);
+                out.put(VanillaOption.CLOUDS, "FAST");
+                out.put(VanillaOption.PARTICLES, "DECREASED");
+                out.put(VanillaOption.MIPMAP_LEVELS, 2);
+                out.put(VanillaOption.ENTITY_SHADOWS, false);
+                out.put(VanillaOption.ENTITY_DISTANCE_SCALING, 0.75);
+                out.put(VanillaOption.MENU_BLUR, 2);
+            }
+            case "FANCY", "FABULOUS" -> {
+                boolean fabulous = "FABULOUS".equals(preset);
+                out.put(VanillaOption.BIOME_BLEND, 2);
+                out.put(VanillaOption.RENDER_DISTANCE, fabulous ? 32 : 16);
+                out.put(VanillaOption.SIMULATION_DISTANCE, 12);
+                out.put(VanillaOption.SMOOTH_LIGHTING, true);
+                out.put(VanillaOption.CLOUDS, "FANCY");
+                out.put(VanillaOption.PARTICLES, "ALL");
+                out.put(VanillaOption.MIPMAP_LEVELS, 4);
+                out.put(VanillaOption.ENTITY_SHADOWS, true);
+                out.put(VanillaOption.ENTITY_DISTANCE_SCALING, fabulous ? 1.25 : 1.0);
+                out.put(VanillaOption.MENU_BLUR, 5);
+            }
+            default -> {
+            }
+        }
+        return out;
     }
 
     @Override

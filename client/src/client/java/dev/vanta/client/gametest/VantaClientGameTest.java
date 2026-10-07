@@ -149,6 +149,7 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         profiles(context, services);
         keybinds(context, services);
         resourcePacks(context, runtime);
+        OptionsPersistenceStep.run(context, services);
         List<String> findings = new ArrayList<>();
         inWorld(context, services, findings);
         backPathsWithAWorld(context);

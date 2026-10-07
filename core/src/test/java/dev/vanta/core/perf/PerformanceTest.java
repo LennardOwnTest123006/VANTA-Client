@@ -165,7 +165,8 @@ class PerformanceTest {
         assertEquals(VanillaOption.GRAPHICS_MODE, options.setOrder.get(0), "graphics bundle goes first");
         assertEquals(10, options.getInt(VanillaOption.RENDER_DISTANCE, 0), "preset render distance wins");
         assertEquals(8, options.getInt(VanillaOption.SIMULATION_DISTANCE, 0), "preset simulation distance wins");
-        assertTrue(options.get(VanillaOption.GRAPHICS_MODE).isEmpty(), "game now reports a custom graphics preset");
+        assertEquals(Optional.of("CUSTOM"), options.get(VanillaOption.GRAPHICS_MODE),
+                "game now reports a custom graphics preset");
         assertEquals(Optional.of(PerformancePreset.BALANCED), center.detectPreset(),
                 "the custom read-back must not hide the preset that was just applied");
     }
@@ -356,5 +357,51 @@ class PerformanceTest {
         assertTrue(info.cpuCount() >= 1);
         assertTrue(info.javaLabel().startsWith("Java "));
         assertTrue(info.machineLabel().contains("threads"));
+    }
+
+    @Test
+    void presetDiffShowsCustomAsTheCurrentGraphicsPreset() {
+        MutableClock clock = MutableClock.standard();
+        FakeOptionsBridge options = new FakeOptionsBridge();
+        options.graphicsPresetBundle = true;
+        SettingsStore settings = new SettingsStore(VantaSettings.registry(), new JsonStore(clock),
+                dir.resolve("settings.json"), Optional.of(options));
+        PerformanceCenter center = center(options, settings, clock);
+        options.setFromGame(VanillaOption.GRAPHICS_MODE, "FAST");
+        options.setFromGame(VanillaOption.RENDER_DISTANCE, 5);
+        dev.vanta.core.screen.perf.PresetDiff diff = dev.vanta.core.screen.perf.PresetDiff.compute(
+                PerformancePreset.HIGH, options);
+        dev.vanta.core.screen.perf.PresetDiff.Row graphics = diff.rows().stream()
+                .filter(r -> r.option() == VanillaOption.GRAPHICS_MODE).findFirst().orElseThrow();
+        assertEquals(Optional.of("CUSTOM"), graphics.current(), "Custom → Fancy, not Unknown → Fancy");
+        assertTrue(graphics.changes());
+        assertTrue(center.detectPreset().isEmpty(), "Fast + 5 chunks matches no preset");
+        assertEquals(0, options.saveCount, "looking at presets writes nothing");
+    }
+
+    @Test
+    void theFrameRateChoiceFollowsTheGamesLimitWithoutWritingIt() {
+        MutableClock clock = MutableClock.standard();
+        FakeOptionsBridge options = new FakeOptionsBridge();
+        SettingsStore settings = new SettingsStore(VantaSettings.registry(), new JsonStore(clock),
+                dir.resolve("settings.json"), Optional.of(options));
+        PerformanceCenter center = center(options, settings, clock);
+        assertEquals(FpsLimitPreset.UNLIMITED, settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+
+        // The player sets 60 FPS without VSync in vanilla Video Settings or in Sodium.
+        options.setFromGame(VanillaOption.FRAMERATE_LIMIT, 60);
+        options.setFromGame(VanillaOption.VSYNC, false);
+        assertTrue(center.reconcileFpsLimitChoice());
+        assertEquals(FpsLimitPreset.FPS_60, settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+        assertTrue(options.setOrder.isEmpty(), "only settings.json changes: " + options.setOrder);
+        assertEquals(0, options.saveCount);
+        assertFalse(center.reconcileFpsLimitChoice(), "already in sync");
+
+        // 75 FPS has no preset: the choice is left alone and the game is not touched either.
+        options.setFromGame(VanillaOption.FRAMERATE_LIMIT, 75);
+        assertFalse(center.reconcileFpsLimitChoice());
+        assertEquals(FpsLimitPreset.FPS_60, settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+        assertEquals(75, options.getInt(VanillaOption.FRAMERATE_LIMIT, 0), "unchanged by VANTA");
+        assertTrue(options.setOrder.isEmpty());
     }
 }

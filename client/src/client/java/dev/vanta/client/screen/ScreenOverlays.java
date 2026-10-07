@@ -20,6 +20,7 @@ public final class ScreenOverlays {
             if (screen instanceof VantaScreen) {
                 return;
             }
+            runtime.services().notifications().sodiumApplyHintFor(screen.getClass().getName());
             ScreenEvents.afterRender(screen).register((s, graphics, mouseX, mouseY, tickDelta) ->
                     runtime.renderNotifications(graphics, s.width, s.height, tickDelta));
         });

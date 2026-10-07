@@ -40,6 +40,8 @@ public final class ProfileManager {
     /** Largest importable file. */
     public static final long MAX_IMPORT_BYTES = 1024L * 1024;
     private static final String STATE_ACTIVE = "activeId";
+    /** Built-in content version the files were last re-seeded to ({@link BuiltInProfiles#CONTENT_VERSION}). */
+    private static final String STATE_BUILT_INS = "builtInContent";
 
     private final JsonStore store;
     private final VantaPaths paths;
@@ -51,6 +53,7 @@ public final class ProfileManager {
     private final Map<String, Profile> profiles = new LinkedHashMap<>();
     private final List<Consumer<Profile>> listeners = new CopyOnWriteArrayList<>();
     private String activeId;
+    private int builtInContent;
 
     public ProfileManager(JsonStore store, VantaPaths paths, Clock clock, SettingsStore settings, HudStore hud,
                           CrosshairStore crosshair, KeybindBridge keybinds) {
@@ -82,18 +85,62 @@ public final class ProfileManager {
                 CoreLog.warn(e, "Could not list profiles in {}", dir);
             }
         }
+        Optional<JsonObject> state = store.readObject(paths.profilesStateFile());
+        builtInContent = state.map(s -> s.has(STATE_BUILT_INS) && s.get(STATE_BUILT_INS).isJsonPrimitive()
+                && s.get(STATE_BUILT_INS).getAsJsonPrimitive().isNumber() ? s.get(STATE_BUILT_INS).getAsInt() : 0)
+                .orElse(0);
+        boolean seeded = false;
         if (profiles.isEmpty()) {
             for (Profile profile : BuiltInProfiles.create(settings.registry(), clock.millis())) {
                 profiles.put(profile.id(), profile);
                 write(profile);
             }
+            seeded = true;
         } else {
             upgradeSchema1();
+            seeded = reseedUntouchedBuiltIns();
         }
-        Optional<JsonObject> state = store.readObject(paths.profilesStateFile());
         String stored = state.map(s -> s.has(STATE_ACTIVE) && s.get(STATE_ACTIVE).isJsonPrimitive()
                 ? s.get(STATE_ACTIVE).getAsString() : null).orElse(null);
         activeId = stored != null && profiles.containsKey(stored) ? stored : profiles.keySet().iterator().next();
+        if (seeded) {
+            builtInContent = BuiltInProfiles.CONTENT_VERSION;
+            saveState();
+        }
+    }
+
+    /**
+     * One-time refresh of built-in profiles the player never touched when their content changed in a release
+     * ({@link BuiltInProfiles#CONTENT_VERSION} above the version recorded in {@code state.json}). Client 1.3.0 stopped
+     * putting every vanilla default (volumes, sensitivity, FOV, GUI scale, …) into the built-ins, so activating
+     * "Default" no longer resets options the profile is not about. Untouched means {@code updatedAt == createdAt}
+     * (rename, icon and "Update from current" move it); edited built-ins and the player's own profiles are never
+     * changed, nothing is deleted, and the re-seeded profile keeps its timestamps. The marker lives in
+     * {@code state.json} rather than in a profile schema bump, so an older release can still read every profile.
+     *
+     * @return true when the marker has to be written (the check ran)
+     */
+    private boolean reseedUntouchedBuiltIns() {
+        if (builtInContent >= BuiltInProfiles.CONTENT_VERSION) {
+            return false;
+        }
+        for (Profile profile : new ArrayList<>(profiles.values())) {
+            if (!BuiltInProfiles.IDS.contains(profile.id()) || profile.updatedAt() != profile.createdAt()) {
+                continue;
+            }
+            Optional<Profile> shipped = BuiltInProfiles.shipped(settings.registry(), clock.millis(), profile.id());
+            if (shipped.isEmpty() || shipped.get().settings().equals(profile.settings())) {
+                continue;
+            }
+            Profile fresh = shipped.get();
+            Profile reseeded = profile.withContent(fresh.settings(), fresh.hud(), fresh.keybinds(), fresh.crosshair(),
+                    fresh.cosmetics(), profile.updatedAt());
+            profiles.put(reseeded.id(), reseeded);
+            write(reseeded);
+            CoreLog.info("Re-seeded the untouched built-in profile {} (content {})", profile.id(),
+                    BuiltInProfiles.CONTENT_VERSION);
+        }
+        return true;
     }
 
     /**
@@ -161,6 +208,7 @@ public final class ProfileManager {
         JsonObject state = new JsonObject();
         state.addProperty(JsonStore.SCHEMA_VERSION, 1);
         state.addProperty(STATE_ACTIVE, activeId);
+        state.addProperty(STATE_BUILT_INS, builtInContent);
         store.writeObject(paths.profilesStateFile(), state);
     }
 
@@ -202,7 +250,7 @@ public final class ProfileManager {
         String cleanName = cleanName(name);
         String id = uniqueId(cleanName);
         long now = clock.millis();
-        Profile profile = new Profile(Profile.SCHEMA_VERSION, id, cleanName, icon, now, now, settings.snapshot(true),
+        Profile profile = new Profile(Profile.SCHEMA_VERSION, id, cleanName, icon, now, now, liveSettings(),
                 hud.layout(), currentVantaKeys(), crosshair.style(), CosmeticsSelection.fromSettings(settings));
         profiles.put(id, profile);
         write(profile);
@@ -301,7 +349,7 @@ public final class ProfileManager {
         if (active == null) {
             return Optional.empty();
         }
-        Profile updated = active.withContent(settings.snapshot(true), hud.layout(), currentVantaKeys(),
+        Profile updated = active.withContent(liveSettings(), hud.layout(), currentVantaKeys(),
                 crosshair.style(), CosmeticsSelection.fromSettings(settings), clock.millis());
         profiles.put(updated.id(), updated);
         write(updated);
@@ -360,6 +408,14 @@ public final class ProfileManager {
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------
+
+    /**
+     * The live settings for a profile: the game's real vanilla values (a "Custom" graphics preset stays "Custom" and
+     * is skipped on activation) with the frame-rate choice taken from the game's real limit and VSync.
+     */
+    private Map<String, com.google.gson.JsonElement> liveSettings() {
+        return BuiltInProfiles.withPresetFromFrameRate(settings.snapshot(true));
+    }
 
     private Map<String, KeyRef> currentVantaKeys() {
         Map<String, KeyRef> out = new LinkedHashMap<>();

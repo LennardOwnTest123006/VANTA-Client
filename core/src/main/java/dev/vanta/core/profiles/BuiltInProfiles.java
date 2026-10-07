@@ -15,6 +15,7 @@ import dev.vanta.core.settings.Setting;
 import dev.vanta.core.settings.SettingKind;
 import dev.vanta.core.settings.SettingsRegistry;
 import dev.vanta.core.settings.VantaSettings;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +23,12 @@ import java.util.Optional;
 
 /**
  * The five profiles created on first run. They are ordinary profiles afterwards (renamable, deletable except the last
- * one), built from the setting defaults plus a HUD preset, a performance preset and a crosshair preset each.
+ * one), built from the VANTA setting defaults plus a HUD preset, a performance preset and a crosshair preset each.
+ * <p>
+ * Of the vanilla options a built-in profile only carries what it is about: the options of its performance preset, the
+ * frame-rate limit and VSync of its frame-rate choice and its explicit overrides (Building's FOV). Volumes, mouse
+ * sensitivity, GUI scale, chat and every other vanilla option stay as the player set them when a built-in profile is
+ * activated (releases before 1.3.0 replayed vanilla's defaults for all of them).
  */
 public final class BuiltInProfiles {
     public static final String DEFAULT = "default";
@@ -33,6 +39,13 @@ public final class BuiltInProfiles {
 
     /** Ids in creation order. */
     public static final List<String> IDS = List.of(DEFAULT, PVP, BUILDING, PERFORMANCE, RECORDING);
+
+    /**
+     * Version of the built-in profile content. {@code ProfileManager} re-seeds built-ins the player never touched
+     * once when the version recorded in {@code profiles/state.json} is older (2: client 1.3.0, vanilla options limited
+     * to the ones each profile is about).
+     */
+    public static final int CONTENT_VERSION = 2;
 
     private BuiltInProfiles() {
     }
@@ -123,15 +136,44 @@ public final class BuiltInProfiles {
         return out;
     }
 
+    /**
+     * The inverse of {@link #withFrameRateFromPreset} for a snapshot of the live settings: the frame-rate choice is set
+     * to the one the snapshot's {@code video.framerateLimit} and {@code video.vsync} stand for, so a profile saved
+     * after the player changed Max Framerate in vanilla Video Settings or Sodium restores that limit, not a stale
+     * choice from settings.json. When no choice matches (e.g. 75 FPS) the choice is dropped from the snapshot, and the
+     * profile then applies the vanilla values as captured. Snapshots without both vanilla values are returned
+     * unchanged.
+     */
+    public static Map<String, JsonElement> withPresetFromFrameRate(Map<String, JsonElement> settings) {
+        Optional<?> limit = Optional.ofNullable(settings.get(VantaSettings.VIDEO_FRAMERATE_LIMIT.id()))
+                .flatMap(VantaSettings.VIDEO_FRAMERATE_LIMIT::decode);
+        Optional<?> vsync = Optional.ofNullable(settings.get(VantaSettings.VIDEO_VSYNC.id()))
+                .flatMap(VantaSettings.VIDEO_VSYNC::decode);
+        if (limit.isEmpty() || vsync.isEmpty() || !(limit.get() instanceof Integer fps)
+                || !(vsync.get() instanceof Boolean on)) {
+            return settings;
+        }
+        Map<String, JsonElement> out = new LinkedHashMap<>(settings);
+        Optional<FpsLimitPreset> match = Arrays.stream(FpsLimitPreset.values())
+                .filter(p -> p.framerateLimit() == fps && p.vsync() == on).findFirst();
+        if (match.isPresent()) {
+            encodeInto(out, VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, match.get());
+        } else {
+            out.remove(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET.id());
+        }
+        return out;
+    }
+
     /** The built-in profile with an id, freshly built from the current defaults. */
     public static Optional<Profile> shipped(SettingsRegistry registry, long now, String id) {
         return create(registry, now).stream().filter(p -> p.id().equals(id)).findFirst();
     }
 
+    /** Defaults of every VANTA setting; vanilla-bound ones are added only where a profile defines them. */
     private static Map<String, JsonElement> defaults(SettingsRegistry registry) {
         Map<String, JsonElement> out = new LinkedHashMap<>();
         for (Setting<?> setting : registry.all()) {
-            if (setting.kind() != SettingKind.ACTION) {
+            if (setting.kind() != SettingKind.ACTION && !setting.isVanilla()) {
                 out.put(setting.id(), encodeDefault(setting));
             }
         }

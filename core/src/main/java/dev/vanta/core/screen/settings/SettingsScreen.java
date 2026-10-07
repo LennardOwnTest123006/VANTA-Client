@@ -85,6 +85,9 @@ public final class SettingsScreen extends VantaUiScreen {
         this.index = new SettingsSearchIndex(registry);
         navigator.takePendingCategory().ifPresent(c -> category = c);
         this.pendingReveal = navigator.takePendingSetting().orElse(null);
+        // A Max Framerate / VSync change made in vanilla Video Settings or Sodium shows up in the frame-rate row too
+        // (settings.json only; no game option is written).
+        services.performance().reconcileFpsLimitChoice();
     }
 
     // ---------------------------------------------------------------- accessors (tests)

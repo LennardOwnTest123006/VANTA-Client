@@ -368,4 +368,100 @@ class ProfileManagerTest {
         fresh.load();
         assertEquals(BuiltInProfiles.IDS.size(), fresh.size());
     }
+
+    // ---- vanilla options the player set elsewhere ------------------------------------------------------------------
+
+    @Test
+    void aProfileSavedWhileTheGameIsCustomKeepsCustomAndNeverAppliesAFakeFancy() {
+        options.graphicsPresetBundle = true;
+        options.setFromGame(VanillaOption.GRAPHICS_MODE, "FAST");
+        options.setFromGame(VanillaOption.RENDER_DISTANCE, 7);
+        Profile mine = manager.createFromCurrent("Mine", "profile");
+        assertEquals("CUSTOM", mine.settings().get("video.graphicsMode").getAsString());
+
+        options.setOrder.clear();
+        assertTrue(manager.activate(mine.id()));
+        assertFalse(options.setOrder.contains(VanillaOption.GRAPHICS_MODE), "Custom is not written: "
+                + options.setOrder);
+        assertEquals(7, options.getInt(VanillaOption.RENDER_DISTANCE, 0));
+        assertEquals("CUSTOM", options.values().get(VanillaOption.GRAPHICS_MODE));
+    }
+
+    @Test
+    void aProfileStoresTheFrameRateTheGameReallyHas() {
+        // Stale choice in settings.json (Unlimited), while the player set 60 FPS in vanilla Video Settings.
+        assertEquals(FpsLimitPreset.UNLIMITED, settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+        options.setFromGame(VanillaOption.FRAMERATE_LIMIT, 60);
+        options.setFromGame(VanillaOption.VSYNC, false);
+        Profile mine = manager.createFromCurrent("Sixty", "profile");
+        assertEquals("fps_60", mine.settings().get("performance.fpsLimitPreset").getAsString());
+        assertEquals(60, mine.settings().get("video.framerateLimit").getAsInt());
+
+        assertTrue(manager.activate("performance"));
+        assertEquals(260, options.getInt(VanillaOption.FRAMERATE_LIMIT, 0));
+        assertTrue(manager.activate(mine.id()));
+        assertEquals(60, options.getInt(VanillaOption.FRAMERATE_LIMIT, 0), "the profile restores the real 60");
+
+        options.setFromGame(VanillaOption.FRAMERATE_LIMIT, 140);
+        Profile updated = manager.updateActiveFromCurrent().orElseThrow();
+        assertEquals("fps_144", updated.settings().get("performance.fpsLimitPreset").getAsString());
+    }
+
+    @Test
+    void builtInProfilesOnlyCarryTheVanillaOptionsTheirPresetDefines() {
+        for (Profile profile : manager.list()) {
+            assertFalse(profile.settings().containsKey("audio.master"), profile.id() + " carries a volume");
+            assertFalse(profile.settings().containsKey("video.guiScale"), profile.id() + " carries the GUI scale");
+            assertTrue(profile.settings().containsKey("video.graphicsMode"), profile.id());
+            assertTrue(profile.settings().containsKey("video.renderDistance"), profile.id());
+            assertTrue(profile.settings().containsKey("video.framerateLimit"), profile.id());
+        }
+        assertFalse(manager.find("default").orElseThrow().settings().containsKey("video.fov"));
+        assertEquals(85, manager.find("building").orElseThrow().settings().get("video.fov").getAsInt(),
+                "an explicit override stays");
+
+        options.setFromGame(VanillaOption.MASTER_VOLUME, 0.3);
+        options.setFromGame(VanillaOption.FOV, 95);
+        options.setFromGame(VanillaOption.GUI_SCALE, 3);
+        assertTrue(manager.activate("default"));
+        assertEquals(0.3, (Double) options.values().get(VanillaOption.MASTER_VOLUME), 1e-9, "volume kept");
+        assertEquals(95, options.getInt(VanillaOption.FOV, 0), "FOV kept");
+        assertEquals(3, options.getInt(VanillaOption.GUI_SCALE, 0), "GUI scale kept");
+    }
+
+    @Test
+    void untouchedBuiltInsOfAnEarlierReleaseAreReseededOnceAndEditedOnesAreKept() {
+        // A 1.2.x install: schema-2 files carrying every vanilla default, and a state.json without the seed marker.
+        for (String id : List.of("default", "pvp")) {
+            Path file = paths.profilesDir().resolve(id + ".json");
+            JsonObject o = json.readObject(file).orElseThrow();
+            o.getAsJsonObject("settings").addProperty("audio.master", 1.0);
+            if (id.equals("pvp")) {
+                o.addProperty("updatedAt", o.get("createdAt").getAsLong() + 1000);
+            }
+            json.writeObject(file, o);
+        }
+        JsonObject state = new JsonObject();
+        state.addProperty("schemaVersion", 1);
+        state.addProperty("activeId", "pvp");
+        json.writeObject(paths.profilesStateFile(), state);
+        clock.advance(5_000);
+
+        ProfileManager upgraded = reload();
+        Profile dflt = upgraded.find("default").orElseThrow();
+        assertFalse(dflt.settings().containsKey("audio.master"), "untouched built-in re-seeded");
+        assertEquals(dflt.createdAt(), dflt.updatedAt(), "still counts as untouched");
+        assertTrue(upgraded.find("pvp").orElseThrow().settings().containsKey("audio.master"),
+                "the player's edited built-in is left alone");
+        assertEquals(Optional.of("pvp"), upgraded.activeId(), "the active profile is kept");
+        assertFalse(json.readObject(paths.profilesDir().resolve("default.json")).orElseThrow()
+                .getAsJsonObject("settings").has("audio.master"), "re-seed written to disk");
+
+        // Once per upgrade: a later change to the untouched file is not undone on the next start.
+        Path file = paths.profilesDir().resolve("default.json");
+        JsonObject o = json.readObject(file).orElseThrow();
+        o.getAsJsonObject("settings").addProperty("audio.master", 0.5);
+        json.writeObject(file, o);
+        assertTrue(reload().find("default").orElseThrow().settings().containsKey("audio.master"));
+    }
 }
