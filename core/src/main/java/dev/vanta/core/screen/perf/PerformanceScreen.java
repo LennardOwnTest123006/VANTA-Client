@@ -9,6 +9,8 @@ import dev.vanta.core.perf.PerformanceCenter;
 import dev.vanta.core.perf.PerformancePreset;
 import dev.vanta.core.perf.PerformanceSnapshot;
 import dev.vanta.core.perf.RenderDistanceAdvisor;
+import dev.vanta.core.perf.SmartBoostState;
+import dev.vanta.core.perf.SmartBoostTuner;
 import dev.vanta.core.perf.SystemInfo;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaServices;
@@ -44,6 +46,10 @@ import dev.vanta.core.ui.widget.Button;
 import dev.vanta.core.ui.widget.Card;
 import dev.vanta.core.ui.widget.Label;
 import dev.vanta.core.ui.widget.Tabs;
+import dev.vanta.core.bridge.VanillaOption;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -80,6 +86,7 @@ public final class PerformanceScreen extends VantaUiScreen {
     private PerformanceSnapshot snapshot;
     private PerformancePreset selectedPreset;
     private final List<SettingRow> rows = new ArrayList<>();
+    private final List<SettingRow> smartRows = new ArrayList<>();
     private final SettingsListener externalChange = change -> onSettingsChanged();
 
     private VantaShell shell;
@@ -106,6 +113,13 @@ public final class PerformanceScreen extends VantaUiScreen {
     private Label diffSummary;
     private Button applyPreset;
     private Button boostFps;
+    private Label smartStatus;
+    private Label smartCappedNote;
+    private Label smartReleased;
+    private Label smartHardware;
+    private Button smartRetune;
+    private Button smartUndo;
+    private String smartSignature = "";
 
     public PerformanceScreen(VantaServices services, ScreenNavigator navigator) {
         super(services, navigator, ScreenId.PERFORMANCE);
@@ -184,6 +198,21 @@ public final class PerformanceScreen extends VantaUiScreen {
         return List.copyOf(rows);
     }
 
+    /** Smart Boost's "Re-tune" button. */
+    public Button smartBoostRetuneButton() {
+        return smartRetune;
+    }
+
+    /** Smart Boost's "Undo" button. */
+    public Button smartBoostUndoButton() {
+        return smartUndo;
+    }
+
+    /** Smart Boost's status line as shown. */
+    public String smartBoostStatus() {
+        return smartStatus == null ? "" : smartStatus.text();
+    }
+
     /** The scroll panel holding every card (tests scroll it to reach the lower cards). */
     public ScrollPanel scrollPanel() {
         return scroll;
@@ -226,6 +255,7 @@ public final class PerformanceScreen extends VantaUiScreen {
         packBanner.setId("perf.pack");
         content.add(packBanner);
 
+        content.add(smartBoostCard());
         content.add(presetCard());
         content.add(quickOptionsCard());
         content.add(new InfoBanner(InfoBanner.Tone.NEUTRAL, Lang.tr("vanta.perf.honest_note.title"),
@@ -288,6 +318,120 @@ public final class PerformanceScreen extends VantaUiScreen {
         card.add(new LabelValueRow(Lang.tr("vanta.perf.os"), system.osName() + " " + system.osVersion()));
         card.add(new LabelValueRow(Lang.tr("vanta.perf.cpu_threads"), Lang.tr("vanta.perf.threads", system.cpuCount())));
         return card;
+    }
+
+    /**
+     * Smart Boost: the last result in plain words (or the measurement's progress), the two toggles, Re-tune and Undo,
+     * the options the player took over and what the starting guess is based on.
+     */
+    private Card smartBoostCard() {
+        Card card = new Card(Lang.tr("vanta.perf.smart_boost.title")).caption(Lang.tr("vanta.perf.smart_boost.caption"));
+        card.setId("perf.smartBoost");
+        card.body().gap(Theme.SPACE_2);
+        smartStatus = card.add(new Label("", Label.Variant.BODY).wrap(true));
+        smartStatus.setId("perf.smartBoost.status");
+        smartCappedNote = card.add(new Label(Lang.tr("vanta.perf.smart_boost.capped_note"), Label.Variant.MUTED)
+                .wrap(true));
+        smartReleased = card.add(new Label("", Label.Variant.MUTED).wrap(true));
+        smartReleased.setId("perf.smartBoost.released");
+        smartHardware = card.add(new Label("", Label.Variant.CAPTION).wrap(true));
+        smartHardware.setId("perf.smartBoost.hardware");
+        Column toggles = new Column(0);
+        toggles.add(smartRow(VantaSettings.PERFORMANCE_SMART_BOOST, false));
+        toggles.add(smartRow(VantaSettings.PERFORMANCE_SMART_BOOST_ADAPTIVE, true));
+        card.add(toggles);
+        Row buttons = new Row(Theme.SPACE_3).align(Align.CENTER);
+        smartRetune = buttons.add(Button.primary(Lang.tr("vanta.perf.smart_boost.retune"), this::smartBoostRetune));
+        smartRetune.icon(Icons.ARROW_UP);
+        smartRetune.setId("perf.smartBoost.retune");
+        smartUndo = buttons.add(Button.ghost(Lang.tr("vanta.perf.smart_boost.undo"), this::smartBoostUndo));
+        smartUndo.setId("perf.smartBoost.undo");
+        card.add(buttons);
+        refreshSmartBoost();
+        return card;
+    }
+
+    private SettingRow smartRow(Setting<?> setting, boolean last) {
+        SettingRow row = new SettingRow(setting, services().settings(), id -> actions().dispatch(context(), id));
+        row.last(last);
+        row.onChanged(this::refreshSmartBoost);
+        smartRows.add(row);
+        return row;
+    }
+
+    /** Smart Boost's two toggle rows. */
+    public List<SettingRow> smartBoostRows() {
+        return List.copyOf(smartRows);
+    }
+
+    /** Arms a Smart Boost run (it starts with the next gameplay frames). */
+    public void smartBoostRetune() {
+        services().runAction(ActionEntry.SMART_BOOST_RETUNE);
+        refreshSmartBoost();
+    }
+
+    /** Restores the video options from before Smart Boost. */
+    public void smartBoostUndo() {
+        services().runAction(ActionEntry.SMART_BOOST_UNDO);
+        onSettingsChanged();
+        refreshSmartBoost();
+    }
+
+    private void refreshSmartBoost() {
+        if (smartStatus == null) {
+            return;
+        }
+        SmartBoostTuner tuner = services().smartBoost();
+        SmartBoostState state = tuner.state();
+        String status;
+        if (tuner.isRunning()) {
+            status = tuner.isGated() ? Lang.tr("vanta.perf.smart_boost.status.paused")
+                    : Lang.tr("vanta.perf.smart_boost.status.measuring",
+                    tuner.measuringPreset().map(p -> Lang.tr(p.langKey())).orElse(""),
+                    tuner.measuredMs() / 1000, tuner.windowMs() / 1000);
+        } else if (tuner.isPending()) {
+            status = Lang.tr("vanta.perf.smart_boost.status.waiting");
+        } else if (state.graphicsPresetChosen()) {
+            status = Lang.tr("vanta.perf.smart_boost.status.graphics_chosen");
+        } else if (state.result().isPresent()) {
+            SmartBoostState.Result r = state.result().get();
+            status = Lang.tr("vanta.perf.smart_boost.status.last", Lang.tr(r.preset().langKey()),
+                    Math.round(r.p50Fps()), r.targetFps(), date(state.lastRunAtMillis()));
+        } else {
+            status = Lang.tr("vanta.perf.smart_boost.status.never");
+        }
+        List<String> released = new ArrayList<>();
+        for (VanillaOption option : tuner.releasedOptions()) {
+            released.add(Lang.tr(option.langKey()));
+        }
+        String releasedText = released.isEmpty() ? ""
+                : Lang.tr("vanta.perf.smart_boost.released", String.join(", ", released));
+        String gpu = services().game().gpuRenderer().filter(g -> !g.isBlank())
+                .orElse(Lang.tr("vanta.perf.smart_boost.hardware.no_gpu"));
+        String hardware = Lang.tr("vanta.perf.smart_boost.hardware", system.cpuCount(),
+                String.format(Locale.ROOT, "%.1f", system.maxHeapBytes() / (double) (1L << 30)), gpu);
+        boolean capped = perf.isFpsCapped();
+        boolean canUndo = tuner.canUndo();
+        String signature = status + "|" + releasedText + "|" + hardware + "|" + capped + "|" + canUndo;
+        if (signature.equals(smartSignature)) {
+            return;
+        }
+        smartSignature = signature;
+        smartStatus.setText(status);
+        smartReleased.setText(releasedText);
+        smartReleased.setVisible(!releasedText.isEmpty());
+        smartHardware.setText(hardware);
+        smartCappedNote.setVisible(capped);
+        smartUndo.setEnabled(canUndo);
+        invalidateLayout();
+    }
+
+    private static String date(long epochMillis) {
+        if (epochMillis <= 0) {
+            return "";
+        }
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ROOT)
+                .format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()));
     }
 
     private Card presetCard() {
@@ -357,7 +501,11 @@ public final class PerformanceScreen extends VantaUiScreen {
         for (SettingRow row : rows) {
             row.refresh();
         }
+        for (SettingRow row : smartRows) {
+            row.refresh();
+        }
         refreshPreset();
+        refreshSmartBoost();
     }
 
     // ---------------------------------------------------------------- presets
@@ -427,6 +575,7 @@ public final class PerformanceScreen extends VantaUiScreen {
         snapshot = perf.snapshot();
         applySnapshot();
         refreshBoostButton();
+        refreshSmartBoost();
     }
 
     /** The Boost button waits while its Performance pack install is still running (a second click queues nothing). */

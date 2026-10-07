@@ -27,6 +27,8 @@ import dev.vanta.core.notifications.NotificationCenter;
 import dev.vanta.core.perf.FpsLimitPreset;
 import dev.vanta.core.perf.PerformanceCenter;
 import dev.vanta.core.perf.PerformancePreset;
+import dev.vanta.core.perf.SmartBoostTuner;
+import dev.vanta.core.perf.SystemInfo;
 import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.profiles.ProfileManager;
 import dev.vanta.core.search.ActionEntry;
@@ -71,6 +73,7 @@ public final class VantaServices {
     private final StatsStore statsStore;
     private final StatsTracker stats;
     private final PerformanceCenter performance;
+    private final SmartBoostTuner smartBoost;
     private final KeybindModel keybinds;
     private final ProfileManager profiles;
     private final AccessibilityService accessibility;
@@ -104,6 +107,12 @@ public final class VantaServices {
         this.statsStore = new StatsStore(jsonStore, paths);
         this.stats = new StatsTracker(statsStore, settings, clock);
         this.performance = new PerformanceCenter(game, options, settings, notifications, clock);
+        // Smart Boost's automatic run stays off in the client game test and with -Dvanta.smartBoost.auto=false; the
+        // explicit Re-tune always works.
+        this.smartBoost = new SmartBoostTuner(performance, game, options, settings, notifications, jsonStore,
+                paths.smartBoostFile(), SystemInfo.current(),
+                SmartBoostTuner.autoAllowedByProperty() && !PackOffer.inGameTest());
+        performance.attachSmartBoost(smartBoost);
         this.keybinds = new KeybindModel(keybindBridge);
         this.profiles = new ProfileManager(jsonStore, paths, clock, settings, hud, crosshair, keybindBridge);
         this.accessibility = new AccessibilityService(settings);
@@ -141,6 +150,7 @@ public final class VantaServices {
         cosmetics.load();
         statsStore.load();
         profiles.load();
+        smartBoost.load();
         keybinds.refresh();
         search.rebuild();
         stats.startSession();
@@ -160,6 +170,7 @@ public final class VantaServices {
         statsStore.saveIfDirty();
         profiles.saveAll();
         cosmetics.saveIfDirty();
+        smartBoost.saveIfDirty();
     }
 
     /** Ends the statistics session and saves everything. */
@@ -239,6 +250,14 @@ public final class VantaServices {
             }
             case ActionEntry.BOOST_FPS -> {
                 boostFps();
+                return true;
+            }
+            case ActionEntry.SMART_BOOST_RETUNE -> {
+                smartBoost.retune();
+                return true;
+            }
+            case ActionEntry.SMART_BOOST_UNDO -> {
+                smartBoost.undo();
                 return true;
             }
             case ActionEntry.CLEAR_STATISTICS -> {
@@ -325,6 +344,8 @@ public final class VantaServices {
     public boolean activateProfile(String id) {
         boolean ok = profiles.activate(id);
         if (ok) {
+            // Options the profile changed now belong to the player; Smart Boost lets go of them.
+            smartBoost.checkOwnership(clock.millis());
             profiles.find(id).ifPresent(p -> notifications.profileLoaded(p.name()));
             keybinds.refresh();
         }
@@ -445,6 +466,11 @@ public final class VantaServices {
 
     public PerformanceCenter performance() {
         return performance;
+    }
+
+    /** Smart Boost (automatic local video tuning). */
+    public SmartBoostTuner smartBoost() {
+        return smartBoost;
     }
 
     public KeybindModel keybinds() {

@@ -60,6 +60,10 @@ public record ActionEntry(String id, List<String> keywords, Optional<ScreenId> s
      * the Performance pack when it is missing.
      */
     public static final String BOOST_FPS = "boost_fps";
+    /** Id of Smart Boost's "measure again" command (takes back the video options the player changed). */
+    public static final String SMART_BOOST_RETUNE = "smart_boost_retune";
+    /** Id of "Undo Smart Boost": restores the video options from before Smart Boost and turns it off. */
+    public static final String SMART_BOOST_UNDO = "smart_boost_undo";
     /** Id of the "clear statistics" command. */
     public static final String CLEAR_STATISTICS = "clear_statistics";
     /** Id of the "open website" command. */
@@ -89,6 +93,9 @@ public record ActionEntry(String id, List<String> keywords, Optional<ScreenId> s
                 command(APPLY_BALANCED_PRESET, "performance", "preset", "balanced", "fps"),
                 command(BOOST_FPS, "performance", "max fps", "boost", "speed", "lag", "fps boost", "unlimited",
                         "sodium"),
+                command(SMART_BOOST_RETUNE, "smart boost", "re-tune", "tune", "automatic", "fps", "optimize",
+                        "booster", "measure"),
+                command(SMART_BOOST_UNDO, "smart boost", "undo", "restore", "revert"),
                 command(CLEAR_STATISTICS, "delete", "privacy", "reset stats"),
                 command(OPEN_WEBSITE, "docs", "help", "support", "documentation"));
     }

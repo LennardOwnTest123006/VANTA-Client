@@ -389,6 +389,7 @@ public final class VantaClientGameTest implements FabricClientGameTest {
             ModsClickReproduction.run(context, services, "world", 30, findings);
             context.setScreen(() -> null);
             context.waitForScreen(null);
+            SmartBoostStep.run(context, services);
         }
     }
 

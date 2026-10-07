@@ -49,6 +49,10 @@ public final class FakeGameBridge implements GameBridge {
     public boolean continueLastWorldResult = true;
     public Optional<Path> screenshotsDir = Optional.empty();
     public boolean development = true;
+    /** False emulates a screen open, the game paused or the window unfocused (only matters while in a world). */
+    public boolean gameplayActive = true;
+    /** {@code GL_RENDERER} string the client would report. */
+    public Optional<String> gpuRenderer = Optional.empty();
     /** Recorded actions in call order, e.g. {@code openVanillaScreen:OPTIONS}, {@code quit}, {@code openUrl:https://…}. */
     public final List<String> actions = new ArrayList<>();
 
@@ -85,6 +89,22 @@ public final class FakeGameBridge implements GameBridge {
     @Override
     public boolean isInWorld() {
         return inWorld;
+    }
+
+    @Override
+    public boolean isGameplayActive() {
+        return inWorld && gameplayActive;
+    }
+
+    @Override
+    public Optional<String> gpuRenderer() {
+        return gpuRenderer;
+    }
+
+    /** Simulates the player looking around (activity for the gameplay gate). */
+    public FakeGameBridge look() {
+        yaw = (yaw + 1f) % 360f;
+        return this;
     }
 
     @Override

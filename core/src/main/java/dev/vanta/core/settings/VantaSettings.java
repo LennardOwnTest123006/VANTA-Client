@@ -121,6 +121,16 @@ public final class VantaSettings {
     public static final Setting<Boolean> PERFORMANCE_AUTO_APPLY_RENDER_DISTANCE = add(Setting.bool(
             "performance.autoApplyRenderDistance", PERFORMANCE, false)
             .keywords("render distance", "automatic", "dynamic", "chunks"));
+    /**
+     * Smart Boost: measure gameplay once after installing or updating VANTA and pick the video preset this PC runs
+     * smoothly (never the graphics preset, the frame-rate limit or VSync; options the player changed stay theirs).
+     */
+    public static final Setting<Boolean> PERFORMANCE_SMART_BOOST = add(Setting.bool("performance.smartBoost",
+            PERFORMANCE, true).keywords("smart boost", "automatic", "auto", "tune", "fps", "optimize", "booster"));
+    /** Smart Boost's continuous mode: adjusts the render distance alone while playing (off by default). */
+    public static final Setting<Boolean> PERFORMANCE_SMART_BOOST_ADAPTIVE = add(Setting.bool(
+            "performance.smartBoostAdaptive", PERFORMANCE, false)
+            .keywords("smart boost", "render distance", "dynamic", "adaptive", "chunks", "fps"));
     /** Last applied performance preset. */
     public static final Setting<PerformancePreset> PERFORMANCE_PRESET = add(Setting.enumOf("performance.perfPreset",
             PERFORMANCE, PerformancePreset.class, PerformancePreset.BALANCED)

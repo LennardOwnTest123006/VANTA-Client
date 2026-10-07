@@ -3,15 +3,18 @@ package dev.vanta.core.perf;
 import dev.vanta.core.bridge.GameBridge;
 import dev.vanta.core.bridge.OptionsBridge;
 import dev.vanta.core.bridge.VanillaOption;
+import dev.vanta.core.bridge.Vec3d;
 import dev.vanta.core.hud.FrameTimeTracker;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.notifications.NotificationCenter;
 import dev.vanta.core.settings.SettingsStore;
 import dev.vanta.core.settings.VantaSettings;
 import java.time.Clock;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Service behind the Performance Center screen and the performance HUD widgets: samples frame times, memory and CPU,
@@ -22,6 +25,8 @@ import java.util.Optional;
 public final class PerformanceCenter {
     /** Baseline target when the frame rate is unlimited. */
     public static final int DEFAULT_TARGET_FPS = 60;
+    /** Without movement or looking around for this long the player counts as idle (no gameplay frames). */
+    public static final long ACTIVITY_TIMEOUT_MS = 30_000L;
 
     private final GameBridge game;
     private final OptionsBridge options;
@@ -34,6 +39,14 @@ public final class PerformanceCenter {
     private final RenderDistanceAdvisor advisor = new RenderDistanceAdvisor();
     private RenderDistanceAdvisor.Suggestion pendingSuggestion;
     private boolean applyingFpsLimit;
+    private SmartBoostTuner smartBoost;
+    private boolean gameplay;
+    private boolean gateWasInWorld;
+    private boolean gateRelaxedForTesting;
+    private long lastActivityAt = Long.MIN_VALUE;
+    private Vec3d lastPosition;
+    private float lastYaw;
+    private float lastPitch;
 
     public PerformanceCenter(GameBridge game, OptionsBridge options, SettingsStore settings,
                              NotificationCenter notifications, Clock clock) {
@@ -68,21 +81,93 @@ public final class PerformanceCenter {
         return advisor;
     }
 
-    /** Records one rendered frame (call from the HUD render pass). */
-    public void onFrame(double frameTimeMs) {
-        frameTimes.record(frameTimeMs);
+    /** Installs Smart Boost (the composition root creates it after the center). */
+    public void attachSmartBoost(SmartBoostTuner tuner) {
+        this.smartBoost = Objects.requireNonNull(tuner, "tuner");
+    }
+
+    /** Smart Boost, when installed. */
+    public Optional<SmartBoostTuner> smartBoost() {
+        return Optional.ofNullable(smartBoost);
     }
 
     /**
-     * Once per client tick: samples fps for the advisor and, when the suggestion setting is on and the player is in a
-     * world, evaluates it. With auto-apply enabled the suggestion is applied immediately; otherwise it is surfaced as a
-     * notification and kept in {@link #pendingSuggestion()} until applied or dismissed.
+     * True while the frames are real gameplay: in a world, no screen open, not paused, window focused (see
+     * {@link GameBridge#isGameplayActive()}) and the player moved or looked around in the last
+     * {@value #ACTIVITY_TIMEOUT_MS} ms, so the pause menu, an unfocused window and vanilla's AFK frame limiter never
+     * count as a slow PC. Updated once per tick.
      */
-    public void tick() {
+    public boolean isGameplay() {
+        return gameplay;
+    }
+
+    /**
+     * Test hook for the client game test, whose player stands still and whose window may not have the input focus:
+     * the gate then only requires a loaded world.
+     */
+    public void relaxGameplayGateForTesting(boolean relaxed) {
+        this.gateRelaxedForTesting = relaxed;
+    }
+
+    /** Records one rendered frame (call from the HUD render pass). */
+    public void onFrame(double frameTimeMs) {
+        frameTimes.record(frameTimeMs);
+        if (gameplay && smartBoost != null) {
+            smartBoost.onFrame(frameTimeMs);
+        }
+    }
+
+    private void updateGameplayGate(long now) {
         if (!game.isInWorld()) {
+            gameplay = false;
+            gateWasInWorld = false;
+            lastPosition = null;
+            lastActivityAt = Long.MIN_VALUE;
             return;
         }
+        Vec3d position = game.playerPosition().orElse(null);
+        float yaw = game.yaw();
+        float pitch = game.pitch();
+        if (gateWasInWorld && (moved(position) || Math.abs(yaw - lastYaw) > 0.01f
+                || Math.abs(pitch - lastPitch) > 0.01f)) {
+            lastActivityAt = now;
+        }
+        gateWasInWorld = true;
+        lastPosition = position;
+        lastYaw = yaw;
+        lastPitch = pitch;
+        if (gateRelaxedForTesting) {
+            gameplay = true;
+            return;
+        }
+        gameplay = game.isGameplayActive() && lastActivityAt != Long.MIN_VALUE
+                && now - lastActivityAt <= ACTIVITY_TIMEOUT_MS;
+    }
+
+    private boolean moved(Vec3d position) {
+        if (position == null || lastPosition == null) {
+            return false;
+        }
+        return Math.abs(position.x() - lastPosition.x()) > 1e-4 || Math.abs(position.y() - lastPosition.y()) > 1e-4
+                || Math.abs(position.z() - lastPosition.z()) > 1e-4;
+    }
+
+    /**
+     * Once per client tick: updates the gameplay gate, ticks Smart Boost and, during gameplay, samples fps for the
+     * advisor and (when the suggestion setting is on) evaluates it. With auto-apply enabled the suggestion is applied
+     * immediately; otherwise it is surfaced as a notification and kept in {@link #pendingSuggestion()} until applied
+     * or dismissed. While Smart Boost drives the render distance (a run, or its continuous mode) the advisor stays
+     * quiet so only one controller changes it.
+     */
+    public void tick() {
         long now = clock.millis();
+        updateGameplayGate(now);
+        if (smartBoost != null) {
+            smartBoost.tick(now, game.isInWorld(), gameplay);
+        }
+        if (!gameplay || smartBoost != null && smartBoost.controlsRenderDistance()) {
+            return;
+        }
         advisor.sample(game.fps(), now);
         if (!settings.get(VantaSettings.PERFORMANCE_RENDER_DISTANCE_SUGGESTIONS)) {
             return;
@@ -154,6 +239,9 @@ public final class PerformanceCenter {
     public void applyPreset(PerformancePreset preset, boolean notify) {
         Objects.requireNonNull(preset, "preset");
         Map<VanillaOption, Object> values = preset.optionValues();
+        if (smartBoost != null) {
+            smartBoost.releaseAll(values.keySet()); // an explicit choice: Smart Boost never overrides these again
+        }
         // Minecraft 1.21.11's graphics preset (Fast / Fancy / Fabulous) is a bundle: applying it also rewrites the
         // render and simulation distance, clouds, particles and more. Apply it first so the preset's explicit values
         // below are what the player ends up with; the game then reports the graphics preset as "custom".
@@ -172,6 +260,33 @@ public final class PerformanceCenter {
         if (notify) {
             notifications.performancePresetApplied(Lang.tr(preset.langKey()));
         }
+    }
+
+    /**
+     * Writes explicit option values without the graphics preset bundle: Smart Boost's writer. The graphics preset,
+     * the frame-rate limit and VSync are never written here (the player's Fast / Fancy / Fabulous choice and cap stay
+     * as they are), nor are the options in {@code skip} or the ones the game does not support. Saves once.
+     *
+     * @return the options written
+     */
+    public Set<VanillaOption> applyOptions(Map<VanillaOption, Object> values, Set<VanillaOption> skip) {
+        Objects.requireNonNull(values, "values");
+        Objects.requireNonNull(skip, "skip");
+        Set<VanillaOption> written = EnumSet.noneOf(VanillaOption.class);
+        for (Map.Entry<VanillaOption, Object> entry : values.entrySet()) {
+            VanillaOption option = entry.getKey();
+            if (SmartBoostTuner.NEVER_WRITTEN.contains(option) || skip.contains(option) || !options.supports(option)) {
+                continue;
+            }
+            if (options.set(option, entry.getValue())) {
+                written.add(option);
+            }
+        }
+        if (!written.isEmpty()) {
+            options.save();
+            advisor.reset();
+        }
+        return written;
     }
 
     /** Applies a frame-rate limit choice (limit + vsync) to the vanilla options and records it in the setting. */

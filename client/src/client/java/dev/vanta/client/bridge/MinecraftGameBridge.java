@@ -32,6 +32,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+import org.lwjgl.opengl.GL11;
 
 /**
  * {@link GameBridge} on top of {@link Minecraft}. Every method reads the live game state through the public
@@ -42,6 +43,8 @@ public final class MinecraftGameBridge implements GameBridge {
     private final CpuSampler cpu = new CpuSampler();
     private final LastWorldLocator lastWorld = new LastWorldLocator();
     private final String fabricLoaderVersion;
+    /** {@code GL_RENDERER}, read once at CLIENT_STARTED by {@link #captureGpuRenderer()}. */
+    private volatile String gpuRenderer;
 
     public MinecraftGameBridge() {
         this.fabricLoaderVersion = FabricLoader.getInstance().getModContainer("fabricloader")
@@ -104,6 +107,40 @@ public final class MinecraftGameBridge implements GameBridge {
     @Override
     public boolean isInWorld() {
         return level() != null && player() != null;
+    }
+
+    /**
+     * Smart Boost's gameplay gate: a world is loaded, no screen is open (pause menu, inventory, chat, VANTA screens),
+     * the game is not paused and the window has the input focus.
+     */
+    @Override
+    public boolean isGameplayActive() {
+        Minecraft minecraft = minecraft();
+        return minecraft != null && minecraft.level != null && minecraft.player != null && minecraft.screen == null
+                && !minecraft.isPaused() && minecraft.isWindowActive();
+    }
+
+    @Override
+    public Optional<String> gpuRenderer() {
+        return Optional.ofNullable(gpuRenderer);
+    }
+
+    /**
+     * Reads the OpenGL renderer string once (call on the render thread with the GL context current, i.e. at
+     * CLIENT_STARTED). Any failure leaves it unknown; Smart Boost then starts from its unknown-GPU guess.
+     */
+    public void captureGpuRenderer() {
+        if (gpuRenderer != null) {
+            return;
+        }
+        try {
+            String renderer = GL11.glGetString(GL11.GL_RENDERER);
+            if (renderer != null && !renderer.isBlank()) {
+                gpuRenderer = renderer.trim();
+            }
+        } catch (RuntimeException | LinkageError e) {
+            // No current context or no OpenGL binding: the renderer string is optional.
+        }
     }
 
     @Override
