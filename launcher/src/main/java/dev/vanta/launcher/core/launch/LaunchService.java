@@ -249,7 +249,7 @@ public final class LaunchService {
                     LOG.log(Level.INFO, "Recorded the Minecraft folder {0} for Singleplayer in {1}",
                         new Object[] {dir, MinecraftFolderHint.file(gameDir)});
                 }
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
                 LOG.log(Level.WARNING, "Could not record the Minecraft folder for Singleplayer: " + e.getMessage(), e);
             }
         });

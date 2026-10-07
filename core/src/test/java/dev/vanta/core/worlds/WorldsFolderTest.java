@@ -28,7 +28,9 @@ class WorldsFolderTest {
     @BeforeEach
     void setUp() throws IOException {
         home = tmp.resolve("home");
-        gameDir = home.resolve("vanta").resolve("instances").resolve("vanta-1.21.11");
+        // The VANTA Launcher's Linux layout: ~/.local/share/vanta-launcher/instances/<id>.
+        gameDir = home.resolve(".local").resolve("share").resolve("vanta-launcher").resolve("instances")
+                .resolve("vanta-1.21.11");
         Files.createDirectories(gameDir.resolve("saves"));
         official = home.resolve(".minecraft");
     }
@@ -59,6 +61,81 @@ class WorldsFolderTest {
         assertTrue(folder.reason().contains("platform default"), folder.reason());
         assertEquals(before, tree(tmp), "resolving moves, copies, creates and deletes nothing");
         assertFalse(Files.exists(official.resolve("backups")), "no backups folder is created in .minecraft");
+    }
+
+    private static void world(Path saves, String name, String dataFile) throws IOException {
+        Files.createDirectories(saves.resolve(name));
+        Files.writeString(saves.resolve(name).resolve(dataFile), "nbt");
+    }
+
+    @Test
+    void anEmptyMinecraftSavesFolderDoesNotHideTheWorldsAlreadyInTheVantaFolder() throws IOException {
+        // Vanilla creates .minecraft/saves on its first start: a VANTA-only player has an empty one.
+        Files.createDirectories(official.resolve("saves").resolve("not a world"));
+        world(gameDir.resolve("saves"), "Made in VANTA", "level.dat");
+        List<Path> before = tree(tmp);
+
+        WorldsFolder folder = resolve(WorldsFolderMode.MINECRAFT_FOLDER, Optional.empty(), null);
+
+        assertFalse(folder.redirected(), folder.reason());
+        assertEquals(gameDir.resolve("saves"), folder.savesDir());
+        assertTrue(folder.reason().contains("no worlds yet"), folder.reason());
+        assertEquals(before, tree(tmp), "resolving moves, copies, creates and deletes nothing");
+    }
+
+    @Test
+    void worldsInTheMinecraftFolderWinOverWorldsInTheVantaFolder() throws IOException {
+        world(official.resolve("saves"), "Old World", "level.dat_old");
+        world(gameDir.resolve("saves"), "Made in VANTA", "level.dat");
+        WorldsFolder folder = resolve(WorldsFolderMode.MINECRAFT_FOLDER, Optional.empty(), null);
+        assertTrue(folder.redirected(), folder.reason());
+        assertEquals(official.toAbsolutePath().normalize().resolve("saves"), folder.savesDir());
+    }
+
+    @Test
+    void bothFoldersEmptyUsesTheMinecraftFolderLikeANormalInstallation() throws IOException {
+        Files.createDirectories(official.resolve("saves"));
+        assertTrue(resolve(WorldsFolderMode.MINECRAFT_FOLDER, Optional.empty(), null).redirected());
+        Files.delete(gameDir.resolve("saves"));
+        assertTrue(resolve(WorldsFolderMode.MINECRAFT_FOLDER, Optional.empty(), null).redirected(),
+                "a VANTA folder without saves/ (first start) also uses the Minecraft folder");
+    }
+
+    @Test
+    void anotherLaunchersInstanceKeepsItsOwnWorldsUnlessTheLauncherNoteNamesAFolder() throws IOException {
+        world(official.resolve("saves"), "Old World", "level.dat");
+        Path prism = home.resolve(".local").resolve("share").resolve("PrismLauncher").resolve("instances")
+                .resolve("VANTA").resolve(".minecraft");
+        Files.createDirectories(prism);
+        WorldsFolder folder = WorldsFolder.resolve(prism, WorldsFolderMode.MINECRAFT_FOLDER, Optional.empty(),
+                Map.of(), LINUX, home, null);
+        assertFalse(folder.redirected(), folder.reason());
+        assertEquals(prism.resolve("saves"), folder.savesDir());
+        assertTrue(folder.reason().contains("not a VANTA Launcher instance"), folder.reason());
+
+        Path modrinthApp = home.resolve("ModrinthApp").resolve("profiles").resolve("VANTA");
+        Files.createDirectories(modrinthApp);
+        assertFalse(WorldsFolder.resolve(modrinthApp, WorldsFolderMode.MINECRAFT_FOLDER, Optional.empty(), Map.of(),
+                LINUX, home, null).redirected());
+
+        assertTrue(WorldsFolder.resolve(prism, WorldsFolderMode.MINECRAFT_FOLDER, Optional.of(official), Map.of(),
+                LINUX, home, null).redirected(), "an explicit launcher note is followed wherever the game runs");
+    }
+
+    @Test
+    void vantaLauncherInstancesAreRecognisedOnEveryPlatformAndWithAMovedDataDirectory() throws IOException {
+        assertTrue(WorldsFolder.isVantaLauncherInstance(tmp.resolve("AppData").resolve("Roaming")
+                .resolve("VANTA Launcher").resolve("instances").resolve("vanta-1.21.11")));
+        assertTrue(WorldsFolder.isVantaLauncherInstance(home.resolve("Library").resolve("Application Support")
+                .resolve("VANTA Launcher").resolve("instances").resolve("vanta-1.21.11")));
+        assertTrue(WorldsFolder.isVantaLauncherInstance(gameDir));
+        Path moved = tmp.resolve("Games").resolve("vanta-data");
+        assertFalse(WorldsFolder.isVantaLauncherInstance(moved.resolve("instances").resolve("vanta-1.21.11")));
+        Files.createDirectories(moved.resolve("versions").resolve("vanta-client"));
+        assertTrue(WorldsFolder.isVantaLauncherInstance(moved.resolve("instances").resolve("vanta-1.21.11")),
+                "a data directory moved with the launcher's home override holds versions/vanta-client");
+        assertFalse(WorldsFolder.isVantaLauncherInstance(home.resolve(".minecraft")));
+        assertFalse(WorldsFolder.isVantaLauncherInstance(tmp.getRoot()));
     }
 
     @Test

@@ -1,6 +1,7 @@
 package dev.vanta.core.worlds;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -8,6 +9,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Which {@code saves/} (and {@code backups/}) folder Singleplayer uses.
@@ -24,7 +27,11 @@ import java.util.Optional;
  *   <li>the setting is {@link WorldsFolderMode#VANTA_FOLDER};</li>
  *   <li>the official folder (from the launcher's {@link MinecraftFolderHint}, else the platform default) or its
  *       {@code saves/} does not exist or is not a directory;</li>
- *   <li>the game already runs in the official folder (manual install), so there is nothing to redirect.</li>
+ *   <li>the game already runs in the official folder (manual install), so there is nothing to redirect;</li>
+ *   <li>there is no launcher note and the game folder is not a VANTA Launcher instance (another launcher's instance
+ *       keeps its own worlds);</li>
+ *   <li>the official {@code saves/} has no world yet while the VANTA folder's has (vanilla creates an empty
+ *       {@code saves/} on its first start): redirecting would hide the player's VANTA worlds and show nothing.</li>
  * </ul>
  * Minecraft creates its level storage once while starting, so a change of the setting takes effect at the next start.
  *
@@ -97,8 +104,10 @@ public record WorldsFolder(Path savesDir, Path backupsDir, Optional<Path> minecr
         }
         Path official;
         String source;
+        boolean platformDefault;
         try {
-            if (hinted != null && hinted.isPresent()) {
+            platformDefault = hinted == null || hinted.isEmpty();
+            if (!platformDefault) {
                 official = hinted.get();
                 source = "recorded by the VANTA launcher";
             } else {
@@ -124,6 +133,24 @@ public record WorldsFolder(Path savesDir, Path backupsDir, Optional<Path> minecr
         if (sameFile(official, gameDir) || sameFile(saves, gameDir.resolve("saves"))) {
             return vanta(gameDir, "the game already runs in the Minecraft folder " + official);
         }
+        // Without the launcher's note the platform default is only a guess, so it is used for a VANTA Launcher
+        // instance alone. Another launcher's instance (Prism, MultiMC, Modrinth App, CurseForge...) keeps its own
+        // worlds, which its players expect to see.
+        if (platformDefault && !isVantaLauncherInstance(gameDir)) {
+            return vanta(gameDir, "the game folder " + gameDir + " is not a VANTA Launcher instance and no launcher "
+                    + "note names a Minecraft folder, so this launcher's own worlds stay listed");
+        }
+        // Vanilla creates saves/ the first time it starts, so an empty one is common. Switching to it would hide the
+        // worlds a player already made in the VANTA folder and show nothing in return (Singleplayer would open Create
+        // New World again), so the VANTA folder stays while it is the only one with worlds.
+        WorldCount officialWorlds = countWorlds(saves);
+        if (officialWorlds == WorldCount.UNREADABLE) {
+            return vanta(gameDir, "the saves folder " + saves + " (" + source + ") cannot be read");
+        }
+        if (officialWorlds == WorldCount.NONE && countWorlds(gameDir.resolve("saves")) == WorldCount.SOME) {
+            return vanta(gameDir, "the Minecraft folder " + official + " (" + source + ") has no worlds yet and the "
+                    + "VANTA folder has, so the VANTA folder's worlds stay listed");
+        }
         Path absolute = official.toAbsolutePath().normalize();
         return new WorldsFolder(absolute.resolve("saves"), absolute.resolve("backups"), Optional.of(absolute),
                 "using the worlds of the Minecraft folder " + absolute + " (" + source + ")");
@@ -148,6 +175,47 @@ public record WorldsFolder(Path savesDir, Path backupsDir, Optional<Path> minecr
             return userHome.resolve("Library").resolve("Application Support").resolve("minecraft");
         }
         return userHome.resolve(".minecraft");
+    }
+
+    /** Folder names of the VANTA Launcher's default data directory ({@code LauncherPaths.defaultDataDir}). */
+    private static final Set<String> LAUNCHER_DATA_DIR_NAMES = Set.of("VANTA Launcher", "vanta-launcher");
+
+    /**
+     * Whether {@code gameDir} is an instance of the VANTA Launcher: {@code <data dir>/instances/<id>}, where the data
+     * directory has the launcher's default name or holds its {@code versions/vanta-client} folder (a data directory
+     * moved with the launcher's home override).
+     */
+    static boolean isVantaLauncherInstance(Path gameDir) {
+        Path abs = gameDir.toAbsolutePath().normalize();
+        Path instances = abs.getParent();
+        if (instances == null || instances.getFileName() == null
+                || !"instances".equals(instances.getFileName().toString())) {
+            return false;
+        }
+        Path data = instances.getParent();
+        if (data == null || data.getFileName() == null) {
+            return false;
+        }
+        return LAUNCHER_DATA_DIR_NAMES.contains(data.getFileName().toString())
+                || Files.isDirectory(data.resolve("versions").resolve("vanta-client"));
+    }
+
+    private enum WorldCount { NONE, SOME, UNREADABLE }
+
+    /**
+     * Whether {@code saves} holds a world by vanilla's rule ({@code LevelStorageSource.findLevelCandidates}: a folder
+     * with a {@code level.dat} or {@code level.dat_old}). A missing folder has none.
+     */
+    private static WorldCount countWorlds(Path saves) {
+        if (!Files.isDirectory(saves)) {
+            return WorldCount.NONE;
+        }
+        try (Stream<Path> dirs = Files.list(saves)) {
+            return dirs.anyMatch(dir -> Files.isDirectory(dir) && (Files.isRegularFile(dir.resolve("level.dat"))
+                    || Files.isRegularFile(dir.resolve("level.dat_old")))) ? WorldCount.SOME : WorldCount.NONE;
+        } catch (IOException | UncheckedIOException | SecurityException e) {
+            return WorldCount.UNREADABLE;
+        }
     }
 
     /** Same file after resolving links; falls back to comparing normalised absolute paths. */
