@@ -36,6 +36,7 @@ import net.minecraft.client.gui.components.events.ContainerEventHandler;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -78,7 +79,6 @@ final class OptionsPersistenceStep {
         // Fast. Setting the option in code while the screen is open would leave the screen's sliders holding the old
         // bundle values, which the screen may apply again when it closes.
         clickPresetButtonUntil(context, GraphicsPreset.FAST);
-        expectGame(context, "FAST", "vanilla Video Settings: Fast selected with the Graphics button");
         String bundleBeforeEscape = context.computeOnClient(OptionsPersistenceStep::bundle);
         context.getInput().pressKey(InputConstants.KEY_ESCAPE);
         waitFor(context, OptionsPersistenceStep::onVantaMainMenu, "the VANTA main menu after Escape on Video Settings");
@@ -145,35 +145,35 @@ final class OptionsPersistenceStep {
 
     // ---- the vanilla Graphics preset button ---------------------------------------------------------------------
 
-    /** Clicks the Video Settings screen's Graphics preset button (real cursor and left button) until it shows {@code target}. */
+    /**
+     * Clicks the left end of the Video Settings screen's Graphics preset slider (Fast) once with the real cursor and
+     * left button, as a player does. The slider may apply its value at once or when the screen closes
+     * (OptionsList.applyUnsavedChanges in OptionsSubScreen.onClose), so the caller checks after Escape.
+     */
     private static void clickPresetButtonUntil(ClientGameTestContext context, GraphicsPreset target) {
-        for (int i = 0; i < 6; i++) {
-            if (context.computeOnClient(client -> client.options.graphicsPreset().get()) == target) {
-                return;
+        double[] point = context.computeOnClient(client -> {
+            AbstractWidget button = presetButton(client);
+            if (button == null || !button.visible) {
+                return null;
             }
-            double[] centre = context.computeOnClient(client -> {
-                AbstractWidget button = presetButton(client);
-                if (button == null || !button.visible) {
-                    return null;
-                }
-                Window w = client.getWindow();
-                double gx = button.getX() + button.getWidth() / 2.0;
-                double gy = button.getY() + button.getHeight() / 2.0;
-                return new double[]{gx * w.getScreenWidth() / w.getGuiScaledWidth(),
-                        gy * w.getScreenHeight() / w.getGuiScaledHeight()};
-            });
-            if (centre == null) {
-                String labels = context.computeOnClient(OptionsPersistenceStep::widgetLabels);
-                check(false, "options persistence: no visible Graphics preset button (caption \""
-                        + context.computeOnClient(client -> client.options.graphicsPreset().toString())
-                        + "\") on the Video Settings screen; widgets: " + labels);
-            }
-            context.getInput().setCursorPos(centre[0], centre[1]);
-            context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
-            context.waitTicks(3);
+            Window w = client.getWindow();
+            // The preset control is a slider over Fast, Fancy, Fabulous and Custom: its left end selects Fast.
+            double gx = button.getX() + 5.0;
+            double gy = button.getY() + button.getHeight() / 2.0;
+            return new double[]{gx * w.getScreenWidth() / w.getGuiScaledWidth(),
+                    gy * w.getScreenHeight() / w.getGuiScaledHeight()};
+        });
+        if (point == null) {
+            String labels = context.computeOnClient(OptionsPersistenceStep::widgetLabels);
+            check(false, "options persistence: no visible Graphics preset control (caption \""
+                    + context.computeOnClient(client -> client.options.graphicsPreset().toString())
+                    + "\") on the Video Settings screen; widgets: " + labels);
         }
-        String now = context.computeOnClient(client -> client.options.graphicsPreset().get().name());
-        check(false, "options persistence: six clicks on the Graphics button did not reach " + target + " (it shows " + now + ")");
+        context.getInput().setCursorPos(point[0], point[1]);
+        context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        context.waitTicks(3);
+        step("options persistence: clicked the " + target + " end of the Graphics preset slider; the game reports "
+                + context.computeOnClient(client -> client.options.graphicsPreset().get().name()));
     }
 
     /** The button whose message starts with the graphics preset's caption, searched through every nested container. */
@@ -318,8 +318,50 @@ final class OptionsPersistenceStep {
         } else {
             warn("options persistence: Sodium's createScreen opened " + shown + "; hint not checked");
         }
-        context.getInput().pressKey(InputConstants.KEY_ESCAPE);
-        waitFor(context, OptionsPersistenceStep::onVantaMainMenu, "the VANTA main menu after Escape on Sodium");
+        // A real pending change in Sodium's own config (its GUI scale option, which Sodium's screen itself changes this
+        // way on Ctrl+scroll), then Escape: VANTA must apply it instead of letting Sodium discard it.
+        int originalScale = context.computeOnClient(client -> client.options.guiScale().get());
+        int pendingScale = originalScale == 2 ? 3 : 2;
+        boolean pending = context.computeOnClient(client -> sodiumModifyGuiScale(pendingScale));
+        if (pending) {
+            context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+            waitFor(context, OptionsPersistenceStep::onVantaMainMenu, "the VANTA main menu after Escape on Sodium");
+            int applied = context.computeOnClient(client -> client.options.guiScale().get());
+            context.runOnClient(client -> {
+                client.options.guiScale().set(originalScale);
+                client.resizeDisplay();
+                client.options.save();
+            });
+            check(applied == pendingScale, "options persistence: Escape in Sodium's video settings discarded a pending "
+                    + "change (GUI scale " + applied + ", expected " + pendingScale + ")");
+            step("options persistence: Escape in Sodium's video settings applied the pending change");
+        } else {
+            warn("options persistence: no pending Sodium change could be made; Escape-applies not checked");
+            context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+            waitFor(context, OptionsPersistenceStep::onVantaMainMenu, "the VANTA main menu after Escape on Sodium");
+        }
+    }
+
+    /** Sets Sodium's GUI scale option to a pending (not yet applied) value; true when Sodium reports pending changes. */
+    private static boolean sodiumModifyGuiScale(int value) {
+        try {
+            Object config = Class.forName("net.caffeinemc.mods.sodium.client.config.ConfigManager").getField("CONFIG").get(null);
+            Object option = config.getClass().getMethod("getOption", Identifier.class)
+                    .invoke(config, Identifier.parse("sodium:general.gui_scale"));
+            if (option == null) {
+                return false;
+            }
+            for (java.lang.reflect.Method m : option.getClass().getMethods()) {
+                if (m.getName().equals("modifyValue") && m.getParameterCount() == 1) {
+                    m.invoke(option, value);
+                    return Boolean.TRUE.equals(config.getClass().getMethod("anyOptionChanged").invoke(config));
+                }
+            }
+            return false;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            warn("options persistence: Sodium's GUI scale option could not be changed: " + e);
+            return false;
+        }
     }
 
     /** What a restart does with the files: Minecraft reads options.txt, VANTA reads settings.json. */

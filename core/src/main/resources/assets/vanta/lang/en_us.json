@@ -343,7 +343,7 @@
   "vanta.option.graphics_mode.fabulous": "Fabulous!",
   "vanta.option.graphics_mode.custom": "Custom",
   "vanta.notification.sodium_apply.title": "Sodium video settings",
-  "vanta.notification.sodium_apply.body": "Press Apply (Alt+A) to keep your changes. Escape closes this screen and discards changes that were not applied.",
+  "vanta.notification.sodium_apply.body": "With VANTA, Escape keeps your changes here: they are applied like with Apply (Alt+A) before the screen closes.",
   "vanta.option.inactivity_fps_limit.minimized": "Minimized",
   "vanta.option.inactivity_fps_limit.afk": "Away from keyboard",
   "vanta.settings.title": "Settings",

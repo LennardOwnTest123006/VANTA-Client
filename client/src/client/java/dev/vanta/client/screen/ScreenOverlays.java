@@ -21,6 +21,7 @@ public final class ScreenOverlays {
                 return;
             }
             runtime.services().notifications().sodiumApplyHintFor(screen.getClass().getName());
+            SodiumEscapeKeepsChanges.attach(screen);
             ScreenEvents.afterRender(screen).register((s, graphics, mouseX, mouseY, tickDelta) ->
                     runtime.renderNotifications(graphics, s.width, s.height, tickDelta));
         });
