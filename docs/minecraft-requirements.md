@@ -85,5 +85,6 @@ rendering pipeline.
 
 The launcher downloads from `piston-meta.mojang.com`, `piston-data.mojang.com`, `resources.download.minecraft.net`,
 `libraries.minecraft.net`, `meta.fabricmc.net`, `maven.fabricmc.net`, `api.adoptium.net` (Java), the Microsoft and
-Xbox Live sign-in endpoints, `api.minecraftservices.com` and GitHub (release downloads). After installation the game
+Xbox Live sign-in endpoints, `api.minecraftservices.com`, GitHub (release downloads) and, from launcher 1.1.0 on,
+`api.modrinth.com` and `cdn.modrinth.com` (the Performance pack and the Mods page). After installation the game
 only needs the network for multiplayer and the usual Minecraft services. VANTA itself contacts no server of its own.

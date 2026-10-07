@@ -28,11 +28,11 @@ only**, never about other players. Each category can be switched off in *Setting
 exported or deleted, and the file never leaves your computer
 ([Statistics and privacy](statistics-and-privacy.md)).
 
-The client opens **no network connections of its own**, with one exception: the *Mods & Shaders* screen (from
-client 1.1.0 on) talks to Modrinth while you use it, see
-[Modrinth](#modrinth-mods-shaders-and-the-performance-pack) below. The client does not phone home, check for updates,
-fetch cosmetics or load remote content. Minecraft's own connections (Mojang authentication, the servers you join,
-resource packs a server sends) are not changed by VANTA.
+The client opens **no network connections of its own**, with one exception: Modrinth, while you use the *Mods &
+Shaders* screen (from client 1.1.0 on) and, from client 1.2.0 on, after you press *Boost FPS* or *Install* in the
+*Boost your FPS?* offer, see [Modrinth](#modrinth-mods-shaders-and-the-performance-pack) below. The client does not
+phone home, check for updates, fetch cosmetics or load remote content. Minecraft's own connections (Mojang
+authentication, the servers you join, resource packs a server sends) are not changed by VANTA.
 
 HUD widgets show information the game already exposes about your own session (position, biome, effects, ping,
 server name). The *Server* widget has a "hide address" option for streaming.
@@ -94,8 +94,10 @@ from the address Modrinth publishes for them, `cdn.modrinth.com`.
 
 When:
 
-- **client**: only while you use *Mods & Shaders*: when the screen opens and lists projects, when you search and when
-  you install. Nothing is sent at game start or in the background;
+- **client**: only while you use *Mods & Shaders* (when the screen opens and lists projects, when you search and when
+  you install) and, from client 1.2.0 on, after you press *Boost FPS* in the Performance Center or *Install* in the
+  *Boost your FPS?* offer while Performance pack members are missing. Nothing is sent at game start or in the
+  background without that click;
 - **launcher**: when the Performance pack is installed (PLAY, *PLAY via Minecraft Launcher*, *Use with Minecraft
   Launcher*, `--install`, `--install-official-profile`, unless *Settings → Game → Install the performance pack* is
   off or `--without-performance-pack` is given), when you open or use the Mods page and for *Update all*.

@@ -62,7 +62,9 @@ VANTA is an ordinary Fabric mod and coexists with others:
   yourself. The launcher's *Open game folder* button takes you there. VANTA lists such files but never changes them
   in the game; the launcher's Mods page can switch them off or remove them.
 - Mods must match the Minecraft version; Fabric Loader shows a clear error at start if one does not.
-- **Performance mods**: VANTA ships none in its own files and does not require any. The
+- **Performance mods**: VANTA's own jar contains none and does not require any; from client 1.2.0 on the mods bundle
+  carries the redistributable Performance pack mods next to it
+  ([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)). The
   [Performance pack](mods-and-shaders.md#the-performance-pack) (Sodium, Lithium, FerriteCore, ImmediatelyFast,
   EntityCulling, Iris Shaders) is installed from Modrinth on request (by default in the VANTA Launcher). CI runs VANTA's
   game test with the newest 1.21.11 versions of these six loaded; other combinations are not tested or supported. If
@@ -121,7 +123,9 @@ as described in [Installation](installation.md#2-verify-the-checksum).
    copy of Sodium, Iris, Lithium, FerriteCore or ImmediatelyFast first: Fabric does not start with two copies of one
    mod.
 4. Select the Fabric profile in the official launcher and play. VANTA writes its files to `config/vanta/` inside
-   that game directory. For the Performance pack, open *Mods & Shaders* in the VANTA main menu.
+   that game directory. The Performance pack came with the bundle (client 1.2.0 and newer) except EntityCulling; the
+   game offers it once per start at the main menu (*Boost your FPS?*) and on the *Performance pack* card of
+   *Mods & Shaders*.
 
 If you have the VANTA Launcher, *PLAY via Minecraft Launcher* or *Use with Minecraft Launcher* does the Fabric and
 mods part (steps 1 to 3, apart
