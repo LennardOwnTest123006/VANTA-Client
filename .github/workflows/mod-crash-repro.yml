@@ -98,6 +98,15 @@ jobs:
           grep -F "[VANTA gametest] done: all steps passed" "$RUN/logs/latest.log" && echo "VANTA GAME TEST PASSED" | tee -a "$RUNNER_TEMP/repro/summary.txt" || true
           grep -nE "Could not execute entrypoint|Caused by|NoSuchMethodError|NoClassDefFoundError|smartfpsbooster|Exception" "$RUN/logs/latest.log" | head -60 || true
           mkdir -p "$RUNNER_TEMP/repro/out"; cp -r "$RUN/crash-reports" "$RUN/logs" "$RUNNER_TEMP/repro/out/" 2>/dev/null || true
+      - name: Key binding constructors of Minecraft 1.21.11 (intermediary names, as mods see them)
+        if: always()
+        run: |
+          JAR=$(find ~/.gradle/caches/fabric-loom -name '*.jar' -path '*intermediary*' 2>/dev/null | xargs -r ls -S 2>/dev/null | head -1)
+          echo "intermediary game jar: ${JAR:-not found}"
+          [ -n "$JAR" ] || { find ~/.gradle/caches/fabric-loom -maxdepth 4 -name '*.jar' | head -20; exit 0; }
+          javap -cp "$JAR" -p -s net.minecraft.class_304 | grep -A1 -E 'class_304\(' || true
+          echo "---- nested types of class_304"
+          unzip -l "$JAR" | grep -oE 'net/minecraft/class_304\$[^ ]+\.class' || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
