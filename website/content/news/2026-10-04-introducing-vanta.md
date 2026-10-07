@@ -42,6 +42,12 @@ when you ask for it (the Performance pack), and the Mods & Shaders screen talks 
 still ships no third-party mods in its own files and sends no account data or statistics; see
 [VANTA 1.1](https://vanta-client.netlify.app/news/vanta-1-1).
 
+**Update, 2026-10-07:** from VANTA Client 1.2.0 on, the mods bundle for the manual installation
+(`vanta-client-1.2.0-mods.zip`) carries the Performance pack mods whose licences allow redistribution (Sodium, Lithium,
+FerriteCore, ImmediatelyFast and Iris), unmodified with their licence texts; EntityCulling is still downloaded in game,
+and the VANTA Launcher keeps installing the pack from Modrinth. See
+[VANTA 1.2](https://vanta-client.netlify.app/news/vanta-1-2).
+
 ## How releases will work
 
 **Update, 2026-10-05:** VANTA Client 1.0.0 and VANTA Launcher 1.0.0 are published. The

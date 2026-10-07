@@ -51,7 +51,7 @@ export default function ScreenshotsPage() {
         }
         lead={
           count > 0
-            ? `Every image below was taken by the automated game test from a running Minecraft ${site.minecraft} with the released VANTA build. Captions describe what you see; nothing is retouched.`
+            ? `Every image below was taken by the automated game test from a running Minecraft ${site.minecraft} with a released VANTA build; the capture information under each image names the version it was taken with. Captions describe what you see; nothing is retouched.`
             : `Every image on this page is taken from the real game by the automated test suite. Until the first release is published there is nothing to show — and this site never fakes a screenshot.`
         }
       />
