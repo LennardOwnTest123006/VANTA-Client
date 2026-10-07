@@ -7,7 +7,9 @@ VANTA ships two installable products with independent versions, each as its own 
 | **VANTA Client** `x.y.z` | `mod_version` in `client/gradle.properties` | `client-vx.y.z` | `https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-vx.y.z` |
 | **VANTA Launcher** `x.y.z` | `launcher_version` in `launcher/gradle.properties` | `launcher-vx.y.z` | `https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-vx.y.z` |
 
-The website has a version too (`website/package.json`) but no GitHub Release; it is deployed to Netlify by hand from a build of the repository (`VITE_SITE_URL=https://vanta-client.netlify.app npm run build` in `website/`, see `website/README.md`); a Netlify project linked to the repository would build it from `netlify.toml` instead.
+The website has a version too (`website/package.json`) but no GitHub Release; it is deployed to Netlify by hand from a
+build of the repository (`VITE_SITE_URL=https://vanta-client.netlify.app npm run build` in `website/`, see
+`website/README.md`); a Netlify project linked to the repository would build it from `netlify.toml` instead.
 All releases: [github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases).
 
 ## Release files
