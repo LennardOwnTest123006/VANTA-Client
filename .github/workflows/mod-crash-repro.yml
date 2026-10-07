@@ -1,0 +1,106 @@
+# Diagnostic: starts the real Minecraft 1.21.11 client (production game test under Xvfb) with VANTA, Fabric API and
+# one extra Modrinth mod version, and prints what the game reports. It never fails because the game crashed: the
+# crash report is the result. Used to attribute a start-up crash a player reported to the mod that causes it.
+#
+# Triggers   "Run workflow" with a comma-separated list of Modrinth version ids of one project, or a push that changes
+#            this file (then the default list below runs).
+name: Mod crash reproduction
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: Modrinth project slug
+        required: true
+        default: smart-fps-booster
+      versions:
+        description: Comma-separated Modrinth version ids of that project
+        required: true
+        default: hE70j3c1,XhY98l33
+  push:
+    paths: ['.github/workflows/mod-crash-repro.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  versions:
+    name: Versions to reproduce
+    runs-on: ubuntu-24.04
+    outputs:
+      slug: ${{ steps.list.outputs.slug }}
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - id: list
+        env:
+          SLUG: ${{ inputs.slug || 'smart-fps-booster' }}
+          VERSIONS: ${{ inputs.versions || 'hE70j3c1,XhY98l33' }}
+        run: |
+          set -euo pipefail
+          echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(jq -cn --arg v "$VERSIONS" '$v | split(",") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
+
+  reproduce:
+    name: VANTA + Fabric API + ${{ needs.versions.outputs.slug }} ${{ matrix.version }} in Minecraft 1.21.11
+    needs: [versions]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJson(needs.versions.outputs.matrix) }}
+    env:
+      SLUG: ${{ needs.versions.outputs.slug }}
+      VERSION_ID: ${{ matrix.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Show the version on Modrinth and the mod's own metadata
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/repro/jar"
+          UA="LennardOwnTest123006/VANTA-Client (mod crash reproduction)"
+          curl -fsS --retry 3 -A "$UA" "https://api.modrinth.com/v2/version/${VERSION_ID}" > "$RUNNER_TEMP/repro/version.json"
+          jq '{name, version_number, game_versions, loaders, date_published, dependencies, files: [.files[] | {filename, size, primary}]}' "$RUNNER_TEMP/repro/version.json"
+          URL=$(jq -r '[.files[] | select(.primary)][0].url // .files[0].url' "$RUNNER_TEMP/repro/version.json")
+          curl -fsSL --retry 3 -A "$UA" -o "$RUNNER_TEMP/repro/mod.jar" "$URL"
+          cd "$RUNNER_TEMP/repro/jar" && unzip -q ../mod.jar
+          echo "---- fabric.mod.json"; cat fabric.mod.json; echo
+          for c in $(jq -r '.entrypoints.client[]? | if type == "object" then .value else . end' fabric.mod.json); do
+            f="$(echo "${c%%::*}" | tr . /).class"
+            echo "---- client entrypoint $c ($f): Minecraft members it references"
+            javap -c -p "$f" 2>/dev/null | grep -oE '(Method|Field|InterfaceMethod) net/minecraft/[^ ]+' | sort -u || true
+          done
+      - name: Start the game with the mod (the production game test; a crash is the expected result)
+        working-directory: client
+        env:
+          CI: 'true'
+        run: |
+          set +e
+          timeout 900 ./gradlew runProductionClientGametest --stacktrace \
+            "-PextraProductionMods=maven.modrinth:${SLUG}:${VERSION_ID}" > "$RUNNER_TEMP/repro/gradle.log" 2>&1
+          echo "gradle exit code: $?" | tee -a "$RUNNER_TEMP/repro/summary.txt"
+          tail -40 "$RUNNER_TEMP/repro/gradle.log"
+      - name: What the game reported
+        if: always()
+        run: |
+          RUN=client/run/production-gametest
+          if ls "$RUN"/crash-reports/*.txt >/dev/null 2>&1; then
+            echo "CRASHED" | tee -a "$RUNNER_TEMP/repro/summary.txt"
+            for f in "$RUN"/crash-reports/*.txt; do echo "==== $f"; sed -n '1,120p' "$f"; done
+          else
+            echo "NO CRASH REPORT" | tee -a "$RUNNER_TEMP/repro/summary.txt"
+          fi
+          grep -F "[VANTA gametest] done: all steps passed" "$RUN/logs/latest.log" && echo "VANTA GAME TEST PASSED" | tee -a "$RUNNER_TEMP/repro/summary.txt" || true
+          grep -nE "Could not execute entrypoint|Caused by|NoSuchMethodError|NoClassDefFoundError|smartfpsbooster|Exception" "$RUN/logs/latest.log" | head -60 || true
+          mkdir -p "$RUNNER_TEMP/repro/out"; cp -r "$RUN/crash-reports" "$RUN/logs" "$RUNNER_TEMP/repro/out/" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mod-crash-repro-${{ matrix.version }}
+          path: ${{ runner.temp }}/repro
+          if-no-files-found: ignore
