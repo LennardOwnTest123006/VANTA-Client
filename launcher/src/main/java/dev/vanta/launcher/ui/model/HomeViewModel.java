@@ -11,6 +11,7 @@ import dev.vanta.launcher.core.install.OfficialProfileService;
 import dev.vanta.launcher.core.install.VantaClientService;
 import dev.vanta.launcher.core.java.JavaInstall;
 import dev.vanta.launcher.core.launch.LaunchRequest;
+import dev.vanta.launcher.core.launch.StartupGuard;
 import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.DownloadProgressListener;
@@ -33,10 +34,15 @@ import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -63,11 +69,51 @@ import java.util.function.Consumer;
  * <p>When the game the launcher started exits after writing {@code config/vanta/restart.request} ("Restart game" in
  * VANTA), it is started again right away with the same instance, account and Java (at most {@value #MAX_RESTARTS} times
  * per PLAY).</p>
+ *
+ * <p>The start check ({@link LauncherBackend#startupCheck()}) switches off mods that would stop Minecraft while starting:
+ * PLAY runs it after the install/verify step and before launching, "PLAY via Minecraft Launcher" / "Use with Minecraft
+ * Launcher" after the files are in place and before the Minecraft Launcher opens, and the window runs it once when it
+ * opens ({@link #runStartupCheck()}). After the game PLAY started exits, the newest crash report is checked; after the
+ * Minecraft Launcher was opened (or set up), {@code crash-reports/} is watched every {@link #WATCH_PERIOD} for
+ * {@link #WATCH_LIMIT} ({@link #watchCrashReports()}). Every mod switched off gets a toast and a launcher log line.</p>
  */
 public final class HomeViewModel {
 
     /** Restarts in a row after one PLAY (a client that asks on every start must not loop forever). */
     public static final int MAX_RESTARTS = 5;
+    /** How often {@code crash-reports/} is looked at while the Minecraft Launcher plays. */
+    public static final Duration WATCH_PERIOD = Duration.ofSeconds(3);
+    /** How long it is watched after the Minecraft Launcher was opened. */
+    public static final Duration WATCH_LIMIT = Duration.ofMinutes(30);
+    /** How long a "switched off" toast stays: long enough to read what to do next. */
+    static final Duration SWITCHED_OFF_TOAST = Duration.ofSeconds(20);
+
+    /** Runs a task repeatedly (production: a daemon thread; tests: by hand). */
+    @FunctionalInterface
+    public interface Scheduler {
+        /**
+         * @param period time between runs
+         * @param task   task
+         * @return stops the repetition
+         */
+        Runnable every(Duration period, Runnable task);
+
+        /** @return a scheduler with its own daemon thread per repetition */
+        static Scheduler daemon() {
+            return (period, task) -> {
+                final ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor(r -> {
+                    final Thread t = new Thread(r, "vanta-crash-report-watch");
+                    t.setDaemon(true);
+                    return t;
+                });
+                final ScheduledFuture<?> f = ses.scheduleWithFixedDelay(task, period.toMillis(), period.toMillis(), TimeUnit.MILLISECONDS);
+                return () -> {
+                    f.cancel(false);
+                    ses.shutdownNow();
+                };
+            };
+        }
+    }
 
     /** Screen state. */
     public enum State {
@@ -124,6 +170,10 @@ public final class HomeViewModel {
     private Launched lastLaunch;
     private JavaInstall lastJava;
     private int restarts;
+    private Scheduler watchScheduler = Scheduler.daemon();
+    private Runnable stopWatch;
+    private long watchTicks;
+    private boolean watchBusy;
 
     /**
      * @param session     shared session state
@@ -331,7 +381,11 @@ public final class HomeViewModel {
         running = Async.run(executors, () -> {
             final InstanceInfo installed = backend.install(request, installListener(), token);
             token.throwIfCancelled();
+            // The files are in place: switch off what would stop Minecraft while starting, before it starts.
+            final StartupGuard.Report guard = startupCheckQuietly();
+            token.throwIfCancelled();
             executors.onUi(() -> {
+                announce(guard, false);
                 session.setInstance(installed);
                 phaseText.set(messages.get("home.status.refreshingAccount"));
                 stepText.set(messages.get("home.status.refreshingAccount"));
@@ -509,7 +563,13 @@ public final class HomeViewModel {
         officialBusy.set(true);
         beginProgress(State.INSTALLING);
         phaseText.set(messages.get("home.status.official"));
-        running = Async.run(executors, () -> backend.installOfficialProfile(installListener(), token), result -> {
+        running = Async.run(executors, () -> {
+            final OfficialProfileService.Result installed = backend.installOfficialProfile(installListener(), token);
+            // The files are in place and the Minecraft Launcher is not open yet: switch off what would stop Minecraft there.
+            return new OfficialSetUp(installed, startupCheckQuietly());
+        }, setUp -> {
+            final OfficialProfileService.Result result = setUp.result();
+            announce(setUp.guard(), false);
             officialBusy.set(false);
             endProgress();
             settle();
@@ -523,9 +583,11 @@ public final class HomeViewModel {
                 launcherLog.append(LogLevel.WARN, "Performance pack: " + note);
             }
             if (openAfter) {
-                openOfficialLauncher();
+                openOfficialLauncher(false);
             } else {
                 toasts.success(messages.format("official.toast.done.title", result.profileName()), done);
+                // The player opens the Minecraft Launcher next: a crash there is caught while this window is open.
+                watchCrashReports();
             }
         }, error -> {
             officialBusy.set(false);
@@ -537,13 +599,26 @@ public final class HomeViewModel {
      * Starts the official Minecraft Launcher and tells the player which profile to pick. Never stops a running one.
      */
     public void openOfficialLauncher() {
+        openOfficialLauncher(true);
+    }
+
+    /**
+     * @param checkFirst whether to run the start check first (false: it has just run)
+     */
+    private void openOfficialLauncher(final boolean checkFirst) {
         final String profile = OfficialProfileService.profileName(LauncherVersion.MINECRAFT);
-        Async.run(executors, backend::openOfficialLauncher, result -> {
+        Async.run(executors, () -> {
+            final StartupGuard.Report guard = checkFirst ? startupCheckQuietly() : StartupGuard.Report.EMPTY;
+            return new Opened(guard, backend.openOfficialLauncher());
+        }, opened -> {
+            announce(opened.guard(), false);
+            final OfficialLauncher.OpenResult result = opened.result();
             launcherLog.append(result.started() ? LogLevel.INFO : LogLevel.WARN, result.detail());
             switch (result.outcome()) {
                 case OPENED, STARTED_UNCONFIRMED -> {
                     officialDoneText.set(messages.format("official.opened.message", profile));
                     toasts.success(messages.get("official.opened.title"), messages.format("official.opened.message", profile));
+                    watchCrashReports();
                 }
                 case NOT_FOUND -> toasts.error(messages.get("official.open.failed.title"), messages.get("official.open.notFound"));
                 default -> toasts.error(messages.get("official.open.failed.title"), messages.format("official.open.failed", result.detail()));
@@ -645,6 +720,126 @@ public final class HomeViewModel {
     // ---------------------------------------------------------------- internals
 
     private record Launched(InstanceInfo instance, Account account, RunningGame game) {
+    }
+
+    private record OfficialSetUp(OfficialProfileService.Result result, StartupGuard.Report guard) {
+    }
+
+    private record Opened(StartupGuard.Report guard, OfficialLauncher.OpenResult result) {
+    }
+
+    // ---------------------------------------------------------------- start check
+
+    /**
+     * The start check once when the window opens: a player who just updated the launcher gets mods that would stop
+     * Minecraft switched off without pressing anything (also the mod a crash report from before names).
+     */
+    public void runStartupCheck() {
+        Async.run(executors, backend::startupCheck, report -> announce(report, false),
+            error -> launcherLog.append(LogLevel.WARN, "Startup check could not run: " + errors.describe(error)));
+    }
+
+    /**
+     * Watches {@code crash-reports/} of the VANTA instance while the Minecraft Launcher plays the VANTA profile: every
+     * {@link #WATCH_PERIOD} for {@link #WATCH_LIMIT}, or until {@link #stopWatchingCrashReports()} (the window closes). A
+     * new report that names a mod switches it off, and a toast asks the player to press Play in the Minecraft Launcher
+     * again. Starting it again restarts the time limit.
+     */
+    public void watchCrashReports() {
+        stopWatchingCrashReports();
+        watchTicks = 0;
+        watchBusy = false;
+        final long maxTicks = Math.max(1, WATCH_LIMIT.toMillis() / WATCH_PERIOD.toMillis());
+        final Runnable[] self = new Runnable[1];
+        final Runnable stop = watchScheduler.every(WATCH_PERIOD, () -> executors.onUi(() -> watchTick(self[0], maxTicks)));
+        self[0] = stop;
+        stopWatch = stop;
+    }
+
+    private void watchTick(final Runnable owner, final long maxTicks) {
+        if (owner == null || stopWatch != owner) {
+            return;
+        }
+        if (++watchTicks > maxTicks) {
+            launcherLog.append(LogLevel.INFO, "Stopped watching for crash reports after " + WATCH_LIMIT.toMinutes() + " minutes");
+            stopWatchingCrashReports();
+            return;
+        }
+        if (watchBusy) {
+            return;
+        }
+        watchBusy = true;
+        Async.run(executors, backend::crashReportCheck, report -> {
+            watchBusy = false;
+            announce(report, true);
+        }, error -> {
+            watchBusy = false;
+            launcherLog.append(LogLevel.WARN, "Crash report check could not run: " + errors.describe(error));
+        });
+    }
+
+    /** Stops {@link #watchCrashReports()} (the window closes). */
+    public void stopWatchingCrashReports() {
+        final Runnable stop = stopWatch;
+        stopWatch = null;
+        if (stop != null) {
+            stop.run();
+        }
+    }
+
+    /** @return whether {@code crash-reports/} is being watched */
+    public boolean watchingCrashReports() {
+        return stopWatch != null;
+    }
+
+    /**
+     * Test hook: how the crash report watch repeats (default {@link Scheduler#daemon()}).
+     *
+     * @param scheduler scheduler
+     */
+    public void setWatchScheduler(final Scheduler scheduler) {
+        this.watchScheduler = Objects.requireNonNull(scheduler, "scheduler");
+    }
+
+    /** @return the start check's report; a failure is logged and never stops PLAY or the Minecraft Launcher */
+    private StartupGuard.Report startupCheckQuietly() {
+        try {
+            return backend.startupCheck();
+        } catch (java.io.IOException | RuntimeException e) {
+            launcherLog.append(LogLevel.WARN, "Startup check could not run: " + errors.describe(e));
+            return StartupGuard.Report.EMPTY;
+        }
+    }
+
+    /** The crash report part after the game PLAY started exited. */
+    private void checkCrashReportAfterExit() {
+        Async.run(executors, backend::crashReportCheck, report -> announce(report, false),
+            error -> launcherLog.append(LogLevel.WARN, "Crash report check could not run: " + errors.describe(error)));
+    }
+
+    /**
+     * One toast and one launcher log line per mod the start check switched off (or only reported).
+     *
+     * @param report        report
+     * @param playAgainHint whether to ask the player to press Play in the Minecraft Launcher again
+     */
+    private void announce(final StartupGuard.Report report, final boolean playAgainHint) {
+        for (StartupGuard.Action a : report.actions()) {
+            final String reason = a.source() == StartupGuard.Source.CHECK
+                ? messages.format("startup.reason.olderMinecraft", LauncherVersion.MINECRAFT)
+                : messages.format("startup.reason.crashReport", a.crashReport());
+            if (a.switchedOff()) {
+                launcherLog.append(LogLevel.WARN, "Startup check: switched off " + a.fileName() + " (" + a.label() + "): " + a.reason()
+                    + "; it can be switched on again on the Mods page");
+                final String text = messages.format("startup.toast.switchedOff.message", a.label(), reason)
+                    + (playAgainHint ? " " + messages.get("startup.toast.playAgain") : "");
+                toasts.show(ToastModel.Kind.WARNING, messages.format("startup.toast.switchedOff.title", a.modName()), text, SWITCHED_OFF_TOAST);
+            } else {
+                launcherLog.append(LogLevel.WARN, "Startup check: did not switch off " + a.fileName() + " (" + a.label() + "): " + a.reason());
+                toasts.show(ToastModel.Kind.WARNING, messages.get("startup.toast.notSwitchedOff.title"),
+                    messages.format("startup.toast.notSwitchedOff.message", a.label(), reason), SWITCHED_OFF_TOAST);
+            }
+        }
     }
 
     private boolean isBusy() {
@@ -768,6 +963,8 @@ public final class HomeViewModel {
 
     private void finishExit(final int code) {
         lastLaunch = null;
+        // A crash while starting leaves a report that names the mod: switch it off before the next PLAY.
+        checkCrashReportAfterExit();
         if (code == 0) {
             launcherLog.append(LogLevel.INFO, "Game exited normally");
             toasts.success(messages.get("home.toast.gameExited.title"), messages.get("home.toast.gameExited.message"));

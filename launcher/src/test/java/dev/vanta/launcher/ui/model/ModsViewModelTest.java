@@ -94,6 +94,22 @@ class ModsViewModelTest {
     }
 
     @Test
+    void aProjectTheCoreSkippedIsNotAnnouncedAsInstalled() {
+        vm.search();
+        final String skipped = "Lithium mc1.21.11-0.21.4-fabric was not installed: built for an older Minecraft: it creates key bindings the"
+            + " way Minecraft did before 1.21.9, so Minecraft 1.21.11 would stop while starting";
+        backend.modrinthInstallWarnings.add(skipped);
+        vm.loadMore();
+        vm.install(vm.results().get(2));
+        final ToastModel.Toast toast = ctx.toasts.toasts().get(0);
+        assertEquals(ToastModel.Kind.WARNING, toast.kind());
+        assertEquals("Lithium was not installed", toast.title());
+        assertEquals(skipped, toast.message());
+        assertFalse(vm.isInstalled(vm.results().get(2)));
+        assertTrue(ctx.launcherLog.snapshot().stream().anyMatch(l -> l.text().equals(skipped)));
+    }
+
+    @Test
     void enableDisableAndRemoveExplainRefusals() {
         final Path mods = backend.paths().modsDir();
         final ModrinthService.InstalledContent sodium = new ModrinthService.InstalledContent(ContentType.MOD, "Sodium", "mc1.21.11-0.8.14-fabric",

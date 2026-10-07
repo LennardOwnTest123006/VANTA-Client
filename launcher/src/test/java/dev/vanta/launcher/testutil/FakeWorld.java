@@ -231,6 +231,33 @@ public final class FakeWorld implements AutoCloseable {
         return bytes.toByteArray();
     }
 
+    /**
+     * Serves other bytes for a Modrinth file of a pack project, with the SHA-512, SHA-1 and size Modrinth then reports
+     * (the download verifies, so what is checked is the content).
+     *
+     * @param slug     pack project slug
+     * @param fileName file name of one of its versions
+     * @param jar      new content
+     */
+    public void replaceModrinthFile(final String slug, final String fileName, final byte[] jar) {
+        final JsonArray versions = modrinthVersions.get(slug);
+        String projectId = slug;
+        for (JsonElement v : versions) {
+            final JsonObject version = v.getAsJsonObject();
+            projectId = version.get("project_id").getAsString();
+            final JsonObject file = version.getAsJsonArray("files").get(0).getAsJsonObject();
+            if (file.get("filename").getAsString().equals(fileName)) {
+                serve("modrinth/cdn/" + fileName, jar);
+                file.addProperty("size", jar.length);
+                file.getAsJsonObject("hashes").addProperty("sha1", Checksums.hex(jar, HashAlgorithm.SHA1));
+                file.getAsJsonObject("hashes").addProperty("sha512", Checksums.hex(jar, HashAlgorithm.SHA512));
+                server.addJson("modrinth/v2/version/" + version.get("id").getAsString(), Json.GSON.toJson(version));
+            }
+        }
+        server.addJson("modrinth/v2/project/" + slug + "/version", Json.GSON.toJson(versions));
+        server.addJson("modrinth/v2/project/" + projectId + "/version", Json.GSON.toJson(versions));
+    }
+
     /** @return the underlying server */
     public FakeHttpServer server() {
         return server;

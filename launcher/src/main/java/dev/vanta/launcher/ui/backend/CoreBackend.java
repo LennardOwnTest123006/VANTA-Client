@@ -19,6 +19,7 @@ import dev.vanta.launcher.core.launch.GameProcess;
 import dev.vanta.launcher.core.launch.LaunchCommand;
 import dev.vanta.launcher.core.launch.LaunchRequest;
 import dev.vanta.launcher.core.launch.RestartRequest;
+import dev.vanta.launcher.core.launch.StartupGuard;
 import dev.vanta.launcher.core.model.InstanceInfo;
 import dev.vanta.launcher.core.modrinth.ContentType;
 import dev.vanta.launcher.core.modrinth.ModrinthModels;
@@ -311,6 +312,16 @@ public final class CoreBackend implements LauncherBackend {
     @Override
     public boolean consumeRestartRequest() throws IOException {
         return RestartRequest.consume(services.paths().instanceDir());
+    }
+
+    @Override
+    public StartupGuard.Report startupCheck() throws IOException {
+        return services.startupGuard().run();
+    }
+
+    @Override
+    public StartupGuard.Report crashReportCheck() throws IOException {
+        return services.startupGuard().recoverFromCrashReport();
     }
 
     @Override

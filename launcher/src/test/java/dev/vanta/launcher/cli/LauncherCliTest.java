@@ -397,6 +397,7 @@ class LauncherCliTest {
         final Path data = tmp.resolve("official-data");
         final Run r = run("--install-official-profile", "--minecraft-dir", mc.toString(), "--data-dir", data.toString(), "--memory", "3072");
         assertEquals(ExitCode.OK, r.code(), r.out() + r.err());
+        assertTrue(r.out().startsWith("Startup check: 0 mods checked, nothing to switch off\n"), "the start check runs first: " + r.out());
         assertTrue(r.out().contains("Open the Minecraft Launcher, choose the profile 'VANTA 1.21.11' and press Play."), r.out());
         assertTrue(r.out().contains("Added the profile 'VANTA 1.21.11'"), r.out());
         assertTrue(r.out().contains("VANTA Client release manifests: " + world.releasesBase() + " (built-in default)"), r.out());
@@ -551,5 +552,62 @@ class LauncherCliTest {
         final Run r = run("--launch", "--data-dir", data.toString());
         assertEquals(ExitCode.AUTH, r.code(), r.err());
         assertTrue(r.err().contains("No account is signed in"));
+    }
+
+    // ---------------------------------------------------------------- start check
+
+    private static final String SMART = "smart-fps-booster-1.0.0+mc1.21.4.jar";
+    private static final String OLDER_MINECRAFT = "built for an older Minecraft: it creates key bindings the way Minecraft did before 1.21.9,"
+        + " so Minecraft 1.21.11 would stop while starting";
+
+    @Test
+    void launchSwitchesOffAModBuiltForAnOlderMinecraftBeforeTheGameStarts() throws IOException {
+        final Path data = tmp.resolve("startup-check-data");
+        final Run install = run("--install", "--no-assets", "--without-performance-pack", "--releases-url", world.releasesBase(),
+            "--data-dir", data.toString());
+        assertEquals(ExitCode.OK, install.code(), install.out() + install.err());
+        final Path mods = data.resolve("instances/vanta-1.21.11/mods");
+        final dev.vanta.launcher.testutil.ModJars fixtures = dev.vanta.launcher.testutil.ModJars.compile(tmp.resolve("cli-fixtures"));
+        Files.write(mods.resolve(SMART), fixtures.modJar("smartfpsbooster", "Smart FPS Booster", "1.0.0+mc1.21.4",
+            dev.vanta.launcher.testutil.ModJars.OLD_KEYBINDS));
+
+        final Run launch = run("--launch", "--dev-offline", "--data-dir", data.toString(), "--memory", "1024");
+        assertEquals(ExitCode.OK, launch.code(), launch.out() + launch.err());
+        final String line = "Startup check: switched off " + SMART + " (Smart FPS Booster 1.0.0+mc1.21.4): " + OLDER_MINECRAFT;
+        assertTrue(launch.out().contains(line + "\n"), launch.out());
+        assertTrue(launch.out().indexOf(line) < launch.out().indexOf("FAKE_GAME_START"), "before the game starts: " + launch.out());
+        assertFalse(launch.out().contains("nothing to switch off"), launch.out());
+        assertFalse(Files.exists(mods.resolve(SMART)));
+        assertTrue(Files.isRegularFile(mods.resolve(SMART + ".disabled")), "renamed, never deleted");
+
+        final Run again = run("--launch", "--dev-offline", "--data-dir", data.toString(), "--memory", "1024");
+        assertEquals(ExitCode.OK, again.code(), again.out() + again.err());
+        assertTrue(again.out().startsWith("Startup check: 0 mods checked, nothing to switch off\n"), again.out());
+    }
+
+    @Test
+    void installOfficialProfileFirstSwitchesOffTheModTheNewestCrashReportNames() throws IOException {
+        final Path mc = officialDir("dotminecraft-crashed");
+        final Path data = tmp.resolve("official-crashed-data");
+        final Path instance = data.resolve("instances/vanta-1.21.11");
+        Files.createDirectories(instance.resolve("mods"));
+        Files.createDirectories(instance.resolve("crash-reports"));
+        final Path jar = instance.resolve("mods").resolve(SMART);
+        Files.write(jar, FakeWorld.modJar("smartfpsbooster", "1.0.0+mc1.21.4"));
+        Files.setLastModifiedTime(jar, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() - 3_600_000L));
+        Files.writeString(instance.resolve("crash-reports/crash-2026-10-06_18.21.44-client.txt"),
+            dev.vanta.launcher.testutil.CrashReports.SMART_FPS_BOOSTER);
+
+        final Run r = run("--install-official-profile", "--minecraft-dir", mc.toString(), "--data-dir", data.toString(),
+            "--without-performance-pack");
+        assertEquals(ExitCode.OK, r.code(), r.out() + r.err());
+        assertTrue(r.out().startsWith("Startup check: switched off " + SMART + " (smartfpsbooster 1.0.0+mc1.21.4): Minecraft stopped while"
+            + " starting because of it (crash report crash-2026-10-06_18.21.44-client.txt)\n"), r.out());
+        assertTrue(Files.isRegularFile(instance.resolve("mods").resolve(SMART + ".disabled")));
+
+        final Run again = run("--install-official-profile", "--minecraft-dir", mc.toString(), "--data-dir", data.toString(),
+            "--without-performance-pack");
+        assertEquals(ExitCode.OK, again.code(), again.out() + again.err());
+        assertTrue(again.out().startsWith("Startup check: 0 mods checked, nothing to switch off\n"), "the report is handled once: " + again.out());
     }
 }

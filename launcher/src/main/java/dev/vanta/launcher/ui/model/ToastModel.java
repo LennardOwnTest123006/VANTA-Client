@@ -62,7 +62,19 @@ public final class ToastModel {
      * @return the toast
      */
     public Toast show(final Kind kind, final String title, final String message) {
-        final Duration ttl = kind == Kind.ERROR ? Duration.ofSeconds(12) : Duration.ofSeconds(6);
+        return show(kind, title, message, kind == Kind.ERROR ? Duration.ofSeconds(12) : Duration.ofSeconds(6));
+    }
+
+    /**
+     * Shows a toast that stays longer (or shorter) than the default for its kind.
+     *
+     * @param kind    kind
+     * @param title   title
+     * @param message message
+     * @param ttl     how long it stays visible
+     * @return the toast
+     */
+    public Toast show(final Kind kind, final String title, final String message, final Duration ttl) {
         final Toast toast = new Toast(ids.incrementAndGet(), kind, title, message, ttl);
         toasts.add(toast);
         while (toasts.size() > MAX_VISIBLE) {

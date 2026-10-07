@@ -16,6 +16,7 @@ import dev.vanta.launcher.core.java.JavaDetector;
 import dev.vanta.launcher.core.java.JavaProbe;
 import dev.vanta.launcher.core.java.ProcessJavaProbe;
 import dev.vanta.launcher.core.launch.LaunchService;
+import dev.vanta.launcher.core.launch.StartupGuard;
 import dev.vanta.launcher.core.log.LauncherLog;
 import dev.vanta.launcher.core.modrinth.ModrinthApi;
 import dev.vanta.launcher.core.modrinth.ModrinthService;
@@ -81,6 +82,7 @@ public final class LauncherServices implements AutoCloseable {
     private final OfficialLauncher officialLauncher;
     private final ModrinthService modrinth;
     private final PerformancePack performancePack;
+    private final StartupGuard startupGuard;
     private final Optional<Path> officialMinecraftDir;
     private final Path userHome;
     private final ServiceEndpoints endpoints;
@@ -147,6 +149,7 @@ public final class LauncherServices implements AutoCloseable {
         this.modrinth = new ModrinthService(new ModrinthApi(modrinthTransport, endpoints.modrinthApi(), sleeper, modrinthAgent),
             new Downloader(modrinthTransport, sleeper, Downloader.DEFAULT_ATTEMPTS, 3), paths, clock, LauncherVersion.MINECRAFT);
         this.performancePack = new PerformancePack(modrinth, clock);
+        this.startupGuard = new StartupGuard(paths, modrinth);
         this.officialProfiles = new OfficialProfileService(paths, downloader, fabric, fabricApi, vantaClient, clock, performancePack);
         this.userHome = Path.of(System.getProperty("user.home", "."));
         this.officialLauncher = OfficialLauncher.system(os, env, userHome);
@@ -333,6 +336,11 @@ public final class LauncherServices implements AutoCloseable {
     /** @return the performance pack */
     public PerformancePack performancePack() {
         return performancePack;
+    }
+
+    /** @return the start check (switches off mods that would stop Minecraft while starting) */
+    public StartupGuard startupGuard() {
+        return startupGuard;
     }
 
     /**
