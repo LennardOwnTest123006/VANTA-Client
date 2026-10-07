@@ -69,6 +69,8 @@ final class OptionsPersistenceStep {
         Path optionsFile = FabricLoader.getInstance().getGameDir().resolve("options.txt");
         String before = context.computeOnClient(client -> client.options.graphicsPreset().get().name());
         step("options persistence: graphics preset before the step: " + before + ", file " + optionsFile);
+        context.runOnClient(client -> client.options.save());
+        String optionsBefore = readFile(optionsFile);
 
         // ---- 1. the vanilla Video Settings screen ----------------------------------------------------------------
         context.setScreen(() -> new VideoSettingsScreen(VantaScreens.create(ScreenId.MAIN_MENU, null),
@@ -133,14 +135,38 @@ final class OptionsPersistenceStep {
         reloadFromDisk(context, services);
         expectEverywhere(context, services, optionsFile, "FAST", "reloaded after the VANTA row change");
 
-        // Give the following in-world steps the preset the earlier steps left (Custom itself cannot be selected).
-        if (!"FAST".equals(before) && !"CUSTOM".equals(before)) {
-            context.runOnClient(client -> {
-                client.options.graphicsPreset().set(GraphicsPreset.valueOf(before));
-                client.options.save();
-            });
-        }
+        // Give the following in-world steps the options the earlier steps left: Fast's render distance 8 is slower to
+        // load on the CI's software renderer than what they ran with before (Custom itself cannot be selected).
+        restoreOptions(context, services, optionsFile, optionsBefore);
         step("options persistence: ok");
+    }
+
+    /** Puts options.txt back as it was before the step and reloads it, as a restart would read it. */
+    private static void restoreOptions(ClientGameTestContext context, VantaServices services, Path optionsFile,
+                                       String saved) {
+        if (saved == null) {
+            warn("options persistence: options.txt could not be read before the step; the step's options stay");
+            return;
+        }
+        try {
+            Files.writeString(optionsFile, saved);
+        } catch (IOException e) {
+            warn("options persistence: could not restore " + optionsFile + ": " + e);
+            return;
+        }
+        reloadFromDisk(context, services);
+        String restored = context.computeOnClient(client -> client.options.graphicsPreset().get().name()
+                + ", render distance " + client.options.renderDistance().get());
+        step("options persistence: options.txt restored to the state before the step (" + restored + ")");
+    }
+
+    private static String readFile(Path file) {
+        try {
+            return Files.readString(file);
+        } catch (IOException e) {
+            warn("options persistence: could not read " + file + ": " + e);
+            return null;
+        }
     }
 
     // ---- the vanilla Graphics preset button ---------------------------------------------------------------------
