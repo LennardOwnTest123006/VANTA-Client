@@ -731,7 +731,8 @@ jobs:
           jq -e '.profiles["vanta-1.21.11"].lastVersionId == "fabric-loader-0.19.5-1.21.11"' "$P"
           jq -e '.profiles["vanta-1.21.11"].name == "VANTA 1.21.11" and .profiles["vanta-1.21.11"].type == "custom"' "$P"
           jq -e '.profiles["vanta-1.21.11"].icon | startswith("data:image/png;base64,")' "$P"
-          jq -e '.profiles["vanta-1.21.11"].javaArgs | test("^-Xmx[0-9]+M$")' "$P"
+          # Same heap and G1 flags as PLAY in the launcher, ending with VANTA's checksum marker (launcher 1.3.0).
+          jq -e '.profiles["vanta-1.21.11"].javaArgs | test("^-Xmx[0-9]+M ") and test(" -XX:\\+UseG1GC ") and test(" -XX:MaxGCPauseMillis=50 ") and test(" -Dvanta\\.javaArgs=[0-9a-f]+$")' "$P"
           GAMEDIR=$(jq -r '.profiles["vanta-1.21.11"].gameDir' "$P")
           echo "gameDir: $GAMEDIR"
           test "$(realpath -m "$GAMEDIR")" = "$(realpath -m "$INSTANCE")" || { echo "::error::gameDir is not the VANTA instance"; exit 1; }

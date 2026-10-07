@@ -6,6 +6,7 @@ import static dev.vanta.client.gametest.VantaClientGameTest.step;
 import static dev.vanta.client.gametest.VantaClientGameTest.warn;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.Window;
 import dev.vanta.client.screen.VantaScreen;
 import dev.vanta.client.screen.VantaScreens;
 import dev.vanta.core.i18n.Lang;
@@ -20,6 +21,7 @@ import dev.vanta.core.ui.widget.Select;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -28,8 +30,13 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.GraphicsPreset;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.events.ContainerEventHandler;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
+import org.lwjgl.glfw.GLFW;
 
 /**
  * The reported bug: "I set Graphics from Fancy to Fast, close the screen with Escape, play, open it again and it is
@@ -67,19 +74,19 @@ final class OptionsPersistenceStep {
                 Minecraft.getInstance(), Minecraft.getInstance().options));
         waitFor(context, client -> client.screen instanceof VideoSettingsScreen, "the vanilla Video Settings screen");
         context.waitTicks(SCREEN_TICKS);
-        context.runOnClient(client -> {
-            // The preset button runs OptionInstance.set (whose callback applies the preset bundle) and then saves.
-            // Start from Fancy so the change to Fast is a real change even in a reused run directory.
-            if (client.options.graphicsPreset().get() == GraphicsPreset.FAST) {
-                client.options.graphicsPreset().set(GraphicsPreset.FANCY);
-                client.options.save();
-            }
-            client.options.graphicsPreset().set(GraphicsPreset.FAST);
-            client.options.save();
-        });
-        expectGame(context, "FAST", "vanilla Video Settings: Fast selected");
+        // Click the screen's own Graphics preset button with the real mouse path, as a player does, until it shows
+        // Fast. Setting the option in code while the screen is open would leave the screen's sliders holding the old
+        // bundle values, which the screen may apply again when it closes.
+        clickPresetButtonUntil(context, GraphicsPreset.FAST);
+        expectGame(context, "FAST", "vanilla Video Settings: Fast selected with the Graphics button");
+        String bundleBeforeEscape = context.computeOnClient(OptionsPersistenceStep::bundle);
         context.getInput().pressKey(InputConstants.KEY_ESCAPE);
         waitFor(context, OptionsPersistenceStep::onVantaMainMenu, "the VANTA main menu after Escape on Video Settings");
+        String afterEscape = context.computeOnClient(client -> client.options.graphicsPreset().get().name());
+        if (!"FAST".equals(afterEscape)) {
+            step("options persistence: bundled options before Escape: " + bundleBeforeEscape);
+            step("options persistence: bundled options after Escape:  " + context.computeOnClient(OptionsPersistenceStep::bundle));
+        }
         expectEverywhere(context, services, optionsFile, "FAST", "vanilla Video Settings → Escape");
         visitVantaScreens(context, services, "FAST");
         expectEverywhere(context, services, optionsFile, "FAST", "VANTA main menu, Settings (Video), Performance");
@@ -134,6 +141,85 @@ final class OptionsPersistenceStep {
             });
         }
         step("options persistence: ok");
+    }
+
+    // ---- the vanilla Graphics preset button ---------------------------------------------------------------------
+
+    /** Clicks the Video Settings screen's Graphics preset button (real cursor and left button) until it shows {@code target}. */
+    private static void clickPresetButtonUntil(ClientGameTestContext context, GraphicsPreset target) {
+        for (int i = 0; i < 6; i++) {
+            if (context.computeOnClient(client -> client.options.graphicsPreset().get()) == target) {
+                return;
+            }
+            double[] centre = context.computeOnClient(client -> {
+                AbstractWidget button = presetButton(client);
+                if (button == null || !button.visible) {
+                    return null;
+                }
+                Window w = client.getWindow();
+                double gx = button.getX() + button.getWidth() / 2.0;
+                double gy = button.getY() + button.getHeight() / 2.0;
+                return new double[]{gx * w.getScreenWidth() / w.getGuiScaledWidth(),
+                        gy * w.getScreenHeight() / w.getGuiScaledHeight()};
+            });
+            if (centre == null) {
+                String labels = context.computeOnClient(OptionsPersistenceStep::widgetLabels);
+                check(false, "options persistence: no visible Graphics preset button (caption \""
+                        + context.computeOnClient(client -> client.options.graphicsPreset().toString())
+                        + "\") on the Video Settings screen; widgets: " + labels);
+            }
+            context.getInput().setCursorPos(centre[0], centre[1]);
+            context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+            context.waitTicks(3);
+        }
+        String now = context.computeOnClient(client -> client.options.graphicsPreset().get().name());
+        check(false, "options persistence: six clicks on the Graphics button did not reach " + target + " (it shows " + now + ")");
+    }
+
+    /** The button whose message starts with the graphics preset's caption, searched through every nested container. */
+    private static AbstractWidget presetButton(Minecraft client) {
+        if (client.screen == null) {
+            return null;
+        }
+        String caption = client.options.graphicsPreset().toString();
+        List<GuiEventListener> queue = new ArrayList<>(client.screen.children());
+        while (!queue.isEmpty()) {
+            GuiEventListener next = queue.remove(0);
+            if (next instanceof AbstractWidget widget && widget.getMessage().getString().contains(caption)) {
+                return widget;
+            }
+            if (next instanceof ContainerEventHandler container) {
+                queue.addAll(container.children());
+            }
+        }
+        return null;
+    }
+
+    /** Every widget label on the open screen, for a failure message. */
+    private static String widgetLabels(Minecraft client) {
+        List<String> labels = new ArrayList<>();
+        List<GuiEventListener> queue = new ArrayList<>(client.screen == null ? List.of() : client.screen.children());
+        while (!queue.isEmpty() && labels.size() < 40) {
+            GuiEventListener next = queue.remove(0);
+            if (next instanceof AbstractWidget widget) {
+                labels.add(widget.getClass().getSimpleName() + "\"" + widget.getMessage().getString() + "\"");
+            }
+            if (next instanceof ContainerEventHandler container) {
+                queue.addAll(container.children());
+            }
+        }
+        return String.join(", ", labels);
+    }
+
+    /** The options inside 1.21.11's graphics preset bundle, for a failure message. */
+    private static String bundle(Minecraft client) {
+        Options o = client.options;
+        return "preset=" + o.graphicsPreset().get() + " renderDistance=" + o.renderDistance().get()
+                + " simulationDistance=" + o.simulationDistance().get() + " clouds=" + o.cloudStatus().get()
+                + " particles=" + o.particles().get() + " ao=" + o.ambientOcclusion().get()
+                + " entityShadows=" + o.entityShadows().get() + " entityDistance=" + o.entityDistanceScaling().get()
+                + " biomeBlend=" + o.biomeBlendRadius().get() + " mipmaps=" + o.mipmapLevels().get()
+                + " menuBlur=" + o.menuBackgroundBlurriness().get();
     }
 
     // ---- flow pieces -----------------------------------------------------------------------------------------------

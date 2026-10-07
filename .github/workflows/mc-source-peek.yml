@@ -1,0 +1,59 @@
+# Diagnostic: decompiles Minecraft 1.21.11 (Mojang names) with Loom and prints the classes named below, so behaviour
+# VANTA depends on is read from the real game code instead of from memory. Never fails on a missing class.
+#
+# Triggers   "Run workflow" with a list of class paths, or a push that changes this file (then the default list runs).
+name: Minecraft source peek
+
+on:
+  workflow_dispatch:
+    inputs:
+      classes:
+        description: Space-separated class paths inside the sources jar (net/minecraft/...)
+        required: true
+        default: >-
+          net/minecraft/client/gui/screens/options/VideoSettingsScreen.java
+          net/minecraft/client/gui/screens/options/OptionsSubScreen.java
+          net/minecraft/client/gui/components/OptionsList.java
+          net/minecraft/client/GraphicsPreset.java
+  push:
+    paths: ['.github/workflows/mc-source-peek.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  peek:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Decompile Minecraft 1.21.11 with Loom
+        working-directory: client
+        run: ./gradlew genSources --stacktrace > "$RUNNER_TEMP/gensources.log" 2>&1 || { tail -60 "$RUNNER_TEMP/gensources.log"; exit 1; }
+      - name: Print the classes
+        env:
+          CLASSES: >-
+            ${{ inputs.classes || 'net/minecraft/client/gui/screens/options/VideoSettingsScreen.java net/minecraft/client/gui/screens/options/OptionsSubScreen.java net/minecraft/client/gui/components/OptionsList.java net/minecraft/client/GraphicsPreset.java' }}
+        run: |
+          JARS=$(find ~/.gradle/caches/fabric-loom -name '*-sources.jar' 2>/dev/null)
+          echo "sources jars:"; echo "$JARS"
+          for C in $CLASSES; do
+            FOUND=""
+            for J in $JARS; do
+              if unzip -l "$J" "$C" >/dev/null 2>&1; then FOUND="$J"; break; fi
+            done
+            echo "==================== $C (${FOUND:-not found})"
+            [ -n "$FOUND" ] && unzip -p "$FOUND" "$C"
+          done
+          echo "==================== Options.java: graphics preset, setGraphicsPresetToCustom and applyGraphicsPreset"
+          for J in $JARS; do
+            if unzip -l "$J" net/minecraft/client/Options.java >/dev/null 2>&1; then
+              unzip -p "$J" net/minecraft/client/Options.java | grep -n -B2 -A30 -E "graphicsPreset|setGraphicsPresetToCustom|applyGraphicsPreset|isApplyingGraphicsPreset" | head -400
+              break
+            fi
+          done
