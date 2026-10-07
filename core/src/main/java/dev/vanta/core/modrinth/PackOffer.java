@@ -146,8 +146,8 @@ public final class PackOffer {
 
     /**
      * "Install": adopt bundled jars, then install the members that are still {@link #missing} afterwards, with the
-     * usual toasts (an empty remainder ends in the "Already installed" toast). A pack install that is already
-     * running (Boost FPS in the same session) is left alone with a toast instead of queuing a second one.
+     * usual toasts (an empty remainder ends in the "Already installed" toast). While a Modrinth download is still
+     * running (Boost FPS in the same session, or any other install) nothing is queued behind it; a toast says so.
      */
     public void install(Consumer<InstallResult> onDone) {
         Optional<ModrinthService> service = services.modrinth();
@@ -155,7 +155,7 @@ public final class PackOffer {
             return;
         }
         if (service.get().isBusy()) {
-            services.notifications().boostAlreadyRunning();
+            services.notifications().downloadStillRunning();
             return;
         }
         service.get().adoptKnownFiles(adopted -> {

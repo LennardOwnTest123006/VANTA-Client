@@ -15,6 +15,7 @@ import dev.vanta.core.cosmetics.MenuBackground;
 import dev.vanta.core.cosmetics.MenuParticles;
 import dev.vanta.core.modrinth.FakeModPlatform;
 import dev.vanta.core.modrinth.FakeModrinthApi;
+import dev.vanta.core.modrinth.InstallRequest;
 import dev.vanta.core.modrinth.ModrinthException;
 import dev.vanta.core.modrinth.ModrinthLibrary;
 import dev.vanta.core.modrinth.ModrinthService;
@@ -182,7 +183,7 @@ class BoostFpsTest {
         services.boostFps();
         assertEquals(queued, worker.size(), "the second click queues no second install");
         List<Notification> history = services.notifications().history();
-        assertEquals(1, history.stream().filter(n -> n.title().equals("Boost is already running")).count());
+        assertEquals(1, history.stream().filter(n -> n.title().equals("Download still running")).count());
 
         while (!worker.isEmpty()) {
             worker.poll().run();
@@ -204,6 +205,38 @@ class BoostFpsTest {
         services.notifications().tick();
         services.boostFps();
         assertEquals("Restart the game to load the Performance pack", boostToast().orElseThrow().body());
+    }
+
+    @Test
+    void boostDuringAnUnrelatedDownloadStillAppliesTheSettingsAndQueuesNoPackInstall() {
+        FakeModrinthApi api = FakeModrinthApi.standard();
+        FakeModPlatform platform = new FakeModPlatform(gameDir);
+        Deque<Runnable> worker = new ArrayDeque<>();
+        ModrinthService modrinth = new ModrinthService(api, new ModrinthLibrary(gameDir, services.jsonStore()),
+                platform, services.notifications(), worker::add, Runnable::run, clock);
+        services.setModrinth(modrinth);
+        // The Mods screen is fetching Mod Menu (reached through the command palette, the Boost button is disabled).
+        modrinth.install(List.of(InstallRequest.of("modmenu")), "Installing Mod Menu", null);
+        assertTrue(modrinth.isBusy());
+        assertEquals(120, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1));
+
+        assertTrue(services.runAction(ActionEntry.BOOST_FPS));
+
+        assertEquals(260, options.getInt(VanillaOption.FRAMERATE_LIMIT, -1), "the settings half of Boost runs");
+        assertFalse(options.getBoolean(VanillaOption.VSYNC, true));
+        assertEquals(PerformancePreset.BOOST, services.settings().get(VantaSettings.PERFORMANCE_PRESET));
+        assertEquals(1, worker.size(), "no pack install queued behind the other download");
+        List<Notification> history = services.notifications().history();
+        assertEquals(1, history.stream().filter(n -> n.title().equals("Download still running")).count());
+        assertTrue(history.stream().noneMatch(n -> n.body().contains("still being installed")), history.toString());
+        assertTrue(boostToast().isEmpty(), "no claim about the pack while nothing was fetched");
+
+        while (!worker.isEmpty()) {
+            worker.poll().run();
+        }
+        assertFalse(modrinth.isBusy());
+        assertFalse(api.calls().contains("download:sodium-1.0.0.jar"));
+        assertEquals(1, modrinth.installedProjectIds().size(), "only Mod Menu landed");
     }
 
     @Test

@@ -219,7 +219,7 @@ class PackOfferTest {
         int queuedTasks = worker.size();
         offer.install(null);
         assertEquals(queuedTasks, worker.size(), "no second install behind the running one");
-        assertTrue(t.services.notifications().history().stream().anyMatch(n -> n.title().equals("Boost is already running")));
+        assertTrue(t.services.notifications().history().stream().anyMatch(n -> n.title().equals("Download still running")));
     }
 
     @Test
