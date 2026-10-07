@@ -52,14 +52,7 @@ public final class JvmArgsBuilder {
     public List<String> build(final VersionJson version, final ArgumentExpander expander, final int memoryMb,
                               final List<String> extraArgs) {
         final List<String> user = extraArgs == null ? List.of() : extraArgs;
-        final List<String> out = new ArrayList<>();
-        out.add("-Xmx" + memoryMb + "M");
-        if (user.stream().noneMatch(a -> a.startsWith("-Xms"))) {
-            out.add("-Xms" + Math.min(memoryMb, Math.max(512, memoryMb / 4)) + "M");
-        }
-        if (user.stream().noneMatch(JvmArgsBuilder::selectsGarbageCollector)) {
-            out.addAll(GC_DEFAULTS);
-        }
+        final List<String> out = new ArrayList<>(heapAndGcArgs(memoryMb, user));
         out.add("-Dfile.encoding=UTF-8");
         out.add("-Dstdout.encoding=UTF-8");
         out.add("-Dstderr.encoding=UTF-8");
@@ -77,6 +70,32 @@ public final class JvmArgsBuilder {
         out.addAll(fromJson);
         out.addAll(user);
         return dedupeSystemProperties(out);
+    }
+
+    /**
+     * The heap and garbage collector part of the JVM arguments, shared by direct PLAY ({@link #build}) and the profile
+     * VANTA writes for the Minecraft Launcher, so both ways of playing start the game with the same tuning.
+     *
+     * <p>Order: {@code -Xmx}, then {@code -Xms} (a quarter of the heap, at least 512 MiB, only when the user gave no
+     * {@code -Xms}), then the G1 defaults (only when no user argument selects a garbage collector). The defaults are
+     * the set the Minecraft Launcher pre-fills for a new installation; {@code -XX:+UnlockExperimentalVMOptions} comes
+     * before the experimental {@code -XX:G1NewSizePercent}.</p>
+     *
+     * @param memoryMb maximum heap in MiB
+     * @param userArgs the user's extra JVM arguments (only inspected, not included; may be null)
+     * @return heap and GC arguments
+     */
+    public static List<String> heapAndGcArgs(final int memoryMb, final List<String> userArgs) {
+        final List<String> user = userArgs == null ? List.of() : userArgs;
+        final List<String> out = new ArrayList<>();
+        out.add("-Xmx" + memoryMb + "M");
+        if (user.stream().noneMatch(a -> a.startsWith("-Xms"))) {
+            out.add("-Xms" + Math.min(memoryMb, Math.max(512, memoryMb / 4)) + "M");
+        }
+        if (user.stream().noneMatch(JvmArgsBuilder::selectsGarbageCollector)) {
+            out.addAll(GC_DEFAULTS);
+        }
+        return out;
     }
 
     /**

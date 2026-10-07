@@ -288,7 +288,7 @@ class OfficialProfileServiceTest {
         assertEquals("data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(ICON), vanta.get("icon").getAsString());
         assertEquals(VERSION_ID, vanta.get("lastVersionId").getAsString());
         assertEquals(paths.instanceDir().toAbsolutePath().toString(), vanta.get("gameDir").getAsString());
-        assertEquals("-Xmx4096M", vanta.get("javaArgs").getAsString());
+        assertEquals(OfficialProfileService.profileJavaArgs(4096, List.of()), vanta.get("javaArgs").getAsString());
         assertEquals(8, vanta.size(), "exactly the contract keys");
 
         final Path versionJson = mc.resolve("versions").resolve(VERSION_ID).resolve(VERSION_ID + ".json");
@@ -525,7 +525,7 @@ class OfficialProfileServiceTest {
         assertEquals("2020-01-01T00:00:00.000Z", merged.get("created").getAsString());
         assertEquals("C:\\Java\\bin\\javaw.exe", merged.get("javaDir").getAsString());
         assertEquals(1280, merged.getAsJsonObject("resolution").get("width").getAsInt());
-        assertEquals("-Xmx3000M", merged.get("javaArgs").getAsString());
+        assertEquals(OfficialProfileService.profileJavaArgs(3000, List.of()), merged.get("javaArgs").getAsString());
         assertTrue(OfficialProfileService.upsertProfile(root, "vanta-other", profile));
     }
 
@@ -610,5 +610,127 @@ class OfficialProfileServiceTest {
             failure.getMessage());
         assertEquals(halfWritten, Files.readString(file), "the launcher's file is left alone");
         assertFalse(Files.exists(OfficialProfileService.backupOf(file)), "no backup is taken of a file that was not written");
+    }
+
+    // ---------------------------------------------------------------- javaArgs of the profile
+
+    private static List<String> tokens(final String javaArgs) {
+        return List.of(javaArgs.trim().split("\\s+"));
+    }
+
+    @Test
+    void javaArgsCarryTheSameHeapAndGcTuningAsDirectPlay() {
+        final List<String> args = tokens(OfficialProfileService.profileJavaArgs(4096, List.of()));
+        assertEquals(List.of("-Xmx4096M", "-Xms1024M", "-XX:+UseG1GC", "-XX:+UnlockExperimentalVMOptions", "-XX:G1NewSizePercent=20",
+            "-XX:G1ReservePercent=20", "-XX:MaxGCPauseMillis=50", "-XX:G1HeapRegionSize=32M"), args.subList(0, args.size() - 1));
+        assertEquals(dev.vanta.launcher.core.launch.JvmArgsBuilder.heapAndGcArgs(4096, List.of()), args.subList(0, args.size() - 1),
+            "the same list direct PLAY starts with");
+        assertTrue(args.indexOf("-XX:+UnlockExperimentalVMOptions") < args.indexOf("-XX:G1NewSizePercent=20"),
+            "the experimental flag needs the unlock first, or the JVM refuses to start");
+        assertTrue(args.get(args.size() - 1).matches("-Dvanta\\.javaArgs=[0-9a-f]{8}"), args.toString());
+        assertEquals(1, args.stream().filter(a -> a.startsWith("-Xmx")).count());
+        assertTrue(tokens(OfficialProfileService.profileJavaArgs(2048, List.of())).contains("-Xms512M"));
+    }
+
+    @Test
+    void javaArgsPassTheUserArgumentsThatFitOneLine() {
+        final List<String> user = List.of("-XX:+UseZGC", "-Dname=a b", "-Xms2048M", "notAFlag", "-cp", "-Dq=\"x\"", "-Dvanta.test=1", "  ");
+        final List<String> args = tokens(OfficialProfileService.profileJavaArgs(3072, user));
+        assertEquals(List.of("-Xmx3072M", "-XX:+UseZGC", "-Xms2048M", "-Dvanta.test=1"), args.subList(0, args.size() - 1),
+            "a GC choice of the player drops the G1 defaults, their -Xms replaces VANTA's, and only one-line arguments are passed");
+        assertEquals(List.of("-Dname=a b", "notAFlag", "-cp", "-Dq=\"x\""), OfficialProfileService.unsafeProfileArgs(user));
+        assertTrue(OfficialProfileService.unsafeProfileArgs(null).isEmpty());
+    }
+
+    @Test
+    void javaArgsKeepAnOptionTogetherWithItsValue() {
+        final List<String> user = List.of("--add-opens", "java.base/java.lang=ALL-UNNAMED", "--add-exports", "a b",
+            "-Dkept=1", "--add-modules");
+        final List<String> args = tokens(OfficialProfileService.profileJavaArgs(4096, user));
+        final int heapAndGc = dev.vanta.launcher.core.launch.JvmArgsBuilder.heapAndGcArgs(4096, List.of()).size();
+        final List<String> extra = args.subList(heapAndGc, args.size() - 1);
+        assertEquals(List.of("--add-opens", "java.base/java.lang=ALL-UNNAMED", "-Dkept=1"), extra,
+            "an option is written with its value or not at all, never followed by the next argument as its value");
+        assertEquals(List.of("--add-exports", "a b", "--add-modules"), OfficialProfileService.unsafeProfileArgs(user));
+        assertEquals(List.of("-jar", "x.jar"), OfficialProfileService.unsafeProfileArgs(List.of("-jar", "x.jar")),
+            "the class path and main jar belong to the Minecraft Launcher");
+    }
+
+    @Test
+    void onlyJavaArgsVantaWroteCountAsVantas() {
+        final String written = OfficialProfileService.profileJavaArgs(4096, List.of("-Dvanta.test=1"));
+        assertTrue(owns(null));
+        assertTrue(OfficialProfileService.vantaOwnsJavaArgs(com.google.gson.JsonNull.INSTANCE));
+        assertTrue(owns(""));
+        assertTrue(owns("   "));
+        assertTrue(owns("-Xmx4096M"), "all VANTA 1.2.1 and earlier wrote");
+        assertTrue(owns(written));
+        assertTrue(owns("  " + written.replace(" ", "   ") + " "), "spacing the Minecraft Launcher may normalise does not matter");
+        assertFalse(owns(written.replace("-Xmx4096M", "-Xmx6144M")), "the player changed the heap in the Minecraft Launcher");
+        assertFalse(owns(written + " -XX:+AlwaysPreTouch"), "the player added an argument after VANTA's line");
+        assertFalse(owns("-XX:+AlwaysPreTouch " + written), "the player added an argument before VANTA's line");
+        assertFalse(owns("-Xmx2G -XX:+UseG1GC"), "the player's own line");
+        assertFalse(owns("-Xmx4G"));
+        assertFalse(owns("-Dvanta.javaArgs=00000000"));
+    }
+
+    private static boolean owns(final String javaArgs) {
+        return OfficialProfileService.vantaOwnsJavaArgs(javaArgs == null ? null : new com.google.gson.JsonPrimitive(javaArgs));
+    }
+
+    private void profilesWithVantaJavaArgs(final String javaArgs) throws IOException {
+        Files.createDirectories(mc);
+        final JsonObject root = JsonParser.parseString(PROFILES).getAsJsonObject();
+        final JsonObject vanta = new JsonObject();
+        vanta.addProperty("name", "VANTA 1.21.11");
+        vanta.addProperty("created", "2020-01-01T00:00:00.000Z");
+        vanta.addProperty("javaArgs", javaArgs);
+        root.getAsJsonObject("profiles").add("vanta-1.21.11", vanta);
+        Files.writeString(mc.resolve(OfficialProfileService.PROFILES_FILE), Json.GSON.toJson(root));
+    }
+
+    private String installedJavaArgs(final OfficialProfileService.Request request, final List<String> log) throws Exception {
+        service.install(request, new InstallListener() {
+            @Override
+            public void onLog(final String message) {
+                log.add(message);
+            }
+        }, new CancellationToken());
+        return JsonParser.parseString(Files.readString(mc.resolve(OfficialProfileService.PROFILES_FILE))).getAsJsonObject()
+            .getAsJsonObject("profiles").getAsJsonObject("vanta-1.21.11").get("javaArgs").getAsString();
+    }
+
+    @Test
+    void javaArgsTheUserEditedInTheMinecraftLauncherAreKept() throws Exception {
+        profilesWithVantaJavaArgs("-Xmx6G -XX:+UseZGC");
+        final List<String> log = new ArrayList<>();
+        assertEquals("-Xmx6G -XX:+UseZGC", installedJavaArgs(request(), log));
+        assertTrue(log.stream().anyMatch(l -> l.startsWith("Kept the JVM arguments of 'VANTA 1.21.11'")), log.toString());
+    }
+
+    @Test
+    void legacyAndVantaWrittenJavaArgsAreUpgradedToTheCurrentSettings() throws Exception {
+        profilesWithVantaJavaArgs("-Xmx2048M");
+        final List<String> log = new ArrayList<>();
+        assertEquals(OfficialProfileService.profileJavaArgs(4096, List.of()), installedJavaArgs(request(), log),
+            "the -Xmx-only line of VANTA 1.2.1 gets the G1 tuning");
+        assertFalse(log.stream().anyMatch(l -> l.startsWith("Kept the JVM arguments")), log.toString());
+
+        final OfficialProfileService.Request withArgs = OfficialProfileService.Request.standard(mc, null, 6144, false,
+            List.of("-Dvanta.test=1", "-Dspaced=a b"));
+        final String written = installedJavaArgs(withArgs, log);
+        assertEquals(OfficialProfileService.profileJavaArgs(6144, List.of("-Dvanta.test=1")), written,
+            "a line VANTA wrote follows the new heap and the extra arguments from VANTA's Settings");
+        assertTrue(written.startsWith("-Xmx6144M -Xms1536M -XX:+UseG1GC"), written);
+        assertTrue(log.stream().anyMatch(l -> l.contains("'-Dspaced=a b'") && l.contains("not written")), log.toString());
+    }
+
+    @Test
+    void requestCarriesTheExtraJvmArguments() {
+        assertEquals(List.of(), request().jvmArgs());
+        final OfficialProfileService.Request r = OfficialProfileService.Request.standard(mc, null, 4096, true, List.of("-Da=1"));
+        assertEquals(List.of("-Da=1"), r.jvmArgs());
+        assertTrue(r.includePerformancePack());
+        assertEquals(List.of(), OfficialProfileService.Request.standard(mc, null, 4096, true, null).jvmArgs());
     }
 }

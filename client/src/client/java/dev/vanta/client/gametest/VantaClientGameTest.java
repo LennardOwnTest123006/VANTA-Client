@@ -383,6 +383,7 @@ public final class VantaClientGameTest implements FabricClientGameTest {
             Path probeDir = hudShot.getParent() != null ? hudShot.getParent()
                     : FabricLoader.getInstance().getGameDir().resolve("screenshots");
             findings.addAll(PerfProbeStep.run(context, services, probeDir));
+            findings.addAll(HitchProbeStep.run(context, services, probeDir));
 
             // Windowed click reproduction in the world (the menu variant runs after the world is closed).
             ModsClickReproduction.run(context, services, "world", 30, findings);

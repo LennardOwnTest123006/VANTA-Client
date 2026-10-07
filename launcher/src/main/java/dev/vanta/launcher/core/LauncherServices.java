@@ -344,14 +344,15 @@ public final class LauncherServices implements AutoCloseable {
     }
 
     /**
-     * A request for the official launcher profile with the current settings (heap).
+     * A request for the official launcher profile with the current settings (heap, extra JVM arguments, performance pack).
      *
      * @param minecraftDir   official Minecraft directory
      * @param localClientJar local VANTA client jar instead of the published release (may be null)
      * @return request
      */
     public OfficialProfileService.Request officialProfileRequest(final Path minecraftDir, final Path localClientJar) {
-        return OfficialProfileService.Request.standard(minecraftDir, localClientJar, settings().memoryMb(), settings().performancePack());
+        return OfficialProfileService.Request.standard(minecraftDir, localClientJar, settings().memoryMb(), settings().performancePack(),
+            settings().jvmArgs());
     }
 
     /** @return remote endpoints in use */

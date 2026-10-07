@@ -11,6 +11,10 @@ public final class FrameTimeTracker {
     public static final int DEFAULT_CAPACITY = 240;
 
     private final double[] samples;
+    /** Sort buffer of {@link #percentile(double)}. */
+    private final double[] scratch;
+    /** The slowest frames, ascending, for {@link #onePercentLowFps()}. */
+    private final double[] slowest;
     private int head;
     private int size;
 
@@ -23,6 +27,8 @@ public final class FrameTimeTracker {
             throw new IllegalArgumentException("capacity must be >= 2");
         }
         this.samples = new double[capacity];
+        this.scratch = new double[capacity];
+        this.slowest = new double[Math.max(1, (int) Math.ceil(capacity * 0.01))];
     }
 
     /** Records one frame duration in milliseconds; non-positive or non-finite values are ignored. */
@@ -93,11 +99,13 @@ public final class FrameTimeTracker {
         if (size == 0) {
             return 0;
         }
-        double[] sorted = sortedSamples();
+        // Sorted in a scratch buffer kept with the tracker instead of a fresh copy per call.
+        System.arraycopy(samples, 0, scratch, 0, size);
+        Arrays.sort(scratch, 0, size);
         double clamped = Math.max(0, Math.min(100, p));
-        int rank = (int) Math.ceil(clamped / 100.0 * sorted.length);
-        int index = Math.max(0, Math.min(sorted.length - 1, rank - 1));
-        return sorted[index];
+        int rank = (int) Math.ceil(clamped / 100.0 * size);
+        int index = Math.max(0, Math.min(size - 1, rank - 1));
+        return scratch[index];
     }
 
     /**
@@ -108,11 +116,32 @@ public final class FrameTimeTracker {
         if (size == 0) {
             return 0;
         }
-        double[] sorted = sortedSamples();
-        int count = Math.max(1, (int) Math.ceil(sorted.length * 0.01));
+        // The HUD's FPS widget asks for this every client tick. Instead of copying and sorting every sample, keep the
+        // slowest `count` frames (3 of 240) in a small ascending buffer: O(n * count), no allocation. Summing them in
+        // ascending order gives exactly the result of summing the tail of the sorted samples.
+        int count = Math.max(1, (int) Math.ceil(size * 0.01));
+        int kept = 0;
+        for (int i = 0; i < size; i++) {
+            double value = samples[i];
+            if (kept < count) {
+                int at = kept++;
+                while (at > 0 && slowest[at - 1] > value) {
+                    slowest[at] = slowest[at - 1];
+                    at--;
+                }
+                slowest[at] = value;
+            } else if (value > slowest[0]) {
+                int at = 0;
+                while (at + 1 < count && slowest[at + 1] < value) {
+                    slowest[at] = slowest[at + 1];
+                    at++;
+                }
+                slowest[at] = value;
+            }
+        }
         double sum = 0;
-        for (int i = sorted.length - count; i < sorted.length; i++) {
-            sum += sorted[i];
+        for (int i = 0; i < count; i++) {
+            sum += slowest[i];
         }
         double mean = sum / count;
         return mean > 0 ? 1000.0 / mean : 0;
@@ -144,11 +173,5 @@ public final class FrameTimeTracker {
     public void clear() {
         head = 0;
         size = 0;
-    }
-
-    private double[] sortedSamples() {
-        double[] sorted = Arrays.copyOf(samples, size);
-        Arrays.sort(sorted);
-        return sorted;
     }
 }

@@ -25,8 +25,33 @@ class SettingsTest {
         assertEquals(8192, LauncherSettings.defaultMemoryMb(32768));
         assertEquals(8192, LauncherSettings.defaultMemoryMb(65536));
         assertEquals(2048, LauncherSettings.defaultMemoryMb(4096));
-        assertEquals(2048, LauncherSettings.defaultMemoryMb(2048));
         assertEquals(6000, LauncherSettings.defaultMemoryMb(12000));
+    }
+
+    @Test
+    void defaultMemoryNeverExceedsHalfOfRam() {
+        assertEquals(1536, LauncherSettings.defaultMemoryMb(3072), "3 GiB PC: half, not the 2 GiB floor");
+        assertEquals(1024, LauncherSettings.defaultMemoryMb(2048));
+        assertEquals(LauncherSettings.MIN_MEMORY_MB, LauncherSettings.defaultMemoryMb(1024), "never below the UI minimum");
+        for (long ram = 1024; ram <= 131072; ram += 512) {
+            final int heap = LauncherSettings.defaultMemoryMb(ram);
+            assertTrue(heap <= Math.max(LauncherSettings.MIN_MEMORY_MB, ram / 2), ram + " MiB RAM -> " + heap);
+            assertTrue(heap <= LauncherSettings.MAX_DEFAULT_MEMORY_MB, ram + " MiB RAM -> " + heap);
+            if (ram >= 4096) {
+                assertTrue(heap >= LauncherSettings.MIN_DEFAULT_MEMORY_MB, ram + " MiB RAM -> " + heap);
+            }
+        }
+    }
+
+    @Test
+    void missingOrTooSmallStoredMemoryFollowsThePcMemory() throws IOException {
+        final SettingsStore store = new SettingsStore(tmp.resolve("ram-settings.json"), 6144);
+        Files.writeString(store.file(), "{\"schemaVersion\":1,\"memoryMb\":12}");
+        assertEquals(3072, store.load().memoryMb(), "half of 6 GiB, not the flat 4096");
+        Files.writeString(store.file(), "{\"schemaVersion\":1}");
+        assertEquals(3072, store.load().memoryMb(), "missing memory -> default for this PC");
+        Files.writeString(store.file(), "{\"schemaVersion\":1,\"memoryMb\":5120}");
+        assertEquals(5120, store.load().memoryMb(), "a value the player chose is kept, even above the default");
     }
 
     @Test
@@ -75,7 +100,7 @@ class SettingsTest {
         assertTrue(Files.exists(tmp.resolve("settings.json.corrupt")), "corrupt file is preserved");
 
         Files.writeString(store.file(), "{\"schemaVersion\":1,\"memoryMb\":12}");
-        assertEquals(LauncherSettings.DEFAULT_MEMORY_MB, store.load().memoryMb(), "too small memory is replaced by the default");
+        assertEquals(8192, store.load().memoryMb(), "too small memory is replaced by the default for this PC");
     }
 
     @Test

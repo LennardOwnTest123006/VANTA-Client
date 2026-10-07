@@ -1,6 +1,8 @@
 package dev.vanta.launcher.core.settings;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import dev.vanta.launcher.core.util.Json;
 import dev.vanta.launcher.core.util.SystemMemory;
 
@@ -60,7 +62,10 @@ public final class SettingsStore {
         }
         try {
             final String text = Files.readString(file, StandardCharsets.UTF_8);
-            return migrate(Json.parse(text, LauncherSettings.class));
+            final LauncherSettings loaded = migrate(Json.parse(text, LauncherSettings.class));
+            // A missing or too small heap is replaced by the default for this PC's memory rather than the flat
+            // LauncherSettings.DEFAULT_MEMORY_MB the record falls back to without knowing the memory.
+            return hasUsableMemory(text) ? loaded : loaded.withMemoryMb(defaults().memoryMb());
         } catch (IOException | JsonParseException | IllegalArgumentException e) {
             LOG.log(Level.WARNING, "settings.json is unreadable, using defaults: {0}", e.toString());
             try {
@@ -80,6 +85,21 @@ public final class SettingsStore {
      */
     public void save(final LauncherSettings settings) throws IOException {
         Json.write(file, settings);
+    }
+
+    /** Whether {@code settings.json} stores a heap of at least {@link LauncherSettings#MIN_MEMORY_MB}. */
+    private static boolean hasUsableMemory(final String text) {
+        try {
+            final JsonElement root = JsonParser.parseString(text);
+            if (!root.isJsonObject()) {
+                return false;
+            }
+            final JsonElement memory = root.getAsJsonObject().get("memoryMb");
+            return memory != null && memory.isJsonPrimitive() && memory.getAsJsonPrimitive().isNumber()
+                && memory.getAsDouble() >= LauncherSettings.MIN_MEMORY_MB;
+        } catch (JsonParseException | NumberFormatException | IllegalStateException e) {
+            return false;
+        }
     }
 
     private LauncherSettings migrate(final LauncherSettings loaded) {

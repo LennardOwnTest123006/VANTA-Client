@@ -12,6 +12,7 @@ import dev.vanta.core.crosshair.CrosshairStore;
 import dev.vanta.core.hud.HudStore;
 import dev.vanta.core.keybinds.VantaKeys;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,10 +20,12 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -52,6 +55,13 @@ public final class ProfileManager {
     private final KeybindBridge keybinds;
     private final Map<String, Profile> profiles = new LinkedHashMap<>();
     private final List<Consumer<Profile>> listeners = new CopyOnWriteArrayList<>();
+    /**
+     * Profiles whose last write did not complete. Every command writes the profile it changed right away, so after a
+     * successful write nothing is pending and {@link #saveAll()} (which runs whenever a VANTA screen closes) writes
+     * nothing; only a write that failed is retried there.
+     */
+    private final Set<String> unsaved = new LinkedHashSet<>();
+    private boolean stateUnsaved;
     private String activeId;
     private int builtInContent;
 
@@ -74,6 +84,8 @@ public final class ProfileManager {
      */
     public void load() {
         profiles.clear();
+        unsaved.clear();
+        stateUnsaved = false;
         Path dir = paths.profilesDir();
         if (Files.isDirectory(dir)) {
             try (Stream<Path> files = Files.list(dir)) {
@@ -103,6 +115,8 @@ public final class ProfileManager {
         String stored = state.map(s -> s.has(STATE_ACTIVE) && s.get(STATE_ACTIVE).isJsonPrimitive()
                 ? s.get(STATE_ACTIVE).getAsString() : null).orElse(null);
         activeId = stored != null && profiles.containsKey(stored) ? stored : profiles.keySet().iterator().next();
+        // A missing or stale state file is written once by the next saveAll(), not on every screen close.
+        stateUnsaved = !activeId.equals(stored);
         if (seeded) {
             builtInContent = BuiltInProfiles.CONTENT_VERSION;
             saveState();
@@ -192,24 +206,53 @@ public final class ProfileManager {
         }
     }
 
-    /** Writes every profile and the state file. */
+    /**
+     * Writes what is not on disk yet: profiles and the state file whose last write failed, and the state file once
+     * after a load that found none. Runs whenever a VANTA screen closes (on the render thread), so it never rewrites
+     * files that are already up to date; every command below writes its change immediately. A write that fails again
+     * is logged and kept pending instead of breaking the screen close.
+     */
     public void saveAll() {
-        for (Profile profile : profiles.values()) {
-            write(profile);
+        for (String id : new ArrayList<>(unsaved)) {
+            Profile profile = profiles.get(id);
+            if (profile == null) {
+                unsaved.remove(id);
+                continue;
+            }
+            try {
+                write(profile);
+            } catch (UncheckedIOException e) {
+                CoreLog.warn(e, "Could not save profile {}; trying again later", id);
+            }
         }
-        saveState();
+        if (stateUnsaved) {
+            try {
+                saveState();
+            } catch (UncheckedIOException e) {
+                CoreLog.warn(e, "Could not save the active profile; trying again later");
+            }
+        }
+    }
+
+    /** Whether a profile or the state file still has to be written ({@link #saveAll()} writes it). */
+    public boolean hasUnsavedChanges() {
+        return !unsaved.isEmpty() || stateUnsaved;
     }
 
     private void write(Profile profile) {
+        unsaved.add(profile.id());
         store.writeObject(fileOf(profile.id()), ProfileCodec.toJson(profile));
+        unsaved.remove(profile.id());
     }
 
     private void saveState() {
+        stateUnsaved = true;
         JsonObject state = new JsonObject();
         state.addProperty(JsonStore.SCHEMA_VERSION, 1);
         state.addProperty(STATE_ACTIVE, activeId);
         state.addProperty(STATE_BUILT_INS, builtInContent);
         store.writeObject(paths.profilesStateFile(), state);
+        stateUnsaved = false;
     }
 
     private Path fileOf(String id) {
@@ -305,6 +348,7 @@ public final class ProfileManager {
             return false;
         }
         profiles.remove(id);
+        unsaved.remove(id);
         try {
             Files.deleteIfExists(fileOf(id));
         } catch (IOException e) {

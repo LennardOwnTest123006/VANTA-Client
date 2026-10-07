@@ -149,14 +149,17 @@ public final class VantaServices {
                 profiles.size());
     }
 
-    /** Writes every dirty store. */
+    /**
+     * Writes every dirty store. Runs on the render thread whenever a VANTA screen closes (also on the Escape back into
+     * the game), so every store writes only what changed: with nothing changed it touches no file.
+     */
     public void saveAll() {
         settings.saveIfDirty();
         hud.saveIfDirty();
         crosshair.saveIfDirty();
         statsStore.saveIfDirty();
         profiles.saveAll();
-        cosmetics.save();
+        cosmetics.saveIfDirty();
     }
 
     /** Ends the statistics session and saves everything. */
