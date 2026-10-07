@@ -23,6 +23,7 @@ import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiTestSupport;
 import dev.vanta.core.ui.layout.Column;
 import dev.vanta.core.ui.layout.Spacer;
+import dev.vanta.core.ui.widget.Button;
 import dev.vanta.core.ui.widget.Slider;
 import java.nio.file.Path;
 import java.util.List;
@@ -178,5 +179,31 @@ class CommonComponentsTest {
         assertFalse(canvas.hasTextContaining("Size multiplier"), "description hidden in compact mode");
         assertEquals("Increase the text size in VANTA screens by 20 %.",
                 new SettingRow(VantaSettings.ACCESSIBILITY_LARGE_TEXT, t.services.settings(), null).description());
+    }
+
+    /**
+     * A fresh banner in a column measures at the width the column offers, so in the first pass it is already as
+     * tall as its wrapped body plus the stacked action, also below the 240 px it used to assume as a minimum (the
+     * Mods list column in a 320x240 window is 124 px wide).
+     */
+    @Test
+    void infoBannerTakesItsRealHeightInTheFirstPassOfANarrowColumn() {
+        UiTestSupport ui = new UiTestSupport();
+        Column col = new Column(4);
+        InfoBanner banner = col.add(new InfoBanner(InfoBanner.Tone.INFO, "Title", "word ".repeat(40).trim()));
+        Button action = Button.primary("Act", () -> { });
+        banner.action(action);
+        Button next = col.add(new Button("Next", () -> { }));
+        assertEquals(240, banner.preferredSize(ui.ctx()).w(), "nothing known yet: the old 240 px assumption");
+        ui.place(col, 0, 0, 140, 400);
+        // 106 px of text (four 20 px words per line, ten lines), the title, the stacked action and the padding.
+        int textBottom = banner.bounds().y() + Theme.SPACE_4 + 9 + Theme.SPACE_1 + 10 * 9;
+        assertEquals(16 + 101 + Theme.SPACE_3 + 20, banner.bounds().h());
+        assertEquals(140, banner.bounds().w());
+        assertTrue(action.bounds().y() >= textBottom, "the stacked action sits below the body text");
+        assertEquals(banner.bounds().bottom() + 4, next.bounds().y());
+        ui.place(col, 0, 0, 140, 400);
+        assertEquals(143, banner.bounds().h(), "a second pass changes nothing");
+        assertTrue(banner.preferredSize(ui.ctx(), 400).h() < 143, "a wider offer wraps to fewer lines");
     }
 }

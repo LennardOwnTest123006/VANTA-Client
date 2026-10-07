@@ -134,7 +134,18 @@ public class InfoBanner extends UiNode {
 
     @Override
     protected Size measure(UiContext ctx) {
-        int w = explicitWidth() > 0 ? explicitWidth() : Math.max(bounds().w(), 240);
+        return measure(ctx, -1);
+    }
+
+    /**
+     * Measures at, in this order, the explicit width, the width the parent offers and the width of the last
+     * layout (240 px when nothing is known), so the wrapped body and a stacked action row take their real height
+     * in the first layout pass, also in columns narrower than 240 px.
+     */
+    @Override
+    protected Size measure(UiContext ctx, int availableWidth) {
+        int w = explicitWidth() > 0 ? explicitWidth()
+                : availableWidth > 0 ? availableWidth : Math.max(bounds().w(), 240);
         List<String> lines = body.isEmpty() ? List.of()
                 : CanvasText.wrap(body, textWidth(ctx, w), FontKind.UI, ctx.metrics());
         int textH = textHeight(ctx, lines);

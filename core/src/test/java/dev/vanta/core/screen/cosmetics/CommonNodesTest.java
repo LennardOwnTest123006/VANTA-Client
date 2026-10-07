@@ -16,6 +16,7 @@ import dev.vanta.core.ui.TestCanvas;
 import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.UiTestSupport;
+import dev.vanta.core.ui.layout.Column;
 import dev.vanta.core.ui.widget.Button;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -95,6 +96,29 @@ class CommonNodesTest {
         assertTrue(action.bounds().y() > banner.bounds().y() + 10);
         assertEquals(ui.theme.warning(), banner.accent(ui.theme));
         assertEquals(ui.theme.textSecondary(), banner.tone(InfoBanner.Tone.NEUTRAL).accent(ui.theme));
+    }
+
+    /**
+     * A fresh banner in a column measures at the width the column offers, so in the first pass it is already as
+     * tall as its wrapped body plus the stacked action, also below the 240 px it used to assume as a minimum.
+     */
+    @Test
+    void infoBannerTakesItsRealHeightInTheFirstPassOfANarrowColumn() {
+        Column col = new Column(4);
+        InfoBanner banner = col.add(new InfoBanner(InfoBanner.Tone.INFO, "Title", "word ".repeat(40).trim()));
+        Button action = Button.primary("Act", () -> { });
+        banner.action(action);
+        Button next = col.add(new Button("Next", () -> { }));
+        assertEquals(240, banner.preferredSize(ui.ctx()).w(), "nothing known yet: the old 240 px assumption");
+        ui.place(col, 0, 0, 140, 400);
+        // 106 px of text (four 20 px words per line, ten lines), the title, the stacked action and the padding.
+        int textBottom = banner.bounds().y() + Theme.SPACE_4 + 9 + Theme.SPACE_1 + 10 * 9;
+        assertEquals(new Rect(0, 0, 140, 16 + 101 + Theme.SPACE_3 + 20), banner.bounds());
+        assertTrue(action.bounds().y() >= textBottom, "the stacked action sits below the body text");
+        assertEquals(banner.bounds().bottom() + 4, next.bounds().y());
+        ui.place(col, 0, 0, 140, 400);
+        assertEquals(new Rect(0, 0, 140, 143), banner.bounds(), "a second pass changes nothing");
+        assertTrue(banner.preferredSize(ui.ctx(), 400).h() < 143, "a wider offer wraps to fewer lines");
     }
 
     @Test

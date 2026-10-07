@@ -9,11 +9,13 @@ import dev.vanta.core.modrinth.FakeModPlatform;
 import dev.vanta.core.modrinth.FakeModrinthApi;
 import dev.vanta.core.screen.ReachabilityWalker;
 import dev.vanta.core.screen.ScreenId;
+import dev.vanta.core.screen.common.InfoBanner;
 import dev.vanta.core.screen.common.ScreenTestSupport;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.Rect;
 import dev.vanta.core.ui.TestCanvas;
+import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.layout.ScrollPanel;
 import dev.vanta.core.ui.widget.Button;
@@ -213,6 +215,41 @@ class ModsScreenSmallWindowTest {
         clickVisibleCentre(screen, install);
         t.frame(screen, -1000, -1000);
         assertTrue(Files.exists(dir.resolve("mods/lithium-1.0.0.jar")), "the click reached the pack Install button");
+    }
+
+    /**
+     * The Shaders tab shows the "Shader packs need Iris" banner at the top of the list column, which is only
+     * 124 px wide at 320x240. The banner used to measure itself at least 240 px wide, so its box was too short
+     * for the body wrapped at the real width and the stacked Install button was drawn over the last lines.
+     */
+    @ParameterizedTest(name = "{0}x{1}")
+    @CsvSource({"320, 240", "427, 240", "640, 360"})
+    void irisBannerKeepsItsButtonBelowTheTextInASmallWindow(int w, int h) {
+        ModsScreen screen = t.show(ScreenId.MODS, w, h);
+        screen.selectTab(ModsTab.SHADERS);
+        for (int i = 0; i < 3; i++) {
+            screen.tick();
+        }
+        t.frame(screen, -1000, -1000);
+        TestCanvas canvas = t.frame(screen, -1000, -1000);
+        Button install = (Button) screen.root().findById("mods.installIris");
+        assertNotNull(install, "the Iris banner is shown on the Shaders tab without Iris");
+        InfoBanner banner = (InfoBanner) install.parent().parent();
+        Rect box = banner.bounds();
+        int textLeft = box.x() + Theme.SPACE_4 + 2 + 10 + Theme.SPACE_3;
+        int bodyLines = 0;
+        for (TestCanvas.Op op : canvas.ops()) {
+            if (op instanceof TestCanvas.Text text && text.x() == textLeft && text.y() >= box.y()
+                    && text.y() < box.bottom() + 40 && banner.body().contains(text.text())) {
+                bodyLines++;
+                Rect line = new Rect(text.x(), text.y(), canvas.textWidth(text.text(), text.font()), 9);
+                assertTrue(line.bottom() <= box.bottom(), "body line inside the banner: " + line + " in " + box);
+                assertFalse(line.intersects(install.bounds()),
+                        "the Install button " + install.bounds() + " shares pixels with the body line " + line);
+            }
+        }
+        assertTrue(bodyLines >= 2, "the body is drawn in several lines, got " + bodyLines);
+        assertReachable(screen, "mods.installIris", w + "x" + h);
     }
 
     /** Sanity check of the fixture: at a fullscreen-like size both buttons are reachable today. */
