@@ -659,6 +659,40 @@ jobs:
           if jq -e '.installed[] | select(.projectId == "P7dR8mSH")' "$INDEX" >/dev/null; then echo "::error::Fabric API tracked as Modrinth content"; exit 1; fi
           test "$(ls "$INSTANCE"/mods/fabric-api-*.jar | wc -l)" -eq 1
           ls -la "$INSTANCE/mods"
+      - name: Put Smart FPS Booster built for Minecraft 1.21.8 (Modrinth version XhY98l33) into the VANTA instance's mods/
+        # A real Modrinth mod that lists Minecraft 1.21.11 but stops it while starting: its client entrypoint creates key
+        # bindings with the constructor Minecraft removed in 1.21.9 (NoSuchMethodError). Fabric still loads it (its
+        # fabric.mod.json accepts every 1.21.x), so VANTA's start-up check in --install-official-profile has to switch it
+        # off (rename it to .jar.disabled, never delete it). The jar is the file Modrinth publishes, checked against its
+        # SHA-512.
+        env:
+          VERSION_ID: XhY98l33
+          EXPECT_FILE: smart-fps-booster-1.0.0+mc1.21.8.jar
+        run: |
+          set -euo pipefail
+          MODS="$RUNNER_TEMP/vanta/instances/vanta-1.21.11/mods"
+          test -d "$MODS" || { echo "::error::$MODS does not exist"; exit 1; }
+          V=$(sed -n 's/^launcher_version=//p' launcher/gradle.properties)
+          UA="LennardOwnTest123006/VANTA-Client/$V (https://github.com/LennardOwnTest123006/VANTA-Client)"
+          mkdir -p "$RUNNER_TEMP/startup-check"
+          META="$RUNNER_TEMP/startup-check/$VERSION_ID.json"
+          curl -fsS --retry 3 --retry-delay 5 -A "$UA" "https://api.modrinth.com/v2/version/$VERSION_ID" > "$META"
+          jq '{name, version_number, game_versions, loaders, date_published, files: [.files[] | {filename, primary, size}]}' "$META"
+          # The file VANTA's installers take: the primary one, else the first (Modrinth's rule when none is marked).
+          PRIMARY=$(jq -ec '([.files[] | select(.primary == true)] | first) // .files[0]' "$META") \
+            || { echo "::error::version $VERSION_ID has no file"; exit 1; }
+          NAME=$(jq -r '.filename' <<< "$PRIMARY")
+          URL=$(jq -r '.url' <<< "$PRIMARY")
+          SHA=$(jq -r '.hashes.sha512 // ""' <<< "$PRIMARY")
+          test "$NAME" = "$EXPECT_FILE" || { echo "::error::primary file of $VERSION_ID is '$NAME', expected $EXPECT_FILE"; exit 1; }
+          [[ "$SHA" =~ ^[0-9a-f]{128}$ ]] || { echo "::error::$NAME has no SHA-512 on Modrinth"; exit 1; }
+          [[ "$URL" == https://* ]] || { echo "::error::$NAME is not served over HTTPS: $URL"; exit 1; }
+          if [ -e "$MODS/$NAME" ] || [ -e "$MODS/$NAME.disabled" ]; then echo "::error::$NAME is already in $MODS"; exit 1; fi
+          curl -fsSL --retry 3 --retry-delay 5 -A "$UA" -o "$RUNNER_TEMP/startup-check/$NAME" "$URL"
+          echo "$SHA  $RUNNER_TEMP/startup-check/$NAME" | sha512sum -c -
+          printf '%s\n' "$SHA" > "$RUNNER_TEMP/startup-check/$NAME.sha512"
+          cp "$RUNNER_TEMP/startup-check/$NAME" "$MODS/$NAME"
+          ls -la "$MODS"
       - name: Use with the Minecraft Launcher - add the VANTA profile to a fake official .minecraft and verify it
         run: |
           set -euo pipefail
@@ -716,7 +750,7 @@ jobs:
           STORE_MC="$RUNNER_TEMP/dotminecraft-store"
           mkdir -p "$STORE_MC"
           printf '%s\n' '{"profiles":{"ci-store":{"name":"Store vanilla","type":"custom","lastVersionId":"1.21.4"}},"settings":{"locale":"de-de"}}' > "$STORE_MC/launcher_profiles_microsoft_store.json"
-          java -jar launcher/build/libs/vanta-launcher-*-all.jar --install-official-profile --client-jar "$JAR" --minecraft-dir "$STORE_MC" --data-dir "$RUNNER_TEMP/vanta"
+          java -jar launcher/build/libs/vanta-launcher-*-all.jar --install-official-profile --client-jar "$JAR" --minecraft-dir "$STORE_MC" --data-dir "$RUNNER_TEMP/vanta" | tee "$RUNNER_TEMP/official-profile-store.out"
           S="$STORE_MC/launcher_profiles_microsoft_store.json"
           jq -e '.profiles["vanta-1.21.11"].lastVersionId == "fabric-loader-0.19.5-1.21.11"' "$S"
           jq -e '.profiles["ci-store"].name == "Store vanilla" and .settings.locale == "de-de"' "$S"
@@ -724,6 +758,29 @@ jobs:
           test ! -e "$STORE_MC/launcher_profiles.json" || { echo "::error::launcher_profiles.json must not be created"; exit 1; }
           test -f "$STORE_MC/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.json"
           echo "Microsoft Store launcher profile verified"
+      - name: Start-up check of --install-official-profile switched Smart FPS Booster off (renamed to .jar.disabled, nothing else)
+        run: |
+          set -euo pipefail
+          MODS="$RUNNER_TEMP/vanta/instances/vanta-1.21.11/mods"
+          OUT="$RUNNER_TEMP/official-profile.out"
+          LINE=$(grep -F "Startup check: switched off smart-fps-booster-1.0.0+mc1.21.8.jar" "$OUT") \
+            || { echo "::error::--install-official-profile did not switch off smart-fps-booster-1.0.0+mc1.21.8.jar"; tail -80 "$OUT" || true; exit 1; }
+          echo "$LINE"
+          # "Startup check: switched off <file name> (<mod name> <version>): <reason>"
+          grep -qF "Startup check: switched off smart-fps-booster-1.0.0+mc1.21.8.jar (Smart FPS Booster " <<< "$LINE" \
+            || { echo "::error::the line does not name the mod"; exit 1; }
+          grep -qF "): built for an older Minecraft" <<< "$LINE" || { echo "::error::the line does not give the reason"; exit 1; }
+          test ! -e "$MODS/smart-fps-booster-1.0.0+mc1.21.8.jar" || { echo "::error::smart-fps-booster-1.0.0+mc1.21.8.jar is still switched on"; ls -la "$MODS"; exit 1; }
+          test -f "$MODS/smart-fps-booster-1.0.0+mc1.21.8.jar.disabled" \
+            || { echo "::error::smart-fps-booster-1.0.0+mc1.21.8.jar.disabled is missing (a switched-off jar is renamed, never deleted)"; ls -la "$MODS"; exit 1; }
+          # Renamed, not rewritten: the .disabled file is the very jar Modrinth published.
+          echo "$(cat "$RUNNER_TEMP/startup-check/smart-fps-booster-1.0.0+mc1.21.8.jar.sha512")  $MODS/smart-fps-booster-1.0.0+mc1.21.8.jar.disabled" | sha512sum -c -
+          # Only that jar: the VANTA client, Fabric API and the Performance pack stay switched on.
+          test "$(find "$MODS" -maxdepth 1 -name '*.disabled' | wc -l)" -eq 1 \
+            || { echo "::error::more than one jar was switched off"; ls -la "$MODS"; exit 1; }
+          # The second run (Microsoft Store launcher, same instance) finds nothing left to switch off.
+          grep -E "Startup check: [0-9]+ mods checked, nothing to switch off" "$RUNNER_TEMP/official-profile-store.out" \
+            || { echo "::error::the second --install-official-profile run did not report a clean start-up check"; cat "$RUNNER_TEMP/official-profile-store.out"; exit 1; }
       - name: Install the published VANTA client through the built-in releases URL (skipped while no client release is published)
         run: |
           set -euo pipefail
@@ -745,6 +802,39 @@ jobs:
       - name: Print the launch command (secrets redacted)
         run: |
           VANTA_DEV_OFFLINE=1 java -jar launcher/build/libs/vanta-launcher-*-all.jar --print-command --dev-offline --username CI --data-dir "$RUNNER_TEMP/vanta"
+      - name: Put Smart FPS Booster built for Minecraft 1.21.4 (Modrinth version hE70j3c1) into the VANTA instance's mods/
+        # A real Modrinth mod that lists Minecraft 1.21.11 but stops it while starting: its client entrypoint creates key
+        # bindings with the constructor Minecraft removed in 1.21.9 (NoSuchMethodError). Fabric still loads it (its
+        # fabric.mod.json accepts every 1.21.x), so VANTA's start-up check in --launch has to switch it off (rename
+        # it to .jar.disabled, never delete it). The jar is the file Modrinth publishes, checked against its SHA-512.
+        env:
+          VERSION_ID: hE70j3c1
+          EXPECT_FILE: smart-fps-booster-1.0.0+mc1.21.4.jar
+        run: |
+          set -euo pipefail
+          MODS="$RUNNER_TEMP/vanta/instances/vanta-1.21.11/mods"
+          test -d "$MODS" || { echo "::error::$MODS does not exist"; exit 1; }
+          V=$(sed -n 's/^launcher_version=//p' launcher/gradle.properties)
+          UA="LennardOwnTest123006/VANTA-Client/$V (https://github.com/LennardOwnTest123006/VANTA-Client)"
+          mkdir -p "$RUNNER_TEMP/startup-check"
+          META="$RUNNER_TEMP/startup-check/$VERSION_ID.json"
+          curl -fsS --retry 3 --retry-delay 5 -A "$UA" "https://api.modrinth.com/v2/version/$VERSION_ID" > "$META"
+          jq '{name, version_number, game_versions, loaders, date_published, files: [.files[] | {filename, primary, size}]}' "$META"
+          # The file VANTA's installers take: the primary one, else the first (Modrinth's rule when none is marked).
+          PRIMARY=$(jq -ec '([.files[] | select(.primary == true)] | first) // .files[0]' "$META") \
+            || { echo "::error::version $VERSION_ID has no file"; exit 1; }
+          NAME=$(jq -r '.filename' <<< "$PRIMARY")
+          URL=$(jq -r '.url' <<< "$PRIMARY")
+          SHA=$(jq -r '.hashes.sha512 // ""' <<< "$PRIMARY")
+          test "$NAME" = "$EXPECT_FILE" || { echo "::error::primary file of $VERSION_ID is '$NAME', expected $EXPECT_FILE"; exit 1; }
+          [[ "$SHA" =~ ^[0-9a-f]{128}$ ]] || { echo "::error::$NAME has no SHA-512 on Modrinth"; exit 1; }
+          [[ "$URL" == https://* ]] || { echo "::error::$NAME is not served over HTTPS: $URL"; exit 1; }
+          if [ -e "$MODS/$NAME" ] || [ -e "$MODS/$NAME.disabled" ]; then echo "::error::$NAME is already in $MODS"; exit 1; fi
+          curl -fsSL --retry 3 --retry-delay 5 -A "$UA" -o "$RUNNER_TEMP/startup-check/$NAME" "$URL"
+          echo "$SHA  $RUNNER_TEMP/startup-check/$NAME" | sha512sum -c -
+          printf '%s\n' "$SHA" > "$RUNNER_TEMP/startup-check/$NAME.sha512"
+          cp "$RUNNER_TEMP/startup-check/$NAME" "$MODS/$NAME"
+          ls -la "$MODS"
       - name: Launch the game headless for 120 seconds (development offline account)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb mesa-utils >/dev/null
@@ -753,7 +843,44 @@ jobs:
           INSTANCE=$(ls -d "$RUNNER_TEMP"/vanta/instances/*/ | head -1)
           printf 'onboardAccessibility:false\nnarrator:0\n' > "$INSTANCE/options.txt"
           echo "Seeded $INSTANCE/options.txt"
-          VANTA_DEV_OFFLINE=1 xvfb-run -a -s "-screen 0 1280x720x24" java -jar launcher/build/libs/vanta-launcher-*-all.jar --launch --dev-offline --username CI --exit-after 120 --resolution 1280x720 --data-dir "$RUNNER_TEMP/vanta"
+          set -o pipefail
+          VANTA_DEV_OFFLINE=1 xvfb-run -a -s "-screen 0 1280x720x24" java -jar launcher/build/libs/vanta-launcher-*-all.jar --launch --dev-offline --username CI --exit-after 120 --resolution 1280x720 --data-dir "$RUNNER_TEMP/vanta" | tee "$RUNNER_TEMP/launch.out"
+      - name: Start-up check of --launch switched Smart FPS Booster off before the game started, and the game did not crash
+        if: always()
+        run: |
+          set -euo pipefail
+          INSTANCE="$RUNNER_TEMP/vanta/instances/vanta-1.21.11"
+          MODS="$INSTANCE/mods"
+          OUT="$RUNNER_TEMP/launch.out"
+          LINE=$(grep -F "Startup check: switched off smart-fps-booster-1.0.0+mc1.21.4.jar" "$OUT") \
+            || { echo "::error::--launch did not switch off smart-fps-booster-1.0.0+mc1.21.4.jar"; tail -80 "$OUT" || true; exit 1; }
+          echo "$LINE"
+          # "Startup check: switched off <file name> (<mod name> <version>): <reason>"
+          grep -qF "Startup check: switched off smart-fps-booster-1.0.0+mc1.21.4.jar (Smart FPS Booster " <<< "$LINE" \
+            || { echo "::error::the line does not name the mod"; exit 1; }
+          grep -qF "): built for an older Minecraft" <<< "$LINE" || { echo "::error::the line does not give the reason"; exit 1; }
+          test ! -e "$MODS/smart-fps-booster-1.0.0+mc1.21.4.jar" || { echo "::error::smart-fps-booster-1.0.0+mc1.21.4.jar is still switched on"; ls -la "$MODS"; exit 1; }
+          test -f "$MODS/smart-fps-booster-1.0.0+mc1.21.4.jar.disabled" \
+            || { echo "::error::smart-fps-booster-1.0.0+mc1.21.4.jar.disabled is missing (a switched-off jar is renamed, never deleted)"; ls -la "$MODS"; exit 1; }
+          # Renamed, not rewritten: the .disabled file is the very jar Modrinth published.
+          echo "$(cat "$RUNNER_TEMP/startup-check/smart-fps-booster-1.0.0+mc1.21.4.jar.sha512")  $MODS/smart-fps-booster-1.0.0+mc1.21.4.jar.disabled" | sha512sum -c -
+          # The 1.21.8 build that --install-official-profile switched off stays off.
+          if [ -e "$MODS/smart-fps-booster-1.0.0+mc1.21.8.jar" ] || [ ! -f "$MODS/smart-fps-booster-1.0.0+mc1.21.8.jar.disabled" ]; then
+            echo "::error::smart-fps-booster-1.0.0+mc1.21.8.jar was switched back on"; ls -la "$MODS"; exit 1
+          fi
+          # The game did not stop while starting: no crash report (the player's crash wrote
+          # crash-reports/crash-<date>-client.txt, "Description: Initializing game").
+          if compgen -G "$INSTANCE/crash-reports/*.txt" >/dev/null; then
+            echo "::error::the game wrote a crash report"
+            for f in "$INSTANCE"/crash-reports/*.txt; do echo "==== $f"; sed -n '1,80p' "$f"; done
+            exit 1
+          fi
+          LOG="$INSTANCE/logs/latest.log"
+          test -f "$LOG" || { echo "::error::no game log at $LOG"; exit 1; }
+          # Fabric did not load the mod (it lists every loaded mod at start-up) and no entrypoint failed.
+          if grep -E "^[[:space:]]+- smartfpsbooster " "$LOG"; then echo "::error::Fabric loaded smartfpsbooster"; exit 1; fi
+          if grep -F "Could not execute entrypoint stage" "$LOG"; then echo "::error::a mod entrypoint failed"; exit 1; fi
+          echo "Smart FPS Booster was switched off; the game started without a crash report"
       - name: Verify the VANTA client loaded inside the game
         if: always()
         run: |
@@ -776,4 +903,7 @@ jobs:
             ${{ runner.temp }}/vanta/logs/
             ${{ runner.temp }}/vanta/instances/*/logs/
             ${{ runner.temp }}/vanta/instances/*/crash-reports/
+            ${{ runner.temp }}/official-profile.out
+            ${{ runner.temp }}/official-profile-store.out
+            ${{ runner.temp }}/launch.out
           if-no-files-found: ignore
