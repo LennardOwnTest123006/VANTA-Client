@@ -99,6 +99,28 @@ public final class FakeModrinthApi implements ModrinthApi {
         return this;
     }
 
+    /**
+     * Serves other bytes (e.g. a real jar) as the primary file of a project's first version, under the given file
+     * name and with their real SHA-512.
+     */
+    public FakeModrinthApi replaceFile(String projectId, String filename, byte[] content) {
+        List<ModrinthVersion> list = versions.get(projectId);
+        if (list == null || list.isEmpty()) {
+            throw new IllegalArgumentException("unknown project " + projectId);
+        }
+        ModrinthVersion old = list.get(0);
+        files.remove(old.primaryFile().orElseThrow().url());
+        String url = "https://cdn.modrinth.com/data/" + projectId + "/versions/" + old.id() + "/" + filename;
+        files.put(url, content.clone());
+        ModrinthFile file = new ModrinthFile(url, filename, true, content.length, Sha512.hex(content), "");
+        List<ModrinthVersion> all = new ArrayList<>(list);
+        all.set(0, new ModrinthVersion(old.id(), old.projectId(), old.name(), old.versionNumber(), old.versionType(),
+                old.published(), old.downloads(), old.gameVersions(), old.loaders(), List.of(file),
+                old.dependencies()));
+        versions.put(projectId, List.copyOf(all));
+        return this;
+    }
+
     /** The bytes of a version's primary file. */
     public byte[] fileContent(String versionId) {
         try {

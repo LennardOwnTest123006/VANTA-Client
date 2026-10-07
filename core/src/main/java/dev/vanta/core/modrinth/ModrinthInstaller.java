@@ -28,6 +28,9 @@ import java.util.Set;
  *       already exists under that name is never overwritten: if its SHA-512 equals the expected one it is adopted
  *       (a {@code .jar.disabled} copy is renamed back to {@code .jar}, so the mod really loads after the restart the
  *       result asks for), otherwise the item fails with {@link ModrinthException.Kind#FILE_EXISTS}.</li>
+ *   <li>A mod jar built for an older Minecraft that would stop 1.21.11 while starting ({@link ModJarCheck}) fails
+ *       with {@link ModrinthException.Kind#INCOMPATIBLE}: a download is deleted, a hand-disabled copy stays
+ *       switched off.</li>
  *   <li>Installed but disabled dependencies are switched back on and {@code requiredBy} links are added.</li>
  * </ol>
  */
@@ -80,6 +83,8 @@ public final class ModrinthInstaller {
                         // switched-off copy is switched back on when committed: the player asked for the mod, and
                         // an entry reported as installed while the jar stays .disabled would never load.
                         if (!present.equals(target)) {
+                            // Never switch on a jar that would stop the game; the player's file stays as it is.
+                            refuseOlderMinecraftBuild(item, present);
                             disabledCopies.put(item.projectId(), present);
                         }
                     } else {
@@ -100,6 +105,7 @@ public final class ModrinthInstaller {
                         throw new ModrinthException(ModrinthException.Kind.HASH_MISMATCH,
                                 item.file().filename() + " does not match its published SHA-512");
                     }
+                    refuseOlderMinecraftBuild(item, stage);
                 }
             } catch (ModrinthException e) {
                 errors.put(item.projectId(), e);
@@ -220,6 +226,23 @@ public final class ModrinthInstaller {
             throw new ModrinthException(ModrinthException.Kind.UNSAFE_FILE, item.file().filename() + " is not a .jar");
         }
         return library.checkedPath(library.directory(item.type()).resolve(item.file().filename()));
+    }
+
+    /**
+     * Fails a mod jar built for an older Minecraft that would stop 1.21.11 while starting (see {@link ModJarCheck}).
+     * A jar that could not be checked is let through: the check never blocks on its own failure.
+     */
+    private static void refuseOlderMinecraftBuild(PlannedInstall item, Path jar) throws ModrinthException {
+        if (item.type() != ModrinthProjectType.MOD) {
+            return;
+        }
+        ModJarCheck.Result check = ModJarCheck.check(jar);
+        if (check.flagged()) {
+            CoreLog.warn("Refusing {} ({}): {} calls KeyMapping.<init>{}", jar.getFileName(), item.title(),
+                    check.className(), check.descriptor());
+            throw new ModrinthException(ModrinthException.Kind.INCOMPATIBLE,
+                    jar.getFileName() + " is " + check.reason());
+        }
     }
 
     private static Path disabled(Path target) {

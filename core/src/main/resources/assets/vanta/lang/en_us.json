@@ -1199,6 +1199,7 @@
   "vanta.mods.error.invalid_response": "Modrinth sent an unexpected answer.",
   "vanta.mods.error.unsafe_file": "The file Modrinth offers cannot be installed safely.",
   "vanta.mods.error.file_exists": "A file with the same name is already there and was left untouched.",
+  "vanta.mods.error.incompatible": "This mod was built for an older Minecraft and would stop Minecraft 1.21.11 from starting, so it was not installed.",
   "vanta.mods.error.local_io": "A file could not be written. Check the game folder.",
   "vanta.mods.error.cancelled": "Cancelled.",
   "vanta.about.versions": "Versions",

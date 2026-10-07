@@ -29,6 +29,11 @@ public final class ModrinthException extends IOException {
         UNSAFE_FILE,
         /** A file with the same name exists and was not installed by VANTA; it is never overwritten. */
         FILE_EXISTS,
+        /**
+         * A mod jar was built for an older Minecraft and would stop this game while starting (see
+         * {@link ModJarCheck}); it was not installed.
+         */
+        INCOMPATIBLE,
         /** Reading or writing a local file failed. */
         LOCAL_IO,
         /** The operation was interrupted. */
