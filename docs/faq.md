@@ -80,8 +80,8 @@ notarised macOS app.
 
 ## Which launcher file do I need on Linux or macOS?
 
-Linux x64: `VANTA-Launcher-1.2.1-linux-x64.tar.gz` (or `vanta-launcher-1.2.1-linux-all.jar` with Java 21). Apple
-Silicon Mac: `vanta-launcher-1.2.1-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
+Linux x64: `VANTA-Launcher-1.3.0-linux-x64.tar.gz` (or `vanta-launcher-1.3.0-linux-all.jar` with Java 21). Apple
+Silicon Mac: `vanta-launcher-1.3.0-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
 interchangeable: each contains JavaFX for one system only, so the Windows or Linux jar does not run on a Mac. Started on
 the wrong system, a jar does not open its window; it names the file to download instead (in a message window as well
 when you double-clicked it) and exits with code 1. The macOS jar is built and tested from the command line in CI; its
@@ -90,7 +90,7 @@ window has not been tested yet. Details:
 
 ## Can I use VANTA without the VANTA Launcher?
 
-Yes. Download `vanta-client-1.2.1-mods.zip`: it contains `vanta-client-1.2.1.jar`, Fabric API 0.141.6+1.21.11 and,
+Yes. Download `vanta-client-1.3.0-mods.zip`: it contains `vanta-client-1.3.0.jar`, Fabric API 0.141.6+1.21.11 and,
 from client 1.2.0 on, the redistributable Performance pack mods (all but EntityCulling) in a `mods/` folder, plus
 `INSTALL.txt` with the steps ([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)). Start the official Minecraft Launcher once,
 install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer (keep *Create profile* checked) and copy all jars
@@ -161,16 +161,16 @@ third-party combinations; see [Fabric](fabric.md#using-vanta-with-other-fabric-m
 
 On the website's [Download page](https://vanta-client.netlify.app/download) or directly from
 [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases). The newest releases are
-`launcher-v1.2.1` and `client-v1.2.1`. Both places offer the same files, built and published by the project's release workflow with their SHA-256 checksums. Do
+`launcher-v1.3.0` and `client-v1.3.0`. Both places offer the same files, built and published by the project's release workflow with their SHA-256 checksums. Do
 not take VANTA files from anywhere else.
 
 | Your system | File |
 | --- | --- |
-| Windows 10/11 x64 | `VANTA-Launcher-1.2.1.msi` (installer with its own Java runtime), or `VANTA-Launcher-1.2.1.exe` if `.msi` files are blocked, or `VANTA-Launcher-1.2.1-windows-portable.zip` to run it without installing |
-| Linux x64 | `VANTA-Launcher-1.2.1-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.2.1-linux-all.jar` with Java 21 |
-| Mac with Apple Silicon | `vanta-launcher-1.2.1-macos-aarch64-all.jar` with Java 21 |
-| Windows 11 on ARM | `VANTA-Launcher-1.2.1.msi` or `VANTA-Launcher-1.2.1-windows-portable.zip` (x64 with their own x64 Java runtime, run under emulation; not tested on such a device; [details](troubleshooting.md#windows-on-arm-which-launcher-file)) |
-| Intel Mac, Linux on ARM, or no VANTA Launcher | `vanta-client-1.2.1-mods.zip` and the Fabric installer ([manual installation](installation.md#c-manual-installation)) |
+| Windows 10/11 x64 | `VANTA-Launcher-1.3.0.msi` (installer with its own Java runtime), or `VANTA-Launcher-1.3.0.exe` if `.msi` files are blocked, or `VANTA-Launcher-1.3.0-windows-portable.zip` to run it without installing |
+| Linux x64 | `VANTA-Launcher-1.3.0-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.3.0-linux-all.jar` with Java 21 |
+| Mac with Apple Silicon | `vanta-launcher-1.3.0-macos-aarch64-all.jar` with Java 21 |
+| Windows 11 on ARM | `VANTA-Launcher-1.3.0.msi` or `VANTA-Launcher-1.3.0-windows-portable.zip` (x64 with their own x64 Java runtime, run under emulation; not tested on such a device; [details](troubleshooting.md#windows-on-arm-which-launcher-file)) |
+| Intel Mac, Linux on ARM, or no VANTA Launcher | `vanta-client-1.3.0-mods.zip` and the Fabric installer ([manual installation](installation.md#c-manual-installation)) |
 
 Verify the file with `SHA256SUMS.txt` from the same release before you run it
 ([Installation → Verify the checksum](installation.md#2-verify-the-checksum)). Older versions stay available on

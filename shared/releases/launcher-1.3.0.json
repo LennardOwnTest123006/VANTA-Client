@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "product": "launcher",
+  "version": "1.3.0",
+  "minecraftVersion": "1.21.11",
+  "fabricVersion": "0.19.5",
+  "fabricApiVersion": "0.141.6+1.21.11",
+  "javaVersion": 21,
+  "releaseDate": "2026-10-07",
+  "channel": "stable",
+  "files": [
+    {
+      "name": "VANTA-Launcher-1.3.0.msi",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "VANTA-Launcher-1.3.0.exe",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "VANTA-Launcher-1.3.0-windows-portable.zip",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "vanta-launcher-1.3.0-windows-all.jar",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "VANTA-Launcher-1.3.0-linux-x64.tar.gz",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "vanta-launcher-1.3.0-linux-all.jar",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "vanta-launcher-1.3.0-macos-aarch64-all.jar",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    }
+  ],
+  "changelog": "website/content/changelog/launcher-1.3.0.md"
+}

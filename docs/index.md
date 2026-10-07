@@ -17,10 +17,10 @@ use Mods & Shaders ([Privacy](privacy.md)).
 | Fabric Loader | 0.19.5 |
 | Fabric API | 0.141.6+1.21.11 |
 | Java | 21 |
-| VANTA Client | 1.2.1 |
-| VANTA Launcher | 1.2.1 |
+| VANTA Client | 1.3.0 |
+| VANTA Launcher | 1.3.0 |
 | Launcher platforms | Windows 10/11 x64 (installers, portable app, jar); Linux x64 (app image, jar); Apple Silicon macOS (jar) |
-| Downloads | GitHub Releases `client-v1.2.1` and `launcher-v1.2.1` (released 2026-10-07; the earlier releases stay available), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
+| Downloads | GitHub Releases `client-v1.3.0` and `launcher-v1.3.0` (released 2026-10-07; the earlier releases stay available), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
 
 ## Quick start
 

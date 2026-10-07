@@ -12,7 +12,7 @@ each for Windows x64, Linux x64 and Apple Silicon macOS (each jar runs only on t
 [Installation → Download](installation.md#1-download)). It does three things and nothing more: download verified
 files, sign you in with Microsoft or hand the game over to the official Minecraft Launcher, and start the game.
 
-This page describes launcher 1.2.1. Where earlier versions behave differently, the text says so.
+This page describes launcher 1.3.0. Where earlier versions behave differently, the text says so.
 
 ## Home
 
@@ -496,28 +496,28 @@ At start (and with `--check-update`) the launcher fetches `launcher-latest.json`
   stays available with its checksum.
 
   **Updating from launcher 1.0.0.** The table describes launcher 1.0.1 and newer. An update is offered by the
-  launcher you are running, and launcher 1.0.0 still picks the file by system only, for the update to 1.2.1 as for
-  every earlier one: on Windows it offers `VANTA-Launcher-1.2.1.msi` (also in the portable folder and when started as
-  a jar), on Linux x64 `VANTA-Launcher-1.2.1-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a
+  launcher you are running, and launcher 1.0.0 still picks the file by system only, for the update to 1.3.0 as for
+  every earlier one: on Windows it offers `VANTA-Launcher-1.3.0.msi` (also in the portable folder and when started as
+  a jar), on Linux x64 `VANTA-Launcher-1.3.0-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a
   portable folder or a jar installs a second launcher and leaves the portable copy or jar at 1.0.0. To keep a portable
   or jar setup, choose *Not now* in the 1.0.0 launcher, close it and download
-  `VANTA-Launcher-1.2.1-windows-portable.zip` or the jar for your system from the release
-  [`launcher-v1.2.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.2.1) yourself
+  `VANTA-Launcher-1.3.0-windows-portable.zip` or the jar for your system from the release
+  [`launcher-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.3.0) yourself
   (verify it as in [Installation → Verify the checksum](installation.md#2-verify-the-checksum) and replace the files
   as described in the table). From 1.0.1 on, the launcher picks the matching file itself.
 
   **Update files saved by launcher 1.0.0 and 1.0.1.** They save the download as `cache/updates/<version>-<file name>`,
-  for example `1.2.1-vanta-launcher-1.2.1-linux-all.jar`. It is the verified release file under a different name:
+  for example `1.3.0-vanta-launcher-1.3.0-linux-all.jar`. It is the verified release file under a different name:
   *Show in folder* opens that folder and the file starts from there as it is. To check it yourself with
   `sha256sum -c --ignore-missing SHA256SUMS.txt` from the release, rename it to the release name first
-  (`vanta-launcher-1.2.1-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name
+  (`vanta-launcher-1.3.0-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name
   ([Installation → Updating](installation.md#updating)).
 - An announced release whose manifest still has an empty download URL is shown as *announced, not downloadable yet*.
 
 `--check-update` prints the same result, for example on a fresh launcher:
 
 ```text
-Client: not installed (install it with --install or --install-official-profile); latest release 1.2.1
+Client: not installed (install it with --install or --install-official-profile); latest release 1.3.0
 ```
 
 ## About and links
@@ -583,7 +583,7 @@ on Linux, `"VANTA Launcher/bin/VANTA Launcher"` from the app image. The command 
 every launcher jar on every system; only the window needs the jar for your system. On Windows `VANTA Launcher.exe` is a
 window program without console output; use the jar with an installed Java 21 there, or the bundled runtime:
 `"VANTA Launcher\runtime\bin\java.exe" -jar "VANTA Launcher\app\vanta-launcher-<version>-all.jar"` inside the
-unzipped portable app (for 1.2.1: `vanta-launcher-1.2.1-all.jar`).
+unzipped portable app (for 1.3.0: `vanta-launcher-1.3.0-all.jar`).
 
 ```text
 vanta-launcher --install [--client-jar <path>] [--without-client] [--without-performance-pack] [--no-assets]

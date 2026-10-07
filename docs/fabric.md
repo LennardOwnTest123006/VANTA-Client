@@ -84,8 +84,8 @@ Report incompatibilities with the mod list included; see [Troubleshooting → Mo
 You can use VANTA without the VANTA Launcher. Any launcher that runs Fabric 0.19.5 on Minecraft 1.21.11 works;
 the client jar does not care who started the game.
 
-The release `client-v1.2.1` has what you need: `vanta-client-1.2.1-mods.zip` contains a `mods/` folder
-(`vanta-client-1.2.1.jar`, `fabric-api-0.141.6+1.21.11.jar` and the Performance pack jars described below) together
+The release `client-v1.3.0` has what you need: `vanta-client-1.3.0-mods.zip` contains a `mods/` folder
+(`vanta-client-1.3.0.jar`, `fabric-api-0.141.6+1.21.11.jar` and the Performance pack jars described below) together
 with `INSTALL.txt` and a `SHA256SUMS` file.
 `INSTALL.txt` lists the steps below for the official Minecraft Launcher, starting with step 0: start the official
 Minecraft Launcher once. From 1.1.0 on it also says which Fabric installer to take on each system and that the
@@ -113,7 +113,7 @@ as described in [Installation](installation.md#2-verify-the-checksum).
    `fabric-loader-0.19.5-1.21.11`) in `launcher_profiles.json`, or in `launcher_profiles_microsoft_store.json` for the
    Minecraft Launcher from the Microsoft Store or the Xbox app. If both Minecraft Launchers are installed, the Fabric
    installer asks which one to use: choose the one you play with; only that one gets the profile.
-2. Unzip `vanta-client-1.2.1-mods.zip` and check it with its `SHA256SUMS` (`sha256sum -c SHA256SUMS` on Linux,
+2. Unzip `vanta-client-1.3.0-mods.zip` and check it with its `SHA256SUMS` (`sha256sum -c SHA256SUMS` on Linux,
    `shasum -a 256 -c SHA256SUMS` on macOS; on Windows
    `Get-FileHash mods\*.jar -Algorithm SHA256 | Format-List Hash, Path` in PowerShell, which prints the full path of
    each jar, then compare the hash of every jar with the line for the same file in `SHA256SUMS`).

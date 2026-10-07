@@ -34,7 +34,7 @@ manipulation or anything that gives an unfair advantage on multiplayer servers.
   Iris Shaders, the newest 1.21.11 Fabric versions from Modrinth at install time. One click in the game; installed by
   default by the VANTA Launcher (can be switched off). These are third-party mods under their own licences; from
   client 1.2.0 on, the ones whose licences allow redistribution (all but EntityCulling) also ship unmodified in the
-  client's mods bundle `vanta-client-1.2.1-mods.zip`, with their licence texts in `THIRD-PARTY-LICENSES.txt`.
+  client's mods bundle `vanta-client-1.3.0-mods.zip`, with their licence texts in `THIRD-PARTY-LICENSES.txt`.
 - **Profiles, settings search, keybind manager, cosmetics, local statistics and accessibility options** (UI scale,
   reduced motion, high contrast, larger text, colour-blind palettes, keyboard navigation).
 - **VANTA Launcher**: installs Minecraft 1.21.11, Fabric and the client with checksum verification, or sets VANTA up
@@ -78,12 +78,18 @@ This is a monorepo. Each product is an independent build with its own README.
 
 ## Status
 
-The latest releases are **VANTA Client 1.2.1** and **VANTA Launcher 1.2.1**, released on 2026-10-07 as the GitHub
-Releases [`client-v1.2.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.2.1) and
-[`launcher-v1.2.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.2.1). They fix one
-start-up crash: a mod built for an older Minecraft, such as Smart FPS Booster 1.0.0 ("Could not execute entrypoint
-stage 'client'"), stopped Minecraft 1.21.11 while it started. The launcher now switches such a mod off before the
-start and after a crash report that names it, and both Mods pages refuse to install it. Before them:
+The latest releases are **VANTA Client 1.3.0** and **VANTA Launcher 1.3.0**, released on 2026-10-07 as the GitHub
+Releases [`client-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.3.0) and
+[`launcher-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.3.0). A graphics
+choice now stays as you left it: VANTA shows the game's *Custom* preset instead of *Fancy*, built-in profiles change
+only what they are about, and with the Performance pack Escape keeps your changes in Sodium's video settings.
+Singleplayer lists the worlds of your Minecraft folder again. Short freezes are gone: VANTA's screens no longer
+rewrite files on every close, and the Minecraft Launcher profile gets the same tuned JVM arguments as *PLAY*. New is
+*Smart Boost*, a local, rule-based tuner (no AI, no network): while you play it measures your frame rate and picks the
+best preset your PC holds, and it never overrides graphics settings you chose yourself. Before them:
+[`client-v1.2.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.2.1) and
+[`launcher-v1.2.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.2.1) (2026-10-07: a
+mod built for an older Minecraft, such as Smart FPS Booster 1.0.0, no longer stops the game while it starts),
 [`client-v1.2.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.2.0) and
 [`launcher-v1.2.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.2.0) (2026-10-07: the
 frame-rate caps that 1.1.0's presets and profiles wrote fixed, *Max FPS* and one-click *Boost FPS*, every button
@@ -114,29 +120,29 @@ version contains is in [CHANGELOG.md](CHANGELOG.md).
 
 | Release | File | For |
 | --- | --- | --- |
-| `launcher-v1.2.1` | `VANTA-Launcher-1.2.1.msi` | Windows 10/11 x64, per-user installer with the Java 21 runtime (recommended) |
-| `launcher-v1.2.1` | `VANTA-Launcher-1.2.1.exe` | Windows 10/11 x64, the same installer as `.exe` |
-| `launcher-v1.2.1` | `VANTA-Launcher-1.2.1-windows-portable.zip` | Windows 10/11 x64, no installation: run `VANTA Launcher/VANTA Launcher.exe` |
-| `launcher-v1.2.1` | `vanta-launcher-1.2.1-windows-all.jar` | Windows x64 with Java 21 installed |
-| `launcher-v1.2.1` | `VANTA-Launcher-1.2.1-linux-x64.tar.gz` | Linux x64, app image with the Java 21 runtime: run `VANTA Launcher/bin/VANTA Launcher` |
-| `launcher-v1.2.1` | `vanta-launcher-1.2.1-linux-all.jar` | Linux x64 with Java 21 installed |
-| `launcher-v1.2.1` | `vanta-launcher-1.2.1-macos-aarch64-all.jar` | Apple Silicon macOS with Java 21 installed |
-| `client-v1.2.1` | `vanta-client-1.2.1.jar` | the Fabric mod (the launcher installs it for you) |
-| `client-v1.2.1` | `vanta-client-1.2.1-mods.zip` | manual installation: `mods/` with the VANTA jar, Fabric API and the redistributable Performance pack mods (Sodium, Lithium, FerriteCore, ImmediatelyFast, Iris; not EntityCulling), plus `INSTALL.txt`, `PERFORMANCE-PACK.txt`, `THIRD-PARTY-LICENSES.txt`, `performance-pack.json` and `SHA256SUMS` |
-| `client-v1.2.1` | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0), required by VANTA |
+| `launcher-v1.3.0` | `VANTA-Launcher-1.3.0.msi` | Windows 10/11 x64, per-user installer with the Java 21 runtime (recommended) |
+| `launcher-v1.3.0` | `VANTA-Launcher-1.3.0.exe` | Windows 10/11 x64, the same installer as `.exe` |
+| `launcher-v1.3.0` | `VANTA-Launcher-1.3.0-windows-portable.zip` | Windows 10/11 x64, no installation: run `VANTA Launcher/VANTA Launcher.exe` |
+| `launcher-v1.3.0` | `vanta-launcher-1.3.0-windows-all.jar` | Windows x64 with Java 21 installed |
+| `launcher-v1.3.0` | `VANTA-Launcher-1.3.0-linux-x64.tar.gz` | Linux x64, app image with the Java 21 runtime: run `VANTA Launcher/bin/VANTA Launcher` |
+| `launcher-v1.3.0` | `vanta-launcher-1.3.0-linux-all.jar` | Linux x64 with Java 21 installed |
+| `launcher-v1.3.0` | `vanta-launcher-1.3.0-macos-aarch64-all.jar` | Apple Silicon macOS with Java 21 installed |
+| `client-v1.3.0` | `vanta-client-1.3.0.jar` | the Fabric mod (the launcher installs it for you) |
+| `client-v1.3.0` | `vanta-client-1.3.0-mods.zip` | manual installation: `mods/` with the VANTA jar, Fabric API and the redistributable Performance pack mods (Sodium, Lithium, FerriteCore, ImmediatelyFast, Iris; not EntityCulling), plus `INSTALL.txt`, `PERFORMANCE-PACK.txt`, `THIRD-PARTY-LICENSES.txt`, `performance-pack.json` and `SHA256SUMS` |
+| `client-v1.3.0` | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0), required by VANTA |
 
-Each release also has `SHA256SUMS.txt` and its manifest (`client-1.2.1.json`, `launcher-1.2.1.json`). Every launcher
+Each release also has `SHA256SUMS.txt` and its manifest (`client-1.3.0.json`, `launcher-1.3.0.json`). Every launcher
 jar contains JavaFX for one system only, so take the jar with your system in its name; started on another system it
 says which file to download and exits with code 1. From 1.0.1 on, the launcher updates itself with the file that
 matches how it was installed: the `.msi` for a launcher installed with the `.msi` or `.exe`, the portable `.zip` for
 the portable folder, the `.tar.gz` for the Linux app image and the jar for your system when it was started with
 `java -jar` ([docs/launcher.md](docs/launcher.md#updates-and-rollback)). Launcher 1.0.0 still picks the update by
-system only, also for the update to 1.2.1: on Windows it offers the `.msi` (also in the portable folder and for the
+system only, also for the update to 1.3.0: on Windows it offers the `.msi` (also in the portable folder and for the
 jar), on Linux x64 the `.tar.gz` (also for the jar). To keep a portable or jar setup, choose *Not now*, close the
-1.0.0 launcher and download `VANTA-Launcher-1.2.1-windows-portable.zip` or the jar for your system from the
-`launcher-v1.2.1` release instead ([docs/installation.md](docs/installation.md#updating)). Launchers 1.0.0 and 1.0.1
+1.0.0 launcher and download `VANTA-Launcher-1.3.0-windows-portable.zip` or the jar for your system from the
+`launcher-v1.3.0` release instead ([docs/installation.md](docs/installation.md#updating)). Launchers 1.0.0 and 1.0.1
 save a downloaded update as `cache/updates/<version>-<file name>` (for example
-`1.2.1-vanta-launcher-1.2.1-linux-all.jar`), the verified release file under another name; from 1.0.2 on it keeps
+`1.3.0-vanta-launcher-1.3.0-linux-all.jar`), the verified release file under another name; from 1.0.2 on it keeps
 its release name. The launcher downloads the Performance pack from Modrinth when it installs it; the client's mods
 bundle carries the pack mods whose licences allow redistribution, resolved on Modrinth when the release is built (the
 versions are listed in the release notes and in `PERFORMANCE-PACK.txt` inside the zip).
@@ -160,7 +166,7 @@ versions are listed in the release notes and in `PERFORMANCE-PACK.txt` inside th
    Microsoft client id (see below).
 3. **Manual**: start the official Minecraft Launcher once, install Fabric Loader 0.19.5 for 1.21.11 with the Fabric
    installer (keep *Create profile* checked) and copy **all** jars from the `mods/` folder of
-   `vanta-client-1.2.1-mods.zip` into `.minecraft/mods` (delete older copies of Sodium, Iris, Lithium, FerriteCore
+   `vanta-client-1.3.0-mods.zip` into `.minecraft/mods` (delete older copies of Sodium, Iris, Lithium, FerriteCore
    or ImmediatelyFast first; Fabric refuses to start with two copies of one mod). On Windows use the Fabric installer `.exe`, which needs no separate Java. On macOS and Linux use
    the universal `.jar`, which needs Java installed: install Java 21 first and run
    `java -jar fabric-installer-<version>.jar` (on macOS, if Gatekeeper blocks it, choose *Open Anyway* under

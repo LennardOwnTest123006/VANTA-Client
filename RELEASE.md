@@ -244,7 +244,7 @@ jpackage run without it, which the job also checks. The launcher never unpacks o
 
 This selection exists from launcher 1.0.1 on. Launcher 1.0.0 picks the update file by system only (the `.msi` on
 Windows, also for the portable folder and a jar; the `.tar.gz` on Linux x64, also for a jar), so it offers every
-newer version, 1.0.1 up to 1.2.1 alike, that way. Portable and jar users of 1.0.0 are told in
+newer version, 1.0.1 up to 1.3.0 alike, that way. Portable and jar users of 1.0.0 are told in
 [Installation → Updating](docs/installation.md#updating) and in the `## Notes` of the launcher release notes to
 download the portable zip or their jar from the release page instead; keep that note in the notes of each new
 launcher version while 1.0.0 is in use.
