@@ -1,32 +1,32 @@
 {
   "schemaVersion": 1,
   "product": "client",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "minecraftVersion": "1.21.11",
   "fabricVersion": "0.19.5",
   "fabricApiVersion": "0.141.6+1.21.11",
   "javaVersion": 21,
-  "releaseDate": "2026-10-05",
+  "releaseDate": "2026-10-07",
   "channel": "stable",
   "files": [
     {
-      "name": "vanta-client-1.1.0.jar",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.1.0/vanta-client-1.1.0.jar",
-      "size": 1592098,
-      "sha256": "df209b47251ed9dbcafa64238dcff8ac0fc454457564e93099c6c34f66ef087d"
+      "name": "vanta-client-1.2.0.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.2.0/vanta-client-1.2.0.jar",
+      "size": 1667347,
+      "sha256": "e2c453150bd945d481d356d2bdcd5fbfe2fa07d27d5e2b9d8d1afd27e00041b3"
     },
     {
-      "name": "vanta-client-1.1.0-mods.zip",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.1.0/vanta-client-1.1.0-mods.zip",
-      "size": 3942317,
-      "sha256": "2f1c6f5bfd059e7e8c9069efeb0e74370f4c8009fc4edd01d2789e6cc410e480"
+      "name": "vanta-client-1.2.0-mods.zip",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.2.0/vanta-client-1.2.0-mods.zip",
+      "size": 9509458,
+      "sha256": "dc73d0e28f994ee37a6067317926ae620dc3478632674966f3d30418ab4ed12d"
     },
     {
       "name": "fabric-api-0.141.6+1.21.11.jar",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.1.0/fabric-api-0.141.6+1.21.11.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.2.0/fabric-api-0.141.6+1.21.11.jar",
       "size": 2426039,
       "sha256": "bdff7fd7e220085cfad2ff9b1f40dde6534ae0b96cf378f97a374bc54cb9ed0f"
     }
   ],
-  "changelog": "website/content/changelog/client-1.1.0.md"
+  "changelog": "website/content/changelog/client-1.2.0.md"
 }
