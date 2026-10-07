@@ -162,8 +162,10 @@ public final class ProfileCodec {
                 ? CosmeticsSelection.fromJson(cosmeticsElement.getAsJsonObject()) : CosmeticsSelection.DEFAULT;
 
         try {
-            return new Profile(Profile.SCHEMA_VERSION, idForFile, name, icon, createdAt, updatedAt, settings, hud,
-                    keybinds, crosshair, cosmetics);
+            // The file's own schema version is kept so ProfileManager.load() can tell which files still need its
+            // one-time upgrade; a profile written back carries the version it was loaded with until then.
+            return new Profile(schema, idForFile, name, icon, createdAt, updatedAt, settings, hud, keybinds, crosshair,
+                    cosmetics);
         } catch (IllegalArgumentException e) {
             throw new ProfileImportException(ProfileImportException.Reason.INVALID_FIELD, e.getMessage(), e);
         }

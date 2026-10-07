@@ -25,8 +25,9 @@ import java.util.Set;
  *   <li>An item is committed only when it and every dependency it has in the same plan succeeded; otherwise its staged
  *       file is deleted and it is reported as failed.</li>
  *   <li>Committing renames the staged file to its real name and records it in {@code modrinth.json}. A file that
- *       already exists under that name is never overwritten: if its SHA-512 equals the expected one it is adopted,
- *       otherwise the item fails with {@link ModrinthException.Kind#FILE_EXISTS}.</li>
+ *       already exists under that name is never overwritten: if its SHA-512 equals the expected one it is adopted
+ *       (a {@code .jar.disabled} copy is renamed back to {@code .jar}, so the mod really loads after the restart the
+ *       result asks for), otherwise the item fails with {@link ModrinthException.Kind#FILE_EXISTS}.</li>
  *   <li>Installed but disabled dependencies are switched back on and {@code requiredBy} links are added.</li>
  * </ol>
  */
@@ -59,7 +60,7 @@ public final class ModrinthInstaller {
         List<PlannedInstall> items = plan.installs();
         List<PlanNote> notes = new ArrayList<>(plan.notes());
         Map<String, Path> staged = new LinkedHashMap<>();
-        Map<String, Boolean> adopted = new LinkedHashMap<>();
+        Map<String, Path> disabledCopies = new LinkedHashMap<>();
         Map<String, ModrinthException> errors = new LinkedHashMap<>();
         long total = Math.max(1L, plan.totalBytes());
         long[] done = {0L};
@@ -75,8 +76,12 @@ public final class ModrinthInstaller {
                 if (Files.exists(target) || Files.exists(disabled(target))) {
                     Path present = Files.exists(target) ? target : disabled(target);
                     if (Sha512.matches(present, item.file().sha512())) {
-                        // The very file is already there (installed by hand): record it instead of downloading.
-                        adopted.put(item.projectId(), present.equals(target));
+                        // The very file is already there (installed by hand): record it instead of downloading. A
+                        // switched-off copy is switched back on when committed: the player asked for the mod, and
+                        // an entry reported as installed while the jar stays .disabled would never load.
+                        if (!present.equals(target)) {
+                            disabledCopies.put(item.projectId(), present);
+                        }
                     } else {
                         throw new ModrinthException(ModrinthException.Kind.FILE_EXISTS, item.relativeFile()
                                 + " already exists and was not installed by VANTA; it is left untouched");
@@ -141,14 +146,25 @@ public final class ModrinthInstaller {
                 }
                 continue;
             }
-            if (stage != null) {
+            Path disabledCopy = disabledCopies.get(item.projectId());
+            if (stage != null || disabledCopy != null) {
                 try {
                     Path target = target(item);
-                    if (Files.exists(target) || Files.exists(disabled(target))) {
-                        throw new ModrinthException(ModrinthException.Kind.FILE_EXISTS, item.relativeFile()
-                                + " appeared while downloading");
+                    if (stage != null) {
+                        if (Files.exists(target) || Files.exists(disabled(target))) {
+                            throw new ModrinthException(ModrinthException.Kind.FILE_EXISTS, item.relativeFile()
+                                    + " appeared while downloading");
+                        }
+                        ModrinthLibrary.move(stage, target);
+                    } else {
+                        if (Files.exists(target)) {
+                            throw new ModrinthException(ModrinthException.Kind.FILE_EXISTS, item.relativeFile()
+                                    + " appeared while installing");
+                        }
+                        ModrinthLibrary.move(disabledCopy, target);
+                        CoreLog.info("Switched the hand-disabled {} back on for {}", disabledCopy.getFileName(),
+                                item.title());
                     }
-                    ModrinthLibrary.move(stage, target);
                 } catch (IOException e) {
                     deleteQuietly(stage);
                     failed.add(item);
@@ -177,7 +193,7 @@ public final class ModrinthInstaller {
                     index.find(item.projectId()).ifPresent(old -> parents.addAll(old.requiredBy()));
                     index.put(new InstalledEntry(item.projectId(), item.slug(), item.title(), item.version().id(),
                             item.version().versionNumber(), item.type().apiName(), item.relativeFile(),
-                            item.file().sha512(), adopted.getOrDefault(item.projectId(), true), parents, now, null));
+                            item.file().sha512(), true, parents, now, null));
                 }
                 for (Map.Entry<String, Set<String>> link : plan.requiredByExisting().entrySet()) {
                     index.find(link.getKey()).ifPresent(e -> index.put(e.withRequiredByAdded(link.getValue())));

@@ -65,7 +65,10 @@ public final class ProfileManager {
 
     // ---- persistence -------------------------------------------------------------------------------------------
 
-    /** Loads profiles; creates the built-ins when the directory is empty. Does not activate anything. */
+    /**
+     * Loads profiles; creates the built-ins when the directory is empty and upgrades files of earlier releases
+     * ({@link #upgradeSchema1()}). Does not activate anything.
+     */
     public void load() {
         profiles.clear();
         Path dir = paths.profilesDir();
@@ -84,11 +87,44 @@ public final class ProfileManager {
                 profiles.put(profile.id(), profile);
                 write(profile);
             }
+        } else {
+            upgradeSchema1();
         }
         Optional<JsonObject> state = store.readObject(paths.profilesStateFile());
         String stored = state.map(s -> s.has(STATE_ACTIVE) && s.get(STATE_ACTIVE).isJsonPrimitive()
                 ? s.get(STATE_ACTIVE).getAsString() : null).orElse(null);
         activeId = stored != null && profiles.containsKey(stored) ? stored : profiles.keySet().iterator().next();
+    }
+
+    /**
+     * One-time upgrade of profile files written by releases before 1.2.0 (schema 1). Their built-in profiles carried
+     * the 60 / 120 FPS cap of the old preset table, which activation replayed over the player's "Unlimited" choice.
+     * Built-ins the player never touched (rename, icon and "Update from current" all move {@code updatedAt} past
+     * {@code createdAt}) are re-seeded from the current {@link BuiltInProfiles}; edited built-ins and the player's
+     * own profiles keep their content (activation derives the frame rate from their preset anyway). Every schema-1
+     * file is re-written as schema {@value Profile#SCHEMA_VERSION}, so this runs once per upgrade. A re-seeded
+     * profile keeps its timestamps, so it still counts as untouched for a later upgrade.
+     */
+    private void upgradeSchema1() {
+        for (Profile profile : new ArrayList<>(profiles.values())) {
+            if (profile.schemaVersion() >= Profile.SCHEMA_VERSION) {
+                continue;
+            }
+            Profile upgraded = profile.withSchemaVersion(Profile.SCHEMA_VERSION);
+            boolean untouchedBuiltIn = BuiltInProfiles.IDS.contains(profile.id())
+                    && profile.updatedAt() == profile.createdAt();
+            if (untouchedBuiltIn) {
+                Optional<Profile> shipped = BuiltInProfiles.shipped(settings.registry(), clock.millis(), profile.id());
+                if (shipped.isPresent()) {
+                    Profile fresh = shipped.get();
+                    upgraded = upgraded.withContent(fresh.settings(), fresh.hud(), fresh.keybinds(), fresh.crosshair(),
+                            fresh.cosmetics(), profile.updatedAt());
+                    CoreLog.info("Re-seeded the untouched built-in profile {} from the current defaults", profile.id());
+                }
+            }
+            profiles.put(upgraded.id(), upgraded);
+            write(upgraded);
+        }
     }
 
     private void loadFile(Path file) {
@@ -232,13 +268,17 @@ public final class ProfileManager {
         return true;
     }
 
-    /** Applies a profile to the live stores and marks it active. */
+    /**
+     * Applies a profile to the live stores and marks it active. The vanilla frame-rate limit and VSync are taken from
+     * the profile's frame-rate choice ({@link BuiltInProfiles#withFrameRateFromPreset}), never from stale values in
+     * the file.
+     */
     public boolean activate(String id) {
         Profile profile = profiles.get(id);
         if (profile == null) {
             return false;
         }
-        settings.applySnapshot(profile.settings());
+        settings.applySnapshot(BuiltInProfiles.withFrameRateFromPreset(profile.settings()));
         if (!profile.hud().isEmpty()) {
             hud.setLayout(profile.hud());
         }

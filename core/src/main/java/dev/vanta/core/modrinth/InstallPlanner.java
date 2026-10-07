@@ -20,8 +20,8 @@ import java.util.Set;
  *       A project without a compatible version is skipped with a note; the other requests still go ahead.</li>
  *   <li>Required dependencies are resolved recursively. A dependency pinned to a version id gets that version when
  *       it fits the game version, otherwise the best version of its project. Projects already present (in the index,
- *       identified by hash, or Fabric API, which VANTA itself requires) are not downloaded again; disabled ones are
- *       switched back on.</li>
+ *       identified by hash, loaded by the game, or Fabric API, which VANTA itself requires) are not downloaded again;
+ *       disabled ones in the index are switched back on.</li>
  *   <li>If a version declares a project incompatible that is installed or part of the plan, or a required dependency
  *       cannot be satisfied, that request (with its dependencies) is refused with a note.</li>
  * </ul>
@@ -161,7 +161,7 @@ public final class InstallPlanner {
                 existing.root = true;
                 return;
             }
-            if (state.isPresent(project.id())) {
+            if (state.isPresent(project.id()) || state.isLoaded(project.slug())) {
                 if (ModrinthConstants.FABRIC_API_PROJECT_ID.equals(project.id())
                         && !state.installed().containsKey(project.id())) {
                     noteOnce(PlanNote.Kind.FABRIC_API_PRESENT, project.title(), "");
@@ -294,6 +294,9 @@ public final class InstallPlanner {
                 return true;
             }
             ModrinthProject depProject = project(pid);
+            if (state.isLoaded(depProject.slug())) {
+                return true;
+            }
             Optional<ModrinthProjectType> depType = depProject.type();
             if (depType.isEmpty()) {
                 notes.add(new PlanNote(PlanNote.Kind.MISSING_DEPENDENCY, rootProject.title(), depProject.title()));

@@ -330,6 +330,7 @@ public final class ModsScreen extends VantaUiScreen {
         if (busy != lastBusy) {
             lastBusy = busy;
             refreshPackCard();
+            updateRestartBanner();
         }
     }
 
@@ -476,9 +477,13 @@ public final class ModsScreen extends VantaUiScreen {
         boolean show = s.restartRequired();
         restartBanner.setVisible(show);
         boolean inWorld = services().game().isInWorld();
+        // Quitting while a download is still running would abandon it (the worker is a daemon thread) and never
+        // write the index; tick() refreshes the banner when the busy state flips.
+        boolean busy = s.isBusy();
         restartButton.setLabel(Lang.tr(s.launcherRestartable() ? "vanta.mods.restart.restart" : "vanta.mods.restart.quit"));
-        restartButton.setEnabled(!inWorld);
+        restartButton.setEnabled(!inWorld && !busy);
         String body = Lang.tr(inWorld ? "vanta.mods.restart.body_in_world"
+                : busy ? "vanta.mods.restart.body_busy"
                 : s.launcherRestartable() ? "vanta.mods.restart.body_launcher" : "vanta.mods.restart.body");
         // A short window cannot spare the banner's text lines: title and button stay, the text becomes the tooltip.
         boolean shortScreen = height() < SHORT_HEIGHT;
@@ -952,9 +957,9 @@ public final class ModsScreen extends VantaUiScreen {
         navigator().openVanilla(VanillaScreen.RESOURCE_PACKS);
     }
 
-    /** Quits (or restarts through the VANTA launcher) so changed mods load. */
+    /** Quits (or restarts through the VANTA launcher) so changed mods load; not while a download is still running. */
     public void restart() {
-        if (services().game().isInWorld()) {
+        if (services().game().isInWorld() || service.get().isBusy()) {
             return;
         }
         service.get().restartOrQuit(services().game());

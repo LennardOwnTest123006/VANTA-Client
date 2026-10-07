@@ -260,6 +260,12 @@ public final class NotificationCenter {
                         : "vanta.notification.boost_applied.body"), restartRequired ? 8000 : 5000);
     }
 
+    /** Boost FPS was clicked while its Performance pack install is still running; nothing new was started. */
+    public Optional<Notification> boostAlreadyRunning() {
+        return post(NotificationKind.INFO, Lang.tr("vanta.notification.boost_running.title"),
+                Lang.tr("vanta.notification.boost_running.body"));
+    }
+
     public Optional<Notification> hudPresetApplied(String presetName) {
         return post(NotificationKind.SUCCESS, Lang.tr("vanta.notification.hud_preset_applied.title"),
                 Lang.tr("vanta.notification.hud_preset_applied.body", presetName));

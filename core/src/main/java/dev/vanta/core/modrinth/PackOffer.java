@@ -26,8 +26,9 @@ import java.util.stream.Collectors;
  * {@link PerformancePack} member is neither loaded nor in {@code modrinth.json}, the setting
  * {@link VantaSettings#MODS_PACK_OFFER} is on, and it was not shown before in this session. <em>Install</em> first
  * adopts the pack jars of the mods bundle ({@link ModrinthService#adoptKnownFiles}) so the Installed tab manages them,
- * then installs every member with the usual progress and result toasts. <em>Not now</em> turns the setting off, so
- * the offer never nags; Settings &gt; Performance turns it back on. Nothing is downloaded without that click.
+ * then installs the members that are still missing (never one Fabric already loaded) with the usual progress and
+ * result toasts. <em>Not now</em>, Escape and any other way of closing the dialog turn the setting off, so the offer
+ * never nags; Settings &gt; Performance turns it back on. Nothing is downloaded without the Install click.
  * <p>
  * The game test runs with {@code -Dvanta.gametest=true} (client/build.gradle) and never sees the dialog; hosts that
  * must not prompt either (previews, screen test fixtures) call {@link #suppress()}.
@@ -120,28 +121,47 @@ public final class PackOffer {
         shown = true;
         ModrinthService service = services.modrinth().orElseThrow();
         String names = missing(service).stream().map(PerformancePack.Item::name).collect(Collectors.joining(", "));
+        boolean[] installing = {false};
         Dialog dialog = Dialog.confirm(ctx, Lang.tr("vanta.mods.offer.title"), Lang.tr("vanta.mods.offer.body", names),
                 Lang.tr("vanta.mods.offer.install"), Lang.tr("vanta.mods.offer.not_now"), false, () -> install(null));
-        // Dialog.confirm runs nothing on cancel; "Not now" must switch the offer off, so the cancel button gets that.
+        // Dialog.confirm runs nothing on cancel, and Escape closes the dialog without any button. Every way out
+        // other than Install counts as "Not now", so the offer never comes back at the next start by accident. The
+        // confirm button closes the dialog before its action runs, hence the flag set ahead of the close.
         List<UiNode> buttons = dialog.buttonRow().children();
-        if (!buttons.isEmpty() && buttons.get(0) instanceof Button notNow) {
-            notNow.onClick(() -> {
+        if (buttons.size() == 2 && buttons.get(1) instanceof Button installButton) {
+            installButton.onClick(() -> {
+                installing[0] = true;
                 dialog.close(ctx);
-                decline();
+                install(null);
             });
         }
+        dialog.onDismiss(() -> {
+            if (!installing[0]) {
+                decline();
+            }
+        });
         CoreLog.info("Offering the Performance pack: {} missing", names);
         return Optional.of(dialog);
     }
 
-    /** "Install": adopt bundled jars, then install every member with the usual toasts. */
+    /**
+     * "Install": adopt bundled jars, then install the members that are still {@link #missing} afterwards, with the
+     * usual toasts (an empty remainder ends in the "Already installed" toast). A pack install that is already
+     * running (Boost FPS in the same session) is left alone with a toast instead of queuing a second one.
+     */
     public void install(Consumer<InstallResult> onDone) {
         Optional<ModrinthService> service = services.modrinth();
         if (service.isEmpty()) {
             return;
         }
-        service.get().adoptKnownFiles(adopted ->
-                service.get().installPerformancePack(PerformancePack.slugs(), onDone));
+        if (service.get().isBusy()) {
+            services.notifications().boostAlreadyRunning();
+            return;
+        }
+        service.get().adoptKnownFiles(adopted -> {
+            List<String> slugs = missing(service.get()).stream().map(PerformancePack.Item::slug).toList();
+            service.get().installPerformancePack(slugs, onDone);
+        });
     }
 
     /** "Not now": never offer again until the setting is switched back on. */
