@@ -333,9 +333,11 @@ top-right below the banner and page header when the window is narrower than 1100
 
 Toasts (`ToastLayer`, launcher 1.2.0): a click anywhere on a toast dismisses it, the pause while the mouse rests on a
 toast ends after `HOVER_LIMIT` (8 s) at the latest, a card is `min(360 px, 30 % of the window)` wide, and below
-`TOP_RIGHT_BELOW` (1100 px) of window width the stack moves top-right under the update banner and the page header
-(`MainWindow` hands their lower edge to the layer after every layout pass). `LauncherAppSmokeTest` checks at
-960 x 600 that a toast intersects none of the Mods page's Install buttons and clicks them through the robot.
+`TOP_RIGHT_BELOW` (1100 px) of window width, or whenever the shown page scrolls (`pageScrollsProperty`), the stack
+moves top-right under the update banner and the page header (`MainWindow` hands their lower edge and the scroll state
+to the layer after every layout pass). `LauncherAppSmokeTest` checks at 960 x 600 that a toast intersects none of the
+Mods page's Install buttons and clicks them through the robot, and checks the anchor at 1100 x 600, 1120 x 720 and
+1200 x 700.
 
 ## Installed client and update checks
 

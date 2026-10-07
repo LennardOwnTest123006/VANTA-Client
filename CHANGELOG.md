@@ -48,8 +48,8 @@ small window.
   text cannot be fetched. CI runs the resolver against the live API on every push.
 - **EntityCulling stays a download.** Its licence does not allow redistribution, so it is not in the zip; the game
   offers it with one click on the *Performance pack* card of *Mods & Shaders*.
-- **One-time offer at start.** A game that the VANTA Launcher did not start asks once at the main menu, *Boost your
-  FPS?*, when Performance pack members are missing. *Install* records the pack jars that came with the bundle in
+- **One-time offer at start.** A game that the VANTA Launcher did not start asks once per game start, at the main
+  menu, *Boost your FPS?*, when Performance pack members are missing. *Install* records the pack jars that came with the bundle in
   `config/vanta/modrinth.json` (so the Installed tab manages them) and installs the missing members from Modrinth
   with the usual toasts; *Not now* turns the offer off (new setting *Settings → Performance → Offer the Performance
   pack at start*, `performance.offerPack`). Nothing is downloaded without that click; the game test never sees the
@@ -62,11 +62,11 @@ small window.
 - **The interface never shrinks below Minecraft's 320 x 240.** The UI scale (UI scale x large text) is lowered, never
   below 1, so the logical screen is always at least 320 x 240 px: 320 x 240 at scale 1.25 or 1.5 renders at scale 1,
   480 x 270 at 1.5 at 1.125. Layout, drawing and input use the same clamped scale, so every corner stays clickable.
-- **Less drawing work per frame.** Horizontal gradients (the main menu's horizon, vignette and PLAY button) are one
-  native gradient each instead of one fill per column (the default main menu went from 2 795 fills to about 3 native
-  gradients for those elements); icons are rasterised once per size and replayed as rectangles (fills per icon at
+- **Less drawing work per frame.** Horizontal gradients (the main menu's horizon line, vignette edges and PLAY button)
+  are one native gradient each instead of one fill per column (those columns were 1 544 of the default main menu's
+  2 795 fills per frame at 960 x 540); icons are rasterised once per size and replayed as rectangles (fills per icon at
   16 px: 19 to 11 on average, worst 48 to 21); text widths and styled components are cached (4096-entry LRU, cleared
-  on resource reload); a clipped label is ellipsized by binary search (65 to 8 width measurements for a typical
+  on resource reload); a clipped label is ellipsized by binary search (65 to 9 width measurements for a typical
   Modrinth description); the HUD captures only what enabled widgets show (25 to 15 bridge calls per tick for the
   default layout; HUD width measurements 98 to 70); the crosshair samples inputs once per tick and caches its
   geometry; the CPU reading is reused for 250 ms; frame times are sampled once per frame; themes are rebuilt only
@@ -74,12 +74,13 @@ small window.
 
 #### Fixed
 - **Exactly 30 FPS (or a 60 / 120 FPS cap) after choosing a preset or profile in 1.1.0.** The LOW preset wrote a
-  60 FPS cap and BALANCED a 120 FPS cap; activating a built-in profile replayed Minecraft's default 120 FPS limit
-  with VSync on. A player who picked *Low* or the *Performance* profile to get more frames was capped and, with a
-  driver-forced 60 Hz VSync on top of Minecraft's limiter, could land at exactly 30 FPS. Presets and profiles no
-  longer write a cap (see *Changed*); the built-in profiles derive their vanilla limit and VSync from their own
-  frame-rate choice, so none of them caps the frame rate any more. Anyone who applied a 1.1.0 preset keeps the cap it
-  wrote in `options.txt` until they choose *Unlimited* (or press *Boost FPS*) once.
+  60 FPS cap and BALANCED a 120 FPS cap into Minecraft's *Max framerate* option, and the built-in profiles carried
+  those caps along: *Performance* (LOW) a 60 FPS cap, *Default* (BALANCED) a 120 FPS cap. A player who picked *Low*
+  or the *Performance* profile to get more frames was capped and, with a driver-forced 60 Hz VSync on top of
+  Minecraft's limiter, could land at exactly 30 FPS. Presets and profiles no longer write a cap (see *Changed*); the
+  built-in profiles derive their vanilla limit and VSync from their own frame-rate choice, so none of them caps the
+  frame rate any more. Anyone who applied a 1.1.0 preset or profile keeps the cap it wrote in `options.txt` until they
+  choose *Unlimited* (or press *Boost FPS*) once.
 - The **Frame rate limit** row in *Settings → Performance* now really writes the vanilla *Max framerate* and *VSync*
   options when it is changed there or by a profile; before, only the Performance Center's own chooser did. Loading the
   settings at start never writes `options.txt`.
@@ -100,6 +101,15 @@ small window.
 
 ### VANTA Launcher 1.2.0
 
+#### Added
+- For automated tests the launcher also reads `VANTA_UI_SMOKE_PAGE=<home|mods|versions|logs|settings|about>` (the
+  page shown before the screenshot) and `VANTA_UI_SMOKE_SIZE=<width>x<height>` (the window size, raised to the
+  960 x 600 minimum); both only together with `VANTA_UI_SMOKE_SCREENSHOT` or `VANTA_UI_SMOKE_EXIT_AFTER`.
+  `./gradlew uiSmoke -PsmokePage=mods -PsmokeSize=1000x600` renders one page at one window size with fake services
+  (`-PsmokeToast` shows a toast first).
+- The headless UI test opens the Mods page in a 960 x 600 window and clicks the first and the last *Install* button
+  through the platform's robot (the last one after scrolling, and after the toast over it was dismissed by the click).
+
 #### Fixed
 - A notification (toast) in the bottom-right corner could swallow clicks on what lay under it: in a small window
   (960 x 600) that corner holds the lower *Install* buttons of the Mods page, and because a toast stayed as long as the
@@ -113,15 +123,6 @@ small window.
   buttons, its header actions and the installed list's switches are no longer under a toast; on a page that fits the
   window the toasts stay bottom-right. The headless UI test checks this at 960 x 600, 1100 x 600, 1120 x 720 and
   1200 x 700.
-
-#### Added
-- For automated tests the launcher also reads `VANTA_UI_SMOKE_PAGE=<home|mods|versions|logs|settings|about>` (the
-  page shown before the screenshot) and `VANTA_UI_SMOKE_SIZE=<width>x<height>` (the window size, raised to the
-  960 x 600 minimum); both only together with `VANTA_UI_SMOKE_SCREENSHOT` or `VANTA_UI_SMOKE_EXIT_AFTER`.
-  `./gradlew uiSmoke -PsmokePage=mods -PsmokeSize=1000x600` renders one page at one window size with fake services
-  (`-PsmokeToast` shows a toast first).
-- The headless UI test opens the Mods page in a 960 x 600 window and clicks the first and the last *Install* button
-  through the platform's robot (the last one after scrolling, and after the toast over it was dismissed by the click).
 
 #### Updating to 1.2.0
 - Launcher 1.1.0 (and 1.0.1, 1.0.2) sees the update by itself once the release is published and offers the file that
@@ -142,8 +143,9 @@ small window.
 - **Frame-cost probe in the real game**: the headless production game test measures 300 rendered frames each with the
   VANTA HUD enabled, disabled and with the GUI hidden (frame time avg / p50 / p95 / fps, the wall time of the VANTA
   HUD and crosshair elements, drawing primitives per HUD frame) and writes `screenshots/vanta-perf-probe.json`; the
-  only assertion is that the VANTA HUD element averages under 4 ms per call. In the CI run (software renderer) the
-  VANTA HUD cost about 0.5 ms per frame, so the HUD was never the cause of the FPS drop.
+  only assertion is that the VANTA HUD element averages under 4 ms per call; it passes in CI (software renderer, no
+  GPU), and the measured values are in that file of every run. The 30 FPS reports are explained by the caps above,
+  not by the HUD.
 - **Windowed click reproduction**: the same test opens Mods & Shaders at 854 x 480 / GUI scale 2, 1920 x 1080 / scale 4
   and 1920 x 1080 / scale 2 and clicks a result row, the detail *Install* button, the *Performance pack* Install
   button and the Shaders tab through the real mouse path; a click without effect fails the test (geometry explained
@@ -155,7 +157,8 @@ small window.
   artifact. The release workflow runs the resolver before the mods bundle, prints `PERFORMANCE-PACK.txt` into the job
   summary and into the GitHub Release notes (*Performance pack in the mods bundle*).
 - **Launcher**: the headless UI test clicks the Mods page's Install buttons at 960 x 600 with the platform robot and
-  checks the toast position and width at 960 x 600 and 1200 x 700; `./gradlew uiSmoke` renders one page at one size.
+  checks the toast position and width at 960 x 600, 1100 x 600, 1120 x 720 and 1200 x 700; `./gradlew uiSmoke`
+  renders one page at one size.
 - **Core**: every screen is walked for unreachable or overlapping controls at 19 window sizes, both scales and all
   Mods states; render-cost bounds pin the optimised primitive counts and pixel-identity tests lock the output.
 
@@ -170,7 +173,8 @@ small window.
 
 ### Documentation
 - [Performance Center](docs/performance.md): Max FPS column, framerate / VSync rows removed with the 60 / 30 FPS trap
-  explained, the Boost FPS section, the measured HUD cost under *Honest limits*. [Profiles](docs/profiles.md): the
+  explained, the Boost FPS section, what the CI game test measures of VANTA's own frame cost under *Honest limits*.
+  [Profiles](docs/profiles.md): the
   Performance profile uses Max FPS with the limit unlimited.
 - [Mods & Shaders](docs/mods-and-shaders.md): the pack in the mods bundle, the EntityCulling exception, the offer at
   start. [Installation](docs/installation.md), [Fabric](docs/fabric.md), [FAQ](docs/faq.md), the documentation index
