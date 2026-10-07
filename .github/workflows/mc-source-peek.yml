@@ -40,7 +40,8 @@ jobs:
           CLASSES: >-
             ${{ inputs.classes || 'net/minecraft/client/gui/screens/options/VideoSettingsScreen.java net/minecraft/client/gui/screens/options/OptionsSubScreen.java net/minecraft/client/gui/components/OptionsList.java net/minecraft/client/GraphicsPreset.java' }}
         run: |
-          JARS=$(find ~/.gradle/caches/fabric-loom -name '*-sources.jar' 2>/dev/null)
+          # Loom keeps the decompiled jar in the Gradle cache or in the project's own .gradle/loom-cache.
+          JARS=$(find ~/.gradle "$GITHUB_WORKSPACE" -name '*sources*.jar' 2>/dev/null | grep -i minecraft || true)
           echo "sources jars:"; echo "$JARS"
           for C in $CLASSES; do
             FOUND=""
