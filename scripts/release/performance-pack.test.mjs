@@ -232,6 +232,58 @@ describe('selectVersion()', () => {
       assert.equal(pick([{ id: 'broken', version_number: '1', version_type: 'release', date_published: '2026-01-01T00:00:00Z' }]), null);
     });
 
+    test('file names are measured and trimmed the way Java and JavaScript do (UTF-16 units, blank names, DEL)', () => {
+      const sha = sha512(Buffer.from('ok'));
+      const at = (id, filename, date = '2026-01-01T00:00:00Z') => v(id, 'release', date, { filename, sha });
+      // 150 emoji are 150 code points (jq length) but 300 UTF-16 units (String.length), over the 200 limit; 97 fit.
+      check([at('emoji-long', `${'😀'.repeat(150)}.jar`)]);
+      assert.equal(pick([at('emoji-long', `${'😀'.repeat(150)}.jar`)]), null);
+      check([at('emoji-ok', `${'😀'.repeat(97)}.jar`)]);
+      assert.equal(pick([at('emoji-ok', `${'😀'.repeat(97)}.jar`)]), 'emoji-ok emoji-ok');
+      check([at('unicode', 'Mod-ä-日本-0.1.jar')]);
+      assert.equal(pick([at('unicode', 'Mod-ä-日本-0.1.jar')]), 'unicode unicode');
+      for (const bad of ['   ', '', 'mod\x7f.jar', 'mod\u0000.jar', 'mod.jar\n']) {
+        check([at('bad', bad)]);
+        assert.equal(pick([at('bad', bad)]), null, JSON.stringify(bad));
+      }
+      // A SHA-512 followed by a line break is not a SHA-512 ($ must not match before the newline).
+      check([v('nl', 'release', '2026-01-01T00:00:00Z', { sha: `${sha}\n` })]);
+      assert.equal(pick([v('nl', 'release', '2026-01-01T00:00:00Z', { sha: `${sha}\n` })]), null);
+    });
+
+    test('version_type is compared trimmed and case-insensitively, an unknown type ranks after alpha', () => {
+      const capital = v('R', 'Release', '2026-01-01T00:00:00Z');
+      const padded = v('P', ' beta ', '2026-01-15T00:00:00Z');
+      const beta = v('b', 'beta', '2026-02-01T00:00:00Z');
+      const alpha = v('a', 'alpha', '2026-01-01T00:00:00Z');
+      const weird = v('x', 'weird', '2026-02-01T00:00:00Z');
+      const untyped = { ...v('u', 'release', '2026-03-01T00:00:00Z'), version_type: null };
+      check([capital, beta]);
+      assert.equal(pick([capital, beta]), 'R R');
+      check([padded, alpha]);
+      assert.equal(pick([padded, alpha]), 'P P');
+      check([alpha, weird]);
+      assert.equal(pick([alpha, weird]), 'a a');
+      check([weird, untyped]);
+      assert.equal(pick([weird, untyped]), 'u u');
+    });
+
+    test('date_published is compared as a time, so a fractional second and a whole second order correctly', () => {
+      const whole = v('p', 'release', '2026-01-01T00:00:00Z');
+      const fraction = v('q', 'release', '2026-01-01T00:00:00.500Z');
+      const micro = v('m', 'release', '2026-01-01T00:00:00.123456Z');
+      check([whole, fraction, micro]);
+      assert.equal(pick([whole, fraction, micro]), 'q q');
+      check([fraction, whole]);
+      check([micro, whole]);
+      assert.equal(pick([micro, whole]), 'm m');
+      check([v('old', 'release', '2025-12-31T23:59:59.999999Z'), whole]);
+      assert.equal(pick([v('old', 'release', '2025-12-31T23:59:59.999999Z'), whole]), 'p p');
+      // A non-string loader entry is ignored, not an error.
+      check([v('l', 'release', '2026-01-01T00:00:00Z', { loaders: [1, 'fabric'] })]);
+      assert.equal(pick([v('l', 'release', '2026-01-01T00:00:00Z', { loaders: [1, 'fabric'] })]), 'l l');
+    });
+
     test('ci.yml runs this file with the game version as $game', () => {
       const workflow = readFileSync(join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
       assert.match(workflow, /jq -r --arg game 1\.21\.11 -f scripts\/ci\/pick-version\.jq <<< "\$JSON"/);

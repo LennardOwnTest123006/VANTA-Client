@@ -297,6 +297,31 @@ describe('build-mods-bundle.sh', { skip }, () => {
     assert.match(zip.read('INSTALL.txt').toString('utf8'), /^ {3}- ferritecore-8\.0\.0 \(fabric\)\.jar {3}\(/m);
   });
 
+  test('ERE metacharacters, double spaces, an upper-case .JAR and non-ASCII letters in a pack file name survive the notices check, the copy and the zip', () => {
+    const names = ['sodium-fabric-9.9.9-test.jar', 'Mod $Name [v1] ^2 {x}.jar', 'lithium  double  space.jar', 'UPPER-1.0.JAR', 'lithium-fabric-ä-日本-0.1.0.jar'];
+    for (const name of names) assert.ok(isSafeFilename(name), name);
+    const f = fixture({ items: names, noticeFiles: [...names, FAPI] });
+    // The fixture derives slug/versionNumber from the file name; those must be plain ASCII (a separate rule), the file name need not.
+    const json = JSON.parse(readFileSync(join(f.pack, 'performance-pack.json'), 'utf8'));
+    for (const [index, item] of json.items.entries()) { item.slug = `slug${index}`; item.versionNumber = `v${index}`; }
+    writeFileSync(join(f.pack, 'performance-pack.json'), JSON.stringify(json));
+    const r = run(args(f));
+    assert.equal(r.status, 0, r.stderr);
+    const zip = openZip(join(f.out, 'vanta-client-1.0.0-mods.zip'));
+    assert.deepEqual(zip.entries.map((e) => e.name).filter((n) => n.startsWith('mods/') && n !== 'mods/'), ['mods/vanta-client-1.0.0.jar', `mods/${FAPI}`, ...names.map((n) => `mods/${n}`)]);
+    for (const name of names) assert.deepEqual(zip.read(`mods/${name}`), f.jars[name], name);
+    const sums = zip.read('SHA256SUMS').toString('utf8');
+    for (const name of names) assert.ok(sums.includes(`${sha256(f.jars[name])}  mods/${name}\n`), name);
+    // The notices check is anchored on the whole name: a notice for a different name that a metacharacter would match does not count.
+    const g = fixture({ items: ['Mod $Name [v1] ^2 {x}.jar'], noticeFiles: ['Mod $Name v1 ^2 x.jar', 'Mod $Name [v1] ^2 {x}.jar.bak', FAPI] });
+    const gj = JSON.parse(readFileSync(join(g.pack, 'performance-pack.json'), 'utf8'));
+    gj.items[0].slug = 'slug0'; gj.items[0].versionNumber = 'v0';
+    writeFileSync(join(g.pack, 'performance-pack.json'), JSON.stringify(gj));
+    const missing = run(args(g));
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /THIRD-PARTY-LICENSES\.txt has no section for mods\/Mod \$Name \[v1\] \^2 \{x\}\.jar/);
+  });
+
   test('rejects every pack file name the resolver rejects, plus a leading dash (a command argument later on)', () => {
     // Path separators and ':', '..', a leading dot, the <>"|?* set, control characters, more than 200 characters
     // (the shared rule), plus a leading dash (an argument to sha512sum/cmp later), a non-jar and an empty name.
