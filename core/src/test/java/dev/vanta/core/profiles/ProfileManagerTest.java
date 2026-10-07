@@ -266,6 +266,100 @@ class ProfileManagerTest {
         assertEquals(70, fov.defaultValue());
     }
 
+    /**
+     * Rewrites a built-in profile file the way client 1.0.0–1.1.0 wrote it: schema 1 and the old preset table's
+     * frame-rate cap in the vanilla-bound keys. {@code touched} moves updatedAt past createdAt, as every edit does.
+     */
+    private void writeLegacy(String id, int framerateLimit, String fpsPreset, String perfPreset, boolean touched) {
+        Path file = paths.profilesDir().resolve(id + ".json");
+        JsonObject o = json.readObject(file).orElseThrow();
+        o.addProperty("schemaVersion", 1);
+        if (touched) {
+            o.addProperty("updatedAt", o.get("createdAt").getAsLong() + 1000);
+        }
+        JsonObject values = o.getAsJsonObject("settings");
+        values.addProperty("video.framerateLimit", framerateLimit);
+        values.addProperty("video.vsync", false);
+        values.addProperty("performance.fpsLimitPreset", fpsPreset);
+        values.addProperty("performance.perfPreset", perfPreset);
+        json.writeObject(file, o);
+    }
+
+    private ProfileManager reload() {
+        ProfileManager fresh = new ProfileManager(json, paths, clock, settings, hud, crosshair, keybinds);
+        fresh.load();
+        return fresh;
+    }
+
+    @Test
+    void upgradeReseedsUntouchedBuiltInsOnceAndLeavesEditedOnesAlone() {
+        writeLegacy("performance", 60, "fps_60", "low", false);
+        writeLegacy("default", 120, "unlimited", "balanced", false);
+        writeLegacy("pvp", 60, "fps_60", "high", true);
+        Path pvpFile = paths.profilesDir().resolve("pvp.json");
+        JsonObject pvpJson = json.readObject(pvpFile).orElseThrow();
+        pvpJson.getAsJsonObject("settings").addProperty("video.renderDistance", 7);
+        json.writeObject(pvpFile, pvpJson);
+        clock.advance(5_000);
+
+        ProfileManager upgraded = reload();
+        assertEquals(BuiltInProfiles.IDS.size(), upgraded.size(), "old files are loaded, not replaced wholesale");
+        Profile performance = upgraded.find("performance").orElseThrow();
+        assertEquals(260, performance.settings().get("video.framerateLimit").getAsInt(), "the 60 FPS cap is gone");
+        assertFalse(performance.settings().get("video.vsync").getAsBoolean());
+        assertEquals("unlimited", performance.settings().get("performance.fpsLimitPreset").getAsString());
+        assertEquals("boost", performance.settings().get("performance.perfPreset").getAsString());
+        assertEquals(Profile.SCHEMA_VERSION, performance.schemaVersion());
+        assertEquals(performance.createdAt(), performance.updatedAt(), "still counts as untouched");
+        Profile defaults = upgraded.find("default").orElseThrow();
+        assertEquals(260, defaults.settings().get("video.framerateLimit").getAsInt(), "the 120 FPS cap is gone");
+        assertEquals("unlimited", defaults.settings().get("performance.fpsLimitPreset").getAsString());
+        Profile pvp = upgraded.find("pvp").orElseThrow();
+        assertEquals(7, pvp.settings().get("video.renderDistance").getAsInt(), "the player's edit is kept");
+        assertEquals(60, pvp.settings().get("video.framerateLimit").getAsInt(), "edited content is not re-seeded");
+        assertEquals(Profile.SCHEMA_VERSION, pvp.schemaVersion());
+        for (String id : BuiltInProfiles.IDS) {
+            JsonObject onDisk = json.readObject(paths.profilesDir().resolve(id + ".json")).orElseThrow();
+            assertEquals(Profile.SCHEMA_VERSION, onDisk.get("schemaVersion").getAsInt(), id + " re-written");
+        }
+
+        // Schema 2 files are never re-seeded again, so a cap the player puts into an untouched built-in stays.
+        Path perfFile = paths.profilesDir().resolve("performance.json");
+        JsonObject perfJson = json.readObject(perfFile).orElseThrow();
+        perfJson.getAsJsonObject("settings").addProperty("video.framerateLimit", 60);
+        json.writeObject(perfFile, perfJson);
+        assertEquals(60, reload().find("performance").orElseThrow().settings().get("video.framerateLimit").getAsInt());
+    }
+
+    @Test
+    void activationDerivesTheFrameRateFromTheProfilesPreset() {
+        // A profile saved by 1.1.0 (or edited by hand) says "unlimited" but still carries vanilla's 120 / VSync on.
+        Path file = paths.profilesDir().resolve("default.json");
+        JsonObject o = json.readObject(file).orElseThrow();
+        JsonObject values = o.getAsJsonObject("settings");
+        values.addProperty("performance.fpsLimitPreset", "unlimited");
+        values.addProperty("video.framerateLimit", 120);
+        values.addProperty("video.vsync", true);
+        json.writeObject(file, o);
+        ProfileManager fresh = reload();
+        assertEquals(120, fresh.find("default").orElseThrow().settings().get("video.framerateLimit").getAsInt(),
+                "the file itself is left as it is");
+
+        options.set(VanillaOption.FRAMERATE_LIMIT, 260);
+        options.set(VanillaOption.VSYNC, false);
+        assertTrue(fresh.activate("default"));
+        assertEquals(260, options.getInt(VanillaOption.FRAMERATE_LIMIT, 0), "the preset wins over the stale cap");
+        assertFalse(options.getBoolean(VanillaOption.VSYNC, true));
+        assertEquals(FpsLimitPreset.UNLIMITED, settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET));
+
+        // The other direction holds as well: a 60 FPS profile applies its cap even if the file says 260.
+        values.addProperty("performance.fpsLimitPreset", "fps_60");
+        values.addProperty("video.framerateLimit", 260);
+        json.writeObject(file, o);
+        assertTrue(reload().activate("default"));
+        assertEquals(60, options.getInt(VanillaOption.FRAMERATE_LIMIT, 0));
+    }
+
     @Test
     void unsafeFilesInProfilesDirAreIgnored() throws IOException {
         Files.writeString(paths.profilesDir().resolve("Bad Name.json"), "{\"name\":\"x\"}");

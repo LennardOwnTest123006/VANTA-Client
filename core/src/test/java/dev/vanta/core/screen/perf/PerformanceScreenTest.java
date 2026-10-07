@@ -5,6 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.bridge.VanillaOption;
+import dev.vanta.core.modrinth.FakeModPlatform;
+import dev.vanta.core.modrinth.FakeModrinthApi;
+import dev.vanta.core.modrinth.ModrinthLibrary;
+import dev.vanta.core.modrinth.ModrinthService;
 import dev.vanta.core.perf.PerformancePreset;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.common.ScreenTestSupport;
@@ -13,6 +17,8 @@ import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.TestCanvas;
 import dev.vanta.core.ui.widget.Toggle;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -100,6 +106,30 @@ class PerformanceScreenTest {
         assertTrue(screen.selectedDiff().isNoop());
         assertTrue(t.services.notifications().visible().stream().anyMatch(n -> n.title().equals("Boost applied")));
         assertTrue(t.frame(screen, -1000, -1000).hasTextContaining("Current preset: Max FPS"));
+    }
+
+    @Test
+    void boostButtonWaitsWhileThePackInstalls() {
+        Deque<Runnable> worker = new ArrayDeque<>();
+        FakeModPlatform platform = new FakeModPlatform(dir);
+        ModrinthService queued = new ModrinthService(FakeModrinthApi.standard(),
+                new ModrinthLibrary(dir, t.services.jsonStore()), platform, t.services.notifications(), worker::add,
+                Runnable::run, t.clock);
+        t.services.setModrinth(queued);
+        PerformanceScreen screen = t.show(ScreenId.PERFORMANCE, 854, 480);
+        assertTrue(screen.boostFpsButton().isEnabled());
+
+        screen.boostFps();
+        assertTrue(queued.isBusy(), "the pack is downloading");
+        assertFalse(screen.boostFpsButton().isEnabled(), "no second click while the install runs");
+        screen.tick();
+        assertFalse(screen.boostFpsButton().isEnabled());
+
+        while (!worker.isEmpty()) {
+            worker.poll().run();
+        }
+        screen.tick();
+        assertTrue(screen.boostFpsButton().isEnabled(), "unlocked once the install finished");
     }
 
     @Test

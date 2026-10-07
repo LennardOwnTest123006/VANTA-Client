@@ -91,6 +91,18 @@ class InstallPlannerTest {
     }
 
     @Test
+    void loadedPackMembersAreNeverPlannedNotEvenAsDependencies() {
+        fx.performancePack();
+        // Sodium is loaded from a jar Modrinth does not know (CurseForge build): no index entry, no hash hit.
+        InstallState state = new InstallState(Map.of(), Set.of(), Set.of("sodium"), true);
+        InstallPlan plan = planner.plan(List.of(InstallRequest.of("sodium"), InstallRequest.of("iris")), state);
+        assertEquals(List.of("YL57xq9U"), ids(plan), "Iris alone; its loaded dependency is not downloaded again");
+        assertEquals(1, plan.notes(PlanNote.Kind.ALREADY_INSTALLED).size());
+        assertTrue(plan.enableExisting().isEmpty());
+        assertTrue(plan.requiredByExisting().isEmpty(), "a jar VANTA does not manage gets no index link");
+    }
+
+    @Test
     void manuallyInstalledProjectsCountAsPresent() {
         fx.performancePack();
         InstallPlan plan = planner.plan(List.of(InstallRequest.of("iris")), new InstallState(Map.of(),

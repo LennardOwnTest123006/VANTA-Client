@@ -270,10 +270,12 @@ public final class ModrinthService implements AutoCloseable {
     }
 
     /**
-     * Records jars in {@code mods/} that VANTA did not install but that Modrinth identifies (by SHA-512) as a
-     * {@link PerformancePack} member, so the Installed tab manages them like its own installs. This is how the
-     * Performance pack jars of the mods bundle ({@code vanta-client-<version>-mods.zip}) become regular entries of
-     * {@code modrinth.json}. Nothing is downloaded or deleted; files of other projects stay untouched.
+     * Records enabled jars in {@code mods/} that VANTA did not install but that Modrinth identifies (by SHA-512) as a
+     * {@link PerformancePack} member for this game version, so the Installed tab manages them like its own installs.
+     * This is how the Performance pack jars of the mods bundle ({@code vanta-client-<version>-mods.zip}) become
+     * regular entries of {@code modrinth.json}. A {@code .jar.disabled} file is never adopted: the player switched it
+     * off by hand, and an entry for it would make the next pack install silently switch it back on. Nothing is
+     * downloaded, renamed or deleted; files of other projects stay untouched.
      *
      * @param onDone receives the newly written entries (possibly empty) on the main thread; may be {@code null}
      */
@@ -297,6 +299,9 @@ public final class ModrinthService implements AutoCloseable {
     List<InstalledEntry> adoptKnownFilesNow() throws ModrinthException {
         Map<String, Path> byHash = new LinkedHashMap<>();
         for (Path jar : library.unknownModJars()) {
+            if (isDisabledFile(jar)) {
+                continue;
+            }
             try {
                 if (Files.size(jar) <= MAX_HASHED_JAR_BYTES) {
                     byHash.put(Sha512.hex(jar), jar);
@@ -317,6 +322,12 @@ public final class ModrinthService implements AutoCloseable {
             if (jar == null || version == null || versionsByProject.containsKey(version.projectId())) {
                 continue;
             }
+            if (!version.supports(gameVersion, ModrinthProjectType.MOD.loaders())) {
+                // A leftover jar of another Minecraft version is not "installed" for this game; the planner
+                // installs the right version next to it.
+                CoreLog.debug("Not adopting {}: version {} is not for {}", jar, version.versionNumber(), gameVersion);
+                continue;
+            }
             ModrinthProject project;
             try {
                 project = api.project(version.projectId());
@@ -330,10 +341,9 @@ public final class ModrinthService implements AutoCloseable {
                 continue;
             }
             String name = jar.getFileName().toString();
-            boolean enabled = !name.endsWith(InstalledEntry.DISABLED_SUFFIX);
             String relative = ModrinthProjectType.MOD.directory() + "/" + name;
             adopted.add(new InstalledEntry(project.id(), project.slug(), project.title(), version.id(),
-                    version.versionNumber(), ModrinthProjectType.MOD.apiName(), relative, hit.getKey(), enabled,
+                    version.versionNumber(), ModrinthProjectType.MOD.apiName(), relative, hit.getKey(), true,
                     List.of(), Instant.now(clock).truncatedTo(ChronoUnit.SECONDS).toString(), null));
             versionsByProject.put(project.id(), version);
         }
@@ -370,12 +380,23 @@ public final class ModrinthService implements AutoCloseable {
         }
     }
 
-    /** What is present now: the index, Fabric API, and unknown jars identified on Modrinth by their SHA-512. */
+    /**
+     * What is present now: the index, Fabric API, enabled unknown jars identified on Modrinth by their SHA-512, and
+     * the Performance pack members Fabric loaded (whatever jar they came from). A {@code .jar.disabled} file is not
+     * present: the player switched it off, so "Install" means getting a loadable copy, which the installer does by
+     * switching an identical one back on or downloading the current version next to an old one.
+     */
     InstallState currentState() {
         ModrinthIndex index = library.index();
         boolean fabricApi = platform.isModLoaded(ModrinthConstants.FABRIC_API_MOD_ID) || library.hasFabricApiJar();
+        Set<String> loadedSlugs = new HashSet<>();
+        for (PerformancePack.Item item : PerformancePack.ITEMS) {
+            if (platform.isModLoaded(item.modId())) {
+                loadedSlugs.add(item.slug());
+            }
+        }
         Set<String> manual = new HashSet<>();
-        List<Path> unknown = library.unknownModJars();
+        List<Path> unknown = library.unknownModJars().stream().filter(jar -> !isDisabledFile(jar)).toList();
         if (!unknown.isEmpty()) {
             List<String> hashes = new ArrayList<>();
             for (Path jar : unknown) {
@@ -389,13 +410,20 @@ public final class ModrinthService implements AutoCloseable {
             }
             try {
                 for (ModrinthVersion version : api.versionsByHash(hashes).values()) {
-                    manual.add(version.projectId());
+                    // A jar of another Minecraft version does not count: Fabric will not load it here.
+                    if (version.supports(gameVersion, ModrinthProjectType.MOD.loaders())) {
+                        manual.add(version.projectId());
+                    }
                 }
             } catch (ModrinthException e) {
                 CoreLog.debug("Could not identify installed jars on Modrinth: {}", e.getMessage());
             }
         }
-        return InstallState.of(index, manual, fabricApi);
+        return InstallState.of(index, manual, loadedSlugs, fabricApi);
+    }
+
+    private static boolean isDisabledFile(Path jar) {
+        return jar.getFileName().toString().endsWith(InstalledEntry.DISABLED_SUFFIX);
     }
 
     private void announce(InstallResult result) {
@@ -495,11 +523,17 @@ public final class ModrinthService implements AutoCloseable {
 
     /**
      * Quits the game so changed mods load. When the VANTA launcher started the game, the restart marker is written
-     * first so the launcher starts the game again.
+     * first so the launcher starts the game again. While an install, removal or enable/disable is still running
+     * ({@link #isBusy()}) nothing happens: quitting then would abandon the staged download and never write the
+     * index, so the caller keeps its button disabled until the work is done.
      *
      * @return true when the marker was written (the launcher will relaunch)
      */
     public boolean restartOrQuit(GameBridge game) {
+        if (isBusy()) {
+            CoreLog.info("Restart requested while a Modrinth task is running; finishing it first");
+            return false;
+        }
         boolean marked = false;
         if (launcherRestartable()) {
             try {

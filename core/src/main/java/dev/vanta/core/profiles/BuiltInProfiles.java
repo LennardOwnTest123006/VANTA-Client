@@ -88,20 +88,44 @@ public final class BuiltInProfiles {
         // A profile's frame-rate choice is only real once the vanilla limit and VSync it stands for are in the
         // profile too: activation replays every setting, and the registry defaults would otherwise re-apply
         // vanilla's 120 FPS cap with VSync on. The performance preset deliberately leaves both alone.
-        FpsLimitPreset limit = enumOf(settings, VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET);
-        encodeInto(settings, VantaSettings.VIDEO_FRAMERATE_LIMIT, limit.framerateLimit());
-        encodeInto(settings, VantaSettings.VIDEO_VSYNC, limit.vsync());
+        Map<String, JsonElement> complete = withFrameRateFromPreset(settings);
         CrosshairStyle crosshair = CrosshairPresets.find(crosshairPresetId).map(p -> p.style())
                 .orElse(CrosshairStyle.DEFAULT);
         CosmeticsSelection cosmetics = new CosmeticsSelection(
-                str(settings, VantaSettings.GENERAL_THEME_ID),
-                enumOf(settings, VantaSettings.MENU_BACKGROUND),
-                enumOf(settings, VantaSettings.MENU_PARTICLES),
-                enumOf(settings, VantaSettings.COSMETICS_HUD_THEME),
-                enumOf(settings, VantaSettings.COSMETICS_BADGE),
+                str(complete, VantaSettings.GENERAL_THEME_ID),
+                enumOf(complete, VantaSettings.MENU_BACKGROUND),
+                enumOf(complete, VantaSettings.MENU_PARTICLES),
+                enumOf(complete, VantaSettings.COSMETICS_HUD_THEME),
+                enumOf(complete, VantaSettings.COSMETICS_BADGE),
                 crosshairPresetId);
-        return new Profile(Profile.SCHEMA_VERSION, id, Lang.tr(nameKey(id)), icon, now, now, settings,
+        return new Profile(Profile.SCHEMA_VERSION, id, Lang.tr(nameKey(id)), icon, now, now, complete,
                 HudPresets.find(hudPresetId).orElseThrow().layout(), Map.of(), crosshair, cosmetics);
+    }
+
+    /**
+     * The snapshot with {@code video.framerateLimit} and {@code video.vsync} derived from
+     * {@code performance.fpsLimitPreset}, so the frame-rate choice is the single source of truth whenever a profile is
+     * applied: a profile saying "unlimited" can never re-apply a 120 FPS cap that an older release or a vanilla edit
+     * left in the file. Snapshots without the preset are returned unchanged.
+     */
+    public static Map<String, JsonElement> withFrameRateFromPreset(Map<String, JsonElement> settings) {
+        JsonElement element = settings.get(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET.id());
+        if (element == null) {
+            return settings;
+        }
+        Optional<FpsLimitPreset> preset = VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET.decode(element);
+        if (preset.isEmpty()) {
+            return settings;
+        }
+        Map<String, JsonElement> out = new LinkedHashMap<>(settings);
+        encodeInto(out, VantaSettings.VIDEO_FRAMERATE_LIMIT, preset.get().framerateLimit());
+        encodeInto(out, VantaSettings.VIDEO_VSYNC, preset.get().vsync());
+        return out;
+    }
+
+    /** The built-in profile with an id, freshly built from the current defaults. */
+    public static Optional<Profile> shipped(SettingsRegistry registry, long now, String id) {
+        return create(registry, now).stream().filter(p -> p.id().equals(id)).findFirst();
     }
 
     private static Map<String, JsonElement> defaults(SettingsRegistry registry) {

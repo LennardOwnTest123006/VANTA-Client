@@ -25,6 +25,7 @@ public final class FakeModrinthApi implements ModrinthApi {
     private final Map<String, byte[]> files = new LinkedHashMap<>();
     private final List<String> calls = new ArrayList<>();
     private ModrinthException failSearch;
+    private ModrinthException failProjects;
 
     /** API with the six Performance pack members, two other mods, two shader packs and a resource pack. */
     public static FakeModrinthApi standard() {
@@ -72,6 +73,44 @@ public final class FakeModrinthApi implements ModrinthApi {
         hits.put(id, new ModrinthSearchHit(id, slug, title, author, description, type, downloads, downloads / 5000,
                 List.of(), "", color));
         versions.put(id, List.of(version));
+        return this;
+    }
+
+    /**
+     * Adds an older release of an existing mod for another Minecraft version, with its own file name and bytes
+     * (see {@link #fileContent}), so hash lookups can identify a leftover jar that does not fit this game.
+     */
+    public FakeModrinthApi addRelease(String projectId, String versionId, String versionNumber, String gameVersion,
+                                      String filename) {
+        ModrinthProject project = projects.get(projectId);
+        if (project == null) {
+            throw new IllegalArgumentException("unknown project " + projectId);
+        }
+        byte[] content = ("fake " + project.slug() + " " + versionNumber + " content").getBytes(StandardCharsets.UTF_8);
+        String url = "https://cdn.modrinth.com/data/" + projectId + "/versions/" + versionId + "/" + filename;
+        files.put(url, content);
+        ModrinthFile file = new ModrinthFile(url, filename, true, content.length, Sha512.hex(content), "");
+        ModrinthVersion version = new ModrinthVersion(versionId, projectId, project.title() + " " + versionNumber,
+                versionNumber, "release", Instant.parse("2025-01-01T00:00:00Z"), 1, List.of(gameVersion),
+                ModrinthProjectType.MOD.loaders(), List.of(file), List.of());
+        List<ModrinthVersion> all = new ArrayList<>(versions.getOrDefault(projectId, List.of()));
+        all.add(version);
+        versions.put(projectId, List.copyOf(all));
+        return this;
+    }
+
+    /** The bytes of a version's primary file. */
+    public byte[] fileContent(String versionId) {
+        try {
+            return files.get(version(versionId).primaryFile().orElseThrow().url());
+        } catch (ModrinthException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    /** Makes every project lookup fail with the given error ({@code null} to stop failing), like an offline game. */
+    public FakeModrinthApi failProjects(ModrinthException error) {
+        this.failProjects = error;
         return this;
     }
 
@@ -125,6 +164,9 @@ public final class FakeModrinthApi implements ModrinthApi {
     @Override
     public ModrinthProject project(String idOrSlug) throws ModrinthException {
         calls.add("project:" + idOrSlug);
+        if (failProjects != null) {
+            throw failProjects;
+        }
         return find(idOrSlug);
     }
 
