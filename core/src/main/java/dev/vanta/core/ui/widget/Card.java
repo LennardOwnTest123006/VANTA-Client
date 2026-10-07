@@ -116,7 +116,13 @@ public class Card extends UiNode {
 
     @Override
     protected Size measure(UiContext ctx) {
-        Size b = body.preferredSize(ctx);
+        return measure(ctx, -1);
+    }
+
+    /** The body is measured at the card's width (it spans the card at layout). */
+    @Override
+    protected Size measure(UiContext ctx, int availableWidth) {
+        Size b = body.preferredSize(ctx, availableWidth);
         int w = b.w();
         if (hasHeader()) {
             int titleW = ctx.textWidth(title, FontKind.UI_BOLD) + Theme.SPACE_5 * 2 + (accentBar ? Theme.SPACE_2 : 0);

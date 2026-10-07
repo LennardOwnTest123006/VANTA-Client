@@ -14,7 +14,9 @@ import java.util.Objects;
 
 /**
  * Static text. Variants pick font and color from the theme; {@link #wrap(boolean)} enables word wrapping to
- * the laid-out width (set an explicit width for measurement in flow layouts).
+ * the laid-out width. Containers that know the width they will hand out ({@code Column}, {@code Panel},
+ * {@code Card}, {@code ScrollPanel}, a flex child of a {@code Row}) measure a wrapped label against it, so its
+ * wrapped height is known in the first layout pass; set an explicit width where no such width exists.
  */
 public class Label extends UiNode {
 
@@ -152,6 +154,15 @@ public class Label extends UiNode {
 
     @Override
     protected Size measure(UiContext ctx) {
+        return measure(ctx, -1);
+    }
+
+    /**
+     * Wrapped labels measure against, in this order, their explicit width, the width the parent offers and the
+     * width of the last layout; a fresh label without any of those measures as a single line.
+     */
+    @Override
+    protected Size measure(UiContext ctx, int availableWidth) {
         FontKind f = font();
         int lh = ctx.lineHeight(f);
         if (wrap && explicitWidth() > 0) {
@@ -159,10 +170,11 @@ public class Label extends UiNode {
             int n = Math.min(wrapped.size(), maxLines);
             return new Size(explicitWidth(), n * lh);
         }
-        if (wrap && bounds().w() > 0) {
-            List<String> wrapped = CanvasText.wrap(text, bounds().w(), f, ctx.metrics());
+        int width = availableWidth > 0 ? availableWidth : bounds().w();
+        if (wrap && width > 0) {
+            List<String> wrapped = CanvasText.wrap(text, width, f, ctx.metrics());
             int n = Math.min(wrapped.size(), maxLines);
-            return new Size(Math.min(bounds().w(), CanvasText.maxLineWidth(wrapped, f, ctx.metrics())), n * lh);
+            return new Size(Math.min(width, CanvasText.maxLineWidth(wrapped, f, ctx.metrics())), n * lh);
         }
         return new Size(ctx.textWidth(text, f), lh);
     }

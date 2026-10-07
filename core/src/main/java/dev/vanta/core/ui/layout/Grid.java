@@ -61,19 +61,30 @@ public class Grid extends UiNode {
         return out;
     }
 
-    private int[] rowHeights(UiContext ctx, List<UiNode> visible) {
+    /** Row heights with every cell measured at {@code cellWidth} (-1 when the cell width is not known yet). */
+    private int[] rowHeights(UiContext ctx, List<UiNode> visible, int cellWidth) {
         int rows = (visible.size() + columns - 1) / columns;
         int[] heights = new int[rows];
         for (int i = 0; i < visible.size(); i++) {
             int row = i / columns;
-            int h = rowHeight >= 0 ? rowHeight : visible.get(i).preferredSize(ctx).h();
+            int h = rowHeight >= 0 ? rowHeight : visible.get(i).preferredSize(ctx, cellWidth).h();
             heights[row] = Math.max(heights[row], h);
         }
         return heights;
     }
 
+    /** The cell width for an inner (padding removed) width. */
+    private int cellWidth(int innerWidth) {
+        return Math.max(0, (innerWidth - gapX * (columns - 1)) / columns);
+    }
+
     @Override
     protected Size measure(UiContext ctx) {
+        return measure(ctx, -1);
+    }
+
+    @Override
+    protected Size measure(UiContext ctx, int availableWidth) {
         List<UiNode> visible = visibleChildren();
         if (visible.isEmpty()) {
             return Size.ZERO.plus(padding);
@@ -82,7 +93,8 @@ public class Grid extends UiNode {
         for (UiNode c : visible) {
             cellW = Math.max(cellW, c.preferredSize(ctx).w());
         }
-        int[] heights = rowHeights(ctx, visible);
+        int laidOutCellW = availableWidth < 0 ? -1 : cellWidth(availableWidth - padding.horizontal());
+        int[] heights = rowHeights(ctx, visible, laidOutCellW);
         int h = 0;
         for (int rh : heights) {
             h += rh;
@@ -99,8 +111,8 @@ public class Grid extends UiNode {
             return;
         }
         Rect inner = bounds().inset(padding);
-        int cellW = Math.max(0, (inner.w() - gapX * (columns - 1)) / columns);
-        int[] heights = rowHeights(ctx, visible);
+        int cellW = cellWidth(inner.w());
+        int[] heights = rowHeights(ctx, visible, cellW);
         int y = inner.y();
         for (int i = 0; i < visible.size(); i++) {
             int col = i % columns;

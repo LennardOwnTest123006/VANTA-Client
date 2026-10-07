@@ -169,13 +169,34 @@ public abstract class UiNode {
      * Preferred size: explicit values win, otherwise {@link #measure(UiContext)}.
      */
     public final Size preferredSize(UiContext ctx) {
-        Size measured = (prefWidth >= 0 && prefHeight >= 0) ? Size.ZERO : measure(ctx);
+        return preferredSize(ctx, -1);
+    }
+
+    /**
+     * Preferred size when the parent is going to offer {@code availableWidth} GUI pixels ({@code -1} when the
+     * width is not known yet). Containers pass the width they will hand to the child so that content which
+     * wraps (a wrapped {@code Label}) reports its real height in the same layout pass instead of only after it
+     * was laid out once. Explicit values win as in {@link #preferredSize(UiContext)}; an explicit width is also
+     * what the content is measured against.
+     */
+    public final Size preferredSize(UiContext ctx, int availableWidth) {
+        Size measured = (prefWidth >= 0 && prefHeight >= 0) ? Size.ZERO
+                : measure(ctx, prefWidth >= 0 ? prefWidth : availableWidth);
         return new Size(prefWidth >= 0 ? prefWidth : measured.w(), prefHeight >= 0 ? prefHeight : measured.h());
     }
 
     /** Content-based size; widgets override. */
     protected Size measure(UiContext ctx) {
         return Size.ZERO;
+    }
+
+    /**
+     * Content-based size for a known available width ({@code -1} = unconstrained). Defaults to
+     * {@link #measure(UiContext)}; nodes whose height depends on their width (wrapping text, containers that pass
+     * their width on to children) override this and route {@code measure(ctx)} to {@code measure(ctx, -1)}.
+     */
+    protected Size measure(UiContext ctx, int availableWidth) {
+        return measure(ctx);
     }
 
     /**
