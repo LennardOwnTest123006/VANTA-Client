@@ -117,6 +117,7 @@ public final class GuiGraphicsCanvas extends AbstractCanvas {
         if (Colors.alpha(left) == 0 && Colors.alpha(right) == 0) {
             return;
         }
+        FrameProbe.countGradient();
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().rotate(QUARTER_TURN_LEFT);

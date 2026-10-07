@@ -10,8 +10,9 @@ import net.minecraft.client.Minecraft;
  *   <li>the game's own frame time ({@link Minecraft#getFrameTimeNs()}) once per rendered level frame, sampled from the
  *       {@code GameRendererMixin} so frames are counted even while the GUI is hidden and no HUD element runs;</li>
  *   <li>the wall time of the VANTA HUD element, the custom crosshair element and VANTA screen rendering;</li>
- *   <li>how many {@code GuiGraphicsCanvas} primitives were issued (fills, vertical gradients, text runs, images,
- *       scissor changes, transform pushes) and how many text widths were measured.</li>
+ *   <li>how many {@code GuiGraphicsCanvas} primitives were issued (fills, native gradients, both vertical and the
+ *       rotated horizontal ones, text runs, images, scissor changes, transform pushes) and how many text widths were
+ *       measured.</li>
  * </ul>
  * Disabled (the default in normal play) every hook is one static boolean check; no allocation happens.
  */

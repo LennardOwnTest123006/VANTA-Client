@@ -102,8 +102,14 @@ command -v unzip >/dev/null 2>&1 || fail "unzip is not installed"
 # performance-pack.json -> one tab-separated line per item (slug, file, title, version, licence id, sha512) and per
 # excluded member (prefixed with "excluded"), in pack order. Only node parses JSON here; nothing else about it is
 # trusted. Titles and slugs go into INSTALL.txt, so they must be plain printable text without tabs or line breaks.
+# Pack file names must pass the one safe-name rule the resolver and the in-game installer apply
+# (performance-pack.mjs isSafeFilename, the same as core ModrinthFile.isSafeFilename: no path separator or ':', no
+# '..', no leading dot, no control character, none of <>"|?*, at most 200 characters) and end in .jar; spaces and
+# parentheses are allowed, exactly as Modrinth names release files. Every later use quotes "$file".
 PACK_ROWS="$(node --input-type=module -e '
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+const { isSafeFilename } = await import(pathToFileURL(process.argv[2]).href);
 const pack = JSON.parse(readFileSync(process.argv[1], "utf8"));
 if (pack.schemaVersion !== 1 || !Array.isArray(pack.items) || !Array.isArray(pack.excluded)) {
   console.error("performance-pack.json: unexpected shape"); process.exit(1);
@@ -114,21 +120,30 @@ const plain = (value, what) => {
   }
   return value;
 };
-for (const i of pack.items) console.log(["item", plain(i.slug, "slug"), i.file, plain(i.title, "title"), plain(i.versionNumber, "versionNumber"), plain(i.license?.id, "license.id"), i.sha512].join("\t"));
+const jar = (value) => {
+  if (!isSafeFilename(value) || !/\.jar$/i.test(value) || value.startsWith("-")) {
+    console.error(`performance-pack.json names an unsafe pack file '\''${String(value)}'\''`); process.exit(1);
+  }
+  return value;
+};
+for (const i of pack.items) console.log(["item", plain(i.slug, "slug"), jar(i.file), plain(i.title, "title"), plain(i.versionNumber, "versionNumber"), plain(i.license?.id, "license.id"), i.sha512].join("\t"));
 for (const e of pack.excluded) console.log(["excluded", plain(e.title, "excluded title"), plain(e.license, "excluded licence"), e.reason].join("\t"));
-' "$PACK_JSON")" || fail "could not read $PACK_JSON"
+' "$PACK_JSON" "$SCRIPT_DIR/performance-pack.mjs")" || fail "could not read $PACK_JSON"
 
 PACK_FILES=()
 PACK_SLUGS=()
 PACK_TITLES=()
 PACK_LIST=""
 PACK_EXCLUDED=""
-JAR_NAME='^[0-9A-Za-z][0-9A-Za-z._+-]*\.jar$'
 while IFS=$'\t' read -r kind a b c d e f; do
   case "$kind" in
     item)
       slug="$a"; file="$b"; title="$c"; number="$d"; licence="$e"; sha="$f"
-      [[ "$file" =~ $JAR_NAME ]] || fail "performance-pack.json names an unsafe pack file '$file'"
+      # The node listing already applied the shared rule; this only guards the file name's use as a path and as a
+      # command argument (sha512sum, cmp) should the listing ever change.
+      case "$file" in
+        ''|-*|.*|*/*|*\\*|*..*) fail "performance-pack.json names an unsafe pack file '$file'" ;;
+      esac
       [ "$file" != "$CLIENT_NAME" ] && [ "$file" != "$FAPI_NAME" ] || fail "pack file '$file' collides with a bundle jar"
       for seen in "${PACK_FILES[@]+"${PACK_FILES[@]}"}"; do
         [ "$seen" != "$file" ] || fail "performance-pack.json lists '$file' twice"
@@ -157,7 +172,8 @@ done <<< "$PACK_ROWS"
 # performance-pack.mjs writes); the Fabric API notice is there only when the resolver ran with --fabric-api-jar.
 NOTICES="$PACK_DIR/THIRD-PARTY-LICENSES.txt"
 for file in "${PACK_FILES[@]}" "$FAPI_NAME"; do
-  pattern="$(printf '%s' "$file" | sed 's/[.+]/\\&/g')"
+  # Every ERE metacharacter in the name is escaped (Modrinth file names may hold parentheses, plus signs and spaces).
+  pattern="$(printf '%s' "$file" | sed 's/[][\\.^$*+?(){}|]/\\&/g')"
   grep -qE "^File: +mods/${pattern}\$" "$NOTICES" \
     || fail "THIRD-PARTY-LICENSES.txt has no section for mods/$file (run performance-pack.mjs with --fabric-api-jar)"
 done
