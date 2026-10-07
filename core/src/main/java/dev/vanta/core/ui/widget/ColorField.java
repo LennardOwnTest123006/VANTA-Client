@@ -233,6 +233,14 @@ public class ColorField extends UiNode {
             } else {
                 alpha = null;
             }
+            position(ctx);
+        }
+
+        /**
+         * Places the palette below the field (above it when only that side has room) and keeps it on the screen;
+         * runs on every layout pass so it follows the field after a resize or theme change.
+         */
+        private void position(UiContext ctx) {
             int rows = (PALETTE.size() + COLS - 1) / COLS;
             int w = PAD * 2 + COLS * SWATCH_SMALL + (COLS - 1) * GAP;
             int h = PAD * 2 + rows * SWATCH_SMALL + (rows - 1) * GAP + (allowAlpha ? Slider.HEIGHT + GAP : 0);
@@ -241,6 +249,7 @@ public class ColorField extends UiNode {
             if (y + h > ctx.screenHeight() && anchor.y() - 2 - h >= 0) {
                 y = anchor.y() - 2 - h;
             }
+            y = Math.max(0, Math.min(y, ctx.screenHeight() - h));
             int x = Math.min(anchor.x(), Math.max(0, ctx.screenWidth() - w));
             setBounds(x, y, w, h);
         }
@@ -264,6 +273,7 @@ public class ColorField extends UiNode {
 
         @Override
         public void layout(UiContext ctx) {
+            position(ctx);
             if (alpha != null) {
                 Rect b = bounds();
                 alpha.setBounds(b.x() + PAD, b.bottom() - PAD - Slider.HEIGHT, b.w() - PAD * 2, Slider.HEIGHT);

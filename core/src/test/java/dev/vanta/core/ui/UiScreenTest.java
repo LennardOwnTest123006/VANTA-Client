@@ -375,6 +375,92 @@ class UiScreenTest {
     }
 
     @Test
+    void layoutRequestedDuringAPassRunsAgainInTheSameLayout() {
+        int[] layouts = {0};
+        // Like CardGrid / ResponsiveGrid: measured before the width is known, asks for another pass on a new width.
+        UiNode grid = new UiNode() {
+            private int lastWidth = -1;
+
+            @Override
+            public void layout(UiContext ctx) {
+                layouts[0]++;
+                if (bounds().w() != lastWidth) {
+                    lastWidth = bounds().w();
+                    ctx.requestLayout();
+                }
+            }
+        };
+        UiScreen screen = t.screen(grid, 100, 100);
+        assertEquals(2, layouts[0], "the pass requested during layout runs before the first frame");
+        t.frame(screen, 0, 0);
+        assertEquals(2, layouts[0], "nothing more once the layout settled");
+        screen.invalidateLayout();
+        t.frame(screen, 0, 0);
+        assertEquals(3, layouts[0], "an unchanged width asks for no second pass");
+        screen.resize(120, 80);
+        assertEquals(5, layouts[0], "a new width gets its second pass within the resize");
+        t.frame(screen, 0, 0);
+        assertEquals(5, layouts[0]);
+    }
+
+    @Test
+    void layoutPassesAreBounded() {
+        int[] layouts = {0};
+        UiNode restless = new UiNode() {
+            @Override
+            public void layout(UiContext ctx) {
+                layouts[0]++;
+                ctx.requestLayout();
+            }
+        };
+        UiScreen screen = t.screen(restless, 100, 100);
+        assertEquals(UiScreen.MAX_LAYOUT_PASSES, layouts[0]);
+        t.frame(screen, 0, 0);
+        assertEquals(UiScreen.MAX_LAYOUT_PASSES, layouts[0], "a layout that never settles does not re-run every frame");
+        screen.invalidateLayout();
+        t.frame(screen, 0, 0);
+        assertEquals(UiScreen.MAX_LAYOUT_PASSES * 2, layouts[0]);
+    }
+
+    @Test
+    void screenShortcutsWaitWhileAPopupIsOpen() {
+        int[] hooks = {0};
+        Column root = new Column();
+        Button behind = root.add(new Button("behind", null));
+        UiScreen screen = new UiScreen() {
+            @Override
+            protected UiNode build(UiContext context) {
+                return root;
+            }
+
+            @Override
+            protected boolean onKeyDown(int key, int scancode, int mods) {
+                hooks[0]++;
+                context().focus().focus(context(), behind);
+                return true;
+            }
+        };
+        screen.attach(t.env());
+        screen.init(200, 100);
+        assertTrue(screen.keyDown(Keys.F, 0, Keys.MOD_CONTROL));
+        assertEquals(1, hooks[0]);
+        assertSame(behind, screen.context().focus().focused());
+
+        Column popup = new Column();
+        Button inside = popup.add(new Button("inside", null));
+        popup.setBounds(10, 10, 100, 50);
+        screen.context().popups().open(screen.context(), popup, true, null);
+        assertSame(inside, screen.context().focus().focused());
+        assertFalse(screen.keyDown(Keys.F, 0, Keys.MOD_CONTROL), "the hook is not consulted behind a popup");
+        assertEquals(1, hooks[0]);
+        t.frame(screen, 0, 0);
+        assertSame(inside, screen.context().focus().focused(), "focus stays in the popup");
+        screen.context().popups().closeAll(screen.context());
+        assertTrue(screen.keyDown(Keys.F, 0, Keys.MOD_CONTROL));
+        assertEquals(2, hooks[0]);
+    }
+
+    @Test
     void lifecycleGuards() {
         UiScreen screen = new UiScreen() {
             @Override

@@ -39,12 +39,19 @@ public final class FocusManager {
         return changedAt;
     }
 
-    /** Moves focus to {@code node} (ignored when the node cannot take focus). */
+    /**
+     * Moves focus to {@code node}. Ignored when the node cannot take focus or lies outside the current scope (a
+     * node behind an open popup): {@link #validate} would drop such a focus on the next frame anyway, and the
+     * node focused inside the popup must keep it.
+     */
     public void focus(UiContext ctx, UiNode node) {
         if (node == focused) {
             return;
         }
         if (node != null && !node.canFocus()) {
+            return;
+        }
+        if (node != null && scope.get() != null && !inScope(node)) {
             return;
         }
         UiNode old = focused;

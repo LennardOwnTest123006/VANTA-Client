@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.modrinth.FakeModPlatform;
@@ -17,6 +18,7 @@ import dev.vanta.core.screen.common.ScreenTestSupport;
 import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.widget.Button;
+import dev.vanta.core.ui.widget.Dialog;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.AfterEach;
@@ -166,6 +168,34 @@ class ModsScreenTest {
         assertNotNull(ScreenTestSupport.openDialog(screen));
         ScreenTestSupport.confirmDialog(screen);
         assertEquals(1, platform.calls.size());
+    }
+
+    @Test
+    void searchShortcutWaitsWhileADialogIsOpen() {
+        platform.loaded.add("iris");
+        ModsScreen screen = open();
+        screen.selectTab(ModsTab.SHADERS);
+        screen.install(hit(screen, "complementary-reimagined"));
+        t.frame(screen, -1000, -1000);
+        Dialog dialog = ScreenTestSupport.openDialog(screen);
+        assertNotNull(dialog);
+        UiNode focused = screen.context().focus().focused();
+        assertNotNull(focused);
+        assertTrue(dialog.isAncestorOf(focused), "a dialog button has focus");
+
+        assertFalse(ScreenTestSupport.key(screen, Keys.F, Keys.MOD_CONTROL), "Ctrl+F is not a dialog key");
+        assertFalse(screen.searchField().isFocused(), "the search field behind the dialog stays unfocused");
+        assertSame(focused, screen.context().focus().focused());
+        t.frame(screen, -1000, -1000);
+        assertSame(focused, screen.context().focus().focused(), "focus survives the next frame");
+        assertNotNull(ScreenTestSupport.openDialog(screen));
+
+        assertTrue(ScreenTestSupport.key(screen, Keys.ENTER), "Enter still activates the dialog's default button");
+        assertNull(ScreenTestSupport.openDialog(screen));
+        assertEquals(1, platform.calls.size());
+
+        assertTrue(ScreenTestSupport.key(screen, Keys.F, Keys.MOD_CONTROL), "the shortcut works again afterwards");
+        assertTrue(screen.searchField().isFocused());
     }
 
     @Test

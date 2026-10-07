@@ -211,6 +211,7 @@ public class Select<T> extends UiNode {
     /** The dropdown list; one instance per open. */
     private final class Popup extends UiNode {
         private int highlight = selected;
+        private int rows = Math.min(MAX_VISIBLE, options.size());
         private float scroll;
         private final StringBuilder typeAhead = new StringBuilder();
         private long typeAheadAt;
@@ -221,8 +222,9 @@ public class Select<T> extends UiNode {
             setFocusable(true);
         }
 
+        /** Rows the list shows: up to {@link #MAX_VISIBLE}, fewer when the screen leaves less room. */
         private int visibleRows() {
-            return Math.min(MAX_VISIBLE, options.size());
+            return rows;
         }
 
         private int contentHeight() {
@@ -233,16 +235,30 @@ public class Select<T> extends UiNode {
             return bounds().inset(Theme.SPACE_1);
         }
 
+        /**
+         * Places the list below the field, above it when only that side has room for every row, and otherwise on
+         * the taller side with as many rows as fit (the rest scroll); the list never leaves the screen. Runs on
+         * every layout pass so the popup follows the field after a resize or theme change.
+         */
         void position(UiContext ctx) {
             Rect anchor = Select.this.bounds();
-            int h = visibleRows() * ROW_H + Theme.SPACE_1 * 2;
-            int w = anchor.w();
-            int y = anchor.bottom() + 2;
-            if (y + h > ctx.screenHeight() && anchor.y() - 2 - h >= 0) {
-                y = anchor.y() - 2 - h;
-            }
-            setBounds(anchor.x(), y, w, h);
+            int wanted = Math.min(MAX_VISIBLE, options.size());
+            int fullH = wanted * ROW_H + Theme.SPACE_1 * 2;
+            int below = ctx.screenHeight() - (anchor.bottom() + 2);
+            int above = anchor.y() - 2;
+            boolean flip = fullH > below && (fullH <= above || above > below);
+            int room = flip ? above : below;
+            rows = Math.max(1, Math.min(wanted, (room - Theme.SPACE_1 * 2) / ROW_H));
+            int h = rows * ROW_H + Theme.SPACE_1 * 2;
+            int y = flip ? anchor.y() - 2 - h : anchor.bottom() + 2;
+            y = Math.max(0, Math.min(y, ctx.screenHeight() - h));
+            setBounds(anchor.x(), y, anchor.w(), h);
             ensureVisible();
+        }
+
+        @Override
+        public void layout(UiContext ctx) {
+            position(ctx);
         }
 
         private void ensureVisible() {

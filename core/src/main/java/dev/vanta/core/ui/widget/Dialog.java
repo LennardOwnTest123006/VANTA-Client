@@ -88,7 +88,6 @@ public class Dialog extends UiNode {
     }
 
     private void open(UiContext ctx, UiNode initialFocus) {
-        position(ctx);
         ctx.popups().open(ctx, this, true, () -> {
             if (onDismiss != null) {
                 onDismiss.run();
@@ -121,6 +120,12 @@ public class Dialog extends UiNode {
         return icon != null ? PAD + ICON + Theme.SPACE_3 : PAD;
     }
 
+    /**
+     * Sizes the dialog for the current screen and centres it: runs on every layout pass (the popup layer re-lays
+     * popups out after a resize or theme change), so the dialog follows the window instead of keeping the
+     * coordinates it opened with. The top edge never leaves the screen, so the title stays reachable when the
+     * message is taller than a tiny window.
+     */
     private void position(UiContext ctx) {
         int w = Math.min(WIDTH, Math.max(120, ctx.screenWidth() - Theme.SPACE_6 * 2));
         int textW = w - textLeft() - PAD;
@@ -128,7 +133,7 @@ public class Dialog extends UiNode {
         int h = PAD + ctx.lineHeight(FontKind.UI_BOLD) + Theme.SPACE_2
                 + lines.size() * ctx.lineHeight(FontKind.UI) + Theme.SPACE_5 + Button.HEIGHT + PAD;
         int x = (ctx.screenWidth() - w) / 2;
-        int y = (ctx.screenHeight() - h) / 2;
+        int y = Math.max(0, (ctx.screenHeight() - h) / 2);
         setBounds(x, y, w, h);
     }
 
@@ -139,6 +144,7 @@ public class Dialog extends UiNode {
 
     @Override
     public void layout(UiContext ctx) {
+        position(ctx);
         Rect b = bounds();
         buttons.setBounds(b.x() + PAD, b.bottom() - PAD - Button.HEIGHT, b.w() - PAD * 2, Button.HEIGHT);
         buttons.layout(ctx);
