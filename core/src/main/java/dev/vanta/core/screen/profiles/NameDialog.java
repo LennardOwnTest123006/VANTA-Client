@@ -74,8 +74,8 @@ public final class NameDialog extends UiNode {
     public static NameDialog open(UiContext ctx, String title, String hint, String initial, String confirmLabel,
                                   Function<String, Optional<String>> validator, Consumer<String> onConfirm) {
         NameDialog d = new NameDialog(title, hint, initial, confirmLabel, validator, onConfirm);
+        d.openContext = ctx;
         d.cancel.onClick(() -> d.close(ctx));
-        d.position(ctx);
         ctx.popups().open(ctx, d, true, null);
         d.field.selectAll();
         ctx.focus().focus(ctx, d.field);
@@ -115,14 +115,17 @@ public final class NameDialog extends UiNode {
         onConfirm.accept(name);
     }
 
+    /**
+     * Sizes the dialog for the current screen and centres it; runs on every layout pass so the dialog follows a
+     * window resize or theme change instead of keeping the coordinates it opened with.
+     */
     private void position(UiContext ctx) {
-        openContext = ctx;
         int w = Math.min(WIDTH, Math.max(140, ctx.screenWidth() - Theme.SPACE_6 * 2));
         hintLines = hint.isEmpty() ? List.of() : CanvasText.wrap(hint, w - PAD * 2, FontKind.UI, ctx.metrics());
         int h = PAD + ctx.lineHeight(FontKind.UI_BOLD) + Theme.SPACE_2 + hintLines.size() * ctx.lineHeight(FontKind.UI)
                 + Theme.SPACE_4 + TextField.HEIGHT + Theme.SPACE_2 + ctx.lineHeight(FontKind.UI) + Theme.SPACE_4
                 + Button.HEIGHT + PAD;
-        setBounds((ctx.screenWidth() - w) / 2, (ctx.screenHeight() - h) / 2, w, h);
+        setBounds((ctx.screenWidth() - w) / 2, Math.max(0, (ctx.screenHeight() - h) / 2), w, h);
     }
 
     /** Closes the dialog without confirming. */
@@ -142,6 +145,7 @@ public final class NameDialog extends UiNode {
 
     @Override
     public void layout(UiContext ctx) {
+        position(ctx);
         Rect b = bounds();
         field.setBounds(b.x() + PAD, fieldTop(ctx), b.w() - PAD * 2, TextField.HEIGHT);
         field.layout(ctx);

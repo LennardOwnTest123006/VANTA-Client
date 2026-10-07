@@ -13,6 +13,8 @@ import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.cosmetics.ServicesFixture;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.Keys;
+import dev.vanta.core.ui.Rect;
+import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.widget.Button;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -193,6 +195,37 @@ class ProfilesScreenTest {
         dialog.importFile(dialog.fileList().items().get(0));
         assertFalse(dialog.isStatusError());
         assertEquals(7, fx.services.profiles().size());
+        dialog.close(screen.context());
+        assertFalse(screen.context().popups().isOpen());
+    }
+
+    private static void assertCentred(UiNode dialog, int screenW, int screenH) {
+        Rect b = dialog.bounds();
+        assertEquals((screenW - b.w()) / 2, b.x(), "centred horizontally on " + screenW + "x" + screenH + ": " + b);
+        assertEquals((screenH - b.h()) / 2, b.y(), "centred vertically on " + screenW + "x" + screenH + ": " + b);
+    }
+
+    /** The name and import dialogs re-centre on every layout pass like {@code Dialog}: a resize cannot strand them. */
+    @Test
+    void nameAndImportDialogsFollowWindowResizes() {
+        NameDialog create = screen.openCreateDialog();
+        assertCentred(create, 854, 480);
+        screen.resize(320, 240);
+        assertCentred(create, 320, 240);
+        assertTrue(new Rect(0, 0, 320, 240).contains(create.confirmButton().bounds()), "confirm on screen");
+        fx.type(screen, "Small");
+        fx.key(screen, Keys.ENTER);
+        fx.frame(screen);
+        assertFalse(screen.context().popups().isOpen());
+        assertTrue(screen.cards().stream().anyMatch(c -> c.profile().name().equals("Small")));
+
+        ImportDialog dialog = screen.openImportDialog();
+        assertCentred(dialog, 320, 240);
+        screen.resize(1920, 1080);
+        assertCentred(dialog, 1920, 1080);
+        screen.resize(320, 240);
+        assertCentred(dialog, 320, 240);
+        assertTrue(new Rect(0, 0, 320, 240).contains(dialog.clipboardButton().bounds()), "clipboard button on screen");
         dialog.close(screen.context());
         assertFalse(screen.context().popups().isOpen());
     }

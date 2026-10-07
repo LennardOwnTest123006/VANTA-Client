@@ -51,7 +51,6 @@ public final class PresetNameDialog extends UiNode {
     /** Opens the dialog as a modal popup and focuses the name field. */
     public static PresetNameDialog open(UiContext ctx, Consumer<String> onSave) {
         PresetNameDialog dialog = new PresetNameDialog(ctx, onSave);
-        dialog.position(ctx);
         ctx.popups().open(ctx, dialog, true, null);
         ctx.focus().focus(ctx, dialog.name);
         return dialog;
@@ -87,11 +86,15 @@ public final class PresetNameDialog extends UiNode {
         ctx.popups().close(ctx, this);
     }
 
+    /**
+     * Sizes the dialog for the current screen and centres it; runs on every layout pass so the dialog follows a
+     * window resize or theme change instead of keeping the coordinates it opened with.
+     */
     private void position(UiContext ctx) {
         int w = Math.min(WIDTH, Math.max(140, ctx.screenWidth() - Theme.SPACE_6 * 2));
         int h = PAD + ctx.lineHeight(FontKind.UI_BOLD) + Theme.SPACE_2 + ctx.lineHeight(FontKind.UI) + Theme.SPACE_4
                 + TextField.HEIGHT + Theme.SPACE_5 + Button.HEIGHT + PAD;
-        setBounds((ctx.screenWidth() - w) / 2, (ctx.screenHeight() - h) / 2, w, h);
+        setBounds((ctx.screenWidth() - w) / 2, Math.max(0, (ctx.screenHeight() - h) / 2), w, h);
     }
 
     @Override
@@ -101,6 +104,7 @@ public final class PresetNameDialog extends UiNode {
 
     @Override
     public void layout(UiContext ctx) {
+        position(ctx);
         Rect b = bounds();
         int fieldY = b.y() + PAD + ctx.lineHeight(FontKind.UI_BOLD) + Theme.SPACE_2 + ctx.lineHeight(FontKind.UI)
                 + Theme.SPACE_4;

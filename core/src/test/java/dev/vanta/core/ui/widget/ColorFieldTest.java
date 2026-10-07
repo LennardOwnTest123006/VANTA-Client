@@ -8,6 +8,7 @@ import dev.vanta.core.ui.Colors;
 import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.Rect;
 import dev.vanta.core.ui.TestCanvas;
+import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.UiScreen;
 import dev.vanta.core.ui.UiTestSupport;
 import dev.vanta.core.ui.layout.Align;
@@ -92,5 +93,25 @@ class ColorFieldTest {
         assertEquals(0x80, Colors.alpha(f.color()), "alpha preserved when picking a swatch");
         assertEquals(ColorField.PALETTE.get(0) & 0xFFFFFF, f.color() & 0xFFFFFF);
         assertEquals(12, ColorField.PALETTE.size());
+    }
+
+    @Test
+    void paletteStaysOnTheScreenAndFollowsResizes() {
+        Column root = new Column(0).align(Align.START);
+        root.add(new Button("spacer", null)).size(120, 200);
+        ColorField f = root.add(new ColorField(0xFF336699, true, changes::add));
+        f.size(120, 20);
+        UiScreen screen = t.screen(root, 400, 240);
+        f.openPopup(screen.context());
+        UiNode popup = screen.context().popups().top().node();
+        Rect p = popup.bounds();
+        assertTrue(p.y() >= 0 && p.bottom() <= 240, "flipped above the field, on screen: " + p);
+        assertTrue(p.bottom() <= f.bounds().y(), p.toString());
+        screen.resize(400, 120);
+        p = popup.bounds();
+        assertTrue(p.y() >= 0 && p.bottom() <= 120, "clamped into the smaller screen: " + p);
+        screen.resize(800, 600);
+        assertEquals(f.bounds().bottom() + 2, popup.bounds().y(), "below the field again: " + popup.bounds());
+        assertTrue(f.isPopupOpen());
     }
 }

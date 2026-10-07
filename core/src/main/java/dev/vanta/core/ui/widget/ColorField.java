@@ -137,7 +137,7 @@ public class ColorField extends UiNode {
         if (popup != null || !isEffectivelyEnabled()) {
             return;
         }
-        popup = new Popup(ctx);
+        popup = new Popup();
         ctx.popups().open(ctx, popup, false, () -> popup = null);
         ctx.playClick();
     }
@@ -222,7 +222,7 @@ public class ColorField extends UiNode {
         private final Slider<Integer> alpha;
         private int highlight;
 
-        Popup(UiContext ctx) {
+        Popup() {
             setFocusable(true);
             highlight = Math.max(0, PALETTE.indexOf(Colors.opaque(color)));
             if (allowAlpha) {
@@ -233,7 +233,6 @@ public class ColorField extends UiNode {
             } else {
                 alpha = null;
             }
-            position(ctx);
         }
 
         /**

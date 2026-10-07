@@ -132,7 +132,6 @@ public class Select<T> extends UiNode {
             return;
         }
         popup = new Popup();
-        popup.position(ctx);
         ctx.popups().open(ctx, popup, false, () -> popup = null);
         ctx.playClick();
     }
@@ -240,7 +239,7 @@ public class Select<T> extends UiNode {
          * the taller side with as many rows as fit (the rest scroll); the list never leaves the screen. Runs on
          * every layout pass so the popup follows the field after a resize or theme change.
          */
-        void position(UiContext ctx) {
+        private void position(UiContext ctx) {
             Rect anchor = Select.this.bounds();
             int wanted = Math.min(MAX_VISIBLE, options.size());
             int fullH = wanted * ROW_H + Theme.SPACE_1 * 2;

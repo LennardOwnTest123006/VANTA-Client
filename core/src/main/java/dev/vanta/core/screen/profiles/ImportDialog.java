@@ -107,7 +107,6 @@ public final class ImportDialog extends UiNode {
                                     Consumer<Profile> onImported, Runnable openFolderAction) {
         actions.ensureImportsDir();
         ImportDialog d = new ImportDialog(ctx, actions, clipboard, onImported, openFolderAction);
-        d.position(ctx);
         ctx.popups().open(ctx, d, true, null);
         ctx.focus().focus(ctx, d.tabs);
         return d;
@@ -193,10 +192,14 @@ public final class ImportDialog extends UiNode {
         folderButtons.setVisible(!clip);
     }
 
+    /**
+     * Sizes the dialog for the current screen and centres it; runs on every layout pass so the dialog follows a
+     * window resize or theme change instead of keeping the coordinates it opened with.
+     */
     private void position(UiContext ctx) {
         int w = Math.min(WIDTH, Math.max(160, ctx.screenWidth() - Theme.SPACE_6 * 2));
         int h = Math.min(HEIGHT, Math.max(120, ctx.screenHeight() - Theme.SPACE_4 * 2));
-        setBounds((ctx.screenWidth() - w) / 2, (ctx.screenHeight() - h) / 2, w, h);
+        setBounds((ctx.screenWidth() - w) / 2, Math.max(0, (ctx.screenHeight() - h) / 2), w, h);
         clipboardHint = CanvasText.wrap(Lang.tr("vanta.profiles.import.clipboard_hint"), w - PAD * 2, FontKind.UI,
                 ctx.metrics());
         folderHint = CanvasText.wrap(Lang.tr("vanta.profiles.import.folder_hint",
@@ -214,6 +217,7 @@ public final class ImportDialog extends UiNode {
 
     @Override
     public void layout(UiContext ctx) {
+        position(ctx);
         Rect b = bounds();
         Size ts = tabs.preferredSize(ctx);
         tabs.setBounds(b.x() + PAD, b.y() + PAD + 11 + Theme.SPACE_3, Math.min(ts.w(), b.w() - PAD * 2), Tabs.HEIGHT);
