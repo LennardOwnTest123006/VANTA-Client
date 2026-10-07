@@ -236,8 +236,9 @@ them does not know are kept.
 The game contacts Modrinth (`api.modrinth.com`, files from `cdn.modrinth.com`) only while you use Mods & Shaders
 (when the screen opens and lists projects, when you search and when you install) and, from client 1.2.0 on, after you
 press *Boost FPS* in the Performance Center or *Install* in the *Boost your FPS?* offer while pack members are missing
-([The offer at start](#the-offer-at-start), [Performance Center → Boost FPS](performance.md#boost-fps)). The launcher contacts it when the
-Performance pack is installed, when you open or use the Mods page and for *Update all*. What is sent:
+([The offer at start](#the-offer-at-start), [Performance Center → Boost FPS](performance.md#boost-fps)). The launcher
+contacts it when the Performance pack is installed, when you open or use the Mods page and for *Update all*. What is
+sent:
 
 - your search text, the tab (mods, shaders or resource packs) and the Minecraft version 1.21.11;
 - the ids of the projects and versions VANTA looks up or downloads;

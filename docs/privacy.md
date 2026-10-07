@@ -30,9 +30,9 @@ exported or deleted, and the file never leaves your computer
 
 The client opens **no network connections of its own**, with one exception: Modrinth, while you use the *Mods &
 Shaders* screen (from client 1.1.0 on) and, from client 1.2.0 on, after you press *Boost FPS* or *Install* in the
-*Boost your FPS?* offer, see [Modrinth](#modrinth-mods-shaders-and-the-performance-pack) below. The client does not phone home, check for updates,
-fetch cosmetics or load remote content. Minecraft's own connections (Mojang authentication, the servers you join,
-resource packs a server sends) are not changed by VANTA.
+*Boost your FPS?* offer, see [Modrinth](#modrinth-mods-shaders-and-the-performance-pack) below. The client does not
+phone home, check for updates, fetch cosmetics or load remote content. Minecraft's own connections (Mojang
+authentication, the servers you join, resource packs a server sends) are not changed by VANTA.
 
 HUD widgets show information the game already exposes about your own session (position, biome, effects, ping,
 server name). The *Server* widget has a "hide address" option for streaming.

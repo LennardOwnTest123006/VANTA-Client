@@ -124,7 +124,8 @@ as described in [Installation](installation.md#2-verify-the-checksum).
    mod.
 4. Select the Fabric profile in the official launcher and play. VANTA writes its files to `config/vanta/` inside
    that game directory. The Performance pack came with the bundle (client 1.2.0 and newer) except EntityCulling; the
-   game offers it once at the main menu (*Boost your FPS?*) and on the *Performance pack* card of *Mods & Shaders*.
+   game offers it once per start at the main menu (*Boost your FPS?*) and on the *Performance pack* card of
+   *Mods & Shaders*.
 
 If you have the VANTA Launcher, *PLAY via Minecraft Launcher* or *Use with Minecraft Launcher* does the Fabric and
 mods part (steps 1 to 3, apart
