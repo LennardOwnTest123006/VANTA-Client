@@ -678,8 +678,9 @@ jobs:
           META="$RUNNER_TEMP/startup-check/$VERSION_ID.json"
           curl -fsS --retry 3 --retry-delay 5 -A "$UA" "https://api.modrinth.com/v2/version/$VERSION_ID" > "$META"
           jq '{name, version_number, game_versions, loaders, date_published, files: [.files[] | {filename, primary, size}]}' "$META"
-          PRIMARY=$(jq -ec '[.files[] | select(.primary == true)] | first' "$META") \
-            || { echo "::error::version $VERSION_ID has no primary file"; exit 1; }
+          # The file VANTA's installers take: the primary one, else the first (Modrinth's rule when none is marked).
+          PRIMARY=$(jq -ec '([.files[] | select(.primary == true)] | first) // .files[0]' "$META") \
+            || { echo "::error::version $VERSION_ID has no file"; exit 1; }
           NAME=$(jq -r '.filename' <<< "$PRIMARY")
           URL=$(jq -r '.url' <<< "$PRIMARY")
           SHA=$(jq -r '.hashes.sha512 // ""' <<< "$PRIMARY")
@@ -819,8 +820,9 @@ jobs:
           META="$RUNNER_TEMP/startup-check/$VERSION_ID.json"
           curl -fsS --retry 3 --retry-delay 5 -A "$UA" "https://api.modrinth.com/v2/version/$VERSION_ID" > "$META"
           jq '{name, version_number, game_versions, loaders, date_published, files: [.files[] | {filename, primary, size}]}' "$META"
-          PRIMARY=$(jq -ec '[.files[] | select(.primary == true)] | first' "$META") \
-            || { echo "::error::version $VERSION_ID has no primary file"; exit 1; }
+          # The file VANTA's installers take: the primary one, else the first (Modrinth's rule when none is marked).
+          PRIMARY=$(jq -ec '([.files[] | select(.primary == true)] | first) // .files[0]' "$META") \
+            || { echo "::error::version $VERSION_ID has no file"; exit 1; }
           NAME=$(jq -r '.filename' <<< "$PRIMARY")
           URL=$(jq -r '.url' <<< "$PRIMARY")
           SHA=$(jq -r '.hashes.sha512 // ""' <<< "$PRIMARY")
