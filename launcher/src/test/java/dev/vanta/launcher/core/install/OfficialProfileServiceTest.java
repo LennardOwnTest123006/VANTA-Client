@@ -554,4 +554,33 @@ class OfficialProfileServiceTest {
         // The one-time backup is taken right before VANTA's write, so it holds the launcher's latest state.
         assertTrue(Files.readString(OfficialProfileService.backupOf(mc.resolve(OfficialProfileService.PROFILES_FILE))).contains("madeMeanwhile"));
     }
+
+    /**
+     * The running launcher's rewrite during the downloads is half-written (not valid JSON) at the moment VANTA would
+     * write: the last step fails and names the file, and the file is left as it is rather than replaced by the stale
+     * copy VANTA parsed before the downloads.
+     */
+    @Test
+    void aProfilesFileBrokenDuringTheDownloadsIsNotOverwritten() throws Exception {
+        officialLauncherStartedOnce();
+        final Path file = mc.resolve(OfficialProfileService.PROFILES_FILE);
+        final String halfWritten = "{\"profiles\":{\"other\":{\"name\":\"Oth";
+        final InstallException failure = assertThrows(InstallException.class, () -> service.install(request(), new InstallListener() {
+            @Override
+            public void onProgress(final InstallProgress progress) {
+                if (progress.step() == InstallStep.VANTA_CLIENT) {
+                    try {
+                        Files.writeString(file, halfWritten);
+                    } catch (IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                }
+            }
+        }, new CancellationToken()));
+        assertEquals(InstallStep.FINALIZE, failure.step());
+        assertTrue(failure.getMessage().contains(OfficialProfileService.PROFILES_FILE + " is not valid JSON, so VANTA did not change it"),
+            failure.getMessage());
+        assertEquals(halfWritten, Files.readString(file), "the launcher's file is left alone");
+        assertFalse(Files.exists(OfficialProfileService.backupOf(file)), "no backup is taken of a file that was not written");
+    }
 }
