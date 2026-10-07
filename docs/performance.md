@@ -8,8 +8,9 @@ category: Client
 The Performance Center is a dashboard for the numbers that matter and a quick way to apply a sensible set of
 **vanilla** video options. It does not modify Minecraft's renderer itself and it makes no FPS promises: how fast your
 game runs depends on your hardware and on Minecraft. For more than vanilla options can give, it points to the
-[Performance pack](#the-performance-pack): optimisation mods from Modrinth that VANTA installs on request but does not
-ship in its own files.
+[Performance pack](#the-performance-pack): optimisation mods from Modrinth that VANTA installs on request; from client
+1.2.0 on the mods bundle for the manual installation also carries the redistributable ones
+([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)).
 
 Open it from *Settings → Performance → Open Performance Center*, the performance key (unbound by default), the
 main menu, or `/vanta perf`.
@@ -151,7 +152,9 @@ Everything about installing, disabling and removing them is in
 - VANTA's presets change **vanilla options only**. Everything a preset does, you could do by hand in Video Settings.
 - There is no claim such as "+200 % FPS", neither for the presets nor for the Performance pack. Measure on your own
   machine with the cards above.
-- The Performance pack mods are not part of VANTA; VANTA installs them on request. CI runs VANTA's game test with
+- The Performance pack mods are third-party projects, not part of VANTA; VANTA installs them on request, and from
+  client 1.2.0 on the mods bundle carries the redistributable ones unmodified
+  ([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)). CI runs VANTA's game test with
   them loaded; other mod combinations are not tested
   ([Fabric → Using VANTA with other mods](fabric.md#using-vanta-with-other-fabric-mods)).
 - The CPU card shows "n/a" when the Java runtime does not provide process CPU load.

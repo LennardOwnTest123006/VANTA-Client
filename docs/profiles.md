@@ -63,7 +63,7 @@ Profiles are JSON files in `config/vanta/profiles/<id>.json` (`state.json` next 
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "pvp",
   "name": "PvP",
   "icon": "crosshair",

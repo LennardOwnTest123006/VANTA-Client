@@ -10,8 +10,10 @@ for Minecraft 1.21.11 from [Modrinth](https://modrinth.com), the public mod plat
 the **Mods & Shaders** screen in the game and the **Mods** page of the VANTA Launcher. Both write into the same game
 folder and keep the same list of what they installed, so you can use either one.
 
-The projects on Modrinth are made by their own authors and published under their own licences. VANTA does not ship
-or change them: it downloads the file Modrinth publishes, checks it and puts it into the right folder.
+The projects on Modrinth are made by their own authors and published under their own licences. VANTA does not change
+them: it downloads the file Modrinth publishes, checks it and puts it into the right folder. From client 1.2.0 on, the
+mods bundle for the manual installation also carries the redistributable Performance pack mods, unmodified
+([The pack in the mods bundle](#the-pack-in-the-mods-bundle)).
 
 ## Mods & Shaders in the game
 
@@ -231,8 +233,10 @@ them does not know are kept.
 
 ## What is sent to Modrinth
 
-The game contacts Modrinth (`api.modrinth.com`, files from `cdn.modrinth.com`) only while you use Mods & Shaders:
-when the screen opens and lists projects, when you search and when you install. The launcher contacts it when the
+The game contacts Modrinth (`api.modrinth.com`, files from `cdn.modrinth.com`) only while you use Mods & Shaders
+(when the screen opens and lists projects, when you search and when you install) and, from client 1.2.0 on, after you
+press *Boost FPS* in the Performance Center or *Install* in the *Boost your FPS?* offer while pack members are missing
+([The offer at start](#the-offer-at-start), [Performance Center → Boost FPS](performance.md#boost-fps)). The launcher contacts it when the
 Performance pack is installed, when you open or use the Mods page and for *Update all*. What is sent:
 
 - your search text, the tab (mods, shaders or resource packs) and the Minecraft version 1.21.11;

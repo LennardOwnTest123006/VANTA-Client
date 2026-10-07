@@ -323,7 +323,7 @@ macOS and Linux), that the Fabric installer asks which launcher to use when both
 and to keep *Create profile* checked. It shows how to verify every jar on Linux, macOS and Windows (PowerShell or
 Command Prompt), mentions Mods & Shaders and the Performance pack, and explains that the zoom key C is also vanilla's
 *Save Hotbar Activator* ([Keybinds → Zoom](keybinds.md#zoom)). The notes on the Fabric installer per system, the
-launcher choice and Mods & Shaders are new in `vanta-client-1.2.0-mods.zip`; the `INSTALL.txt` of 1.0.1 does not have
+launcher choice and Mods & Shaders are new in `vanta-client-1.1.0-mods.zip`; the `INSTALL.txt` of 1.0.1 does not have
 them. From client 1.2.0 on, `INSTALL.txt` also lists the Performance pack jars in the zip (written
 from `performance-pack.json` when the release is built), says that EntityCulling is not among them and why, and warns
 about duplicate copies of a mod. For Prism Launcher, MultiMC and other details see

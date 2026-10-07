@@ -26,7 +26,7 @@ vanilla menu and they are saved to `options.txt`, not to VANTA's file.
 | **Audio** (vanilla) | master, music, jukebox, weather, blocks, hostile, neutral, players, ambient, voice volumes and subtitles; *Open vanilla sound settings* |
 | **Controls** | zoom (enable, factor 1.5–8.0, key, smooth animation, scroll to adjust); vanilla mouse sensitivity, invert mouse, wheel sensitivity, discrete scroll, raw input, auto-jump, toggle sneak/sprint; *Open keybind manager* |
 | **HUD** | HUD enabled, editor grid, snapping, global scale (0.5–2.0), global opacity (0.1–1.0), text shadow; *Open HUD editor* and the crosshair customizer |
-| **Performance** | quick frame-rate limit (VSync / 60 / 120 / 144 / 240 / unlimited), frame-time graph, render-distance suggestions, apply suggestions automatically (off by default), last applied preset; *Open Performance Center* |
+| **Performance** | quick frame-rate limit (VSync / 60 / 120 / 144 / 240 / unlimited), frame-time graph, render-distance suggestions, apply suggestions automatically (off by default), last applied preset, offer the Performance pack at start (on by default; the *Boost your FPS?* dialog of a game the VANTA Launcher did not start); *Open Performance Center* |
 | **Accessibility** | reduced motion, high contrast, larger text, reduced transparency, colour-blind palette; vanilla high contrast, text background opacity, chat opacity; *Open vanilla accessibility options* |
 | **Language** | *Open vanilla language screen* (VANTA strings follow the game language), *Show translation keys* for translators |
 | **Cosmetics** | badge, HUD theme, crosshair preset; *Open crosshair customizer*; link to the Cosmetics screen |

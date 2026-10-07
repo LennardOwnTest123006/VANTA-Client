@@ -48,7 +48,7 @@ regardless of their content, and you are responsible for following the rules of 
 
 ## 6. Privacy
 
-VANTA collects no data; the launcher communicates with Microsoft, Mojang, Fabric, Adoptium and GitHub to do its job.
+VANTA collects no data; the launcher communicates with Microsoft, Mojang, Fabric, Adoptium, GitHub and Modrinth to do its job, and the client contacts Modrinth only while you use Mods & Shaders or, from client 1.2.0 on, after you press *Boost FPS* or accept the *Boost your FPS?* offer.
 Details are on the [Privacy](privacy.md) page, which is part of these terms.
 
 ## 7. Contributions
