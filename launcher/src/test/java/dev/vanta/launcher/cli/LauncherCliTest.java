@@ -35,6 +35,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the {@link FakeWorld}. Exercises install → print-command → launch (fake KnotClient) through the public CLI.
  */
 class LauncherCliTest {
+    /** A launcher version no build will ever reach, so the update path is exercised regardless of LauncherVersion.VERSION. */
+    private static final String NEWER_LAUNCHER = "99.0.0";
 
     @TempDir
     static Path tmp;
@@ -119,14 +121,14 @@ class LauncherCliTest {
         final Run invalid = run("--check-update", "--releases-url", "ftp://releases.example/vanta", "--data-dir", tmp.resolve("upd-data").toString());
         assertEquals(ExitCode.NOT_CONFIGURED, invalid.code());
         assertTrue(invalid.out().contains("is not a valid http(s) URL"), invalid.out());
-        // The fixture describes launcher 1.1.0; served as a newer release so an update is offered whatever this build is.
+        // The fixture describes launcher 1.1.0; served as a far newer release so an update is offered whatever this build is.
         world.server().addJson("releases/launcher-latest.json", dev.vanta.launcher.testutil.Fixtures.read("release/launcher-latest.json")
-            .replace("1.1.0", "1.2.0"));
+            .replace("1.1.0", NEWER_LAUNCHER));
         // No --releases-url and nothing in settings.json: the built-in default (this test's fake releases/) is used.
         final Run configured = run("--check-update", "--data-dir", tmp.resolve("upd-data").toString());
         assertEquals(ExitCode.OK, configured.code(), configured.err());
         assertTrue(configured.out().contains("Release manifests: " + world.releasesBase() + " (built-in default)"), configured.out());
-        assertTrue(configured.out().contains("Launcher " + LauncherVersion.VERSION + ": update available: 1.2.0"), configured.out());
+        assertTrue(configured.out().contains("Launcher " + LauncherVersion.VERSION + ": update available: " + NEWER_LAUNCHER), configured.out());
         // A fresh data directory has no client: no update is offered, only the latest release and how to install it.
         assertTrue(configured.out().contains("Client: not installed (install it with --install or --install-official-profile); latest release 1.0.0"),
             configured.out());
