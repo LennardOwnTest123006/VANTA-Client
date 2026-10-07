@@ -275,15 +275,12 @@ public final class VantaServices {
      * when the Modrinth integration is installed, installs the Performance pack members that are neither loaded nor
      * installed (only those: a member Fabric already loaded from a jar Modrinth does not know is never downloaded a
      * second time). Nothing is ever downloaded except through this explicit action; the one confirmation toast says
-     * when a restart is needed for the new mods. While a pack install is still running (a second click, or the
-     * main-menu offer's Install in the same session) nothing is queued: a toast says the boost is already running
-     * and the running install's own toast reports the outcome.
+     * when a restart is needed for the new mods. The settings part always runs; while a Modrinth task is still
+     * running (the pack install of a second click, the main-menu offer's Install in the same session, or any other
+     * download) no pack install is queued behind it: a toast says a download is still running, and the running
+     * task's own toast reports its outcome.
      */
     public void boostFps() {
-        if (modrinth != null && modrinth.isBusy()) {
-            notifications.boostAlreadyRunning();
-            return;
-        }
         performance.applyPreset(PerformancePreset.BOOST, false);
         performance.applyFpsLimit(FpsLimitPreset.UNLIMITED);
         settings.set(VantaSettings.MENU_BACKGROUND, MenuBackground.SOLID);
@@ -291,6 +288,10 @@ public final class VantaServices {
         List<PerformancePack.Item> missing = modrinth == null ? List.of() : missingPerformancePackMembers(modrinth);
         if (missing.isEmpty()) {
             notifications.boostApplied(modrinth != null && modrinth.restartRequired());
+            return;
+        }
+        if (modrinth.isBusy()) {
+            notifications.downloadStillRunning();
             return;
         }
         ModrinthService service = modrinth;

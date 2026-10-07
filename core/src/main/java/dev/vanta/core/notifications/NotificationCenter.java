@@ -260,10 +260,13 @@ public final class NotificationCenter {
                         : "vanta.notification.boost_applied.body"), restartRequired ? 8000 : 5000);
     }
 
-    /** Boost FPS was clicked while its Performance pack install is still running; nothing new was started. */
-    public Optional<Notification> boostAlreadyRunning() {
-        return post(NotificationKind.INFO, Lang.tr("vanta.notification.boost_running.title"),
-                Lang.tr("vanta.notification.boost_running.body"));
+    /**
+     * Boost FPS or the pack offer's Install asked for the Performance pack while a Modrinth download (the pack
+     * itself after a second click, or any other install) is still running; nothing new was queued behind it.
+     */
+    public Optional<Notification> downloadStillRunning() {
+        return post(NotificationKind.INFO, Lang.tr("vanta.notification.download_running.title"),
+                Lang.tr("vanta.notification.download_running.body"));
     }
 
     public Optional<Notification> hudPresetApplied(String presetName) {
