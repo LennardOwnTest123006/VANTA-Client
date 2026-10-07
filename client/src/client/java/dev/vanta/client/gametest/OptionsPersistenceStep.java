@@ -41,10 +41,10 @@ import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
  *   <li>VANTA's main menu, Settings (Video category) and Performance Center are opened, ticked and closed; Fast must
  *       still be set, shown by the VANTA graphics row and written in options.txt.</li>
  *   <li>Options are read back from disk as a restart does ({@code Options.load()}, then VANTA's settings load).</li>
- *   <li>With Sodium loaded: one bundled option is changed through the vanilla API Sodium's Apply uses
- *       ({@code OptionInstance.set} + {@code Options.save()}), the game reports its preset (Minecraft 1.21.11:
- *       Custom) and VANTA must show exactly that, before and after the same screens and the reload; Sodium's own
- *       video settings screen opens once and VANTA's Apply/Escape hint must be posted.</li>
+ *   <li>One bundled option (clouds) is changed through the vanilla API that a vanilla slider and Sodium's Apply use
+ *       ({@code OptionInstance.set} + {@code Options.save()}); the game must report Custom and VANTA must show
+ *       exactly that, before and after the same screens and the reload. With Sodium loaded, Sodium's own video
+ *       settings screen opens once and VANTA's Apply/Escape hint must be posted.</li>
  *   <li>VANTA: Fast is chosen in VANTA's own Settings row; the screen is closed; the same screens and the reload
  *       follow.</li>
  * </ol>
@@ -86,28 +86,29 @@ final class OptionsPersistenceStep {
         reloadFromDisk(context, services);
         expectEverywhere(context, services, optionsFile, "FAST", "options reloaded from disk (restart)");
 
-        // ---- 2. with Sodium: its Apply path, its screen and VANTA's hint -----------------------------------------
+        // ---- 2. a bundled option changed outside VANTA (vanilla slider, Sodium's Apply) --------------------------
+        // Runs in both CI jobs: showing "Custom" is VANTA's job, not Sodium's. Sodium's Apply uses the same vanilla API
+        // (OptionInstance.set, then Options.save()); only its screen and VANTA's hint need Sodium.
+        context.runOnClient(client -> {
+            CloudStatus clouds = client.options.cloudStatus().get();
+            client.options.cloudStatus().set(clouds == CloudStatus.OFF ? CloudStatus.FAST : CloudStatus.OFF);
+            client.options.save();
+        });
+        String afterBundled = context.computeOnClient(client -> client.options.graphicsPreset().get().name());
+        step("options persistence: after a bundled option changed outside VANTA the game reports " + afterBundled);
+        // Minecraft 1.21.11 has Options.setGraphicsPresetToCustom (javap of the real jar), called by the clouds
+        // callback. Without Custom here the checks below could never see VANTA show a Custom preset.
+        check("CUSTOM".equals(afterBundled), "options persistence: Minecraft did not switch the graphics preset to "
+                + "Custom after the clouds option changed (it reports " + afterBundled + ")");
+        expectEverywhere(context, services, optionsFile, afterBundled, "bundled option changed outside VANTA");
         if (FabricLoader.getInstance().isModLoaded("sodium")) {
-            context.runOnClient(client -> {
-                CloudStatus clouds = client.options.cloudStatus().get();
-                client.options.cloudStatus().set(clouds == CloudStatus.OFF ? CloudStatus.FAST : CloudStatus.OFF);
-                client.options.save();
-            });
-            String afterSodium = context.computeOnClient(client -> client.options.graphicsPreset().get().name());
-            step("options persistence: after a bundled option changed the Sodium way the game reports "
-                    + afterSodium);
-            if (!"CUSTOM".equals(afterSodium)) {
-                warn("options persistence: Minecraft did not switch the graphics preset to Custom after a bundled "
-                        + "option changed (it reports " + afterSodium + ")");
-            }
-            expectEverywhere(context, services, optionsFile, afterSodium, "bundled option changed (Sodium Apply)");
             sodiumScreenHint(context, services);
-            expectEverywhere(context, services, optionsFile, afterSodium, "Sodium video settings → Escape");
-            visitVantaScreens(context, services, afterSodium);
-            expectEverywhere(context, services, optionsFile, afterSodium, "VANTA screens after the Sodium change");
-            reloadFromDisk(context, services);
-            expectEverywhere(context, services, optionsFile, afterSodium, "reloaded after the Sodium change");
+            expectEverywhere(context, services, optionsFile, afterBundled, "Sodium video settings → Escape");
         }
+        visitVantaScreens(context, services, afterBundled);
+        expectEverywhere(context, services, optionsFile, afterBundled, "VANTA screens after the bundled change");
+        reloadFromDisk(context, services);
+        expectEverywhere(context, services, optionsFile, afterBundled, "reloaded after the bundled change");
 
         // ---- 3. VANTA's own Settings row -------------------------------------------------------------------------
         String current = context.computeOnClient(client -> client.options.graphicsPreset().get().name());
@@ -125,6 +126,13 @@ final class OptionsPersistenceStep {
         reloadFromDisk(context, services);
         expectEverywhere(context, services, optionsFile, "FAST", "reloaded after the VANTA row change");
 
+        // Give the following in-world steps the preset the earlier steps left (Custom itself cannot be selected).
+        if (!"FAST".equals(before) && !"CUSTOM".equals(before)) {
+            context.runOnClient(client -> {
+                client.options.graphicsPreset().set(GraphicsPreset.valueOf(before));
+                client.options.save();
+            });
+        }
         step("options persistence: ok");
     }
 
@@ -216,8 +224,9 @@ final class OptionsPersistenceStep {
         String shown = context.computeOnClient(client -> client.screen == null ? "no screen"
                 : client.screen.getClass().getName());
         if (NotificationCenter.SODIUM_VIDEO_SETTINGS_SCREEN.equals(shown)) {
-            boolean hinted = context.computeOnClient(client -> services.notifications().history().stream()
-                    .anyMatch(n -> n.title().equals(title)));
+            // A toast reaches the history when it is shown; with a full toast column it waits a few seconds.
+            boolean hinted = pollFor(context, client -> services.notifications().history().stream()
+                    .anyMatch(n -> n.title().equals(title)), TIMEOUT_TICKS);
             check(hinted, "options persistence: Sodium's video settings opened without VANTA's Apply/Escape hint");
             step("options persistence: Sodium video settings opened, hint '" + title + "' shown");
         } else {
