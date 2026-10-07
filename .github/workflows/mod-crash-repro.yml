@@ -101,7 +101,11 @@ jobs:
       - name: Key binding constructors of Minecraft 1.21.11 (intermediary names, as mods see them)
         if: always()
         run: |
-          JAR=$(find ~/.gradle/caches/fabric-loom -name '*.jar' -path '*intermediary*' 2>/dev/null | xargs -r ls -S 2>/dev/null | head -1)
+          # Loom splits the game into a common and a client-only jar; KeyMapping is client-only.
+          JAR=""
+          for J in $(find ~/.gradle/caches/fabric-loom -name '*.jar' -path '*intermediary*' 2>/dev/null); do
+            if unzip -l "$J" 'net/minecraft/class_304.class' >/dev/null 2>&1; then JAR="$J"; break; fi
+          done
           echo "intermediary game jar: ${JAR:-not found}"
           [ -n "$JAR" ] || { find ~/.gradle/caches/fabric-loom -maxdepth 4 -name '*.jar' | head -20; exit 0; }
           javap -cp "$JAR" -p -s net.minecraft.class_304 | grep -A1 -E 'class_304\(' || true
