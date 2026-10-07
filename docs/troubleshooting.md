@@ -327,11 +327,12 @@ counts attack/use clicks for the CPS widget, and changes the FOV while the zoom 
 ## Low FPS or exactly 30 FPS after choosing a preset or profile in VANTA 1.1.0
 
 In VANTA Client 1.1.0 the Performance Center's **LOW** preset wrote a **60 FPS** cap and **BALANCED** a **120 FPS** cap
-into Minecraft's *Max framerate* option, and activating a built-in profile (*Default*, *Performance*, *Building*,
-*Recording*) replayed Minecraft's default **120 FPS** limit with **VSync on**. Someone who picked *Low* or the
+into Minecraft's *Max framerate* option, and the built-in profiles carried those caps along: the *Performance*
+profile (LOW) a **60 FPS** cap, *Default* (BALANCED) a **120 FPS** cap. Someone who picked *Low* or the
 *Performance* profile to get *more* frames was capped instead, and with a graphics driver that forces VSync at 60 Hz
-on top of Minecraft's own limiter the result was exactly **30 FPS**. The VANTA HUD was not the cause: in the CI game
-test (software renderer) it costs about 0.5 ms per frame.
+on top of Minecraft's own limiter the result could be exactly **30 FPS**. The VANTA HUD was not the cause: the CI game
+test measures its cost in the real game and fails when the HUD averages more than 4 ms per frame
+([Performance Center → Honest limits](performance.md#honest-limits)).
 
 **Fixed in client 1.2.0**: presets and profiles never write a frame-rate cap any more; the limit lives only in the
 frame-rate limit chooser, in *Boost FPS* and in a profile's own frame-rate choice

@@ -282,8 +282,10 @@ it. From launcher 1.2.0 on:
 
 - a click anywhere on a toast dismisses it (the click never silently vanishes; the next one reaches the control under
   it), and the pause while the mouse is over a toast ends after 8 seconds at the latest;
-- in a window narrower than 1100 px the toasts appear top-right, below the update banner and the page header, and a
-  toast is never wider than 30 percent of the window (at most 360 px). In wider windows they stay bottom-right.
+- in a window narrower than 1100 px, and in any window in which the shown page is taller than the window and scrolls
+  (its content then reaches the lower edge), the toasts appear top-right, below the update banner and the page header,
+  and a toast is never wider than 30 percent of the window (at most 360 px). On a page that fits a wider window they
+  stay bottom-right.
 
 In launcher 1.1.0 a toast in the bottom-right corner of a small window (960 x 600) could lie over the lower *Install*
 buttons of the Mods page and, because it stayed as long as the mouse rested on it, swallow every click there; in a

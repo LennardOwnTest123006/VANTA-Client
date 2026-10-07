@@ -50,8 +50,9 @@ up in `options.txt`) and shows a notification. The values, with the reasoning:
 | Menu background blur | Off (0) | unchanged | unchanged | unchanged | unchanged |
 
 - **Presets never set Max framerate or VSync** (from client 1.2.0 on). VANTA 1.1.0 shipped a 60 FPS cap with LOW and
-  a 120 FPS cap with BALANCED, and activating a built-in profile replayed a 120 FPS limit with VSync on; a player who picked LOW to get *more* frames was capped at 60 and, with a driver-forced VSync at
-  60 Hz on top of Minecraft's limiter, landed at exactly 30. The limit now lives only in the
+  a 120 FPS cap with BALANCED, and the built-in *Performance* (LOW) and *Default* (BALANCED) profiles carried those
+  caps along; a player who picked LOW to get *more* frames was capped at 60 and, with a driver-forced VSync at
+  60 Hz on top of Minecraft's limiter, could land at exactly 30. The limit now lives only in the
   [frame-rate limit chooser](#frame-rate-limit-chooser); applying a preset leaves whatever limit and VSync you have.
   A cap that 1.1.0 already wrote stays in `options.txt` until you choose *Unlimited* (or *Boost FPS*) once
   ([Troubleshooting](troubleshooting.md#low-fps-or-exactly-30-fps-after-choosing-a-preset-or-profile-in-vanta-110)).
@@ -155,6 +156,7 @@ Everything about installing, disabling and removing them is in
   ([Fabric → Using VANTA with other mods](fabric.md#using-vanta-with-other-fabric-mods)).
 - The CPU card shows "n/a" when the Java runtime does not provide process CPU load.
 - **What VANTA itself costs.** The headless game test in CI measures 300 frames each with the VANTA HUD on, off and
-  with the GUI hidden (software renderer, no GPU). In that run the VANTA HUD element took about 0.5 ms per frame; the
-  test fails when it averages more than 4 ms. That is the cost on a CI machine without a graphics card, not a promise
-  for yours, and it says nothing about FPS gains on real GPUs, which were not measured.
+  with the GUI hidden (software renderer, no GPU) and writes the frame times and the HUD's wall time to
+  `vanta-perf-probe.json` in every run; the test fails when the VANTA HUD element averages more than 4 ms per frame,
+  and it passes. That is a bound on a CI machine without a graphics card, not a promise for yours, and it says nothing
+  about FPS gains on real GPUs, which were not measured.

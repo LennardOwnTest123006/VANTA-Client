@@ -6,17 +6,17 @@ title: VANTA Launcher 1.2.0
 minecraftVersion: 1.21.11
 ---
 
-Maintenance release of the VANTA Launcher. A notification (toast) in a small window could cover the lower Install buttons of the Mods page and, because it stayed open while the mouse rested on it, swallow every click there. Toasts now close on a click, pause for at most 8 seconds, and in narrow windows move to the top-right corner where they cover no controls. Minecraft 1.21.11, Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged, and the launcher installs VANTA Client 1.2.0.
+Maintenance release of the VANTA Launcher. A notification (toast) in a small window could cover the lower Install buttons of the Mods page and, because it stayed open while the mouse rested on it, swallow every click there. Toasts now close on a click, pause for at most 8 seconds, and in narrow windows, or whenever the shown page is taller than the window and scrolls, move to the top-right corner where they cover no controls. Minecraft 1.21.11, Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged, and the launcher installs VANTA Client 1.2.0.
 
 ## Added
 
 - For automated tests the launcher reads two more environment variables, which do nothing on their own: `VANTA_UI_SMOKE_PAGE=<home|mods|versions|logs|settings|about>` shows that page before the screenshot, and `VANTA_UI_SMOKE_SIZE=<width>x<height>` sizes the window first (a size below the 960 x 600 minimum is raised to it). Both work only together with `VANTA_UI_SMOKE_SCREENSHOT` or `VANTA_UI_SMOKE_EXIT_AFTER`
-- The headless UI test opens the Mods page in a 960 x 600 window and clicks its first and last *Install* button through the platform's robot, the last one after scrolling and after the toast over it was dismissed by the click; it also checks where a toast lands at 960 x 600 and 1200 x 700
+- The headless UI test opens the Mods page in a 960 x 600 window and clicks its first and last *Install* button through the platform's robot, the last one after scrolling and after the toast over it was dismissed by the click; it also checks where a toast lands at 960 x 600, 1100 x 600, 1120 x 720 and 1200 x 700
 
 ## Fixed
 
 - A notification in the bottom-right corner could swallow clicks on what lay under it. In a small window (960 x 600) that corner holds the lower *Install* buttons of the Mods page, and because a toast stayed as long as the mouse rested on it, a mouse moved onto such a button kept the toast open and every click did nothing (in a maximised window the Install column is nowhere near that corner). A click anywhere on a toast now dismisses it, and the pause while the mouse is over a toast ends after 8 seconds at the latest
-- In a window narrower than 1100 px the toasts now appear top-right, below the update banner and the page header, and a toast is never wider than 30 percent of the window (at most 360 px), so at 960 x 600 the Mods page's *Install* buttons, its header actions and the installed list's switches are no longer under a toast. In wider windows the toasts stay bottom-right
+- In a window narrower than 1100 px, and in any window in which the shown page is taller than the window and scrolls (at the 1120 x 720 default the Mods page's lowest installed switches and remove buttons sit in the bottom-right corner), the toasts now appear top-right, below the update banner and the page header, and a toast is never wider than 30 percent of the window (at most 360 px), so the Mods page's *Install* buttons, its header actions and the installed list's switches are no longer under a toast. On a page that fits the window the toasts stay bottom-right
 
 ## Notes
 

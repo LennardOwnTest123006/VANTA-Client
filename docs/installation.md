@@ -310,7 +310,7 @@ No VANTA Launcher involved; any launcher that runs Fabric works the same way.
    ([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)).
 4. In the Minecraft Launcher start the profile the Fabric installer created. It is listed as
    **fabric-loader-1.21.11** (its version is `fabric-loader-0.19.5-1.21.11`).
-5. Optional: at the VANTA main menu the game asks once, **Boost your FPS?**, whether to install the Performance pack
+5. Optional: at the VANTA main menu the game asks once per start, **Boost your FPS?**, whether to install the Performance pack
    mods that are still missing (EntityCulling is never in the zip because its licence does not allow redistribution).
    **Install** downloads them from Modrinth; **Not now** stops the question for good. The same is on the *Performance
    pack* card of **Mods & Shaders**, where you can also install other mods, shader packs and resource packs from
