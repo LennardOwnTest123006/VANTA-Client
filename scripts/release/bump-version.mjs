@@ -14,10 +14,13 @@
  * The new manifest lists the release files from release-assets.mjs (the names the release workflow uploads) with
  * empty downloadUrl/sha256 and size 0: the release workflow fills them. The script
  * never touches CHANGELOG.md or website/content/changelog/ — release notes are written by a person; it
- * prints a checklist of what still has to be done.
+ * prints a checklist of what still has to be done, followed by every line of README.md, RELEASE.md, the product
+ * READMEs, docs/ and website/src that still names the previous version (prose is never edited automatically;
+ * CHANGELOG.md, website/content/changelog, website/content/news and shared/releases/<version>.json are history and
+ * are not reported).
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from './lib/args.mjs';
 import { REPO_ROOT, compareSemVer, isSemVer, readJson, readToolchain, todayUtc, writeJsonAtomic, writeTextAtomic } from './lib/repo.mjs';
@@ -134,12 +137,90 @@ export function applyChanges(changes) {
   }
 }
 
+/** The version a product is pinned to before a bump (what the bump replaces), or null when it cannot be read. */
+export function previousVersion({ root, product }) {
+  const read = (relPath) => {
+    const path = resolve(root, relPath);
+    return existsSync(path) ? readFileSync(path, 'utf8') : null;
+  };
+  if (product === 'client') return read('client/gradle.properties')?.match(/^mod_version=(.*)$/m)?.[1]?.trim() ?? null;
+  if (product === 'launcher') return read('launcher/gradle.properties')?.match(/^launcher_version=(.*)$/m)?.[1]?.trim() ?? null;
+  const pkg = read('website/package.json');
+  if (pkg === null) return null;
+  try {
+    const version = JSON.parse(pkg).version;
+    return typeof version === 'string' ? version : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Where hard-coded version strings live outside the files the bump edits (paths relative to the repo root). */
+export const MENTION_SCAN = Object.freeze([
+  'README.md', 'RELEASE.md', 'launcher/README.md', 'client/README.md', 'shared/releases/README.md', 'docs', 'website/src',
+]);
+/** Release history is meant to keep naming old versions and is never reported. */
+const MENTION_SKIP = [/(^|\/)CHANGELOG\.md$/, /^website\/content\/(changelog|news)\//, /^shared\/releases\/[^/]+\.json$/];
+
+function* textFiles(root, relPath) {
+  const path = resolve(root, relPath);
+  if (!existsSync(path)) return;
+  const rel = relative(root, path).split(sep).join('/');
+  if (MENTION_SKIP.some((skip) => skip.test(rel))) return;
+  const stats = statSync(path);
+  if (stats.isDirectory()) {
+    for (const entry of readdirSync(path).sort()) {
+      if (entry === 'node_modules' || entry.startsWith('.')) continue;
+      yield* textFiles(root, join(relPath, entry));
+    }
+    return;
+  }
+  if (!stats.isFile()) return;
+  const bytes = readFileSync(path);
+  if (bytes.includes(0)) return;
+  yield { rel, text: bytes.toString('utf8') };
+}
+
+/**
+ * Every line under MENTION_SCAN that still names `from` as a version (the whole string, so 1.1.0 is not found in
+ * 11.1.0, 1.1.0.5 or 2.1.1.0): the hard-coded download names, tables and sentences a bump cannot rewrite safely.
+ * @returns {{ path: string, line: number, text: string }[]} in path order, then line order
+ */
+export function staleMentions({ root, from, scan = MENTION_SCAN }) {
+  if (typeof from !== 'string' || from === '') return [];
+  const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`(?<!\\d)(?<!\\d\\.)${escaped}(?!\\d)(?!\\.\\d)`);
+  const found = [];
+  for (const relPath of scan) {
+    for (const { rel, text } of textFiles(root, relPath)) {
+      text.split(/\r?\n/).forEach((line, index) => {
+        if (pattern.test(line)) found.push({ path: rel, line: index + 1, text: line.trim() });
+      });
+    }
+  }
+  return found;
+}
+
+/** The stale-mention report as printed after a bump: a checklist to work through by hand. */
+export function mentionReport(product, from, mentions) {
+  const places = 'README.md, RELEASE.md, launcher/README.md, client/README.md, shared/releases/README.md, docs/ and website/src';
+  if (mentions.length === 0) return [`No file under ${places} still mentions ${from} (the ${product} version before this bump).`];
+  const lines = [
+    `Files that still mention ${from} (the ${product} version before this bump); review each by hand, nothing was edited`,
+    '(a line may also refer to another product that carries the same version number):',
+  ];
+  for (const m of mentions) lines.push(`  [ ] ${m.path}:${m.line}  ${m.text}`);
+  return lines;
+}
+
 /** Human checklist printed after a bump. */
 export function checklist(product, to) {
   const items = [
     `Write website/content/changelog/${product}-${to}.md (front matter: product, version, date, title${product === 'website' ? '' : ', minecraftVersion'}) and update CHANGELOG.md.`,
   ];
-  if (product === 'client') items.push('Confirm docs/ pages that mention the client version are still accurate.');
+  if (product !== 'website') {
+    items.push(`Update every line of README.md, RELEASE.md, the product READMEs, docs/ and website/src that still names the previous ${product} version (listed below).`);
+  }
   if (product !== 'website') {
     items.push(`Commit, then tag: git tag ${product}-v${to} && git push origin ${product}-v${to} (the release workflow builds and publishes).`);
   } else {
@@ -165,13 +246,19 @@ export function main(argv, log = console.log, logError = console.error) {
   }
   const root = parsed.options.root ? resolve(parsed.options.root) : REPO_ROOT;
   try {
-    const changes = planBump({ root, product: parsed.options.product, to: parsed.options.to, date: parsed.options.date });
+    const { product, to } = parsed.options;
+    const from = previousVersion({ root, product });
+    const changes = planBump({ root, product, to, date: parsed.options.date });
     const dryRun = parsed.flags.has('dry-run');
     if (!dryRun) applyChanges(changes);
     for (const change of changes) log(`${dryRun ? 'would ' : ''}${change.kind === 'create' ? 'create' : 'edit'}  ${relative(root, change.path)}`);
     log('');
     log('Next steps:');
-    for (const item of checklist(parsed.options.product, parsed.options.to)) log(`  - ${item}`);
+    for (const item of checklist(product, to)) log(`  - ${item}`);
+    if (product !== 'website' && from !== null && from !== to) {
+      log('');
+      for (const line of mentionReport(product, from, staleMentions({ root, from }))) log(line);
+    }
     return 0;
   } catch (error) {
     logError(`error: ${error.message}`);

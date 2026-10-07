@@ -2,11 +2,12 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { REPO_ROOT, readToolchain } from './lib/repo.mjs';
 import { openZip } from './lib/zip.mjs';
+import { isSafeFilename } from './performance-pack.mjs';
 
 const SCRIPT = join(REPO_ROOT, 'scripts', 'release', 'build-mods-bundle.sh');
 const TOOLCHAIN = readToolchain(REPO_ROOT);
@@ -276,6 +277,41 @@ describe('build-mods-bundle.sh', { skip }, () => {
     r = run(args(f));
     assert.equal(r.status, 1);
     assert.match(r.stderr, /unsafe pack file '\.\.\/escape\.jar'/);
+  });
+
+  test('accepts the pack file names the resolver and the in-game installer accept (spaces, parentheses)', () => {
+    // Modrinth names release files freely; isSafeFilename (performance-pack.mjs, core ModrinthFile) lets these through.
+    const names = ['sodium-fabric-9.9.9-test.jar', 'Iris Shaders 4.4.4-test.jar', 'ferritecore-8.0.0 (fabric).jar', 'lithium+fabric-1.0.0.jar'];
+    for (const name of names) assert.ok(isSafeFilename(name), name);
+    const f = fixture({ items: names, noticeFiles: [...names, FAPI] });
+    const r = run(args(f));
+    assert.equal(r.status, 0, r.stderr);
+    const zip = openZip(join(f.out, 'vanta-client-1.0.0-mods.zip'));
+    assert.deepEqual(zip.entries.map((e) => e.name), [
+      'INSTALL.txt', 'PERFORMANCE-PACK.txt', 'SHA256SUMS', 'THIRD-PARTY-LICENSES.txt', 'mods/',
+      'mods/vanta-client-1.0.0.jar', `mods/${FAPI}`, ...names.map((n) => `mods/${n}`), 'performance-pack.json',
+    ]);
+    for (const name of names) assert.deepEqual(zip.read(`mods/${name}`), f.jars[name], name);
+    const sums = zip.read('SHA256SUMS').toString('utf8');
+    for (const name of names) assert.ok(sums.includes(`${sha256(f.jars[name])}  mods/${name}\n`), name);
+    assert.match(zip.read('INSTALL.txt').toString('utf8'), /^ {3}- ferritecore-8\.0\.0 \(fabric\)\.jar {3}\(/m);
+  });
+
+  test('rejects every pack file name the resolver rejects, plus a leading dash (a command argument later on)', () => {
+    // Path separators and ':', '..', a leading dot, the <>"|?* set, control characters, more than 200 characters
+    // (the shared rule), plus a leading dash (an argument to sha512sum/cmp later), a non-jar and an empty name.
+    const bad = ['../escape.jar', 'a/b.jar', 'a\\b.jar', 'a:b.jar', '.hidden.jar', 'a..b.jar', 'a?b.jar', 'a<b>.jar', 'a|b.jar', 'a"b.jar',
+      'tab\there.jar', 'del\x7f.jar', `${'x'.repeat(197)}.jar`, '-dash.jar', 'not-a-jar.zip', ''];
+    for (const name of bad) {
+      const f = fixture();
+      const json = JSON.parse(readFileSync(join(f.pack, 'performance-pack.json'), 'utf8'));
+      json.items[1].file = name;
+      writeFileSync(join(f.pack, 'performance-pack.json'), JSON.stringify(json));
+      const r = run(args(f));
+      assert.equal(r.status, 1, name);
+      assert.match(r.stderr, /names an unsafe pack file/, name);
+      assert.equal(existsSync(join(f.out, 'vanta-client-1.0.0-mods.zip')), false, name);
+    }
   });
 
   test('usage errors exit 2', () => {

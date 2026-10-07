@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, existsSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { planBump, applyChanges, replaceOnce, newestManifest, nextManifest, main } from './bump-version.mjs';
+import { planBump, applyChanges, replaceOnce, newestManifest, nextManifest, main, previousVersion, staleMentions, mentionReport } from './bump-version.mjs';
 import { REPO_ROOT } from './lib/repo.mjs';
 
 /** Replaces the one match of `pattern` (which must exist) with `value`. */
@@ -161,5 +161,96 @@ describe('planBump()', () => {
     assert.equal(main(['--product', 'client'], () => {}, (m) => err.push(m)), 2);
     assert.equal(main(['--product', 'client', '--to', '1.2.0', '--root', root], () => {}, (m) => err.push(m)), 1, 'already exists / not newer');
     assert.equal(main(['--help'], (m) => out.push(m), () => {}), 0);
+  });
+});
+
+describe('stale version mentions', () => {
+  /** The fixture repo plus prose that names the 1.0.0 client the way README.md, docs/ and the website source do. */
+  function makeRepoWithProse() {
+    const root = makeRepo();
+    const write = (rel, text) => {
+      mkdirSync(join(root, rel, '..'), { recursive: true });
+      writeFileSync(join(root, rel), text);
+    };
+    write('README.md', [
+      '# VANTA', 'The latest releases are VANTA Client 1.0.0 and VANTA Launcher 1.0.0.', '',
+      '| client-v1.0.0 | 2026-01-01 |', 'Unpack vanta-client-1.0.0-mods.zip and copy the jars.',
+      'Not a mention: 11.0.0, 1.0.0.5, 2.1.0.0 and 1.0.01.', 'Fabric API 0.141.6+1.21.11 stays.', '',
+    ].join('\n'));
+    write('RELEASE.md', 'Tag client-v1.0.0 after the bump.\n');
+    write('client/README.md', 'Builds vanta-client-1.0.0.jar\n');
+    write('launcher/README.md', 'Nothing versioned here.\n');
+    write('shared/releases/README.md', 'client-1.0.0.json is the newest manifest.\n');
+    write('docs/installation.md', '# Install\n\nDownload vanta-client-1.0.0.jar from the release.\nThen vanta-client-1.0.0-mods.zip.\n');
+    write('docs/faq.md', '# FAQ\n\nNo version here.\n');
+    write('docs/CHANGELOG.md', '## 1.0.0\n');
+    write('CHANGELOG.md', '## client 1.0.0 - 2026-01-01\n');
+    write('website/content/changelog/client-1.0.0.md', 'version: 1.0.0\n');
+    write('website/content/news/2026-01-01-client-1.0.0.md', 'VANTA Client 1.0.0 is out.\n');
+    write('website/src/pages/DownloadPage.tsx', 'const zip = "vanta-client-1.0.0-mods.zip";\n');
+    write('website/src/lib/releases.test.ts', "expect(latest.version).toBe('1.0.0');\n");
+    mkdirSync(join(root, 'website/src/assets'), { recursive: true });
+    writeFileSync(join(root, 'website/src/assets/logo.png'), Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0]), Buffer.from('1.0.0')]));
+    return root;
+  }
+
+  test('previousVersion() reads the version the bump replaces', () => {
+    const root = makeRepo();
+    assert.equal(previousVersion({ root, product: 'client' }), '1.0.0');
+    assert.equal(previousVersion({ root, product: 'launcher' }), '1.0.0');
+    assert.equal(previousVersion({ root, product: 'website' }), '1.0.0');
+    assert.equal(previousVersion({ root: mkdtempSync(join(tmpdir(), 'vanta-bump-empty-')), product: 'client' }), null);
+  });
+
+  test('staleMentions() lists every prose line naming the old version and skips history, binaries and other numbers', () => {
+    const root = makeRepoWithProse();
+    const mentions = staleMentions({ root, from: '1.0.0' });
+    assert.deepEqual(mentions.map((m) => `${m.path}:${m.line}`), [
+      'README.md:2', 'README.md:4', 'README.md:5',
+      'RELEASE.md:1',
+      'client/README.md:1',
+      'shared/releases/README.md:1',
+      'docs/installation.md:3', 'docs/installation.md:4',
+      'website/src/lib/releases.test.ts:1',
+      'website/src/pages/DownloadPage.tsx:1',
+    ]);
+    assert.equal(mentions[0].text, 'The latest releases are VANTA Client 1.0.0 and VANTA Launcher 1.0.0.');
+    assert.ok(mentions.every((m) => !/CHANGELOG|website\/content|releases\/client-1\.0\.0\.json|\.png$/.test(m.path)));
+    assert.deepEqual(staleMentions({ root, from: '9.9.9' }), []);
+    assert.deepEqual(staleMentions({ root, from: '' }), []);
+    assert.deepEqual(staleMentions({ root: mkdtempSync(join(tmpdir(), 'vanta-bump-empty-')), from: '1.0.0' }), []);
+  });
+
+  test('mentionReport() is a checklist, or one line when nothing is left', () => {
+    const report = mentionReport('client', '1.0.0', [{ path: 'README.md', line: 2, text: 'VANTA Client 1.0.0' }]);
+    assert.match(report[0], /^Files that still mention 1\.0\.0 \(the client version before this bump\)/);
+    assert.equal(report.at(-1), '  [ ] README.md:2  VANTA Client 1.0.0');
+    assert.deepEqual(mentionReport('launcher', '1.0.0', []), ['No file under README.md, RELEASE.md, launcher/README.md, client/README.md, shared/releases/README.md, docs/ and website/src still mentions 1.0.0 (the launcher version before this bump).']);
+  });
+
+  test('the CLI prints the report after the checklist for client and launcher bumps, never editing the prose', () => {
+    const root = makeRepoWithProse();
+    const out = [];
+    assert.equal(main(['--product', 'client', '--to', '1.1.0', '--root', root], (m) => out.push(m), () => {}), 0);
+    const text = out.join('\n');
+    assert.ok(text.indexOf('Next steps:') < text.indexOf('Files that still mention 1.0.0 (the client version before this bump)'));
+    assert.match(text, /names the previous client version \(listed below\)/);
+    assert.match(text, /^ {2}\[ \] README\.md:2 {2}The latest releases are VANTA Client 1\.0\.0 and VANTA Launcher 1\.0\.0\.$/m);
+    assert.match(text, /^ {2}\[ \] docs\/installation\.md:3 {2}Download vanta-client-1\.0\.0\.jar from the release\.$/m);
+    assert.match(text, /^ {2}\[ \] website\/src\/pages\/DownloadPage\.tsx:1 /m);
+    // History, binaries and the old manifest never appear as checklist entries (the "Next steps" line that says to
+    // write the changelog is the only place these names belong).
+    const entries = out.filter((line) => line.startsWith('  [ ] '));
+    assert.equal(entries.length, 10);
+    for (const entry of entries) assert.doesNotMatch(entry, /CHANGELOG\.md|website\/content|logo\.png|shared\/releases\/client-1\.0\.0\.json/);
+    assert.match(readFileSync(join(root, 'README.md'), 'utf8'), /VANTA Client 1\.0\.0/, 'prose untouched');
+    // A dry run reports too (the previous version is read before anything would be written).
+    const dry = [];
+    assert.equal(main(['--product', 'launcher', '--to', '1.1.0', '--dry-run', '--root', root], (m) => dry.push(m), () => {}), 0);
+    assert.match(dry.join('\n'), /Files that still mention 1\.0\.0 \(the launcher version before this bump\)/);
+    // The website bump has no prose of its own to check.
+    const site = [];
+    assert.equal(main(['--product', 'website', '--to', '1.0.1', '--root', root], (m) => site.push(m), () => {}), 0);
+    assert.doesNotMatch(site.join('\n'), /still mention/);
   });
 });
