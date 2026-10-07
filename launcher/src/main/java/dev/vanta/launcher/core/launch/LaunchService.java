@@ -192,7 +192,10 @@ public final class LaunchService {
     }
 
     /**
-     * Starts the game.
+     * Starts the game. A left-over {@code config/vanta/restart.request} in the game directory is deleted first, so only
+     * a marker the process started here writes counts as a restart request after it exits (a marker nobody consumed,
+     * for example because the launcher was closed while the game ran, must not restart the game after its next
+     * normal quit).
      *
      * @param command   command
      * @param listeners output listeners
@@ -202,6 +205,9 @@ public final class LaunchService {
     public GameProcess start(final LaunchCommand command, final List<Consumer<GameProcess.Line>> listeners) throws IOException {
         Files.createDirectories(command.workingDirectory());
         Files.createDirectories(paths.logsDir());
+        if (Files.deleteIfExists(RestartRequest.markerFile(command.workingDirectory()))) {
+            LOG.log(Level.INFO, "Removed a left-over {0} before the start", RestartRequest.FILE_NAME);
+        }
         final Redactor redactor = Redactor.global();
         command.secrets().forEach(redactor::register);
         final ProcessBuilder builder = new ProcessBuilder(command.command())

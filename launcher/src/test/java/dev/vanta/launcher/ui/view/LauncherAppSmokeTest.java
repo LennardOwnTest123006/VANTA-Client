@@ -609,8 +609,8 @@ class LauncherAppSmokeTest {
     @Test
     void aClickOnAToastDismissesIt() throws Exception {
         waitUntil(() -> app.context().session().loadedProperty().get());
+        clearToasts();
         fx(() -> {
-            app.context().toasts().clear();
             app.context().toasts().success("Smoke", "a click anywhere dismisses this");
             return null;
         });
@@ -628,6 +628,63 @@ class LauncherAppSmokeTest {
             return null;
         });
         waitUntil(() -> app.context().toasts().toasts().isEmpty());
+        waitUntil(() -> app.window().lookup(".toast") == null);
+    }
+
+    /**
+     * A dismissed toast fades out for {@link Motion#FAST}; it stays in the scene graph meanwhile. A click within that
+     * time (the second click of a double-click on the control the toast covered) must reach what lies under the card,
+     * not vanish into the fading toast.
+     */
+    @Test
+    void aDismissedToastDoesNotSwallowClicksWhileItFadesOut() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        clearToasts();
+        fx(() -> {
+            app.context().toasts().success("Smoke", "dismissed, then clicked again at once");
+            return null;
+        });
+        waitUntil(() -> {
+            final Node toast = app.window().lookup(".toast");
+            return toast != null && toast.getScene() != null && toast.getLayoutBounds().getWidth() > 0 && toast.getOpacity() == 1;
+        });
+        final javafx.scene.Scene scene = app.stage().getScene();
+        // Every mouse event the click produces is recorded and consumed in the capturing phase: the test sees where it
+        // was aimed, and whatever lies under the toast (a button, a switch) does not act on it.
+        final List<javafx.event.EventTarget> targets = new CopyOnWriteArrayList<>();
+        final javafx.event.EventHandler<javafx.scene.input.MouseEvent> record = e -> {
+            targets.add(e.getTarget());
+            e.consume();
+        };
+        try {
+            fx(() -> {
+                scene.addEventFilter(javafx.scene.input.MouseEvent.ANY, record);
+                final Node toast = app.window().lookup(".toast");
+                final javafx.geometry.Bounds bounds = toast.localToScene(toast.getBoundsInLocal());
+                assertEquals(toast, ancestorWithStyle(pickAt(scene.getRoot(), bounds.getCenterX(), bounds.getCenterY()), "toast"));
+                app.context().toasts().clear();
+                if (!Motion.reduced()) {
+                    assertNotNull(toast.getScene(), "the dismissed toast is still in the scene graph while it fades out");
+                }
+                final Node under = pickAt(scene.getRoot(), bounds.getCenterX(), bounds.getCenterY());
+                assertTrue(under == null || ancestorWithStyle(under, "toast") == null,
+                    "right after the dismiss the toast is transparent for the mouse; picked " + under);
+                click(toast);
+                return null;
+            });
+            waitUntil(() -> targets.stream().anyMatch(t -> t instanceof Node));
+            for (javafx.event.EventTarget target : targets) {
+                if (target instanceof Node node) {
+                    assertNull(ancestorWithStyle(node, "toast"), "the click right after the dismiss reached " + node
+                        + ", not the fading toast");
+                }
+            }
+        } finally {
+            fx(() -> {
+                scene.removeEventFilter(javafx.scene.input.MouseEvent.ANY, record);
+                return null;
+            });
+        }
         waitUntil(() -> app.window().lookup(".toast") == null);
     }
 
@@ -920,6 +977,15 @@ class LauncherAppSmokeTest {
         all.addAll(page.lookupAll(".switch"));
         all.addAll(page.lookupAll(".mods-remove"));
         return all;
+    }
+
+    /** Dismisses every toast a previous test left behind and waits until its card has faded out of the scene graph. */
+    private void clearToasts() throws Exception {
+        fx(() -> {
+            app.context().toasts().clear();
+            return null;
+        });
+        waitUntil(() -> app.window().lookup(".toast") == null);
     }
 
     /** @return the node's layout bounds (without its drop shadow) in scene coordinates */

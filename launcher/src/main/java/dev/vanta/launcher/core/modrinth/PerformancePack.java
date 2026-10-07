@@ -139,9 +139,11 @@ public final class PerformancePack {
         } catch (CancellationException e) {
             throw e;
         } catch (IOException | RuntimeException e) {
-            // Only writing modrinth.json can fail here; the files themselves are in place.
-            LOG.log(Level.WARNING, "Could not record the performance pack in modrinth.json", e);
-            result = new ModrinthService.ApplyResult(List.of(), List.of("modrinth.json could not be written: " + e.getMessage()));
+            // A tolerant apply reports a failed modrinth.json write as a warning and keeps the applied list, so this is
+            // the last resort (an index that cannot even be read, an unexpected runtime failure): nothing is known to be
+            // in place, and the cause is named rather than hidden behind a bare path.
+            LOG.log(Level.WARNING, "The performance pack could not be installed", e);
+            result = new ModrinthService.ApplyResult(List.of(), List.of("the pack could not be installed: " + NetworkErrors.describe(e)));
         }
         for (String w : result.warnings()) {
             LOG.log(Level.WARNING, "Performance pack: {0}", w);

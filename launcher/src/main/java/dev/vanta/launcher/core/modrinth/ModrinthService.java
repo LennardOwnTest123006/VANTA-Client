@@ -37,6 +37,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -61,11 +63,18 @@ import java.util.zip.ZipFile;
  *       installed when an untracked jar in {@code mods/} already provides the same Fabric mod id (Fabric would refuse
  *       to start with two copies).</li>
  * </ol>
+ *
+ * <p>Every operation that changes {@code modrinth.json} ({@link #apply}, {@link #setEnabled}, {@link #remove},
+ * {@link #updateAll}) runs under one lock per index file, so operations that overlap (a mod is removed while another
+ * installs, "Update all" next to an install) wait for each other and each one starts from the file the previous one
+ * wrote; no stale in-memory copy is ever saved over another operation's change.</p>
  */
 public final class ModrinthService {
 
     private static final Logger LOG = LauncherLog.get("Modrinth");
     private static final int MAX_ITEMS = 64;
+    /** One lock per {@code modrinth.json} (per game folder); see the class description. */
+    private static final ConcurrentHashMap<Path, ReentrantLock> INDEX_LOCKS = new ConcurrentHashMap<>();
 
     private final ModrinthApi api;
     private final Downloader downloader;
@@ -523,28 +532,93 @@ public final class ModrinthService {
         final CancellationToken t = token == null ? CancellationToken.NONE : token;
         final Consumer<String> out = log == null ? s -> { } : log;
         final DownloadProgressListener listener = downloads == null ? DownloadProgressListener.NONE : downloads;
-        final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
-        final List<Applied> applied = new ArrayList<>();
-        final List<String> warnings = new ArrayList<>(resolution.warnings());
+        final ReentrantLock lock = indexLock();
+        lock.lockInterruptibly();
         try {
-            for (ResolvedItem item : resolution.items()) {
-                t.throwIfCancelled();
-                try {
-                    applyOne(item, index, listener, out, t).ifPresentOrElse(applied::add,
-                        () -> warnings.add(item.label() + " was not installed: a jar in mods/ already provides the same mod"));
-                } catch (CancellationException | InterruptedException e) {
-                    throw e;
-                } catch (IOException | RuntimeException e) {
-                    if (!tolerant) {
-                        throw e instanceof IOException io ? io : new IOException(describe(e), e);
+            final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
+            final List<Applied> applied = new ArrayList<>();
+            final List<String> warnings = new ArrayList<>(resolution.warnings());
+            try {
+                for (ResolvedItem item : resolution.items()) {
+                    t.throwIfCancelled();
+                    try {
+                        applyOne(item, index, listener, out, t).ifPresentOrElse(applied::add,
+                            () -> warnings.add(item.label() + " was not installed: a jar in mods/ already provides the same mod"));
+                    } catch (CancellationException | InterruptedException e) {
+                        throw e;
+                    } catch (IOException | RuntimeException e) {
+                        if (!tolerant) {
+                            throw e instanceof IOException io ? io : new IOException(describe(e), e);
+                        }
+                        warnings.add(item.label() + " was not installed: " + describe(e));
                     }
-                    warnings.add(item.label() + " was not installed: " + describe(e));
                 }
+            } catch (IOException | RuntimeException | InterruptedException e) {
+                // What was installed before the failure is recorded as far as possible; the failure itself is reported.
+                saveAfterFailure(index, e);
+                throw e;
             }
+            // The files are in place: a failed index write must not throw the applied list away (tolerant callers, the
+            // performance pack and "Update all", get a warning and the real counts instead).
+            try {
+                index.save();
+            } catch (IOException e) {
+                if (!tolerant) {
+                    throw e;
+                }
+                LOG.log(Level.WARNING, "modrinth.json could not be written; the installed files are in place but untracked", e);
+                warnings.add("modrinth.json could not be written (" + describeFileError(e)
+                    + "); the files are in place but VANTA does not track them");
+            }
+            return new ApplyResult(applied, warnings);
         } finally {
-            index.save();
+            lock.unlock();
         }
-        return new ApplyResult(applied, warnings);
+    }
+
+    /** @return the lock of this instance's {@code modrinth.json}: one per game folder, shared by every service instance */
+    private ReentrantLock indexLock() {
+        return INDEX_LOCKS.computeIfAbsent(paths.modrinthIndexFile().toAbsolutePath().normalize(), p -> new ReentrantLock());
+    }
+
+    /**
+     * Takes the index lock for an operation whose contract has no {@link InterruptedException}.
+     *
+     * @return the held lock
+     * @throws IOException when interrupted while waiting (the interrupt flag is set again)
+     */
+    private ReentrantLock lockIndex() throws IOException {
+        final ReentrantLock lock = indexLock();
+        try {
+            lock.lockInterruptibly();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while waiting for another Modrinth operation to finish", e);
+        }
+        return lock;
+    }
+
+    private static void saveAfterFailure(final ModrinthIndex index, final Throwable cause) {
+        try {
+            index.save();
+        } catch (IOException | RuntimeException e) {
+            cause.addSuppressed(e);
+        }
+    }
+
+    /** @return a file error with its kind; {@link java.nio.file.FileSystemException#getMessage()} is often only the path */
+    private static String describeFileError(final IOException e) {
+        if (e instanceof java.nio.file.FileSystemException fs) {
+            final StringBuilder b = new StringBuilder(e.getClass().getSimpleName());
+            if (fs.getFile() != null) {
+                b.append(": ").append(fs.getFile());
+            }
+            if (fs.getReason() != null && !fs.getReason().isBlank()) {
+                b.append(" (").append(fs.getReason()).append(')');
+            }
+            return b.toString();
+        }
+        return describe(e);
     }
 
     private Optional<Applied> applyOne(final ResolvedItem item, final ModrinthIndex index, final DownloadProgressListener listener,
@@ -740,30 +814,35 @@ public final class ModrinthService {
         if (item.managed()) {
             throw new ContentChangeRefusedException(ContentChangeRefusedException.Reason.MANAGED, item.title(), List.of());
         }
-        final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
-        if (!enabled && item.tracked()) {
-            final List<String> needers = new ArrayList<>();
-            for (ModrinthIndex.Entry e : index.entries()) {
-                if (e.enabled() && index.byProjectId(item.projectId()).map(d -> d.requiredBy().contains(e.projectId())).orElse(false)) {
-                    needers.add(e.title());
-                }
-            }
-            if (!needers.isEmpty()) {
-                throw new ContentChangeRefusedException(ContentChangeRefusedException.Reason.REQUIRED_BY, item.title(), needers);
-            }
-        }
-        rename(item.path(), enabled);
-        if (item.tracked()) {
-            index.byProjectId(item.projectId()).ifPresent(e -> e.enabled(enabled));
-            if (enabled) {
-                for (ModrinthIndex.Entry dep : index.entries()) {
-                    if (!dep.enabled() && dep.requiredBy().contains(item.projectId())) {
-                        rename(dep.path(paths.instanceDir()), true);
-                        dep.enabled(true);
+        final ReentrantLock lock = lockIndex();
+        try {
+            final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
+            if (!enabled && item.tracked()) {
+                final List<String> needers = new ArrayList<>();
+                for (ModrinthIndex.Entry e : index.entries()) {
+                    if (e.enabled() && index.byProjectId(item.projectId()).map(d -> d.requiredBy().contains(e.projectId())).orElse(false)) {
+                        needers.add(e.title());
                     }
                 }
+                if (!needers.isEmpty()) {
+                    throw new ContentChangeRefusedException(ContentChangeRefusedException.Reason.REQUIRED_BY, item.title(), needers);
+                }
             }
-            index.save();
+            rename(item.path(), enabled);
+            if (item.tracked()) {
+                index.byProjectId(item.projectId()).ifPresent(e -> e.enabled(enabled));
+                if (enabled) {
+                    for (ModrinthIndex.Entry dep : index.entries()) {
+                        if (!dep.enabled() && dep.requiredBy().contains(item.projectId())) {
+                            rename(dep.path(paths.instanceDir()), true);
+                            dep.enabled(true);
+                        }
+                    }
+                }
+                index.save();
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -796,25 +875,30 @@ public final class ModrinthService {
         if (item.managed()) {
             throw new ContentChangeRefusedException(ContentChangeRefusedException.Reason.MANAGED, item.title(), List.of());
         }
-        final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
-        if (item.tracked()) {
-            final Optional<ModrinthIndex.Entry> entry = index.byProjectId(item.projectId());
-            final List<String> needers = new ArrayList<>();
-            if (entry.isPresent()) {
-                for (String id : entry.get().requiredBy()) {
-                    index.byProjectId(id).ifPresent(e -> needers.add(e.title()));
+        final ReentrantLock lock = lockIndex();
+        try {
+            final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
+            if (item.tracked()) {
+                final Optional<ModrinthIndex.Entry> entry = index.byProjectId(item.projectId());
+                final List<String> needers = new ArrayList<>();
+                if (entry.isPresent()) {
+                    for (String id : entry.get().requiredBy()) {
+                        index.byProjectId(id).ifPresent(e -> needers.add(e.title()));
+                    }
+                }
+                if (!needers.isEmpty()) {
+                    throw new ContentChangeRefusedException(ContentChangeRefusedException.Reason.REQUIRED_BY, item.title(), needers);
                 }
             }
-            if (!needers.isEmpty()) {
-                throw new ContentChangeRefusedException(ContentChangeRefusedException.Reason.REQUIRED_BY, item.title(), needers);
+            final Path plain = item.path().resolveSibling(item.fileName());
+            Files.deleteIfExists(plain);
+            Files.deleteIfExists(plain.resolveSibling(plain.getFileName() + ModrinthIndex.DISABLED_SUFFIX));
+            if (item.tracked()) {
+                index.remove(item.projectId());
+                index.save();
             }
-        }
-        final Path plain = item.path().resolveSibling(item.fileName());
-        Files.deleteIfExists(plain);
-        Files.deleteIfExists(plain.resolveSibling(plain.getFileName() + ModrinthIndex.DISABLED_SUFFIX));
-        if (item.tracked()) {
-            index.remove(item.projectId());
-            index.save();
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -831,19 +915,27 @@ public final class ModrinthService {
      */
     public ApplyResult updateAll(final DownloadProgressListener downloads, final Consumer<String> log, final CancellationToken token)
         throws IOException, InterruptedException {
-        final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
-        final List<Root> roots = new ArrayList<>();
-        for (ModrinthIndex.Entry e : index.entries()) {
-            e.type().ifPresent(type -> roots.add(new Root(e.projectId(), type)));
+        // Held across the resolution as well: an install that finished meanwhile is part of the update, and an install
+        // that starts meanwhile waits (the lock is reentrant; apply() takes it again).
+        final ReentrantLock lock = indexLock();
+        lock.lockInterruptibly();
+        try {
+            final ModrinthIndex index = ModrinthIndex.load(paths.modrinthIndexFile());
+            final List<Root> roots = new ArrayList<>();
+            for (ModrinthIndex.Entry e : index.entries()) {
+                e.type().ifPresent(type -> roots.add(new Root(e.projectId(), type)));
+            }
+            if (roots.isEmpty()) {
+                return new ApplyResult(List.of(), List.of());
+            }
+            final Resolution resolution = resolve(roots, true, token);
+            if (resolution.items().isEmpty() && !resolution.warnings().isEmpty()) {
+                throw new IOException("Modrinth could not be reached or knows none of the installed projects: " + resolution.warnings().get(0));
+            }
+            return apply(resolution, downloads, log, true, token);
+        } finally {
+            lock.unlock();
         }
-        if (roots.isEmpty()) {
-            return new ApplyResult(List.of(), List.of());
-        }
-        final Resolution resolution = resolve(roots, true, token);
-        if (resolution.items().isEmpty() && !resolution.warnings().isEmpty()) {
-            throw new IOException("Modrinth could not be reached or knows none of the installed projects: " + resolution.warnings().get(0));
-        }
-        return apply(resolution, downloads, log, true, token);
     }
 
     // ---------------------------------------------------------------- helpers

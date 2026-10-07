@@ -154,4 +154,35 @@ class PerformancePackTest {
         token.cancel();
         assertThrows(CancellationException.class, () -> pack.install(DownloadProgressListener.NONE, s -> { }, n -> { }, token));
     }
+
+    /**
+     * When every jar is downloaded but modrinth.json cannot be written (config/vanta not writable, the file held open
+     * by another process), the outcome still names the six mods in place and one warning that says why.
+     */
+    @Test
+    void aFailedIndexWriteKeepsTheInstalledModsInTheOutcome() throws Exception {
+        final FakeWorld.Wired wired = world.wire(paths, LINUX, Optional.empty(), Clock.systemUTC());
+        Files.createDirectories(paths.modrinthIndexFile().resolve("child"));
+        final List<String> log = new ArrayList<>();
+        final PerformancePack.Outcome outcome = wired.pack().install(DownloadProgressListener.NONE, log::add, null, new CancellationToken());
+        assertEquals(6, outcome.applied().size(), outcome.warnings().toString());
+        assertEquals(6, outcome.files().size());
+        assertEquals(1, outcome.warnings().size(), outcome.warnings().toString());
+        assertTrue(outcome.warnings().get(0).startsWith("modrinth.json could not be written (DirectoryNotEmptyException: "), outcome.warnings().get(0));
+        assertTrue(outcome.warnings().get(0).contains("the files are in place"), outcome.warnings().get(0));
+        assertTrue(log.stream().anyMatch(l -> l.startsWith("Performance pack: modrinth.json could not be written")), log.toString());
+        try (var files = Files.list(paths.modsDir())) {
+            assertEquals(6, files.count());
+        }
+
+        // Through the installer the log line carries the real counts.
+        final List<String> installLog = new ArrayList<>();
+        wired.installer().install(InstallRequest.standard(), new InstallListener() {
+            @Override
+            public void onLog(final String message) {
+                installLog.add(message);
+            }
+        }, new CancellationToken());
+        assertTrue(installLog.contains("Performance pack: 6 mods in place, 1 skipped (see the warnings above)"), installLog.toString());
+    }
 }

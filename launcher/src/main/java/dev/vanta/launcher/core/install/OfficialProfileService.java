@@ -551,11 +551,12 @@ public final class OfficialProfileService {
         final boolean withPack = request.includePerformancePack() && performancePack != null;
         final List<InstallStep> steps = withPack ? STEPS_WITH_PACK : STEPS;
         final Path mc = request.minecraftDir();
-        final Map<Path, JsonObject> profileRoots = new LinkedHashMap<>();
+        // Fail fast on a malformed profiles file before anything is downloaded. The parsed tree is not kept: the
+        // Minecraft Launcher may still be running and save the file while VANTA downloads, so FINALIZE re-reads it.
+        final Map<Path, String> profileSnapshots = new LinkedHashMap<>();
         for (Path file : existingProfileFiles(mc)) {
-            final JsonObject root = readProfiles(file);
-            profilesObject(root, file);
-            profileRoots.put(file, root);
+            profilesObject(readProfiles(file), file);
+            profileSnapshots.put(file, Files.readString(file, StandardCharsets.UTF_8));
         }
         final String versionId = request.versionId();
         final String key = profileKey(request.minecraftVersion());
@@ -658,10 +659,16 @@ public final class OfficialProfileService {
 
             final JsonObject profile = profile(name, versionId, request.memoryMb());
             boolean isNew = true;
-            for (Map.Entry<Path, JsonObject> entry : profileRoots.entrySet()) {
+            for (Map.Entry<Path, String> entry : profileSnapshots.entrySet()) {
                 final Path file = entry.getKey();
-                isNew &= !profilesObject(entry.getValue(), file).has(key);
-                writeProfiles(file, entry.getValue(), key, profile).ifPresent(backup -> {
+                // Read again right before writing: only the VANTA profile is merged into whatever the file holds now,
+                // so a profile, account or setting the running Minecraft Launcher saved meanwhile survives.
+                if (!entry.getValue().equals(Files.readString(file, StandardCharsets.UTF_8))) {
+                    l.onLog(file.getFileName() + " changed while VANTA was downloading; the profile is merged into the current file");
+                }
+                final JsonObject root = readProfiles(file);
+                isNew &= !profilesObject(root, file).has(key);
+                writeProfiles(file, root, key, profile).ifPresent(backup -> {
                     backups.add(backup);
                     written.add(backup);
                 });
@@ -671,7 +678,7 @@ public final class OfficialProfileService {
         } catch (IOException e) {
             throw failed(InstallStep.FINALIZE, null, e);
         }
-        final List<Path> profileFiles = List.copyOf(profileRoots.keySet());
+        final List<Path> profileFiles = List.copyOf(profileSnapshots.keySet());
         progress(l, steps, InstallStep.FINALIZE, 1, 1, profileFiles.get(0).getFileName().toString());
         for (Path file : profileFiles) {
             l.onLog((created ? "Added" : "Updated") + " the profile '" + name + "' in " + file);
