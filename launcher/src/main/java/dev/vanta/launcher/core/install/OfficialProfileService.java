@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.core.launch.MinecraftFolderHint;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.modrinth.ModrinthIndex;
 import dev.vanta.launcher.core.modrinth.ModrinthService;
@@ -315,7 +316,9 @@ public final class OfficialProfileService {
         /** One-time backup of {@code launcher_profiles_microsoft_store.json}. */
         STORE_PROFILES_BACKUP("one-time backup of the original launcher_profiles_microsoft_store.json", false),
         /** {@code launcher_profiles_microsoft_store.json}. */
-        STORE_PROFILES("same profile entry for the Microsoft Store edition of the launcher", false);
+        STORE_PROFILES("same profile entry for the Microsoft Store edition of the launcher", false),
+        /** {@code <instance>/config/vanta/minecraft-folder.json}: which Minecraft folder's worlds Singleplayer lists. */
+        MINECRAFT_FOLDER_NOTE("note for the VANTA Client: Singleplayer lists the worlds of this Minecraft folder", false);
 
         private final String description;
         private final boolean removal;
@@ -647,6 +650,10 @@ public final class OfficialProfileService {
         final boolean created;
         try {
             Files.createDirectories(paths.instanceDir());
+            // Tells the client which Minecraft folder this profile belongs to, so Singleplayer lists its worlds.
+            if (MinecraftFolderHint.write(paths.instanceDir(), mc)) {
+                written.add(MinecraftFolderHint.file(paths.instanceDir()));
+            }
             final Path versionDir = mc.resolve("versions").resolve(versionId);
             final Path versionJson = versionDir.resolve(versionId + ".json");
             AtomicFiles.writeString(versionJson, Json.treeToJson(fabricProfile) + System.lineSeparator());
@@ -868,6 +875,9 @@ public final class OfficialProfileService {
             } else {
                 addProfiles(files, file, Kind.PROFILES_BACKUP, Kind.PROFILES);
             }
+        }
+        if (MinecraftFolderHint.wouldChange(paths.instanceDir(), mc)) {
+            files.add(new PlannedFile(Kind.MINECRAFT_FOLDER_NOTE, MinecraftFolderHint.file(paths.instanceDir()).toString()));
         }
         return files;
     }

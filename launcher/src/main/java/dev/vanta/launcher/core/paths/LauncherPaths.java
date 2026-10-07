@@ -212,6 +212,16 @@ public final class LauncherPaths {
         return vantaConfigDir().resolve("restart.request");
     }
 
+    /**
+     * Written by the launcher: the official Minecraft folder the game was set up for, so the VANTA Client's
+     * Singleplayer can list the worlds in its {@code saves/} (see {@code launch.MinecraftFolderHint}).
+     *
+     * @return {@code <instance>/config/vanta/minecraft-folder.json}
+     */
+    public Path minecraftFolderFile() {
+        return vantaConfigDir().resolve("minecraft-folder.json");
+    }
+
     /** @return {@code <instance>/crash-reports}: where Minecraft writes {@code crash-<time>-client.txt} */
     public Path crashReportsDir() {
         return instanceDir().resolve("crash-reports");

@@ -9,6 +9,7 @@ import dev.vanta.core.cosmetics.MenuParticles;
 import dev.vanta.core.notifications.NotificationPosition;
 import dev.vanta.core.perf.FpsLimitPreset;
 import dev.vanta.core.perf.PerformancePreset;
+import dev.vanta.core.worlds.WorldsFolderMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -65,6 +66,15 @@ public final class VantaSettings {
     /** Id of the active UI theme (see {@code CosmeticsRegistry}). */
     public static final Setting<String> GENERAL_THEME_ID = add(Setting.string("general.themeId", GENERAL, "vanta-dark")
             .keywords("theme", "colors", "accent", "dark"));
+    // ---- general: worlds ---------------------------------------------------------------------------------------
+    /**
+     * Which saves folder Singleplayer lists (see {@code WorldsFolder}): the official Minecraft folder's worlds when it
+     * exists, or the VANTA game folder's own. Minecraft opens its level storage once at start, hence the restart.
+     */
+    public static final Setting<WorldsFolderMode> WORLDS_FOLDER = add(Setting.enumOf("general.worldsFolder", GENERAL,
+            WorldsFolderMode.class, WorldsFolderMode.MINECRAFT_FOLDER).requiresRestart()
+            .keywords("worlds", "singleplayer", "saves", "minecraft folder", ".minecraft", "old worlds"));
+
     /** Button: reset every VANTA setting. */
     public static final Setting<String> GENERAL_RESET_ALL = add(Setting.action("general.resetAll", GENERAL,
             "reset_settings").keywords("defaults", "restore", "factory"));

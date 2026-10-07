@@ -216,4 +216,35 @@ class LaunchServiceTest {
         assertEquals(0, process.exitCode().get(60, TimeUnit.SECONDS));
         assertFalse(RestartRequest.consume(command.workingDirectory()), "the fake game did not ask for a restart");
     }
+
+    /**
+     * Direct PLAY records the official Minecraft folder for the client's Singleplayer before the start, but keeps a
+     * note "Use with the Minecraft Launcher" wrote for an existing (possibly custom) folder.
+     */
+    @Test
+    void directPlayRecordsTheMinecraftFolderUnlessALauncherProfileNoteExists() throws Exception {
+        final Path javaExe = Path.of(System.getProperty("java.home"), "bin", HOST.javaExecutableName());
+        final Path official = tmp.resolve("home").resolve(".minecraft");
+        Files.createDirectories(official.resolve("saves"));
+        final LaunchService withFolder = new LaunchService(paths, HOST, Clock.systemUTC(), Optional.of(official));
+        final LaunchCommand command = withFolder.buildCommand(LaunchRequest.of(instance, ACCOUNT, javaExe,
+            LauncherSettings.defaults(0).withMemoryMb(1024)));
+        final Path note = MinecraftFolderHint.file(command.workingDirectory());
+        assertEquals(paths.minecraftFolderFile(), note);
+        Files.deleteIfExists(note);
+
+        assertEquals(0, withFolder.start(command, List.of()).exitCode().get(60, TimeUnit.SECONDS));
+        assertEquals(Optional.of(official.toAbsolutePath().normalize()), MinecraftFolderHint.read(command.workingDirectory()));
+
+        final Path custom = tmp.resolve("D").resolve("minecraft");
+        Files.createDirectories(custom);
+        MinecraftFolderHint.write(command.workingDirectory(), custom);
+        assertEquals(0, withFolder.start(command, List.of()).exitCode().get(60, TimeUnit.SECONDS));
+        assertEquals(Optional.of(custom.toAbsolutePath().normalize()), MinecraftFolderHint.read(command.workingDirectory()),
+            "the note of the Minecraft Launcher profile (custom folder) wins over the platform default");
+
+        Files.delete(note);
+        assertEquals(0, service().start(command, List.of()).exitCode().get(60, TimeUnit.SECONDS));
+        assertFalse(Files.exists(note), "without an official folder nothing is written");
+    }
 }
