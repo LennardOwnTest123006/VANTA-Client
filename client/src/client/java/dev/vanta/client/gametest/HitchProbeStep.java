@@ -36,10 +36,12 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  * results) and logged.
  * <p>
  * The one assertion: no single VANTA HUD element or crosshair call may take more than
- * {@value #MAX_ELEMENT_FRAME_MILLIS} ms. A slowest call that falls into a tick in which the JVM ran a garbage
- * collection is reported but not judged (the pause stops every thread, so the element's wall time then includes the
- * pause, which says nothing about VANTA's code). The frame-time hitch counts are reported, not judged: the CI runner
- * renders in software in lock-step with the test thread and does not stand for a player's PC.
+ * {@value #MAX_ELEMENT_FRAME_MILLIS} ms. When the slowest call falls into a tick in which the JVM ran a garbage
+ * collection, the collection time of that tick is taken off first (the pause stops every thread, so the element's
+ * wall time then includes it, which says nothing about VANTA's code); what is left is still judged, so a collection
+ * in that tick cannot hide a slow element. With the HUD on, an element that was never called at all is a finding too
+ * (the probe could not measure anything). The frame-time hitch counts are reported, not judged: the CI runner renders
+ * in software in lock-step with the test thread and does not stand for a player's PC.
  */
 final class HitchProbeStep {
     /** Frames measured per state. */
@@ -77,18 +79,28 @@ final class HitchProbeStep {
             }
             return sum;
         }
+
+        long totalTimeMillis() {
+            long sum = 0L;
+            for (long[] v : byCollector.values()) {
+                sum += v[1];
+            }
+            return sum;
+        }
     }
 
-    /** One element's slowest call and whether a GC ran in the same tick. */
+    /** One element's slowest call, whether a GC ran in the same tick and how long that tick's collections took. */
     private static final class Worst {
         long nanos;
         boolean duringGc;
+        long gcMillisInTick;
         int tick = -1;
 
-        void update(long maxNanos, boolean gcThisTick, int currentTick) {
+        void update(long maxNanos, boolean gcThisTick, long gcMillisThisTick, int currentTick) {
             if (maxNanos > nanos) {
                 nanos = maxNanos;
                 duringGc = gcThisTick;
+                gcMillisInTick = gcThisTick ? Math.max(0L, gcMillisThisTick) : 0L;
                 tick = currentTick;
             }
         }
@@ -96,9 +108,14 @@ final class HitchProbeStep {
         double millis() {
             return nanos / (double) NANOS_PER_MS;
         }
+
+        /** The slowest call minus the collection time of its tick (a GC pause explains at most its own length). */
+        double millisWithoutGc() {
+            return Math.max(0.0, millis() - gcMillisInTick);
+        }
     }
 
-    private record Mode(String name, FrameProbe.Snapshot snapshot, int ticks, long wallMillis, Worst hud,
+    private record Mode(String name, FrameProbe.Snapshot snapshot, int ticks, int gcTicks, long wallMillis, Worst hud,
                         Worst crosshair, GcSample gcBefore, GcSample gcAfter) {
         long[] frames() {
             return snapshot.sortedSamples();
@@ -112,6 +129,7 @@ final class HitchProbeStep {
         List<String> failures = new ArrayList<>();
         List<Mode> modes = new ArrayList<>();
         float startYaw = context.computeOnClient(client -> client.player == null ? 0f : client.player.getYRot());
+        boolean hudWasEnabled = context.computeOnClient(client -> services.settings().get(VantaSettings.HUD_ENABLED));
         try {
             context.runOnClient(client -> {
                 services.settings().set(VantaSettings.HUD_ENABLED, true);
@@ -122,7 +140,7 @@ final class HitchProbeStep {
             modes.add(measure(context, "hudOff"));
         } finally {
             context.runOnClient(client -> {
-                services.settings().set(VantaSettings.HUD_ENABLED, true);
+                services.settings().set(VantaSettings.HUD_ENABLED, hudWasEnabled);
                 FrameProbe.setEnabled(false);
                 if (client.player != null) {
                     client.player.setYRot(startYaw);
@@ -147,6 +165,14 @@ final class HitchProbeStep {
             judge(mode, "VANTA HUD element", mode.hud(), mode.snapshot().hud().calls(), failures);
             judge(mode, "custom crosshair element", mode.crosshair(), mode.snapshot().crosshair().calls(), failures);
         }
+        Mode hudOn = modes.get(0);
+        if (hudOn.snapshot().frames() >= FRAMES && hudOn.snapshot().hud().calls() == 0) {
+            // Frames were rendered with the HUD on but the element never ran: the bound was not judged at all.
+            String finding = "HITCH PROBE: " + hudOn.snapshot().frames() + " frames were rendered with the VANTA HUD on, "
+                    + "but the VANTA HUD element was never called, so its frame time could not be measured";
+            VantaClientGameTest.warn(finding);
+            failures.add(finding);
+        }
         return failures;
     }
 
@@ -155,6 +181,8 @@ final class HitchProbeStep {
         context.runOnClient(client -> FrameProbe.reset());
         GcSample before = GcSample.now();
         long lastGcCount = before.totalCount();
+        long lastGcMillis = before.totalTimeMillis();
+        int gcTicks = 0;
         Worst hud = new Worst();
         Worst crosshair = new Worst();
         long start = System.nanoTime();
@@ -167,28 +195,36 @@ final class HitchProbeStep {
             });
             context.waitTick();
             ticks++;
-            long gcCount = GcSample.now().totalCount();
+            GcSample gc = GcSample.now();
+            long gcCount = gc.totalCount();
+            long gcMillis = gc.totalTimeMillis();
             boolean gcThisTick = gcCount != lastGcCount;
+            long gcMillisThisTick = gcMillis - lastGcMillis;
             lastGcCount = gcCount;
+            lastGcMillis = gcMillis;
+            if (gcThisTick) {
+                gcTicks++;
+            }
             long hudMax = context.computeOnClient(client -> FrameProbe.hudMaxNanos());
             long crosshairMax = context.computeOnClient(client -> FrameProbe.crosshairMaxNanos());
-            hud.update(hudMax, gcThisTick, ticks);
-            crosshair.update(crosshairMax, gcThisTick, ticks);
+            hud.update(hudMax, gcThisTick, gcMillisThisTick, ticks);
+            crosshair.update(crosshairMax, gcThisTick, gcMillisThisTick, ticks);
         }
         long wall = (System.nanoTime() - start) / NANOS_PER_MS;
         FrameProbe.Snapshot snapshot = context.computeOnClient(client -> FrameProbe.snapshot());
         GcSample after = GcSample.now();
-        Mode mode = new Mode(name, snapshot, ticks, wall, hud, crosshair, before, after);
+        Mode mode = new Mode(name, snapshot, ticks, gcTicks, wall, hud, crosshair, before, after);
         long[] frames = mode.frames();
         VantaClientGameTest.step(String.format(Locale.ROOT,
                 "hitch probe [%s]: %d frames in %d ticks / %d ms; frame time max %.2f ms, p99 %.2f ms, p99.9 %.2f ms, "
                         + "%d frames > 50 ms, %d frames > 100 ms; slowest VANTA HUD element call %.3f ms%s over %d "
-                        + "calls, slowest crosshair call %.3f ms%s over %d calls; %d GC(s) taking %d ms in this window",
+                        + "calls, slowest crosshair call %.3f ms%s over %d calls; %d GC(s) taking %d ms in this window "
+                        + "(in %d of the ticks)",
                 name, snapshot.frames(), ticks, wall, maxMillis(frames), percentileMillis(frames, 99.0),
                 percentileMillis(frames, 99.9), countOver(frames, 50), countOver(frames, 100),
                 hud.millis(), hud.duringGc ? " (GC in that tick)" : "", snapshot.hud().calls(),
                 crosshair.millis(), crosshair.duringGc ? " (GC in that tick)" : "", snapshot.crosshair().calls(),
-                after.totalCount() - before.totalCount(), gcTimeDelta(before, after)));
+                after.totalCount() - before.totalCount(), gcTimeDelta(before, after), gcTicks));
         if (snapshot.frames() < FRAMES) {
             VantaClientGameTest.warn("hitch probe [" + name + "]: only " + snapshot.frames() + " frames within "
                     + MODE_TIMEOUT_TICKS + " ticks; the numbers cover fewer than " + FRAMES + " frames");
@@ -210,15 +246,20 @@ final class HitchProbeStep {
                     calls));
             return;
         }
-        if (worst.duringGc) {
+        if (worst.duringGc && worst.millisWithoutGc() <= MAX_ELEMENT_FRAME_MILLIS) {
             VantaClientGameTest.warn(String.format(Locale.ROOT, "hitch probe [%s]: slowest %s call %.3f ms exceeds "
-                    + "the %.1f ms bound, but a garbage collection ran in that tick (%d); reported, not judged",
-                    mode.name(), element, worst.millis(), MAX_ELEMENT_FRAME_MILLIS, worst.tick));
+                    + "the %.1f ms bound, but garbage collections took %d ms in that tick (%d); %.3f ms without them "
+                    + "is within the bound", mode.name(), element, worst.millis(), MAX_ELEMENT_FRAME_MILLIS,
+                    worst.gcMillisInTick, worst.tick, worst.millisWithoutGc()));
             return;
         }
+        String where = worst.duringGc
+                ? String.format(Locale.ROOT, "%.3f ms even without the %d ms of garbage collection in that tick",
+                        worst.millisWithoutGc(), worst.gcMillisInTick)
+                : "no garbage collection in that tick";
         String finding = String.format(Locale.ROOT, "HITCH: the slowest %s call took %.3f ms in the %s state (tick "
-                + "%d, no garbage collection in that tick), more than the %.1f ms bound for a single frame",
-                element, worst.millis(), mode.name(), worst.tick, MAX_ELEMENT_FRAME_MILLIS);
+                + "%d, %s), more than the %.1f ms bound for a single frame",
+                element, worst.millis(), mode.name(), worst.tick, where, MAX_ELEMENT_FRAME_MILLIS);
         VantaClientGameTest.warn(finding);
         failures.add(finding);
     }
@@ -267,6 +308,7 @@ final class HitchProbeStep {
         json.addProperty("frames", mode.snapshot().frames());
         json.addProperty("framesKept", frames.length);
         json.addProperty("ticks", mode.ticks());
+        json.addProperty("ticksWithGc", mode.gcTicks());
         json.addProperty("wallMs", mode.wallMillis());
         JsonObject frame = new JsonObject();
         frame.addProperty("avgMs", round(mode.snapshot().averageFrameMillis()));
@@ -300,6 +342,8 @@ final class HitchProbeStep {
         json.addProperty("avgMs", round(stats.averageMillis()));
         json.addProperty("maxMs", round(stats.maxMillis()));
         json.addProperty("maxDuringGcTick", worst.duringGc);
+        json.addProperty("gcMsInMaxTick", worst.gcMillisInTick);
+        json.addProperty("maxTick", worst.tick);
         return json;
     }
 

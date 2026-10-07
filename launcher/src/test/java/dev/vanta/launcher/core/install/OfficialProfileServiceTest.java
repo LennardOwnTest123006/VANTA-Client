@@ -615,6 +615,20 @@ class OfficialProfileServiceTest {
     }
 
     @Test
+    void javaArgsKeepAnOptionTogetherWithItsValue() {
+        final List<String> user = List.of("--add-opens", "java.base/java.lang=ALL-UNNAMED", "--add-exports", "a b",
+            "-Dkept=1", "--add-modules");
+        final List<String> args = tokens(OfficialProfileService.profileJavaArgs(4096, user));
+        final int heapAndGc = dev.vanta.launcher.core.launch.JvmArgsBuilder.heapAndGcArgs(4096, List.of()).size();
+        final List<String> extra = args.subList(heapAndGc, args.size() - 1);
+        assertEquals(List.of("--add-opens", "java.base/java.lang=ALL-UNNAMED", "-Dkept=1"), extra,
+            "an option is written with its value or not at all, never followed by the next argument as its value");
+        assertEquals(List.of("--add-exports", "a b", "--add-modules"), OfficialProfileService.unsafeProfileArgs(user));
+        assertEquals(List.of("-jar", "x.jar"), OfficialProfileService.unsafeProfileArgs(List.of("-jar", "x.jar")),
+            "the class path and main jar belong to the Minecraft Launcher");
+    }
+
+    @Test
     void onlyJavaArgsVantaWroteCountAsVantas() {
         final String written = OfficialProfileService.profileJavaArgs(4096, List.of("-Dvanta.test=1"));
         assertTrue(owns(null));

@@ -707,7 +707,8 @@ public final class OfficialProfileService {
             final JsonObject profile = profile(name, versionId, request.memoryMb(), request.jvmArgs());
             for (String skipped : unsafeProfileArgs(request.jvmArgs())) {
                 l.onLog("The JVM argument '" + skipped + "' from VANTA's Settings is not written to the Minecraft Launcher profile"
-                    + " (its JVM arguments are one space-separated line, so arguments with spaces or quotes do not fit)");
+                    + " (its JVM arguments are one space-separated line: arguments with spaces or quotes, the class path and an option"
+                    + " whose value does not fit are left out)");
             }
             boolean isNew = true;
             for (Map.Entry<Path, String> entry : profileSnapshots.entrySet()) {
@@ -800,13 +801,7 @@ public final class OfficialProfileService {
      */
     public static String profileJavaArgs(final int memoryMb, final List<String> jvmArgs) {
         final List<String> extra = new ArrayList<>();
-        if (jvmArgs != null) {
-            for (String arg : jvmArgs) {
-                if (fitsProfileLine(arg)) {
-                    extra.add(arg);
-                }
-            }
-        }
+        partitionProfileArgs(jvmArgs, extra, new ArrayList<>());
         final List<String> tokens = new ArrayList<>(JvmArgsBuilder.heapAndGcArgs(memoryMb, extra));
         tokens.addAll(extra);
         final String body = String.join(" ", tokens);
@@ -815,23 +810,66 @@ public final class OfficialProfileService {
 
     /**
      * @param jvmArgs the player's extra JVM arguments (may be null)
-     * @return the ones {@link #profileJavaArgs} leaves out (blank, not starting with {@code -}, containing whitespace or
-     *     quotes, a class path or {@code -jar} switch, or VANTA's own marker)
+     * @return the ones {@link #profileJavaArgs} leaves out (not starting with {@code -}, containing whitespace or
+     *     quotes, a class path, module or {@code -jar} switch with its value, VANTA's own marker, or an option such as
+     *     {@code --add-opens} together with a value that does not fit); blank entries are ignored
      */
     public static List<String> unsafeProfileArgs(final List<String> jvmArgs) {
         final List<String> out = new ArrayList<>();
-        if (jvmArgs != null) {
-            for (String arg : jvmArgs) {
-                if (arg != null && !arg.isBlank() && !fitsProfileLine(arg)) {
-                    out.add(arg);
-                }
-            }
-        }
+        partitionProfileArgs(jvmArgs, new ArrayList<>(), out);
         return out;
     }
 
-    private static boolean fitsProfileLine(final String arg) {
-        if (arg == null || arg.length() < 2 || arg.charAt(0) != '-') {
+    /** Java launcher options that take their value as the next argument (unless written as {@code --opt=value}). */
+    private static final List<String> OPTIONS_WITH_VALUE = List.of("-cp", "-classpath", "--class-path", "-p", "--module-path",
+        "--upgrade-module-path", "--add-modules", "--limit-modules", "--add-reads", "--add-exports", "--add-opens", "--patch-module",
+        "--enable-native-access", "-jar", "-m", "--module");
+    /** Of those, the ones the Minecraft Launcher sets itself (class path, main class): never written to the profile. */
+    private static final List<String> LAUNCHER_OWNED_OPTIONS = List.of("-cp", "-classpath", "--class-path", "-jar", "-m", "--module");
+
+    /**
+     * Splits the player's extra JVM arguments into the ones that fit into the profile's space-separated line and the
+     * ones that do not. An option that takes the next argument as its value (such as {@code --add-opens}) is kept or
+     * left out together with that value, so the line never holds an option whose value is missing (the JVM would read
+     * the following argument as the value and could refuse to start).
+     */
+    private static void partitionProfileArgs(final List<String> jvmArgs, final List<String> kept, final List<String> skipped) {
+        if (jvmArgs == null) {
+            return;
+        }
+        final List<String> args = new ArrayList<>();
+        for (String arg : jvmArgs) {
+            if (arg != null && !arg.isBlank()) {
+                args.add(arg);
+            }
+        }
+        for (int i = 0; i < args.size(); i++) {
+            final String arg = args.get(i);
+            if (OPTIONS_WITH_VALUE.contains(arg)) {
+                final boolean hasValue = i + 1 < args.size();
+                final String value = hasValue ? args.get(i + 1) : null;
+                if (hasValue) {
+                    i++;
+                }
+                if (!LAUNCHER_OWNED_OPTIONS.contains(arg) && hasValue && fitsProfileLine(value, true)) {
+                    kept.add(arg);
+                    kept.add(value);
+                } else {
+                    skipped.add(arg);
+                    if (hasValue) {
+                        skipped.add(value);
+                    }
+                }
+            } else if (fitsProfileLine(arg, false)) {
+                kept.add(arg);
+            } else {
+                skipped.add(arg);
+            }
+        }
+    }
+
+    private static boolean fitsProfileLine(final String arg, final boolean optionValue) {
+        if (arg == null || arg.isEmpty() || !optionValue && (arg.length() < 2 || arg.charAt(0) != '-')) {
             return false;
         }
         for (int i = 0; i < arg.length(); i++) {
@@ -840,7 +878,7 @@ public final class OfficialProfileService {
                 return false;
             }
         }
-        return !List.of("-cp", "-classpath", "--class-path", "-jar").contains(arg) && !arg.startsWith(JAVA_ARGS_MARKER);
+        return !arg.startsWith(JAVA_ARGS_MARKER);
     }
 
     /**
