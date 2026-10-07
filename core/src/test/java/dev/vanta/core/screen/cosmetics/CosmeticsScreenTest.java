@@ -2,6 +2,7 @@ package dev.vanta.core.screen.cosmetics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.cosmetics.Badge;
@@ -12,9 +13,12 @@ import dev.vanta.core.crosshair.CrosshairPresets;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.settings.VantaSettings;
+import dev.vanta.core.ui.UiNode;
+import dev.vanta.core.ui.layout.ScrollPanel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -33,6 +37,30 @@ class CosmeticsScreenTest {
 
     private CosmeticCard card(String title) {
         return screen.card(title).orElseThrow(() -> new AssertionError("no card " + title + " in " + screen.cards()));
+    }
+
+    /** The card grid of the current section (the first one under the content scroll panel). */
+    private static CardGrid grid(UiNode node) {
+        if (node instanceof CardGrid g) {
+            return g;
+        }
+        for (UiNode child : node.children()) {
+            CardGrid found = grid(child);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    /** The scroll panel the grid lives in (the content panel, not the rail's). */
+    private static ScrollPanel scrollOf(UiNode node) {
+        for (UiNode n = node.parent(); n != null; n = n.parent()) {
+            if (n instanceof ScrollPanel s) {
+                return s;
+            }
+        }
+        throw new AssertionError("no scroll panel above " + node);
     }
 
     @Test
@@ -127,5 +155,36 @@ class CosmeticsScreenTest {
         var rail = small.root().findById("rail.badges");
         fx.click(small, rail);
         assertEquals(CosmeticsScreen.Section.BADGES, small.section());
+    }
+
+    @Test
+    void sectionSwitchOnASmallScreenKeepsEveryCardReachable() {
+        CosmeticsScreen small = fx.open(ScreenId.COSMETICS, 427, 240);
+        for (CosmeticsScreen.Section section : List.of(CosmeticsScreen.Section.PARTICLES,
+                CosmeticsScreen.Section.BACKGROUNDS, CosmeticsScreen.Section.BADGES, CosmeticsScreen.Section.HUD)) {
+            small.showSection(section);
+            fx.frame(small);
+            CardGrid grid = grid(small.root());
+            assertNotNull(grid, section + " shows a card grid");
+            ScrollPanel scroll = scrollOf(grid);
+            assertEquals(grid.preferredSize(small.context()).h(), grid.bounds().h(),
+                    section + ": the grid is as tall as the rows it laid out");
+            int reach = scroll.bounds().bottom() + Math.round(scroll.maxScroll());
+            for (CosmeticCard card : small.cards()) {
+                assertTrue(grid.bounds().contains(card.bounds()), section + ": " + card.title() + " inside the grid");
+                assertTrue(card.bounds().bottom() <= reach,
+                        section + ": " + card.title() + " ends at " + card.bounds().bottom() + ", reachable to " + reach);
+            }
+        }
+
+        small.showSection(CosmeticsScreen.Section.PARTICLES);
+        fx.frame(small);
+        ScrollPanel scroll = scrollOf(grid(small.root()));
+        CosmeticCard dust = small.card(Lang.tr(MenuParticles.DUST.langKey())).orElseThrow();
+        scroll.setScrollY(small.context(), scroll.maxScroll(), false);
+        fx.frame(small);
+        assertTrue(dust.bounds().bottom() <= scroll.bounds().bottom(), "scrolled into view: " + dust.bounds());
+        fx.click(small, dust);
+        assertEquals(MenuParticles.DUST, fx.services.settings().get(VantaSettings.MENU_PARTICLES));
     }
 }

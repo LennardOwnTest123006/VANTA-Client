@@ -47,6 +47,27 @@ class FocusManagerTest {
     }
 
     @Test
+    void focusIgnoresNodesOutsideTheScope() {
+        Column root = new Column();
+        Button behind = root.add(new Button("behind", null));
+        Column popup = new Column();
+        Button inside = popup.add(new Button("inside", null));
+        t.place(root, 0, 0, 100, 100);
+        t.place(popup, 0, 0, 100, 100);
+        FocusManager focus = t.ctx().focus();
+        focus.setScope(() -> popup);
+        focus.focusFirst(t.ctx());
+        assertSame(inside, focus.focused());
+        focus.focus(t.ctx(), behind);
+        assertSame(inside, focus.focused(), "nodes behind the scope root cannot take focus");
+        assertFalse(behind.isFocused());
+        assertTrue(inside.isFocused());
+        focus.setScope(() -> null);
+        focus.focus(t.ctx(), behind);
+        assertSame(behind, focus.focused(), "without a scope any focusable node may take focus");
+    }
+
+    @Test
     void validateDropsFocusWhenNodeBecomesUnfocusable() {
         Column root = new Column();
         Button a = root.add(new Button("a", null));

@@ -80,6 +80,69 @@ class DialogToastTooltipTest {
         assertTrue(c.hasText("OK"));
     }
 
+    private static void assertCentred(Dialog d, int screenW, int screenH) {
+        Rect b = d.bounds();
+        assertEquals((screenW - b.w()) / 2, b.x(), "centred horizontally on " + screenW + "x" + screenH + ": " + b);
+        assertEquals((screenH - b.h()) / 2, b.y(), "centred vertically on " + screenW + "x" + screenH + ": " + b);
+    }
+
+    @Test
+    void dialogFollowsWindowResizes() {
+        UiScreen screen = t.screen(new Column(), 800, 600);
+        UiContext ctx = screen.context();
+        int[] confirmed = {0};
+        Dialog d = Dialog.confirm(ctx, "Quit?", "Really quit?", "Quit", "Cancel", true, () -> confirmed[0]++);
+        assertCentred(d, 800, 600);
+        Rect opened = d.bounds();
+
+        screen.resize(320, 240);
+        Rect small = new Rect(0, 0, 320, 240);
+        assertCentred(d, 320, 240);
+        assertTrue(d.bounds().y() < opened.y(), "moved with the window: " + d.bounds());
+        Button cancel = button(d, "Cancel");
+        Button quit = button(d, "Quit");
+        assertTrue(small.contains(cancel.bounds()), "cancel on screen: " + cancel.bounds());
+        assertTrue(small.contains(quit.bounds()), "quit on screen: " + quit.bounds());
+
+        screen.resize(1920, 1080);
+        assertCentred(d, 1920, 1080);
+        assertTrue(ctx.popups().isOpen());
+        UiTestSupport.click(screen, cancel.bounds().centerX(), cancel.bounds().centerY());
+        assertFalse(ctx.popups().isOpen(), "the re-centred cancel button closes the dialog");
+        assertEquals(0, confirmed[0]);
+
+        Dialog d2 = Dialog.confirm(ctx, "Quit?", "Really quit?", "Quit", "Cancel", true, () -> confirmed[0]++);
+        screen.resize(320, 240);
+        Button quit2 = button(d2, "Quit");
+        UiTestSupport.click(screen, quit2.bounds().centerX(), quit2.bounds().centerY());
+        assertFalse(ctx.popups().isOpen());
+        assertEquals(1, confirmed[0], "the re-centred confirm button runs the action");
+    }
+
+    @Test
+    void dialogFollowsThemeChanges() {
+        UiScreen screen = t.screen(new Column(), 1600, 1200);
+        UiContext ctx = screen.context();
+        int[] confirmed = {0};
+        Dialog d = Dialog.confirm(ctx, "Reset?", "All settings return to defaults.", "Reset", "Cancel", false,
+                () -> confirmed[0]++);
+        assertCentred(d, 1600, 1200);
+
+        screen.setTheme(Theme.DEFAULT.withScale(2f));
+        assertEquals(800, screen.width());
+        assertEquals(600, screen.height());
+        assertCentred(d, 800, 600);
+
+        screen.setTheme(Theme.DEFAULT.withScale(2f).withLargeText(true));
+        assertCentred(d, screen.width(), screen.height());
+        Button reset = button(d, "Reset");
+        assertTrue(new Rect(0, 0, screen.width(), screen.height()).contains(reset.bounds()));
+        float s = screen.effectiveScale();
+        UiTestSupport.click(screen, reset.bounds().centerX() * s, reset.bounds().centerY() * s);
+        assertFalse(ctx.popups().isOpen());
+        assertEquals(1, confirmed[0]);
+    }
+
     @Test
     void toastLayoutAndKinds() {
         Toast toast = new Toast(Toast.Kind.SUCCESS, "Profile saved", "Written to config/vanta/profiles.").progress(0.5f);

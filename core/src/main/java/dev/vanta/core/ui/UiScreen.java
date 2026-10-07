@@ -28,6 +28,8 @@ public abstract class UiScreen {
     /** Minimum logical height every screen is laid out for (Minecraft's smallest GUI size). */
     public static final int MIN_LOGICAL_HEIGHT = 240;
     private static final float TRANSITION_SCALE = 0.96f;
+    /** Most layout passes one {@link #doLayout()} runs when nodes keep requesting another one. */
+    static final int MAX_LAYOUT_PASSES = 4;
 
     private UiEnvironment env;
     private UiContext ctx;
@@ -108,12 +110,23 @@ public abstract class UiScreen {
         return Math.min(s, Math.max(1f, allowed));
     }
 
+    /**
+     * Lays the tree out and re-runs the pass while a node asked for another one from inside its {@code layout()}
+     * (grids that only learn their width during the pass, footers that wrap). Bounded so two nodes that keep
+     * contradicting each other cannot stall a frame; the flag is cleared afterwards in every case.
+     */
     private void doLayout() {
-        root.setBounds(0, 0, width, height);
-        root.layout(ctx);
-        ctx.popups().layout(ctx);
-        ctx.focus().validate(ctx);
+        for (int pass = 0; pass < MAX_LAYOUT_PASSES; pass++) {
+            layoutDirty = false;
+            root.setBounds(0, 0, width, height);
+            root.layout(ctx);
+            ctx.popups().layout(ctx);
+            if (!layoutDirty) {
+                break;
+            }
+        }
         layoutDirty = false;
+        ctx.focus().validate(ctx);
     }
 
     /** Creates the root node of the screen. Called once from {@link #init(int, int)}. */
@@ -521,6 +534,11 @@ public abstract class UiScreen {
             default -> {
             }
         }
+        if (ctx.popups().isOpen()) {
+            // Screen shortcuts (Ctrl+F, Ctrl+K, editor keys) act on the tree behind the popup; while one is open
+            // they would move focus out of the popup's scope, where validate() drops it on the next frame.
+            return false;
+        }
         return onKeyDown(key, scancode, mods);
     }
 
@@ -550,7 +568,10 @@ public abstract class UiScreen {
         return false;
     }
 
-    /** Screen-level key hook after nodes and focus navigation declined the key. */
+    /**
+     * Screen-level key hook after nodes and focus navigation declined the key. Not called while a popup is open:
+     * the popup (dropdown, palette, dialog) owns the keyboard until it closes.
+     */
     protected boolean onKeyDown(int key, int scancode, int mods) {
         return false;
     }

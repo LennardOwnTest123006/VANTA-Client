@@ -144,4 +144,43 @@ class SelectTest {
         assertTrue(c.hasText("Option 19"), "highlighted row scrolled into view");
         assertFalse(c.hasText("Option 1"), "rows above the viewport are not drawn");
     }
+
+    @Test
+    void dropdownStaysOnShortScreensAndScrollsTheRest() {
+        Column root = new Column(0).align(Align.START);
+        root.add(new Button("spacer", null)).size(120, 100);
+        List<String> options = List.of("One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight");
+        select = root.add(new Select<>(options, "One"));
+        select.size(120, 20);
+        select.onChange(changes::add);
+        screen = t.screen(root, 400, 240);
+        assertEquals(100, select.bounds().y());
+        UiTestSupport.click(screen, select.bounds().centerX(), select.bounds().centerY());
+        assertTrue(select.isOpen());
+        Rect popup = select.popupNode().bounds();
+        assertTrue(popup.y() >= 0, "popup top on screen: " + popup);
+        assertTrue(popup.bottom() <= 240, "popup bottom on screen: " + popup);
+        assertTrue(popup.y() > select.bounds().bottom(), "still below the field: " + popup);
+        assertTrue(popup.h() < 8 * Select.ROW_H + 4, "fewer rows than options");
+
+        assertTrue(screen.keyDown(Keys.END, 0, 0));
+        assertEquals(7, select.highlightedIndex());
+        assertTrue(screen.keyDown(Keys.ENTER, 0, 0));
+        assertEquals("Eight", select.value());
+        assertFalse(select.isOpen());
+
+        UiTestSupport.click(screen, select.bounds().centerX(), select.bounds().centerY());
+        assertTrue(select.isOpen());
+        popup = select.popupNode().bounds();
+        screen.mouseScroll(popup.centerX(), popup.centerY(), 0, -10);
+        UiTestSupport.click(screen, popup.centerX(), popup.bottom() - Select.ROW_H / 2 - 2);
+        assertFalse(select.isOpen());
+        assertEquals("Eight", select.value(), "the last row is clickable after scrolling");
+
+        UiTestSupport.click(screen, select.bounds().centerX(), select.bounds().centerY());
+        screen.resize(400, 120);
+        popup = select.popupNode().bounds();
+        assertTrue(popup.bottom() <= 120 && popup.y() >= 0, "re-clamped after the resize: " + popup);
+        assertTrue(popup.bottom() <= select.bounds().y(), "flipped above the field: " + popup);
+    }
 }
