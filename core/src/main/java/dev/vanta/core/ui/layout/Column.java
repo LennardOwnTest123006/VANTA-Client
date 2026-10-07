@@ -60,6 +60,13 @@ public class Column extends UiNode {
 
     @Override
     protected Size measure(UiContext ctx) {
+        return measure(ctx, -1);
+    }
+
+    /** Children are measured against the inner width (the width they get at layout) when it is known. */
+    @Override
+    protected Size measure(UiContext ctx, int availableWidth) {
+        int childWidth = availableWidth < 0 ? -1 : Math.max(0, availableWidth - padding.horizontal());
         int w = 0;
         int h = 0;
         int visible = 0;
@@ -67,7 +74,7 @@ public class Column extends UiNode {
             if (!child.isVisible()) {
                 continue;
             }
-            Size s = child.preferredSize(ctx);
+            Size s = child.preferredSize(ctx, childWidth);
             w = Math.max(w, s.w());
             h += s.h();
             visible++;
@@ -92,7 +99,7 @@ public class Column extends UiNode {
             if (child.flex() > 0f) {
                 flexTotal += child.flex();
             } else {
-                fixed += child.preferredSize(ctx).h();
+                fixed += child.preferredSize(ctx, inner.w()).h();
             }
         }
         int gaps = visible > 1 ? gap * (visible - 1) : 0;
@@ -114,7 +121,7 @@ public class Column extends UiNode {
             if (!child.isVisible()) {
                 continue;
             }
-            Size pref = child.preferredSize(ctx);
+            Size pref = child.preferredSize(ctx, inner.w());
             int h;
             if (child.flex() > 0f) {
                 flexUsed += child.flex();

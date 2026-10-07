@@ -21,10 +21,16 @@ public class Stack extends UiNode {
 
     @Override
     protected Size measure(UiContext ctx) {
+        return measure(ctx, -1);
+    }
+
+    @Override
+    protected Size measure(UiContext ctx, int availableWidth) {
+        int childWidth = availableWidth < 0 ? -1 : Math.max(0, availableWidth - padding.horizontal());
         Size max = Size.ZERO;
         for (UiNode child : children()) {
             if (child.isVisible()) {
-                max = max.max(child.preferredSize(ctx));
+                max = max.max(child.preferredSize(ctx, childWidth));
             }
         }
         return max.plus(padding);

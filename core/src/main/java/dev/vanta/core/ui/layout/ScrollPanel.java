@@ -129,7 +129,13 @@ public class ScrollPanel extends UiNode implements ScrollIntoView {
 
     @Override
     protected Size measure(UiContext ctx) {
-        Size pref = content.preferredSize(ctx);
+        return measure(ctx, -1);
+    }
+
+    @Override
+    protected Size measure(UiContext ctx, int availableWidth) {
+        int contentWidth = availableWidth < 0 ? -1 : Math.max(0, availableWidth - Scrollbar.reservedWidth());
+        Size pref = content.preferredSize(ctx, contentWidth);
         return new Size(pref.w() + Scrollbar.reservedWidth(), pref.h());
     }
 
@@ -137,9 +143,15 @@ public class ScrollPanel extends UiNode implements ScrollIntoView {
     public void layout(UiContext ctx) {
         Rect view = bounds();
         int fullWidth = view.w();
-        Size pref = content.preferredSize(ctx);
+        int narrowWidth = Math.max(0, fullWidth - Scrollbar.reservedWidth());
+        // Measure at the width the content will really get: once the scrollbar column is reserved the content
+        // is narrower and wrapping content grows, so its height is taken at the narrow width in the same pass.
+        Size pref = content.preferredSize(ctx, alwaysReserveScrollbar ? narrowWidth : fullWidth);
         boolean reserve = alwaysReserveScrollbar || pref.h() > view.h();
-        int contentWidth = reserve ? Math.max(0, fullWidth - Scrollbar.reservedWidth()) : fullWidth;
+        if (reserve && !alwaysReserveScrollbar) {
+            pref = content.preferredSize(ctx, narrowWidth);
+        }
+        int contentWidth = reserve ? narrowWidth : fullWidth;
         contentHeight = Math.max(pref.h(), view.h());
         AnimatedValue v = scrollValue(ctx);
         float clamped = Scrollbar.clamp(v.target(), view.h(), contentHeight);

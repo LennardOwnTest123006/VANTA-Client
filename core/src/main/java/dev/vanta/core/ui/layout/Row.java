@@ -60,20 +60,54 @@ public class Row extends UiNode {
 
     @Override
     protected Size measure(UiContext ctx) {
+        return measure(ctx, -1);
+    }
+
+    /**
+     * Fixed children take their natural width. When the available width is known, flex children are measured
+     * against the share of the remaining width they get at layout, so a wrapping flex child reports its
+     * wrapped height.
+     */
+    @Override
+    protected Size measure(UiContext ctx, int availableWidth) {
         int w = 0;
         int h = 0;
+        int fixed = 0;
         int visible = 0;
+        float flexTotal = 0f;
         for (UiNode child : children()) {
             if (!child.isVisible()) {
                 continue;
             }
-            Size s = child.preferredSize(ctx);
-            h = Math.max(h, s.h());
-            w += s.w();
             visible++;
+            Size s = child.preferredSize(ctx);
+            w += s.w();
+            if (child.flex() > 0f) {
+                flexTotal += child.flex();
+            } else {
+                fixed += s.w();
+                h = Math.max(h, s.h());
+            }
         }
-        if (visible > 1) {
-            w += gap * (visible - 1);
+        int gaps = visible > 1 ? gap * (visible - 1) : 0;
+        w += gaps;
+        if (flexTotal > 0f) {
+            int free = availableWidth < 0 ? -1 : Math.max(0, availableWidth - padding.horizontal() - fixed - gaps);
+            float flexUsed = 0f;
+            int flexGiven = 0;
+            for (UiNode child : children()) {
+                if (!child.isVisible() || child.flex() <= 0f) {
+                    continue;
+                }
+                int share = -1;
+                if (free >= 0) {
+                    flexUsed += child.flex();
+                    int target = Math.round(free * flexUsed / flexTotal);
+                    share = target - flexGiven;
+                    flexGiven = target;
+                }
+                h = Math.max(h, child.preferredSize(ctx, share).h());
+            }
         }
         return new Size(w, h).plus(padding);
     }
@@ -121,6 +155,8 @@ public class Row extends UiNode {
                 int target = Math.round(free * flexUsed / flexTotal);
                 w = target - flexGiven;
                 flexGiven = target;
+                // The flex share is the width the child really gets: measure its height against it.
+                pref = child.preferredSize(ctx, w);
             } else {
                 w = pref.w();
             }
