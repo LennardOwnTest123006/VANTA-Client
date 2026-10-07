@@ -33,6 +33,20 @@ pressing *Apply* in the [Performance Center](performance.md). Presets never set 
 profile carries them separately, as the *Frame rate limit* choice it was saved with (unlimited and VSync off in every
 built-in profile, so no profile caps your frame rate).
 
+From client 1.3.0 on, a built-in profile carries only the vanilla options it is about: the options of its performance
+preset, the frame-rate limit and VSync of its frame-rate choice, and Building's FOV 85. Activating one leaves your
+volumes, mouse sensitivity, GUI scale, FOV (except Building), chat and every other vanilla option as you set them;
+earlier releases reset them to vanilla's defaults. Its VANTA settings (HUD, menu, notifications, …) are still the
+defaults plus the differences in the table. On the first start of 1.3.0, built-in profiles you never changed are
+refreshed once (the marker `builtInContent` in `state.json` records it; the profile files keep schema version 2, so an
+older release still reads them). Renamed or edited built-ins and your own profiles keep their content.
+
+A profile applies its graphics preset (Fast / Fancy / Fabulous) first and then the options that preset bundles, so
+render distance, clouds and particles end up as the profile says. When the game reported *Custom* while the profile
+was saved, the profile stores *Custom*, and activating it skips the graphics preset
+([Settings → Graphics and Custom](settings.md#categories)). A profile saved after you changed Max Framerate and VSync
+in vanilla Video Settings or Sodium keeps that limit.
+
 Upgrading from 1.1.0 or earlier: on the first start with 1.2.0, built-in profiles you never changed are refreshed to
 the current defaults and every profile file moves to schema version 2; renamed or edited built-ins and your own
 profiles keep their content. Whatever a profile says, activating it derives the vanilla frame-rate limit and VSync

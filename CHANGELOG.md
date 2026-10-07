@@ -10,6 +10,178 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 No changes yet.
 
+## [1.3.0] - 2026-10-07
+
+Release of both products. VANTA Client 1.3.0 fixes three reports: the graphics setting that "jumps back to Fancy",
+*Singleplayer* that opened *Create New World* instead of listing the player's worlds, and short freezes while playing.
+It also adds Smart Boost, a local, rule-based tuner that measures real gameplay on the player's PC and picks the video
+preset that runs smoothly. It uses no model and no network. VANTA Launcher 1.3.0 gives the Minecraft Launcher profile
+the same tuned Java memory and garbage-collector arguments as PLAY, picks the default memory from the PC's RAM and
+tells the client which Minecraft folder holds the player's worlds. Minecraft 1.21.11, Fabric Loader 0.19.5, Fabric
+API 0.141.6+1.21.11 and Java 21 are unchanged.
+
+### VANTA Client 1.3.0
+
+#### Added
+- **Smart Boost.** It runs once per installed client version (the first install and every update) and picks one of
+  the presets Max FPS, Low, Balanced, High or Ultra for this PC.
+  - It counts only gameplay frames: a world is loaded, no screen is open, the game is not paused, the window has the
+    focus and the player moved or looked around in the last 30 s. The pause menu, an unfocused window and standing
+    idle do not count.
+  - The automatic run starts after 20 s of gameplay in a world, never at start-up and never in a menu. Each step
+    discards 8 s of frames after the change and then measures 25 s of gameplay (at least 600 frames). A run measures
+    at most three steps.
+  - Target: 60 FPS when the frame rate is unlimited or VSync is on, otherwise the frame-rate limit clamped to 60–144
+    (a limit below 60 is the target itself). A step passes when the median frame rate reaches 1.1 × the target
+    (0.95 × while a limit or VSync caps the frame rate), the 1 % low reaches 0.6 × the target and there is at most
+    one hitch (a frame over 50 ms) per 10 s.
+  - The first step is a guess from the GPU name, the CPU threads and the Java heap; a software renderer starts and
+    stays at Max FPS. A pass with headroom (no cap, median at least 1.6 × the target, 1 % low at least the target)
+    tries one preset higher. A fail steps down until a preset passes or Max FPS is reached.
+  - It writes only render distance, simulation distance, particles, clouds, smooth lighting, entity shadows, entity
+    distance, biome blend, mipmap levels and, for Max FPS, the menu blur. It never changes Fast / Fancy / Fabulous,
+    the frame-rate limit or VSync.
+  - It never overrides the player's own choices. An option changed after Smart Boost wrote it (Video Settings,
+    Sodium's screen, a profile, a preset, Boost FPS) is left alone by every later automatic run. When the graphics
+    settings were already the player's own before its first run (Fast, Fabulous or Custom instead of the untouched
+    default Fancy), the automatic run changes nothing.
+  - What it wrote, the values before and what it measured are kept in `config/vanta/smart-boost.json`.
+- **Smart Boost card** in the Performance Center, above the presets: the last result ("Smart Boost picked …: about
+  … FPS measured (target … FPS)") or the measurement in progress, the options left alone because the player changed
+  them, the threads, Java heap and GPU name the guess is based on, **Re-tune** (takes back the options the player
+  changed and measures again) and **Undo Smart Boost** (puts the options it still controls back to their values from
+  before its first change and turns automatic tuning off). Both are also in the command palette. Notifications say
+  when Smart Boost starts, what it applied and when it stopped because the player changed a video option.
+- Two switches on the card and in *Settings → Performance*: *Smart Boost: tune automatically after install/update*
+  (on) and *Smart Boost: adjust render distance while playing* (off). The second one changes only the render
+  distance, and only while it is still the one Smart Boost set: 2 chunks at a time, never below 6 chunks or above the
+  distance the run picked, at most once every 3 minutes, and not up again within 5 minutes after a step down. The JVM
+  option `-Dvanta.smartBoost.auto=false` turns the automatic run off for one game.
+- **Settings → General → Singleplayer worlds**: *Minecraft folder* (default) or *VANTA folder*. With *Minecraft
+  folder*, Singleplayer lists, creates, loads and backs up worlds in `saves/` and `backups/` of the normal Minecraft
+  folder: the folder the VANTA Launcher recorded in `config/vanta/minecraft-folder.json`, or, in a VANTA Launcher
+  instance without that note, `.minecraft` (`%APPDATA%\.minecraft`, `~/Library/Application Support/minecraft`,
+  `~/.minecraft`). Nothing is moved, copied or deleted. The VANTA folder stays in use when the Minecraft folder has no
+  `saves/` folder, when its `saves/` holds no world while the VANTA folder's does, when the game already runs in the
+  Minecraft folder (manual installation), and in another launcher's instance without the VANTA Launcher's note. A
+  change takes effect at the next game start; `latest.log` names the folder in use and why. A world opened with mods
+  that add blocks or items loses those blocks when vanilla Minecraft opens it later; VANTA adds none.
+- **Sodium tip.** With the Performance pack, Sodium's screen replaces vanilla Video Settings. There a change is kept
+  only after *Apply* (Alt+A); Escape closes the screen and discards changes that were not applied. The first time
+  that screen opens in a game session, a notification says so.
+
+#### Changed
+- **Built-in profiles change only what they are about**: the options of their performance preset, the frame-rate
+  limit and VSync of their frame-rate choice, and Building's FOV 85. Activating one no longer resets volumes, mouse
+  sensitivity, GUI scale, FOV (except Building) or any other vanilla option to vanilla's default. On the first start
+  of 1.3.0, built-in profiles the player never changed are refreshed once (marker `builtInContent` in
+  `profiles/state.json`; the profile schema is unchanged, so older releases still read every profile). Renamed or
+  edited built-ins and the player's own profiles keep their content.
+- Activating a profile applies its graphics preset before the options that preset bundles, so render distance,
+  clouds and particles end up as the profile says.
+- The frame-rate choice follows the game: when Max Framerate and VSync were changed in vanilla Video Settings or
+  Sodium, opening Settings or the Performance Center records the matching choice in `settings.json` (no game option
+  is written), and a profile saved afterwards keeps that limit. A limit no choice stands for (for example 75 FPS) is
+  saved as it is.
+- Render distance suggestions count only gameplay frames (the same rule as Smart Boost), never suggest less than
+  6 chunks (was 4) and stay quiet while Smart Boost controls the render distance.
+
+#### Fixed
+- **Graphics "jumps back to Fancy".** Minecraft 1.21.11 switches its graphics preset to *Custom* as soon as one option
+  of the preset bundle changes (render distance, clouds, particles, …). VANTA could not show *Custom* and showed its
+  default, *Fancy*, instead. Choosing *Fancy* there did nothing, because VANTA took it for the current value, and a
+  profile saved in that state stored a *Fancy* the player never chose. Now the *Graphics* row shows *Custom*, and
+  choosing Fast, Fancy or Fabulous while the game is Custom applies that preset. *Custom* itself cannot be chosen.
+  A profile stores *Custom*, which activation skips, so the profile's own options decide. A value the game does not
+  take is no longer remembered or shown. Opening and closing VANTA's screens and starting the game write no Minecraft
+  option and do not save `options.txt`; only a VANTA control the player uses, a profile and Smart Boost change
+  options.
+- **Singleplayer opened *Create New World* instead of the player's worlds** (VANTA Launcher installations). VANTA runs
+  in its own game folder, so Singleplayer listed only that folder's worlds, none for a new VANTA player. See
+  *Singleplayer worlds* above.
+- **Short freezes when a VANTA screen closed.** Closing any VANTA screen, also with Escape back into the game,
+  rewrote every profile, `profiles/state.json` and `cosmetics.json` on the render thread. It now writes only what
+  changed and nothing when nothing changed; a failed write is tried again at the next close.
+- The FPS widget's 1 % low no longer copies and sorts its 240 frame times every tick (same result, no allocation).
+
+### VANTA Launcher 1.3.0
+
+#### Changed
+- **JVM arguments of the Minecraft Launcher profile.** *PLAY via Minecraft Launcher*, *Use with Minecraft Launcher*
+  and `--install-official-profile` write the profile's `javaArgs` with the memory and garbage-collector arguments
+  PLAY uses: `-Xmx<memory>M`, `-Xms` (a quarter of it, at least 512 MiB), `-XX:+UseG1GC`,
+  `-XX:+UnlockExperimentalVMOptions`, `-XX:G1NewSizePercent=20`, `-XX:G1ReservePercent=20`,
+  `-XX:MaxGCPauseMillis=50` and `-XX:G1HeapRegionSize=32M`. `-Xms` and the G1 arguments are left out when the extra
+  JVM arguments set `-Xms` or select a garbage collector. The *Extra JVM arguments* from the launcher's Settings follow
+  when they fit the profile's single line: no spaces or quotes, no class path, `-jar` or module switch, and an option
+  such as `--add-opens` only together with its value. The log names every argument that is left out. The line ends
+  with `-Dvanta.javaArgs=<checksum>`, a system property that marks it as VANTA's.
+- **JVM arguments edited in the Minecraft Launcher are kept.** A later setup replaces `javaArgs` only when VANTA wrote
+  them: missing, empty, exactly the `-Xmx<n>M` of launcher 1.2.1 and earlier, or a line whose `-Dvanta.javaArgs`
+  checksum still matches. Otherwise the line is kept and the log says so.
+- **Default memory from the PC's RAM**: half of the physical memory, between 2048 and 8192 MiB, but never more than
+  half of it (4096 MiB when the memory is unknown). A PC with less than 4 GiB gets half its memory, at least
+  1024 MiB (before: 2048 MiB). A `settings.json` without a memory value, or with one below 1024 MiB, now gets this
+  default instead of 4096 MiB; a stored value of 1024 MiB or more is kept.
+- **Minecraft folder note** for the client's *Singleplayer worlds*: `config/vanta/minecraft-folder.json` in VANTA's
+  game folder, `{"minecraftDir": "<absolute path>"}`. *PLAY via Minecraft Launcher*, *Use with Minecraft Launcher*
+  and `--install-official-profile` record the Minecraft folder the profile went to (also a custom
+  `--minecraft-dir`); the confirmation lists the file. Before PLAY the launcher records the detected Minecraft folder
+  when it exists and no note names an existing folder yet; a failure there is only logged. Nothing in the Minecraft
+  folder is changed, and an identical file is not rewritten.
+
+#### Fixed
+- **Short freezes when playing through the Minecraft Launcher.** The *VANTA 1.21.11* profile carried only
+  `-Xmx<memory>M`. A profile with `javaArgs` runs with exactly those arguments instead of the Minecraft Launcher's
+  defaults, so the game ran on plain JVM defaults: a 200 ms pause target and a heap that starts small and grows. The
+  profile now gets PLAY's tuning (see *Changed*).
+
+### CI
+- CI runs four new steps in the client game test, in the job without and the job with the Performance pack:
+  - `OptionsPersistenceStep` sets Fast in vanilla Video Settings and leaves with Escape, opens and closes VANTA's main
+    menu, Settings (Video) and Performance Center, and reloads the options from disk as a restart does. It then
+    changes clouds through the vanilla API that a slider and Sodium's *Apply* use and requires that the game reports
+    Custom and that VANTA shows Custom. With Sodium loaded it opens Sodium's video settings and requires the Apply
+    tip. Last it picks Fast in VANTA's own *Graphics* row. After every stage the game, VANTA's row and `options.txt`
+    must agree.
+  - `WorldsFolderStep`: the production game test task creates a stand-in Minecraft folder
+    (`run/production-gametest/official-minecraft` with an empty `saves/`) and the launcher's note pointing at it.
+    The step checks that Minecraft's level storage uses the folders VANTA resolved, that the test world was created
+    in the stand-in `saves/` and not in VANTA's own, and that Singleplayer lists that world and a copy placed there
+    by plain file copy. It never touches a real `.minecraft`.
+  - `HitchProbeStep` measures at least 600 frames with the VANTA HUD on and again off while the player turns on the
+    spot, and adds to `vanta-perf-probe.json`: frame-time maximum, p99 and p99.9, frames over 50 ms and over 100 ms,
+    the slowest single call of the HUD and crosshair elements, garbage collections in that window and the JVM's heap
+    and GC arguments. It fails when one VANTA HUD or crosshair call takes more than 8 ms (after taking off a garbage
+    collection in the same tick) or when, with the HUD on, an element was never called. The frame-time hitch counts
+    are recorded, not judged, because the CI machine renders in software.
+  - `SmartBoostStep` runs Re-tune with shortened windows and requires a result, the picked render distance, a
+    written `smart-boost.json` and an unchanged graphics preset, frame-rate limit and VSync. It then changes the
+    render distance by hand and requires that a run with the automatic rules leaves it alone. Last, Undo must
+    restore the simulation distance from before the first run (skipped with a warning when the game reported another
+    graphics preset after the hand change). The automatic run itself stays off in the game test.
+- New core and launcher unit tests cover the worlds folder rules, Smart Boost's rules, state and starting guess,
+  frame statistics, the built-in profile refresh, saving on screen close, the *Custom* graphics row and the profile's
+  `javaArgs`.
+
+#### Updating to 1.3.0
+- **Your worlds.** After the update Singleplayer lists the worlds of your normal Minecraft folder, as the vanilla
+  game does. Worlds you created with an earlier VANTA stay in VANTA's game folder (`instances/vanta-1.21.11/saves` in
+  the launcher's data directory). While the Minecraft folder has worlds, those VANTA worlds are not listed: switch
+  *Settings → General → Singleplayer worlds* to *VANTA folder* and restart, or copy the world folders yourself. A
+  manual installation already runs in `.minecraft` and sees no change.
+- **Smart Boost's first run.** About 20 s after you start playing in a world, *Smart Boost is testing settings*
+  appears and the video options change up to three times, each step 33 s of play (8 s settling, 25 s measuring).
+  Then *Smart Boost applied* names the preset and the measured FPS. To skip it, turn off *Settings → Performance → Smart Boost: tune automatically
+  after install/update* before you join a world. *Undo Smart Boost* in the Performance Center restores your earlier
+  values. If your graphics settings were already your own, the card says so and nothing changes. Afterwards the
+  *Graphics* row can show *Custom*: Smart Boost changes single options and never Fast / Fancy / Fabulous.
+- **Sodium.** With the Performance pack, *Options → Video Settings* is Sodium's screen. Press *Apply* (Alt+A) before
+  you leave it; Escape discards changes that were not applied. VANTA reminds you once per game session.
+- **Minecraft Launcher profile.** Run *PLAY via Minecraft Launcher* or *Use with Minecraft Launcher* once with
+  launcher 1.3.0, so the profile gets the new JVM arguments and the Minecraft folder note. JVM arguments you edited in
+  the Minecraft Launcher are kept; empty them there if you want VANTA's line.
+
 ## [1.2.1] - 2026-10-07
 
 Bug-fix release of both products for one start-up crash. With a mod in VANTA's game folder that was built for an older

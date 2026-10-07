@@ -272,8 +272,15 @@ CI checks the contents VANTA writes into both profiles files on Linux. Whether t
 Xbox app then shows the profile has not been tested on a real Windows PC yet; if it does not, use path C, whose Fabric
 installer supports that launcher too.
 
-Worlds, screenshots and VANTA settings of this profile live in the VANTA game folder
+Screenshots, mods and VANTA settings of this profile live in the VANTA game folder
 (`<data directory>/instances/vanta-1.21.11`), not in `.minecraft`, because the profile's game directory points there.
+Singleplayer worlds are the exception from client 1.3.0 on: by default the game lists the worlds of the Minecraft
+folder the profile was set up for ([Where your worlds are](#where-your-worlds-are)).
+
+The profile also carries the Java arguments for the game (`javaArgs`): from launcher 1.3.0 on the same memory and
+garbage-collector settings PLAY uses, plus your *Extra JVM arguments* when they fit one line. If you change the
+profile's JVM arguments in the Minecraft Launcher, VANTA keeps your line on the next setup
+([Launcher → What is written](launcher.md#what-is-written)).
 
 ### C. Manual installation
 
@@ -342,7 +349,7 @@ The VANTA Launcher keeps everything in its data directory (override it with the 
 
 | Inside the data directory | Content |
 | --- | --- |
-| `instances/vanta-1.21.11/` | the game directory (paths A and B): `mods/` (Fabric API, VANTA, the Performance pack and mods from Modrinth), `shaderpacks/`, `resourcepacks/`, `config/vanta/` (VANTA settings and `modrinth.json`, the list of what was installed from Modrinth), `saves/`, `screenshots/`, `logs/latest.log` |
+| `instances/vanta-1.21.11/` | the game directory (paths A and B): `mods/` (Fabric API, VANTA, the Performance pack and mods from Modrinth), `shaderpacks/`, `resourcepacks/`, `config/vanta/` (VANTA settings, `modrinth.json`, the list of what was installed from Modrinth, and `minecraft-folder.json`), `saves/` (the VANTA folder's worlds, see [Where your worlds are](#where-your-worlds-are)), `screenshots/`, `logs/latest.log` |
 | `libraries/`, `assets/`, `versions/` | Minecraft and Fabric files in the standard layout for path A (reused read-only from the official `.minecraft` when *Share official Minecraft files* is on) |
 | `runtimes/` | Java runtimes installed by the launcher |
 | `logs/` | `launcher-0.log` (rotating), `game-<timestamp>.log` and, after a failed start of the launcher, `startup-error.txt` |
@@ -358,7 +365,43 @@ everything is in `.minecraft` (`mods/`, `config/vanta/`, …).
 
 VANTA's own configuration lives in the game directory under `config/vanta/`: `settings.json`, `profiles/`,
 `hud/layout.json`, `hud/presets/`, `crosshair.json`, `cosmetics.json`, `cosmetics/` (packs), `stats.json`,
-`exports/` and `imports/`. See the individual guides for each file.
+`smart-boost.json` (from client 1.3.0 on, [Smart Boost](performance.md#smart-boost)), `exports/` and `imports/`. See
+the individual guides for each file.
+
+### Where your worlds are
+
+VANTA plays in its own game folder (paths A and B), and until client 1.2.1 Singleplayer listed only the worlds in that
+folder's `saves/`: none for a new VANTA player, so Singleplayer opened *Create New World*. From client 1.3.0 on the
+setting *Settings → General → Singleplayer worlds* decides:
+
+- **Minecraft folder** (the default): Singleplayer lists, creates, loads and backs up worlds in `saves/` and
+  `backups/` of your normal Minecraft folder, like the vanilla game. That is the folder the VANTA Launcher recorded in
+  `config/vanta/minecraft-folder.json` of the game folder; without that note, in a VANTA Launcher instance, the
+  standard folder (`%APPDATA%\.minecraft`, `~/Library/Application Support/minecraft` or `~/.minecraft`).
+- **VANTA folder**: only the worlds in `<data directory>/instances/vanta-1.21.11/saves`.
+
+Even with *Minecraft folder*, the VANTA folder stays in use when:
+
+- the Minecraft folder does not exist or has no `saves/` folder;
+- its `saves/` holds no world while the VANTA folder's does (the vanilla game creates an empty `saves/` on its first
+  start, and switching to it would hide the worlds you made with VANTA);
+- the game already runs in the Minecraft folder (path C), so there is nothing to change;
+- the game runs in another launcher's instance (Prism, MultiMC, …) and no VANTA Launcher note names a Minecraft folder;
+- the game was started with `-Dvanta.worlds.folder=vanta`.
+
+`logs/latest.log` names the folder in use and the reason (*Singleplayer worlds: …* or *Singleplayer worlds stay in the
+VANTA folder …*). A change of the setting takes effect at the next game start. **Nothing is moved, copied or
+deleted**, and VANTA never creates a `saves/` folder there. Worlds you made with an earlier VANTA stay in the
+VANTA folder; while the Minecraft folder has worlds, choose *VANTA folder* to play them, or copy a world folder from
+one `saves/` to the other yourself (with the game closed).
+
+The note `config/vanta/minecraft-folder.json` holds `{"minecraftDir": "<absolute path>"}`. The VANTA
+Launcher (from 1.3.0 on) writes it when it sets up the Minecraft Launcher profile, with the Minecraft folder the profile
+went to (also a folder given with `--minecraft-dir`), and before PLAY when the standard Minecraft folder exists and no
+note names an existing folder yet. You can write it yourself for another launcher's instance.
+
+A world played with mods that add blocks or items loses those blocks when vanilla Minecraft opens it later. VANTA and
+the Performance pack add none.
 
 ## Updating
 
@@ -416,9 +459,10 @@ VANTA's own configuration lives in the game directory under `config/vanta/`: `se
 
 ## Uninstalling
 
-- **Windows installer:** *Settings → Apps → Installed apps → VANTA Launcher → Uninstall*. Your worlds, settings and
-  the Java runtime stay in the data directory; delete `%APPDATA%\VANTA Launcher` to remove them too (back up
-  `instances\vanta-1.21.11\saves` first).
+- **Windows installer:** *Settings → Apps → Installed apps → VANTA Launcher → Uninstall*. Your settings, the Java
+  runtime and the worlds in the VANTA folder stay in the data directory; delete `%APPDATA%\VANTA Launcher` to remove
+  them too (back up `instances\vanta-1.21.11\saves` first). Worlds in your Minecraft folder's `saves\` are not part of
+  the data directory and stay where they are.
 - **Portable app, Linux app image, launcher jar:** delete the files and the data directory.
 - **Path B profile:** in the Minecraft Launcher open *Installations*, choose *VANTA 1.21.11* and delete it. The
   folder `versions/fabric-loader-0.19.5-1.21.11` can be deleted when no other profile uses that Fabric version, and

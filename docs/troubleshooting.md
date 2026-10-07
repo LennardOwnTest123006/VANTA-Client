@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: Fixes for "Not published yet", SmartScreen, a launcher that does not start, the Minecraft Launcher profile, Java, checksums, sign-in, crashes, 30 FPS after a 1.1.0 preset, mods and shaders.
+description: Fixes for "Not published yet", SmartScreen, the launcher, the Minecraft Launcher profile, Java, checksums, sign-in, crashes, low FPS, stutter, graphics shows Custom, Singleplayer worlds, mods.
 order: 40
 category: Help
 ---
@@ -293,8 +293,8 @@ Signing out and in again refreshes all tokens. Tokens are stored encrypted in `a
    Update), make sure the game runs on the dedicated GPU on laptops (Windows → Graphics settings → add `javaw.exe` →
    High performance), and check that the GPU supports OpenGL 3.2.
 3. **`UnsupportedClassVersionError` / `class file version 65`**: Java older than 21 was used. Fix the Java path.
-4. **`OutOfMemoryError`** or stuttering: lower *Settings → Memory* if it exceeds what your system has free, or raise
-   it if it is below 2 GB; do not exceed 8 GB.
+4. **`OutOfMemoryError`**: raise *Settings → Memory*, but keep it at or below half of your RAM and do not exceed 8 GB.
+   For stutter see [Short freezes while playing](#short-freezes-while-playing).
 5. **Fabric Loader errors** (`Incompatible mods found`, `requires version ~1.21.11 of minecraft`): a mod in `mods/`
    is for another Minecraft version, or two mods do not fit together. Remove it, or switch it off on the launcher's
    Mods page; see [Mods & Shaders problems](#mods--shaders-problems) when it came from Modrinth.
@@ -375,6 +375,63 @@ frame-rate limit chooser, in *Boost FPS* and in a profile's own frame-rate choic
 
 How much faster the game runs without the cap depends on your computer; VANTA promises no number.
 
+## Short freezes while playing
+
+Short freezes (stutter) are single long frames while the average FPS looks fine. Check these in order:
+
+1. **Memory.** *Settings → Memory* in the VANTA Launcher is the game's maximum heap. Too little makes the garbage
+   collector run often; too much leaves the system too little memory, and a PC that has to swap stutters far worse.
+   The default is half of your RAM, between 2048 and 8192 MB, and never more than half of the RAM: from launcher 1.3.0
+   on, a PC with less than 4 GB gets half its memory, at least 1024 MB. Keep the default unless the game runs out of
+   memory, and do not go above half of your RAM or 8 GB. A value you saved yourself is kept when you update.
+2. **Playing through the Minecraft Launcher.** A Minecraft Launcher profile that sets JVM arguments runs the game with
+   exactly those arguments. Launcher 1.2.1 and earlier wrote only `-Xmx<memory>M` into the profile *VANTA 1.21.11*,
+   so the game ran on plain JVM defaults there: a 200 ms garbage-collection pause target and a heap that starts small
+   and grows. From launcher 1.3.0 on the profile gets the same memory and G1 garbage-collector arguments as PLAY (the
+   line ends with `-Dvanta.javaArgs=<checksum>`). Run **PLAY via Minecraft Launcher** or **Use with Minecraft
+   Launcher** once after updating. **The `javaArgs` rule:** VANTA replaces the profile's JVM arguments only when it
+   wrote them itself (missing, empty, the old `-Xmx<n>M`, or a line whose checksum still matches). If you changed them
+   in the Minecraft Launcher, VANTA keeps your line and the launcher log says so; empty them there and run the setup
+   again to get VANTA's line ([Launcher → What is written](launcher.md#what-is-written)). With the manual installation
+   (path C) VANTA writes no JVM arguments into the Fabric profile.
+3. **VANTA Client 1.2.1 and earlier.** Closing any VANTA screen, also with Escape back into the game, rewrote every
+   profile file and `cosmetics.json` on the render thread. Client 1.3.0 writes only what changed.
+4. **Chunk building.** Freezes while you fly or walk into new terrain come from building chunks. Lower the render and
+   simulation distance, or let [Smart Boost](performance.md#smart-boost) pick a preset: it counts a frame over 50 ms as
+   a hitch and accepts a preset only with at most one hitch per 10 s. Beyond vanilla options, the
+   [Performance pack](mods-and-shaders.md#the-performance-pack) replaces the rendering engine (Sodium) and speeds up
+   game logic (Lithium); how much that helps depends on your PC.
+
+The game test in CI records long frames and garbage collections with the VANTA HUD on and off
+([Performance Center → Honest limits](performance.md#honest-limits)); it runs on a software renderer, not on your PC.
+
+## Graphics shows Custom, or a change in Sodium's video settings is lost
+
+**Custom.** Minecraft 1.21.11's graphics preset (Fast, Fancy, Fabulous) is a bundle of options: render distance,
+clouds, particles and others. When one of them changes after you picked a preset, the game switches the preset to
+**Custom**. That is the game's own behaviour. VANTA Client 1.2.1 and earlier could not show *Custom* and showed
+*Fancy*, its default, instead; a click on *Fancy* did nothing, and a profile saved in that state stored *Fancy*. That
+looked like "Graphics jumps back to Fancy". **Fixed in client 1.3.0:**
+
+- *Settings → Video → Graphics* shows *Custom*. Choosing Fast, Fancy or Fabulous applies that preset at once and saves
+  it to `options.txt`. *Custom* itself cannot be chosen.
+- A VANTA preset, Boost FPS and [Smart Boost](performance.md#smart-boost) change single options of the bundle, so the
+  game then reports *Custom*; a profile can do the same. Smart Boost never changes Fast / Fancy / Fabulous.
+- A profile saved now stores *Custom*, which activating it skips; the profile's own options decide. A profile saved
+  with an earlier VANTA while the game was Custom stored *Fancy*: activating it applies Fancy first and then the
+  profile's own options. Activate it, set what you want and save the current settings to the profile again.
+- Opening and closing VANTA's screens writes no Minecraft option and does not save `options.txt`.
+
+**Sodium forgets a change.** With the [Performance pack](mods-and-shaders.md#the-performance-pack), *Options → Video
+Settings* opens Sodium's screen instead of vanilla's. Sodium keeps changes pending until you press **Apply** (or
+Alt+A); **Escape closes the screen and discards changes that were not applied**. From client 1.3.0 on VANTA shows the
+notification *Sodium video settings: Press Apply (Alt+A) to keep your changes* the first time that screen opens in a
+game session. Press *Apply*, then close the screen.
+
+If options changed by themselves right after an update to client 1.3.0, that was Smart Boost's first run (the
+notifications *Smart Boost is testing settings* and *Smart Boost applied*). *Undo Smart Boost* in the Performance
+Center puts the earlier values back and turns the automatic run off.
+
 ## Buttons that cannot be clicked in a small window
 
 In VANTA Client 1.1.0 and earlier, several buttons were drawn but did nothing when the game window was small
@@ -385,6 +442,37 @@ click never reached them; in a maximised window everything worked. **Fixed in cl
 above a footer that keeps the actions on screen, the main menu, the Settings footer and the HUD editor toolbar
 rearrange themselves to fit, and the interface never shrinks below Minecraft's 320 x 240. With 1.1.0, maximise the
 window or lower the GUI scale as a workaround.
+
+## Singleplayer opens Create New World instead of my worlds
+
+With the VANTA Launcher (paths A and B) the game runs in VANTA's own game folder,
+`<data directory>/instances/vanta-1.21.11`. Up to client 1.2.1 Singleplayer listed only the worlds in that folder's
+`saves/`. A new VANTA player has none there, so Minecraft went straight to *Create New World*, while the worlds were in
+`.minecraft/saves`. **Fixed in client 1.3.0** with the setting *Settings → General → Singleplayer worlds*
+([Installation → Where your worlds are](installation.md#where-your-worlds-are)). Nothing is moved, copied or deleted.
+
+1. **Update** to VANTA Client 1.3.0 and, when you play through the Minecraft Launcher, run **PLAY via Minecraft
+   Launcher** once with VANTA Launcher 1.3.0. It writes the note `config/vanta/minecraft-folder.json` that names your
+   Minecraft folder.
+2. **Check the setting**: *Settings → General → Singleplayer worlds* must be *Minecraft folder* (the default). After a
+   change, restart the game; Minecraft opens its world storage only at start.
+3. **Read the reason** in `logs/latest.log` of the game folder: the line *Singleplayer worlds: …* names the folder in
+   use, and *Singleplayer worlds stay in the VANTA folder …: <reason>* says why the VANTA folder is used:
+   - the Minecraft folder does not exist or has no `saves/` folder (start the vanilla game once, or check the path);
+   - its `saves/` holds no world while the VANTA folder's does, so the worlds you made with VANTA stay listed;
+   - the game runs in another launcher's instance and no VANTA Launcher note names a Minecraft folder;
+   - the setting is *VANTA folder*, or the game was started with `-Dvanta.worlds.folder=vanta`.
+4. **Minecraft folder in another place**: run `--install-official-profile --minecraft-dir <path>` (or *Use with
+   Minecraft Launcher* for the standard folder), or write the note yourself:
+   `{"minecraftDir": "<absolute path of the Minecraft folder>"}` in `config/vanta/minecraft-folder.json` of the game
+   folder, then restart the game.
+5. **Worlds you made with an earlier VANTA are missing**: they are still in `instances/vanta-1.21.11/saves`. While the
+   Minecraft folder has worlds, Singleplayer lists those. Choose *VANTA folder* and restart to play them, or copy a
+   world folder into the Minecraft folder's `saves/` with the game closed.
+
+With the manual installation (path C) the game already runs in `.minecraft` and lists its worlds as vanilla does. A
+world played with mods that add blocks or items loses those blocks when vanilla Minecraft opens it later; VANTA and the
+Performance pack add none.
 
 ## The vanilla title screen appears instead of the VANTA main menu
 

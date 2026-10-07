@@ -39,7 +39,10 @@ Pressing PLAY runs the launch flow:
    Sizes are shown in decimal units with one decimal place (1 MB = 1,000,000 bytes, for example "66.9 MB"), the same
    numbers the website and the release notes show.
 3. **Account** — refresh the Microsoft/Minecraft token when it has expired.
-4. **Launch** — start `java` with the Fabric main class and stream the game output to the Logs screen. The status
+4. **Launch** — from launcher 1.3.0 on, first record the standard Minecraft folder in
+   `config/vanta/minecraft-folder.json` when that folder exists and no note names an existing folder yet, so
+   Singleplayer lists its worlds ([Installation → Where your worlds are](installation.md#where-your-worlds-are)); then
+   start `java` with the Fabric main class and stream the game output to the Logs screen. The status
    turns to **Running**; a notification reports the exit code when the game closes. When the game asks for a
    restart after you changed mods in it, the launcher starts it again ([Restart from the game](#restart-from-the-game)).
 
@@ -165,6 +168,7 @@ folder, `<version>` the VANTA Client version). A file that is already identical 
 | `<data>/versions/vanta-client/<version>/vanta-client-<version>.jar` and `manifest.json` next to it | the rollback copy of the published release (see [Versions](#versions)); not written with `--client-jar` |
 | `<data>/instances/vanta-1.21.11/instance.json` | the installed VANTA Client version is noted; only when this file already exists |
 | `<data>/instances/vanta-1.21.11/mods/<file>` and `config/vanta/modrinth.json` | the [Performance pack](#performance-pack) mods and their record, verified with the SHA-512 from Modrinth; only when the pack is switched on |
+| `<data>/instances/vanta-1.21.11/config/vanta/minecraft-folder.json` | from launcher 1.3.0 on: `{"minecraftDir": "<minecraft>"}`, the note that tells the VANTA Client which Minecraft folder's worlds Singleplayer lists ([Installation → Where your worlds are](installation.md#where-your-worlds-are)); listed as *Note for the VANTA Client: Singleplayer lists the worlds of this Minecraft folder (nothing in it is changed)* |
 | `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.json` | the Fabric Loader version JSON as `meta.fabricmc.net/v2/versions/loader/1.21.11/0.19.5/profile/json` serves it (the file the official Fabric installer writes) |
 | `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.jar` | an empty file, as the official Fabric installer writes it |
 | `<minecraft>/launcher_profiles.json.vanta-backup` | a one-time copy of the original `launcher_profiles.json`, only when that file exists and has no backup yet |
@@ -192,11 +196,32 @@ and client updates. The profile entry looks like this:
   "icon": "data:image/png;base64,<128 px VANTA icon>",
   "lastVersionId": "fabric-loader-0.19.5-1.21.11",
   "gameDir": "<data>/instances/vanta-1.21.11",
-  "javaArgs": "-Xmx<memory>M"
+  "javaArgs": "-Xmx<memory>M -Xms<memory/4>M -XX:+UseG1GC -XX:+UnlockExperimentalVMOptions -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M <extra JVM arguments> -Dvanta.javaArgs=<checksum>"
 }
 ```
 
 `gameDir` is the absolute path of the VANTA instance and `<memory>` is *Settings → Memory* (or `--memory`).
+
+**`javaArgs`** (from launcher 1.3.0 on; launcher 1.2.1 and earlier wrote only `-Xmx<memory>M`). A profile that sets
+`javaArgs` runs the game with exactly these arguments instead of the Minecraft Launcher's defaults, so VANTA writes the
+same memory and garbage-collector arguments PLAY uses:
+
+- `-Xmx<memory>M`, then `-Xms` with a quarter of it (at least 512 MiB), then the G1 settings shown above. `-Xms` is
+  left out when your *Extra JVM arguments* contain an `-Xms`, the G1 settings when they select a garbage collector
+  (`-XX:+Use…GC`).
+- Then your *Extra JVM arguments* from [Settings](#settings), when they fit the profile's single space-separated
+  line. Left out, with a line in the log: arguments that contain spaces or quotes or do not start with `-`, the class
+  path (`-cp`, `-classpath`, `--class-path`), `-jar`, `-m` and `--module`, and an option that takes a value
+  (`--add-opens`, `--add-exports`, `--add-modules`, `-p`, …) when its value is missing or does not fit; such an option
+  is always written together with its value.
+- Last `-Dvanta.javaArgs=<checksum>`, a system property that only marks the line: it holds the CRC-32 of everything
+  before it, and nothing in the game reads it.
+
+On a later setup VANTA replaces `javaArgs` only when it wrote them: when the entry is missing or empty, is exactly
+`-Xmx<n>M` (what launcher 1.2.1 and earlier wrote), or ends with a `-Dvanta.javaArgs` checksum that still matches the
+line. A line you changed in the Minecraft Launcher (the JVM arguments of the installation *VANTA 1.21.11*) fails that
+check and is kept; the log then says *Kept the JVM arguments of 'VANTA 1.21.11' …*. To get VANTA's line back, empty
+the JVM arguments there and run the setup again.
 
 How the profiles files are treated:
 
@@ -381,9 +406,9 @@ Minecraft's own `latest.log` is in the instance). The launcher log is `logs/laun
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| Memory (MB) | half of physical RAM, clamped to 2048–8192 (4096 when unknown) | maximum heap (`-Xmx`) for the game, also written to the Minecraft Launcher profile; minimum 1024 |
+| Memory (MB) | half of physical RAM, clamped to 2048–8192 but never more than half of the RAM, at least 1024 (4096 when unknown) | maximum heap (`-Xmx`) for the game, also written to the Minecraft Launcher profile; minimum 1024. From launcher 1.3.0 on a PC with less than 4 GiB of RAM gets half its memory (before: 2048), and a `settings.json` without a value, or with one below 1024, gets this default instead of 4096 |
 | Java path | automatic | executable or installation directory; validated before saving |
-| Extra JVM arguments | none | appended after the launcher's defaults (`-XX:+UseG1GC`, `-Dfile.encoding=UTF-8`) |
+| Extra JVM arguments | none | appended after the launcher's defaults (`-Xmx`, `-Xms`, the G1 settings, `-Dfile.encoding=UTF-8`); from launcher 1.3.0 on also written to the Minecraft Launcher profile when they fit its single line ([`javaArgs`](#what-is-written)) |
 | Resolution | game default | initial window size `WxH` |
 | Keep launcher open | off | keep the window open while the game runs |
 | Microsoft client id | empty → `VANTA_MS_CLIENT_ID` | see [Microsoft client id](#microsoft-client-id) |

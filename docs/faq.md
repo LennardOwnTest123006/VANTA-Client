@@ -23,8 +23,11 @@ Launcher installs it by default (*Settings → Game → Install the performance 
 click on the Mods & Shaders screen. OptiFine is not part of it; shader packs run with Iris. The mods are made by their
 own authors under their own licences. From client 1.2.0 on, the mods bundle for the manual installation also carries
 the pack mods whose licences allow redistribution (all but EntityCulling), unmodified and with their licence texts in
-`THIRD-PARTY-LICENSES.txt`. VANTA's own Performance Center still changes only **vanilla** video options and shows you
-exactly which ones before applying. See [Mods & Shaders](mods-and-shaders.md#the-performance-pack).
+`THIRD-PARTY-LICENSES.txt`. VANTA's own Performance Center still changes only **vanilla** video options: a preset shows
+you exactly which ones before applying, and [Smart Boost](performance.md#smart-boost) (from client 1.3.0 on) applies
+a preset's options (never Fast / Fancy / Fabulous, the frame-rate limit or VSync) by itself once after an install or
+update, says so in a notification and can be undone. See
+[Mods & Shaders](mods-and-shaders.md#the-performance-pack).
 
 ## How do I use shaders?
 
