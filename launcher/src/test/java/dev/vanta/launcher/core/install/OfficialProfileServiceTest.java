@@ -3,6 +3,7 @@ package dev.vanta.launcher.core.install;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.core.launch.MinecraftFolderHint;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.net.CancellationToken;
 import dev.vanta.launcher.core.net.Checksums;
@@ -100,7 +101,9 @@ class OfficialProfileServiceTest {
         final OfficialProfileService.Plan plan = service.plan(request());
         assertEquals(List.of(OfficialProfileService.Kind.FABRIC_API, OfficialProfileService.Kind.VANTA_CLIENT,
             OfficialProfileService.Kind.CLIENT_ROLLBACK_COPY, OfficialProfileService.Kind.CLIENT_ROLLBACK_COPY, OfficialProfileService.Kind.VERSION_JSON,
-            OfficialProfileService.Kind.VERSION_JAR, OfficialProfileService.Kind.PROFILES_BACKUP, OfficialProfileService.Kind.PROFILES), kinds(plan));
+            OfficialProfileService.Kind.VERSION_JAR, OfficialProfileService.Kind.PROFILES_BACKUP, OfficialProfileService.Kind.PROFILES,
+            OfficialProfileService.Kind.MINECRAFT_FOLDER_NOTE), kinds(plan));
+        assertEquals(paths.minecraftFolderFile().toString(), plan.files().get(8).location());
         assertEquals(paths.modsDir().resolve("fabric-api-" + LauncherVersion.FABRIC_API + ".jar").toString(), plan.files().get(0).location());
         assertEquals(paths.modsDir().resolve("vanta-client-1.0.0.jar").toString(), plan.files().get(1).location(),
             "the release is resolved, so the jar is named exactly");
@@ -124,7 +127,8 @@ class OfficialProfileServiceTest {
         final OfficialProfileService.Plan withStore = service.plan(OfficialProfileService.Request.standard(mc, local, 2048));
         assertEquals(List.of(OfficialProfileService.Kind.FABRIC_API, OfficialProfileService.Kind.VANTA_CLIENT_LOCAL, OfficialProfileService.Kind.VERSION_JSON,
             OfficialProfileService.Kind.VERSION_JAR, OfficialProfileService.Kind.PROFILES_BACKUP, OfficialProfileService.Kind.PROFILES,
-            OfficialProfileService.Kind.STORE_PROFILES_BACKUP, OfficialProfileService.Kind.STORE_PROFILES), kinds(withStore));
+            OfficialProfileService.Kind.STORE_PROFILES_BACKUP, OfficialProfileService.Kind.STORE_PROFILES,
+            OfficialProfileService.Kind.MINECRAFT_FOLDER_NOTE), kinds(withStore));
         assertEquals(paths.modsDir().resolve("vanta-client-dev.jar").toString(), withStore.files().get(1).location());
         assertEquals("dev", withStore.vantaClientVersion());
         assertEquals(1, world.server().totalHits(), "a local jar needs no release manifest");
@@ -185,6 +189,7 @@ class OfficialProfileServiceTest {
         final OfficialProfileService.Plan again = service.plan(request());
         assertFalse(kinds(again).contains(OfficialProfileService.Kind.PROFILES_BACKUP));
         assertFalse(kinds(again).contains(OfficialProfileService.Kind.STORE_PROFILES_BACKUP));
+        assertFalse(kinds(again).contains(OfficialProfileService.Kind.MINECRAFT_FOLDER_NOTE), "an unchanged note is not rewritten");
         assertTrue(again.removed().isEmpty(), String.valueOf(again.removed()));
         assertTrue(again.profileExists());
     }
@@ -203,6 +208,29 @@ class OfficialProfileServiceTest {
         assertTrue(missing.getCause().getMessage().contains("HTTP 404"), missing.getCause().getMessage());
         assertEquals(PROFILES, Files.readString(mc.resolve(OfficialProfileService.PROFILES_FILE)));
         assertFalse(Files.exists(paths.modsDir()));
+    }
+
+    @Test
+    void installRecordsTheMinecraftFolderTheProfileWasWrittenToForSingleplayer() throws Exception {
+        officialLauncherStartedOnce();
+        Files.createDirectories(mc.resolve("saves").resolve("Old World"));
+        Files.writeString(mc.resolve("saves").resolve("Old World").resolve("level.dat"), "nbt");
+        final OfficialProfileService.Result result = service.install(request(), InstallListener.NONE, new CancellationToken());
+
+        final Path note = paths.minecraftFolderFile();
+        assertEquals(MinecraftFolderHint.file(paths.instanceDir()), note);
+        assertTrue(result.written().contains(note), String.valueOf(result.written()));
+        assertEquals(java.util.Optional.of(mc.toAbsolutePath().normalize()), MinecraftFolderHint.read(paths.instanceDir()),
+            "the folder the profile was written to (here a custom --minecraft-dir), not the platform default");
+        assertEquals(mc.toAbsolutePath().normalize().toString(),
+            JsonParser.parseString(Files.readString(note)).getAsJsonObject().get(MinecraftFolderHint.KEY).getAsString());
+        assertEquals("nbt", Files.readString(mc.resolve("saves").resolve("Old World").resolve("level.dat")), "worlds are untouched");
+        assertFalse(Files.exists(paths.savesDir().resolve("Old World")), "nothing is copied into the VANTA folder");
+
+        final long modified = Files.getLastModifiedTime(note).toMillis();
+        final OfficialProfileService.Result again = service.install(request(), InstallListener.NONE, new CancellationToken());
+        assertFalse(again.written().contains(note), "the same note is not written again");
+        assertEquals(modified, Files.getLastModifiedTime(note).toMillis());
     }
 
     @Test

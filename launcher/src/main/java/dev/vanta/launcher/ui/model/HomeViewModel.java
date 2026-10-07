@@ -647,6 +647,7 @@ public final class HomeViewModel {
             case PROFILES -> messages.get("official.plan.profiles");
             case STORE_PROFILES_BACKUP -> messages.get("official.plan.storeProfilesBackup");
             case STORE_PROFILES -> messages.get("official.plan.storeProfiles");
+            case MINECRAFT_FOLDER_NOTE -> messages.get("official.plan.minecraftFolderNote");
         };
     }
 

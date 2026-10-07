@@ -372,7 +372,8 @@ class HudRenderCostTest {
         // test canvas remain, so the fill bound stays high; texts and widths are pinned tightly.
         assertTrue(maxFills <= 6_600, "screen fills per frame: " + maxFills);
         assertTrue(maxTexts <= 80, "screen texts per frame: " + maxTexts);
-        assertTrue(maxWidths <= 125, "screen width measurements per frame: " + maxWidths);
+        // 1.3.0: the General category gained the "Singleplayer worlds" row (+16 widths at 480x270: 110 -> 126).
+        assertTrue(maxWidths <= 135, "screen width measurements per frame: " + maxWidths);
     }
 
     // ---- diagnostics: Mods & Shaders detail column at small windows ------------------------------------------------

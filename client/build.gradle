@@ -107,6 +107,18 @@ tasks.register('runProductionClientGametest', net.fabricmc.loom.task.prod.Client
         jvmArgs.add("-Dvanta.gametest.expectMods=" + gametestExpectMods)
     }
     runDir = file("run/production-gametest")
+    // "Singleplayer worlds" check (gametest WorldsFolderStep): a stand-in official Minecraft folder with an empty
+    // saves/ and the launcher's note pointing at it, written before the game starts, so the run exercises the worlds
+    // redirect without ever touching a real .minecraft. Worlds of an earlier local run in it are kept.
+    def worldsRunDir = file("run/production-gametest")
+    def worldsMinecraftDir = new File(worldsRunDir, "official-minecraft")
+    jvmArgs.add("-Dvanta.gametest.minecraftDir=" + worldsMinecraftDir.absolutePath)
+    doFirst {
+        new File(worldsMinecraftDir, "saves").mkdirs()
+        def note = new File(worldsRunDir, "config/vanta/minecraft-folder.json")
+        note.parentFile.mkdirs()
+        note.setText(groovy.json.JsonOutput.toJson([minecraftDir: worldsMinecraftDir.absolutePath]) + "\n", "UTF-8")
+    }
 }
 
 processResources {

@@ -140,7 +140,9 @@ public final class LauncherServices implements AutoCloseable {
         this.auth = new MicrosoftAuthService(transport, endpoints.auth(),
             MicrosoftAuthService.clientIdFrom(() -> settings().msClientId(), env), clock, sleeper);
         this.accounts = AccountStore.open(paths, os);
-        this.launch = new LaunchService(paths, os, clock);
+        this.userHome = Path.of(System.getProperty("user.home", "."));
+        this.officialMinecraftDir = LauncherPaths.officialMinecraftDir(os, env, userHome);
+        this.launch = new LaunchService(paths, os, clock, officialMinecraftDir);
         this.updates = new UpdateService(downloader, paths, () -> releasesBaseUrl().url(),
             SemVer.tryParse(LauncherVersion.VERSION).orElse(SemVer.of(1, 0, 0)), os, LauncherPackaging.detect(), vantaClient);
         // Modrinth asks for a descriptive User-Agent on API calls and downloads alike.
@@ -151,9 +153,7 @@ public final class LauncherServices implements AutoCloseable {
         this.performancePack = new PerformancePack(modrinth, clock);
         this.startupGuard = new StartupGuard(paths, modrinth, clock);
         this.officialProfiles = new OfficialProfileService(paths, downloader, fabric, fabricApi, vantaClient, clock, performancePack);
-        this.userHome = Path.of(System.getProperty("user.home", "."));
         this.officialLauncher = OfficialLauncher.system(os, env, userHome);
-        this.officialMinecraftDir = LauncherPaths.officialMinecraftDir(os, env, userHome);
     }
 
     /**

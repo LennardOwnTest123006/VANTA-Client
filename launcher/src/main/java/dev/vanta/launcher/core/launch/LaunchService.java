@@ -25,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -48,6 +49,7 @@ public final class LaunchService {
     private final LauncherPaths paths;
     private final OsInfo os;
     private final Clock clock;
+    private final Optional<Path> officialMinecraftDir;
 
     /**
      * @param paths launcher paths
@@ -63,9 +65,21 @@ public final class LaunchService {
      * @param clock clock for log file names
      */
     public LaunchService(final LauncherPaths paths, final OsInfo os, final Clock clock) {
+        this(paths, os, clock, Optional.empty());
+    }
+
+    /**
+     * @param paths                launcher paths
+     * @param os                   host platform
+     * @param clock                clock for log file names
+     * @param officialMinecraftDir the official Minecraft folder when it exists; recorded for the client's
+     *                             Singleplayer before each start unless a usable note exists ({@link MinecraftFolderHint})
+     */
+    public LaunchService(final LauncherPaths paths, final OsInfo os, final Clock clock, final Optional<Path> officialMinecraftDir) {
         this.paths = Objects.requireNonNull(paths, "paths");
         this.os = Objects.requireNonNull(os, "os");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.officialMinecraftDir = Objects.requireNonNull(officialMinecraftDir, "officialMinecraftDir");
     }
 
     /**
@@ -208,6 +222,7 @@ public final class LaunchService {
         if (Files.deleteIfExists(RestartRequest.markerFile(command.workingDirectory()))) {
             LOG.log(Level.INFO, "Removed a left-over {0} before the start", RestartRequest.FILE_NAME);
         }
+        recordMinecraftFolder(command.workingDirectory());
         final Redactor redactor = Redactor.global();
         command.secrets().forEach(redactor::register);
         final ProcessBuilder builder = new ProcessBuilder(command.command())
@@ -220,6 +235,24 @@ public final class LaunchService {
         final GameProcess process = GameProcess.start(builder, logFile, redactor, listeners);
         process.exitCode().thenAccept(code -> LOG.log(Level.INFO, "Game exited with code {0}", code));
         return process;
+    }
+
+    /**
+     * Tells the client which official Minecraft folder's worlds Singleplayer lists. A note written by "Use with the
+     * Minecraft Launcher" (possibly for a custom {@code --minecraft-dir}) is kept; a failure only logs, the game starts
+     * anyway and keeps its own worlds folder.
+     */
+    private void recordMinecraftFolder(final Path gameDir) {
+        officialMinecraftDir.ifPresent(dir -> {
+            try {
+                if (MinecraftFolderHint.writeUnlessRecorded(gameDir, dir)) {
+                    LOG.log(Level.INFO, "Recorded the Minecraft folder {0} for Singleplayer in {1}",
+                        new Object[] {dir, MinecraftFolderHint.file(gameDir)});
+                }
+            } catch (IOException e) {
+                LOG.log(Level.WARNING, "Could not record the Minecraft folder for Singleplayer: " + e.getMessage(), e);
+            }
+        });
     }
 
     /**

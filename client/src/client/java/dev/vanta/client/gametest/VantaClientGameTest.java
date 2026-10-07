@@ -152,6 +152,7 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         List<String> findings = new ArrayList<>();
         inWorld(context, services, findings);
         backPathsWithAWorld(context);
+        WorldsFolderStep.run(context);
         // Without a world, last: the findings are collected and judged once at the end.
         ModsClickReproduction.run(context, services, "menu", 40, findings);
         ModsClickReproduction.applyWindow(context,

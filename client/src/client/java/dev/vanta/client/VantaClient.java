@@ -23,6 +23,7 @@ import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.modrinth.ModrinthService;
 import dev.vanta.core.screen.ScreenBootstrap;
 import dev.vanta.core.screen.VantaServices;
+import dev.vanta.core.settings.VantaSettings;
 import java.time.Clock;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
@@ -72,6 +73,10 @@ public final class VantaClient implements ClientModInitializer {
                 new MinecraftKeybindBridge(), resourcePacks, screenshots, new MinecraftClipboardBridge(),
                 Clock.systemUTC());
         services.load();
+        // Before the Minecraft constructor creates its level storage (this entrypoint runs inside it): which saves
+        // folder Singleplayer uses this start (MinecraftLevelSourceMixin).
+        WorldsFolderHook.install(FabricLoader.getInstance().getGameDir(),
+                services.settings().get(VantaSettings.WORLDS_FOLDER));
         ScreenBootstrap.registerAll(services);
 
         VantaRuntime runtime = new VantaRuntime(services, resourcePacks, screenshots, keys);
