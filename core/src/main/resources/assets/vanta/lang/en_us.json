@@ -1387,7 +1387,7 @@
   "vanta.perf.smart_boost.status.measuring": "Measuring %s… %s / %s s",
   "vanta.perf.smart_boost.status.paused": "Paused - resume playing to continue measuring",
   "vanta.perf.smart_boost.status.waiting": "Starts when you play",
-  "vanta.perf.smart_boost.status.graphics_chosen": "You picked a graphics preset; Smart Boost leaves your video settings alone. Re-tune to let it take over again.",
+  "vanta.perf.smart_boost.status.graphics_chosen": "You chose your own graphics settings (Fast, Fabulous or your own changes), so Smart Boost leaves your video settings alone. Re-tune to let it take over again.",
   "vanta.perf.smart_boost.capped_note": "Your frame-rate limit or VSync hides how much faster this PC could run, so Smart Boost can only lower settings, never raise them.",
   "vanta.perf.smart_boost.released": "Left alone (you changed them): %s",
   "vanta.perf.smart_boost.hardware": "%s threads · %s GB heap · %s",

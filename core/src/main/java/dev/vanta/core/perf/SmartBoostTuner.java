@@ -435,6 +435,13 @@ public final class SmartBoostTuner {
         eligible.removeIf(o -> !options.supports(o));
         // Menu blur alone is no video setting worth measuring (a VANTA preset other than Max FPS leaves it out).
         eligible.remove(VanillaOption.MENU_BLUR);
+        if (runKind == RunKind.AUTOMATIC && !state.graphicsPresetChosen() && videoSettingsChosenByPlayer()) {
+            // A Fast / Fabulous pick or the player's own custom options from before: the automatic run never rewrites
+            // them (that would look exactly like "my graphics setting was set back"). Only Re-tune takes over.
+            state.setGraphicsPresetChosen(true);
+            CoreLog.info("Smart Boost: the video settings are the player's own (graphics preset {}); left alone",
+                    currentGraphics().isEmpty() ? "custom" : currentGraphics());
+        }
         if (eligible.isEmpty() || runKind == RunKind.AUTOMATIC && state.graphicsPresetChosen()) {
             // The player took over every video option; there is nothing left to tune.
             state.completeRun(game.clientVersion(), now, null);
@@ -492,6 +499,25 @@ public final class SmartBoostTuner {
         save();
         stats.reset();
         warmupLeftMs = warmupMs;
+    }
+
+    /**
+     * True when the live video settings are the player's own choice. Before Smart Boost ever wrote: anything but the
+     * untouched default Fancy (a Fast or Fabulous pick, or the game's "custom" after hand changes, a VANTA preset or
+     * an upgrade from an older Minecraft). Afterwards: a Fast / Fancy / Fabulous different from the one the game
+     * reported after Smart Boost's last write (its own writes leave "custom"; per-option changes are tracked by
+     * {@link #checkOwnership}).
+     */
+    private boolean videoSettingsChosenByPlayer() {
+        if (!options.supports(VanillaOption.GRAPHICS_MODE)) {
+            return false;
+        }
+        String live = currentGraphics();
+        Optional<String> recorded = state.graphicsAtWrite();
+        if (recorded.isPresent()) {
+            return !live.isEmpty() && !live.equals(recorded.get());
+        }
+        return !live.equals(String.valueOf(VanillaOption.GRAPHICS_MODE.vanillaDefault()));
     }
 
     private String currentGraphics() {

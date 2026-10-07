@@ -427,6 +427,64 @@ class SmartBoostTunerTest {
     }
 
     @Test
+    void aGraphicsPresetPickedBeforeSmartBoostEverRanIsNeverOverridden() {
+        // The reported bug: the player picks Fast in Video Settings, presses Esc, plays, and later finds the game no
+        // longer on Fast. The automatic run after an install or update must not rewrite Fast's bundled options.
+        Rig rig = new Rig(STRONG, RTX, true);
+        rig.options.graphicsPresetBundle = true;
+        rig.options.set(VanillaOption.GRAPHICS_MODE, "FAST"); // before Smart Boost ever wrote anything
+        rig.options.setOrder.clear();
+        rig.play(200);
+        assertTrue(rig.options.setOrder.isEmpty(), () -> "overrode the player's Fast: " + rig.options.setOrder);
+        assertEquals("FAST", rig.options.getEnum(VanillaOption.GRAPHICS_MODE, ""), "Fast stays Fast");
+        assertTrue(rig.tuner.state().graphicsPresetChosen(), "the card says why nothing was tuned");
+        assertEquals(Optional.of(rig.game.clientVersion), rig.tuner.state().lastRunClientVersion());
+
+        rig.game.clientVersion = "1.0.1"; // an update: still the player's Fast
+        rig.play(200);
+        assertTrue(rig.options.setOrder.isEmpty(), () -> "overrode the player's Fast: " + rig.options.setOrder);
+
+        rig.tuner.retune(); // only the explicit Re-tune takes over
+        rig.playUntilDone(400);
+        assertTrue(rig.writes(VanillaOption.RENDER_DISTANCE) > 0);
+        assertNeverWroteTheChoicesOfThePlayer(rig);
+    }
+
+    @Test
+    void customVideoSettingsFromBeforeSmartBoostAreNeverOverridden() {
+        // A player who applied a VANTA preset or changed options in VANTA 1.2 (before Smart Boost existed): the game
+        // reports the graphics preset as custom and smart-boost.json does not exist yet.
+        Rig rig = new Rig(STRONG, RTX, true);
+        rig.options.graphicsPresetBundle = true;
+        rig.options.set(VanillaOption.RENDER_DISTANCE, 5);
+        rig.options.set(VanillaOption.PARTICLES, "MINIMAL");
+        rig.options.setOrder.clear();
+        rig.play(200);
+        assertTrue(rig.options.setOrder.isEmpty(), () -> "overrode the player's options: " + rig.options.setOrder);
+        assertEquals(5, rig.distance());
+    }
+
+    @Test
+    void theCustomStateSmartBoostLeftItselfDoesNotBlockTheNextUpdate() {
+        Rig rig = new Rig(MID, IRIS, true);
+        rig.options.graphicsPresetBundle = true; // untouched default Fancy: the automatic run may tune
+        rig.machine = fpsOverDistance(900);
+        rig.playUntilDone(300);
+        assertTrue(rig.writes(VanillaOption.RENDER_DISTANCE) > 0, "the default Fancy is tuned");
+        assertEquals(Optional.of(""), rig.tuner.state().graphicsAtWrite(), "the game reports custom now");
+
+        rig.options.set(VanillaOption.PARTICLES, "ALL"); // the player takes one option over
+        rig.play(1);
+        rig.game.clientVersion = "1.0.1";
+        rig.options.setOrder.clear();
+        rig.playUntilDone(400);
+        assertEquals(Optional.of("1.0.1"), rig.tuner.state().lastRunClientVersion());
+        assertTrue(rig.writes(VanillaOption.SIMULATION_DISTANCE) > 0, "Smart Boost's own custom state is tuned again");
+        assertEquals(0, rig.writes(VanillaOption.PARTICLES), "the player's particles stay");
+        assertFalse(rig.tuner.state().graphicsPresetChosen());
+    }
+
+    @Test
     void undoRestoresTheEarlierValuesAndTurnsAutomaticTuningOff() {
         Rig rig = new Rig(WEAK, UHD, true);
         rig.machine = fpsOverDistance(240);
