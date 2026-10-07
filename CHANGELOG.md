@@ -10,6 +10,72 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 No changes yet.
 
+## [1.2.1] - 2026-10-07
+
+Bug-fix release of both products for one start-up crash. With a mod in VANTA's game folder that was built for an older
+Minecraft, Minecraft 1.21.11 stopped while starting. The report that led to it came from Smart FPS Booster 1.0.0, a
+third-party mod on Modrinth:
+
+```
+java.lang.RuntimeException: Could not execute entrypoint stage 'client' due to errors, provided by 'smartfpsbooster' at 'com.smartclient.fpsbooster.SmartFPSBoosterClient'!
+Caused by: java.lang.NoSuchMethodError: 'void net.minecraft.class_304.<init>(java.lang.String, net.minecraft.class_3675$class_307, int, java.lang.String)'
+```
+
+Both Fabric builds that Smart FPS Booster lists for Minecraft 1.21.11 were made for older versions
+(`smart-fps-booster-1.0.0+mc1.21.4.jar` and `smart-fps-booster-1.0.0+mc1.21.8.jar`). They create key bindings with a
+text category, a constructor that Minecraft removed in 1.21.9, and their `fabric.mod.json` (`~1.21.4`, `~1.21.8`) lets
+Fabric load them on 1.21.11 anyway. The real 1.21.11 client stops with that `NoSuchMethodError`, with or without
+VANTA; the new diagnostic workflow reproduced it for both builds. VANTA cannot change another author's mod. From 1.2.1
+on it keeps such a mod from stopping the game. Minecraft 1.21.11, Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11 and
+Java 21 are unchanged.
+
+### VANTA Launcher 1.2.1
+
+#### Fixed
+- **Start check.** Before PLAY, before *PLAY via Minecraft Launcher* or *Use with Minecraft Launcher* opens the
+  Minecraft Launcher, before a restart the game asks for, once when the launcher window opens, and before the
+  command-line `--launch` and `--install-official-profile`, the launcher checks every mod in VANTA's game folder
+  except VANTA itself and Fabric API. A mod whose code still creates key bindings the way Minecraft did before 1.21.9,
+  and that has no code path for the newer key bindings, is switched off: its file is renamed to `.jar.disabled`,
+  nothing is deleted, a notification names the mod and the reason, and the Mods page can switch it on again. Jars that
+  passed are remembered by size and date, so the check does not read them again on every start.
+- **Crash-report recovery.** When the newest crash report in VANTA's game folder says that a mod's start-up code
+  failed (`Could not execute entrypoint stage … provided by '<mod id>'`) and the report is newer than that mod's file,
+  the launcher switches that mod off, once per report. VANTA, Fabric API and Fabric's own modules are never switched
+  off, only reported. After the launcher opened the Minecraft Launcher it watches for such a report for 30 minutes and
+  then asks you to press Play in the Minecraft Launcher again; after a game started with PLAY ends, it looks at the
+  report right away.
+- **Mods page.** It no longer installs a build that the start check would switch off: the download is deleted again,
+  the page says why, and an update keeps the version you have.
+- Limits: before the start only this kind of incompatibility is recognised; other start-up crashes are caught through
+  the crash report, and there only Fabric's entrypoint message counts (not Mixin errors). A mod that another enabled
+  mod requires is reported, not switched off.
+
+### VANTA Client 1.2.1
+
+#### Fixed
+- The in-game *Mods & Shaders* screen refuses to install a mod built for an older Minecraft, with the same check: the
+  download is deleted, the message says "This mod was built for an older Minecraft and would stop Minecraft 1.21.11
+  from starting, so it was not installed.", and the rest of the same install still goes in. An identical copy already
+  in `mods/` is not recorded as installed, and a switched-off copy is never switched back on, also not when another
+  mod needs it.
+
+### CI
+- The launcher integration job puts the real Smart FPS Booster jars from Modrinth (versions XhY98l33 and hE70j3c1,
+  SHA-512 checked) into VANTA's game folder and checks that `--install-official-profile` and the headless `--launch`
+  switch them off and that the game then starts without a crash report. The live Modrinth test checks that the in-game
+  installer refuses `smart-fps-booster`.
+- New diagnostic workflow `mod-crash-repro.yml`: it starts the real 1.21.11 client with one extra Modrinth mod version
+  and prints the crash report and the mod's metadata.
+
+#### Updating to 1.2.1
+- If the game already stops at start: launcher 1.2.0 offers the update to 1.2.1 itself. Install it and open the
+  launcher once; it switches the mod off and says so. Without updating: open the VANTA Launcher, go to *Mods*, and
+  switch off Smart FPS Booster in the installed list, or delete `smart-fps-booster-*.jar` from the `mods` folder of
+  VANTA's game folder (*Home → Open game folder*).
+- Manual installations without the VANTA Launcher: remove `smart-fps-booster-*.jar` from your `mods` folder. Fabric
+  itself loads such a jar, so only you can take it out there.
+
 ## [1.2.0] - 2026-10-07
 
 Release of both products. VANTA Client 1.2.0 and VANTA Launcher 1.2.0 are published on

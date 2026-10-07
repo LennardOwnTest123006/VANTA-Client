@@ -351,7 +351,7 @@ anywhere: the card shows "Not installed" with "Install now" (the regular install
 or "Use with Minecraft Launcher", and `--check-update` prints
 
 ```
-Client: not installed (install it with --install or --install-official-profile); latest release 1.2.0
+Client: not installed (install it with --install or --install-official-profile); latest release 1.2.1
 ```
 
 A client installed by "Use with Minecraft Launcher" (jar in `mods/`, no `instance.json`) counts as installed and is
