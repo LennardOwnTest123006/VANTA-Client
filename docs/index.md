@@ -58,7 +58,7 @@ use Mods & Shaders ([Privacy](privacy.md)).
 - [HUD and crosshair](hud.md) — every widget, the HUD editor, presets, keyboard shortcuts, the crosshair customizer
 - [Profiles](profiles.md) — built-in profiles, create, duplicate, export and import safely
 - [Performance Center](performance.md) — what it measures, the five presets with their exact vanilla values, the
-  one-click Boost FPS, render distance suggestions, the Performance pack, honest limits
+  one-click Boost FPS, Smart Boost, render distance suggestions, the Performance pack, honest limits
 - [Mods & Shaders](mods-and-shaders.md) — mods, shader packs and resource packs from Modrinth in game and in the
   launcher, the Performance pack, Iris shaders, disabling and removing, restart, what is sent to Modrinth
 - [Keybinds](keybinds.md) — VANTA keys, rebinding, conflict detection, zoom
@@ -77,8 +77,8 @@ use Mods & Shaders ([Privacy](privacy.md)).
 
 - [Troubleshooting](troubleshooting.md) — "Not published yet", SmartScreen and Smart App Control, a launcher that
   does not start, which launcher file, the Minecraft Launcher profile, Java not found, checksum mismatch, sign-in
-  errors, crashes, mod conflicts, 30 FPS after a 1.1.0 preset or profile, buttons in small windows, Mods & Shaders,
-  logs
+  errors, crashes, mod conflicts, 30 FPS after a 1.1.0 preset or profile, short freezes, graphics shows Custom,
+  buttons in small windows, Singleplayer worlds, Mods & Shaders, logs
 - [FAQ](faq.md) — where to download, servers, the Performance pack and shaders, supported versions, price, data
 
 ## Getting help

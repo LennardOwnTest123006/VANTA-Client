@@ -185,7 +185,7 @@ export const advisorRules: readonly { readonly condition: string; readonly sugge
   [
     {
       condition: 'Average FPS over the last 10 seconds stays below 75% of the target',
-      suggestion: 'Lower the render distance by 2 chunks (never below 4).',
+      suggestion: 'Lower the render distance by 2 chunks (never below 6).',
     },
     {
       condition:

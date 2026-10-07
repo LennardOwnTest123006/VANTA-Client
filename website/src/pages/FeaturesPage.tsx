@@ -31,7 +31,7 @@ export default function FeaturesPage() {
             Everything on your side of the screen, <span className="text-gradient">refined</span>.
           </>
         }
-        lead={`A complete tour of what VANTA Client adds to Minecraft ${site.minecraft} — and the lines it never crosses. Features marked “New in 1.1.0” or “New in 1.2.0” need at least that VANTA Client version.`}
+        lead={`A complete tour of what VANTA Client adds to Minecraft ${site.minecraft} — and the lines it never crosses. Features marked “New in 1.1.0”, “New in 1.2.0” or “New in 1.3.0” need at least that VANTA Client version.`}
       >
         <TocNav items={toc} />
       </PageHero>

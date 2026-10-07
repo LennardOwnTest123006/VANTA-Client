@@ -68,9 +68,12 @@ rendering pipeline.
 
 - Mojang recommends 4 GB of RAM for the game; 8 GB total system memory gives a comfortable margin for the game,
   the launcher and your browser.
-- The launcher assigns the game a maximum heap of **half your physical memory, between 2 GB and 8 GB** (4 GB when
-  the memory cannot be determined). Change it in *Settings → Memory*; more than 8 GB rarely helps vanilla Minecraft
-  and can make garbage-collection pauses longer.
+- The launcher assigns the game a maximum heap of **half your physical memory, between 2 GB and 8 GB, but never more
+  than half of it** (4 GB when the memory cannot be determined). From launcher 1.3.0 on, a PC with less than 4 GB gets
+  half its memory, at least 1 GB. Change it in *Settings → Memory*; more than 8 GB rarely helps vanilla Minecraft
+  and can make garbage-collection pauses longer. From launcher 1.3.0 on the Minecraft Launcher profile *VANTA
+  1.21.11* gets the same memory and garbage-collector settings as PLAY
+  ([Troubleshooting → Short freezes](troubleshooting.md#short-freezes-while-playing)).
 - The launcher itself needs around 300 MB while installing.
 
 ## Disk space

@@ -21,18 +21,38 @@ vanilla menu and they are saved to `options.txt`, not to VANTA's file.
 
 | Category | What is in it |
 | --- | --- |
-| **General** | main menu: replace the title screen, background style, particles, version label; interface: notification corner and duration, UI scale (0.75–1.5), UI sounds, theme; *Reset all settings*, *Open config folder* |
-| **Video** (vanilla) | graphics mode, render distance, simulation distance, max framerate, VSync, FOV, GUI scale, particles, clouds, smooth lighting, entity shadows, entity distance, biome blend, mipmap levels, view bobbing, menu blur, inactivity FPS limit, screen/FOV effect scale, glint speed/strength, autosave indicator, panorama speed, dark loading screen; *Open vanilla video settings* |
+| **General** | main menu: replace the title screen, background style, particles, version label; interface: notification corner and duration, UI scale (0.75–1.5), UI sounds, theme; *Singleplayer worlds* (*Minecraft folder* or *VANTA folder*, from client 1.3.0 on, see below); *Reset all settings*, *Open config folder* |
+| **Video** (vanilla) | graphics mode (Fast, Fancy, Fabulous; shows *Custom* when the game reports it, see below), render distance, simulation distance, max framerate, VSync, FOV, GUI scale, particles, clouds, smooth lighting, entity shadows, entity distance, biome blend, mipmap levels, view bobbing, menu blur, inactivity FPS limit, screen/FOV effect scale, glint speed/strength, autosave indicator, panorama speed, dark loading screen; *Open vanilla video settings* |
 | **Audio** (vanilla) | master, music, jukebox, weather, blocks, hostile, neutral, players, ambient, voice volumes and subtitles; *Open vanilla sound settings* |
 | **Controls** | zoom (enable, factor 1.5–8.0, key, smooth animation, scroll to adjust); vanilla mouse sensitivity, invert mouse, wheel sensitivity, discrete scroll, raw input, auto-jump, toggle sneak/sprint; *Open keybind manager* |
 | **HUD** | HUD enabled, editor grid, snapping, global scale (0.5–2.0), global opacity (0.1–1.0), text shadow; *Open HUD editor* and the crosshair customizer |
-| **Performance** | quick frame-rate limit (VSync / 60 / 120 / 144 / 240 / unlimited), frame-time graph, render-distance suggestions, apply suggestions automatically (off by default), last applied preset, offer the Performance pack at start (on by default; the *Boost your FPS?* dialog of a game the VANTA Launcher did not start); *Open Performance Center* |
+| **Performance** | quick frame-rate limit (VSync / 60 / 120 / 144 / 240 / unlimited), frame-time graph, render-distance suggestions, apply suggestions automatically (off by default), *Smart Boost: tune automatically after install/update* (on by default) and *Smart Boost: adjust render distance while playing* (off by default; both from client 1.3.0 on, see [Smart Boost](performance.md#smart-boost)), last applied preset, offer the Performance pack at start (on by default; the *Boost your FPS?* dialog of a game the VANTA Launcher did not start); *Open Performance Center* |
 | **Accessibility** | reduced motion, high contrast, larger text, reduced transparency, colour-blind palette; vanilla high contrast, text background opacity, chat opacity; *Open vanilla accessibility options* |
 | **Language** | *Open vanilla language screen* (VANTA strings follow the game language), *Show translation keys* for translators |
 | **Cosmetics** | badge, HUD theme, crosshair preset; *Open crosshair customizer*; link to the Cosmetics screen |
 | **Privacy** | record statistics, remember servers, remember worlds; *Clear statistics* |
 
 The exact option lists are defined in one place in the code (`VantaSettings`), so what you see is what exists.
+
+**Graphics and *Custom*.** Minecraft 1.21.11 switches its graphics preset to *Custom* as soon as one option of the
+preset bundle changes (render distance, clouds, particles, …). From client 1.3.0 on the *Graphics* row shows *Custom*
+then (before, VANTA showed *Fancy*). Choosing Fast, Fancy or Fabulous applies that preset with all its options;
+*Custom* itself cannot be chosen, and the row goes back to what the game has. Like every vanilla-bound row, it
+applies at once and is saved to `options.txt`
+([Troubleshooting](troubleshooting.md#graphics-shows-custom-or-a-change-in-sodiums-video-settings-is-lost)).
+
+**Singleplayer worlds** (from client 1.3.0 on) chooses the `saves/` folder Singleplayer uses:
+
+| Value | Singleplayer lists, creates and loads worlds in |
+| --- | --- |
+| *Minecraft folder* (default) | `saves/` of your normal Minecraft folder (the one the VANTA Launcher recorded in `config/vanta/minecraft-folder.json`, else `.minecraft`); world backups go to its `backups/` |
+| *VANTA folder* | `saves/` of VANTA's own game folder |
+
+With *Minecraft folder* the VANTA folder still stays in use when the Minecraft folder has no `saves/` folder, when its
+`saves/` holds no world while the VANTA folder's does, when the game already runs in the Minecraft folder, and in
+another launcher's instance without the VANTA Launcher's note. Nothing is moved, copied or deleted, and the change
+takes effect at the next game start (the row is marked *Restart required*). Details:
+[Installation → Where your worlds are](installation.md#where-your-worlds-are).
 
 ## Rows
 

@@ -37,6 +37,15 @@ authentication, the servers you join, resource packs a server sends) are not cha
 HUD widgets show information the game already exposes about your own session (position, biome, effects, ping,
 server name). The *Server* widget has a "hide address" option for streaming.
 
+**Smart Boost** (from client 1.3.0 on) works only on your computer: it reads the frame times of your own gameplay, the
+GPU name the graphics driver reports, the number of CPU threads and the Java heap size, and keeps what it measured and
+wrote in `config/vanta/smart-boost.json`. The GPU name and the measured steps also appear in the game log. Nothing of
+it is sent anywhere ([Performance Center → Smart Boost](performance.md#smart-boost)).
+
+**Singleplayer worlds** (from client 1.3.0 on): by default the game reads and writes worlds in the `saves/` folder of
+your normal Minecraft folder, as the vanilla game does. VANTA moves, copies and uploads nothing
+([Installation → Where your worlds are](installation.md#where-your-worlds-are)).
+
 ## VANTA Launcher
 
 To install and start the game the launcher connects to:
@@ -76,7 +85,8 @@ you configured them.
 VANTA Client and, when it is switched on, the Performance pack into the VANTA game folder, the Fabric Loader version
 files into the official Minecraft folder and the profile *VANTA 1.21.11* into
 each profiles file of the official Minecraft Launcher that exists there, `launcher_profiles.json` and/or
-`launcher_profiles_microsoft_store.json` (each with a one-time backup).
+`launcher_profiles_microsoft_store.json` (each with a one-time backup), and from launcher 1.3.0 on the note
+`config/vanta/minecraft-folder.json` with the path of that Minecraft folder into the VANTA game folder.
 VANTA reads these files only to keep your other profiles unchanged and sends nothing from them anywhere. Before it
 writes them, it checks whether the Minecraft Launcher is running by looking at the list of running processes on your
 computer; nothing about them leaves your computer. Sign-in, downloads and play are then handled by the official

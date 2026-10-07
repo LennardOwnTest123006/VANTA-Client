@@ -35,8 +35,8 @@ export interface FeatureHighlight {
 /**
  * The ten cards on the home page. Titles are uppercase labels by design. Mods & Shaders and the
  * Performance pack exist from VANTA Client 1.1.0 / VANTA Launcher 1.1.0 on, Boost FPS and the pack in the
- * mods bundle from VANTA Client 1.2.0 on, so their summaries say so: the copy stays true while the Download
- * page still offers an older published release.
+ * mods bundle from VANTA Client 1.2.0 on, Smart Boost from VANTA Client 1.3.0 on, so their summaries say so:
+ * the copy stays true while the Download page still offers an older published release.
  */
 export const featureHighlights: readonly FeatureHighlight[] = [
   {
@@ -44,7 +44,7 @@ export const featureHighlights: readonly FeatureHighlight[] = [
     title: 'Performance',
     icon: Gauge,
     summary:
-      'Live FPS, frame time, memory and distance readouts with five presets built from vanilla video options that never cap the frame rate, and (new in 1.2.0) a one-click Boost FPS.',
+      'Live FPS, frame time, memory and distance readouts with five presets built from vanilla video options that never cap the frame rate, a one-click Boost FPS (new in 1.2.0) and Smart Boost (new in 1.3.0).',
   },
   {
     id: 'performance-pack',
@@ -204,8 +204,9 @@ export const featureFamilies: readonly FeatureFamily[] = [
       'Live FPS, average and 1% low frame time, used / allocated / maximum memory, render and simulation distance, entity count and CPU load',
       'MAX FPS, LOW, BALANCED, HIGH and ULTRA presets that only set vanilla video options and never cap the frame rate (1.1.0 wrote 60 / 120 FPS caps with LOW and BALANCED; fixed in 1.2.0), plus quick FPS-limit choices',
       'New in 1.2.0: one-click Boost FPS applies MAX FPS, removes the frame-rate cap, turns VSync off, uses a plain menu and installs the Performance pack when it is missing',
+      'New in 1.3.0: Smart Boost measures real gameplay once after an install or update and applies the preset your PC runs smoothly — local rules, no network, never Fast / Fancy / Fabulous, the frame-rate limit or VSync, never an option you changed; Re-tune and Undo on its card',
       'Detects which preset matches your current options and shows "Custom" when you changed anything',
-      'Render-distance advisor that suggests ±2 chunks from measured frame rate — applied only when you say so',
+      'Render-distance advisor that suggests ±2 chunks from measured frame rate (never below 6 chunks) — applied only when you say so',
       'No renderer replacement of its own and no unverified performance claims; for more, it points to the Performance pack',
     ],
     link: { to: '/performance', label: 'How the presets work' },
