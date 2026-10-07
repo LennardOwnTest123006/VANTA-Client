@@ -424,9 +424,10 @@ looked like "Graphics jumps back to Fancy". **Fixed in client 1.3.0:**
 
 **Sodium forgets a change.** With the [Performance pack](mods-and-shaders.md#the-performance-pack), *Options → Video
 Settings* opens Sodium's screen instead of vanilla's. Sodium keeps changes pending until you press **Apply** (or
-Alt+A); **Escape closes the screen and discards changes that were not applied**. From client 1.3.0 on VANTA shows the
-notification *Sodium video settings: Press Apply (Alt+A) to keep your changes* the first time that screen opens in a
-game session. Press *Apply*, then close the screen.
+Alt+A), and on its own it discards them when you leave with Escape. **From client 1.3.0 on, Escape applies the pending
+changes first**, like *Apply*, and the notification *Sodium video settings* says so the first time that screen opens
+in a game session. With client 1.2.1 and earlier, press *Apply* before you close the screen. If `latest.log` contains
+*Could not apply Sodium's pending video settings*, your Sodium version is not one VANTA knows; press *Apply* there.
 
 If options changed by themselves right after an update to client 1.3.0, that was Smart Boost's first run (the
 notifications *Smart Boost is testing settings* and *Smart Boost applied*). *Undo Smart Boost* in the Performance

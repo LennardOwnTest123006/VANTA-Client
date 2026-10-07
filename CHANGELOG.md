@@ -66,9 +66,12 @@ API 0.141.6+1.21.11 and Java 21 are unchanged.
   Minecraft folder (manual installation), and in another launcher's instance without the VANTA Launcher's note. A
   change takes effect at the next game start; `latest.log` names the folder in use and why. A world opened with mods
   that add blocks or items loses those blocks when vanilla Minecraft opens it later; VANTA adds none.
-- **Sodium tip.** With the Performance pack, Sodium's screen replaces vanilla Video Settings. There a change is kept
-  only after *Apply* (Alt+A); Escape closes the screen and discards changes that were not applied. The first time
-  that screen opens in a game session, a notification says so.
+- **Escape keeps changes in Sodium's video settings.** With the Performance pack, Sodium's screen replaces vanilla
+  Video Settings. On its own, Sodium throws away changes that were not applied when you leave with Escape, so Fast
+  went back to Fancy. With VANTA, Escape now applies the pending changes, like *Apply* (Alt+A), and then closes the
+  screen, the same as vanilla Video Settings. The first time that screen opens in a game session, a notification
+  says so. If VANTA cannot reach Sodium's settings (a Sodium version with other internals), `latest.log` says so
+  once and Sodium's own behaviour applies: press *Apply* before you leave.
 
 #### Changed
 - **Built-in profiles change only what they are about**: the options of their performance preset, the frame-rate
@@ -141,8 +144,8 @@ API 0.141.6+1.21.11 and Java 21 are unchanged.
   - `OptionsPersistenceStep` sets Fast in vanilla Video Settings and leaves with Escape, opens and closes VANTA's main
     menu, Settings (Video) and Performance Center, and reloads the options from disk as a restart does. It then
     changes clouds through the vanilla API that a slider and Sodium's *Apply* use and requires that the game reports
-    Custom and that VANTA shows Custom. With Sodium loaded it opens Sodium's video settings and requires the Apply
-    tip. Last it picks Fast in VANTA's own *Graphics* row. After every stage the game, VANTA's row and `options.txt`
+    Custom and that VANTA shows Custom. With Sodium loaded it opens Sodium's video settings, requires the tip,
+    makes a pending change there and requires that Escape applies it. Last it picks Fast in VANTA's own *Graphics* row. After every stage the game, VANTA's row and `options.txt`
     must agree.
   - `WorldsFolderStep`: the production game test task creates a stand-in Minecraft folder
     (`run/production-gametest/official-minecraft` with an empty `saves/`) and the launcher's note pointing at it.
@@ -176,8 +179,8 @@ API 0.141.6+1.21.11 and Java 21 are unchanged.
   after install/update* before you join a world. *Undo Smart Boost* in the Performance Center restores your earlier
   values. If your graphics settings were already your own, the card says so and nothing changes. Afterwards the
   *Graphics* row can show *Custom*: Smart Boost changes single options and never Fast / Fancy / Fabulous.
-- **Sodium.** With the Performance pack, *Options → Video Settings* is Sodium's screen. Press *Apply* (Alt+A) before
-  you leave it; Escape discards changes that were not applied. VANTA reminds you once per game session.
+- **Sodium.** With the Performance pack, *Options → Video Settings* is Sodium's screen. Escape now keeps your
+  changes there, as *Apply* (Alt+A) does. VANTA tells you once per game session.
 - **Minecraft Launcher profile.** Run *PLAY via Minecraft Launcher* or *Use with Minecraft Launcher* once with
   launcher 1.3.0, so the profile gets the new JVM arguments and the Minecraft folder note. JVM arguments you edited in
   the Minecraft Launcher are kept; empty them there if you want VANTA's line.
