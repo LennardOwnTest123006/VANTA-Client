@@ -34,8 +34,9 @@ export interface FeatureHighlight {
 
 /**
  * The ten cards on the home page. Titles are uppercase labels by design. Mods & Shaders and the
- * Performance pack exist from VANTA Client 1.1.0 / VANTA Launcher 1.1.0 on, so their summaries say so:
- * the copy stays true while the Download page still offers an older published release.
+ * Performance pack exist from VANTA Client 1.1.0 / VANTA Launcher 1.1.0 on, Boost FPS and the pack in the
+ * mods bundle from VANTA Client 1.2.0 on, so their summaries say so: the copy stays true while the Download
+ * page still offers an older published release.
  */
 export const featureHighlights: readonly FeatureHighlight[] = [
   {
@@ -43,14 +44,14 @@ export const featureHighlights: readonly FeatureHighlight[] = [
     title: 'Performance',
     icon: Gauge,
     summary:
-      'Live FPS, frame time, memory and distance readouts with five presets built from vanilla video options, and a one-click Boost FPS.',
+      'Live FPS, frame time, memory and distance readouts with five presets built from vanilla video options that never cap the frame rate, and (new in 1.2.0) a one-click Boost FPS.',
   },
   {
     id: 'performance-pack',
     title: 'Performance pack',
     icon: Zap,
     summary:
-      'New in 1.1.0: Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling and Iris from Modrinth in one click, checked with SHA-512.',
+      'Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling and Iris from Modrinth in one click, checked with SHA-512; from 1.2.0 the redistributable five come in the mods bundle.',
   },
   {
     id: 'mods',
@@ -201,7 +202,8 @@ export const featureFamilies: readonly FeatureFamily[] = [
       'See what your machine is doing and change the vanilla video options that matter — in one screen, with honest numbers.',
     bullets: [
       'Live FPS, average and 1% low frame time, used / allocated / maximum memory, render and simulation distance, entity count and CPU load',
-      'MAX FPS, LOW, BALANCED, HIGH and ULTRA presets that only set vanilla video options and never cap the frame rate, plus quick FPS-limit choices and a one-click Boost FPS',
+      'MAX FPS, LOW, BALANCED, HIGH and ULTRA presets that only set vanilla video options and never cap the frame rate (1.1.0 wrote 60 / 120 FPS caps with LOW and BALANCED; fixed in 1.2.0), plus quick FPS-limit choices',
+      'New in 1.2.0: one-click Boost FPS applies MAX FPS, removes the frame-rate cap, turns VSync off, uses a plain menu and installs the Performance pack when it is missing',
       'Detects which preset matches your current options and shows "Custom" when you changed anything',
       'Render-distance advisor that suggests ±2 chunks from measured frame rate — applied only when you say so',
       'No renderer replacement of its own and no unverified performance claims; for more, it points to the Performance pack',
@@ -212,14 +214,15 @@ export const featureFamilies: readonly FeatureFamily[] = [
     id: 'performance-pack',
     title: 'Performance pack',
     icon: Zap,
-    eyebrow: 'New in 1.1.0',
+    eyebrow: 'New in 1.1.0, in the bundle since 1.2.0',
     description:
-      'Six well-known optimisation mods from Modrinth, installed in one step. They are independent projects by their own authors; VANTA downloads them for you and does not ship them in its files.',
+      'Six well-known optimisation mods from Modrinth, installed in one step. They are independent projects by their own authors; VANTA installs them unmodified under their own licences.',
     bullets: [
       'Sodium (rendering engine), Lithium (game logic), FerriteCore (memory), ImmediatelyFast (HUD, text and entity rendering), EntityCulling (skips what you cannot see) and Iris Shaders (shader packs)',
       'The newest Fabric version of each for Minecraft 1.21.11 is looked up on Modrinth when you install; nothing is pinned in VANTA',
       'Every file is checked against the SHA-512 Modrinth publishes; a mod without a 1.21.11 version is skipped with a message',
       'In game: one click on the Mods & Shaders screen, with a tick box per mod. In the VANTA Launcher 1.1.0: installed by default, switchable in Settings',
+      'New in 1.2.0: the mods bundle for manual installs carries the five mods whose licences allow redistribution (Sodium under PolyForm Shield, licence texts included); EntityCulling is offered in game with one click, once, at the main menu',
       'No FPS promises: how much faster the game runs depends on your computer',
     ],
     link: {

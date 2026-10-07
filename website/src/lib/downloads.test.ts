@@ -145,7 +145,7 @@ describe('modsBundleFile', () => {
 describe('describeReleaseFile', () => {
   it.each([
     ['vanta-client-1.0.0.jar', 'VANTA Client mod'],
-    ['vanta-client-1.0.0-mods.zip', 'Mods folder bundle (VANTA + Fabric API)'],
+    ['vanta-client-1.0.0-mods.zip', 'Mods folder bundle (VANTA, Fabric API, Performance pack)'],
     ['fabric-api-0.141.6+1.21.11.jar', 'Fabric API (required dependency)'],
     ['VANTA-Launcher-1.0.0.msi', 'Windows installer'],
     ['VANTA-Launcher-1.0.0.exe', 'Windows installer'],

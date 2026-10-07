@@ -112,7 +112,8 @@ without one. From that commit until the completed manifest is committed (step 7)
    with exactly the release files above (`--date` sets its preliminary `releaseDate`; the workflow overwrites it).
    For 1.0.1: `--product client --to 1.0.1 --date 2026-10-05` and `--product launcher --to 1.0.1 --date 2026-10-05`.
    A release of one product bumps only that product, for example the launcher-only 1.0.2:
-   `--product launcher --to 1.0.2 --date 2026-10-05` (the client stays at 1.0.1).
+   `--product launcher --to 1.0.2 --date 2026-10-05` (the client stays at 1.0.1). For 1.2.0:
+   `--product client --to 1.2.0 --date 2026-10-06` and `--product launcher --to 1.2.0 --date 2026-10-06`.
 2. **Notes.** Write `website/content/changelog/<product>-<version>.md` and update `CHANGELOG.md`. Launchers load the
    release notes of an update from
    `https://raw.githubusercontent.com/LennardOwnTest123006/VANTA-Client/HEAD/<changelog path of the manifest>` when

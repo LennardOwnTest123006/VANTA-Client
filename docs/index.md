@@ -17,10 +17,10 @@ use Mods & Shaders ([Privacy](privacy.md)).
 | Fabric Loader | 0.19.5 |
 | Fabric API | 0.141.6+1.21.11 |
 | Java | 21 |
-| VANTA Client | 1.1.0 |
-| VANTA Launcher | 1.1.0 |
+| VANTA Client | 1.2.0 |
+| VANTA Launcher | 1.2.0 |
 | Launcher platforms | Windows 10/11 x64 (installers, portable app, jar); Linux x64 (app image, jar); Apple Silicon macOS (jar) |
-| Downloads | GitHub Releases `client-v1.1.0` and `launcher-v1.1.0` (released 2026-10-05; the earlier releases stay available), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
+| Downloads | GitHub Releases `client-v1.2.0` and `launcher-v1.2.0` (released 2026-10-06; the earlier releases stay available), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
 
 ## Quick start
 
@@ -77,7 +77,8 @@ use Mods & Shaders ([Privacy](privacy.md)).
 
 - [Troubleshooting](troubleshooting.md) — "Not published yet", SmartScreen and Smart App Control, a launcher that
   does not start, which launcher file, the Minecraft Launcher profile, Java not found, checksum mismatch, sign-in
-  errors, crashes, mod conflicts, Mods & Shaders, logs
+  errors, crashes, mod conflicts, 30 FPS after a 1.1.0 preset or profile, buttons in small windows, Mods & Shaders,
+  logs
 - [FAQ](faq.md) — where to download, servers, the Performance pack and shaders, supported versions, price, data
 
 ## Getting help

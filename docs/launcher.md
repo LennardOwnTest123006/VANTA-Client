@@ -12,7 +12,7 @@ each for Windows x64, Linux x64 and Apple Silicon macOS (each jar runs only on t
 [Installation → Download](installation.md#1-download)). It does three things and nothing more: download verified
 files, sign you in with Microsoft or hand the game over to the official Minecraft Launcher, and start the game.
 
-This page describes launcher 1.1.0. Where earlier versions behave differently, the text says so.
+This page describes launcher 1.2.0. Where earlier versions behave differently, the text says so.
 
 ## Home
 
@@ -274,6 +274,21 @@ again with the same Java and account, without running the installation check aga
 PLAY, and also with `--launch` on the command line. Games started from the official Minecraft Launcher do not get the
 property; there the banner offers *Quit game*, and you start the game again in the Minecraft Launcher.
 
+## Notifications
+
+Results and errors (an installed mod, a finished update, a failed download, the game's exit code) appear as
+notifications (toasts) over the page. A toast closes by itself after a few seconds and pauses while the mouse rests on
+it. From launcher 1.2.0 on:
+
+- a click anywhere on a toast dismisses it (the click never silently vanishes; the next one reaches the control under
+  it), and the pause while the mouse is over a toast ends after 8 seconds at the latest;
+- in a window narrower than 1100 px the toasts appear top-right, below the update banner and the page header, and a
+  toast is never wider than 30 percent of the window (at most 360 px). In wider windows they stay bottom-right.
+
+In launcher 1.1.0 a toast in the bottom-right corner of a small window (960 x 600) could lie over the lower *Install*
+buttons of the Mods page and, because it stayed as long as the mouse rested on it, swallow every click there; in a
+maximised window nothing overlapped. Dismissing the toast or maximising the window works around it there.
+
 ## Account sign-in
 
 The launcher uses Microsoft's **device code flow**, so you never type a password into it. It works only when a
@@ -454,28 +469,28 @@ At start (and with `--check-update`) the launcher fetches `launcher-latest.json`
   stays available with its checksum.
 
   **Updating from launcher 1.0.0.** The table describes launcher 1.0.1 and newer. An update is offered by the
-  launcher you are running, and launcher 1.0.0 still picks the file by system only, for the update to 1.1.0 as for
-  every earlier one: on Windows it offers `VANTA-Launcher-1.1.0.msi` (also in the portable folder and when started as
-  a jar), on Linux x64 `VANTA-Launcher-1.1.0-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a
+  launcher you are running, and launcher 1.0.0 still picks the file by system only, for the update to 1.2.0 as for
+  every earlier one: on Windows it offers `VANTA-Launcher-1.2.0.msi` (also in the portable folder and when started as
+  a jar), on Linux x64 `VANTA-Launcher-1.2.0-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a
   portable folder or a jar installs a second launcher and leaves the portable copy or jar at 1.0.0. To keep a portable
   or jar setup, choose *Not now* in the 1.0.0 launcher, close it and download
-  `VANTA-Launcher-1.1.0-windows-portable.zip` or the jar for your system from the release
-  [`launcher-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.1.0) yourself
+  `VANTA-Launcher-1.2.0-windows-portable.zip` or the jar for your system from the release
+  [`launcher-v1.2.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.2.0) yourself
   (verify it as in [Installation → Verify the checksum](installation.md#2-verify-the-checksum) and replace the files
   as described in the table). From 1.0.1 on, the launcher picks the matching file itself.
 
   **Update files saved by launcher 1.0.0 and 1.0.1.** They save the download as `cache/updates/<version>-<file name>`,
-  for example `1.1.0-vanta-launcher-1.1.0-linux-all.jar`. It is the verified release file under a different name:
+  for example `1.2.0-vanta-launcher-1.2.0-linux-all.jar`. It is the verified release file under a different name:
   *Show in folder* opens that folder and the file starts from there as it is. To check it yourself with
   `sha256sum -c --ignore-missing SHA256SUMS.txt` from the release, rename it to the release name first
-  (`vanta-launcher-1.1.0-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name
+  (`vanta-launcher-1.2.0-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name
   ([Installation → Updating](installation.md#updating)).
 - An announced release whose manifest still has an empty download URL is shown as *announced, not downloadable yet*.
 
 `--check-update` prints the same result, for example on a fresh launcher:
 
 ```text
-Client: not installed (install it with --install or --install-official-profile); latest release 1.1.0
+Client: not installed (install it with --install or --install-official-profile); latest release 1.2.0
 ```
 
 ## About and links
@@ -541,7 +556,7 @@ on Linux, `"VANTA Launcher/bin/VANTA Launcher"` from the app image. The command 
 every launcher jar on every system; only the window needs the jar for your system. On Windows `VANTA Launcher.exe` is a
 window program without console output; use the jar with an installed Java 21 there, or the bundled runtime:
 `"VANTA Launcher\runtime\bin\java.exe" -jar "VANTA Launcher\app\vanta-launcher-<version>-all.jar"` inside the
-unzipped portable app (for 1.1.0: `vanta-launcher-1.1.0-all.jar`).
+unzipped portable app (for 1.2.0: `vanta-launcher-1.2.0-all.jar`).
 
 ```text
 vanta-launcher --install [--client-jar <path>] [--without-client] [--without-performance-pack] [--no-assets]
@@ -593,3 +608,5 @@ Exit codes:
 | `VANTA_RELEASES_BASE_URL` | releases base URL used when the setting is empty (otherwise the built-in default) |
 | `VANTA_LAUNCHER_HOME` | overrides the data directory |
 | `VANTA_DEV_OFFLINE` | `1` allows development offline accounts together with developer mode (CI only) |
+| `VANTA_UI_SMOKE_SCREENSHOT`, `VANTA_UI_SMOKE_EXIT_AFTER` | for automated tests: write a screenshot of the window once it is shown (`<png>`), close the launcher that many seconds after the window was shown with exit code 0 |
+| `VANTA_UI_SMOKE_PAGE`, `VANTA_UI_SMOKE_SIZE` | from launcher 1.2.0 on, only together with one of the two above: show that page (`home`, `mods`, `versions`, `logs`, `settings`, `about`) before the screenshot and size the window first (`<width>x<height>`, raised to the 960 x 600 minimum). On their own they do nothing |

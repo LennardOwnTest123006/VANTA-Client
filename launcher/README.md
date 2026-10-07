@@ -331,6 +331,12 @@ one window size, as a PNG; with `-PsmokeToast` a toast is shown first (bottom-ri
 top-right below the banner and page header when the window is narrower than 1100 px or the page scrolls). Run it under
 `xvfb-run -a` on a headless Linux box, or with `-Pheadless` for the Monocle platform.
 
+Toasts (`ToastLayer`, launcher 1.2.0): a click anywhere on a toast dismisses it, the pause while the mouse rests on a
+toast ends after `HOVER_LIMIT` (8 s) at the latest, a card is `min(360 px, 30 % of the window)` wide, and below
+`TOP_RIGHT_BELOW` (1100 px) of window width the stack moves top-right under the update banner and the page header
+(`MainWindow` hands their lower edge to the layer after every layout pass). `LauncherAppSmokeTest` checks at
+960 x 600 that a toast intersects none of the Mods page's Install buttons and clicks them through the robot.
+
 ## Installed client and update checks
 
 Whether a VANTA client is installed is read from one place, `VantaClientService.installedClient()`: the
@@ -343,7 +349,7 @@ anywhere: the card shows "Not installed" with "Install now" (the regular install
 or "Use with Minecraft Launcher", and `--check-update` prints
 
 ```
-Client: not installed (install it with --install or --install-official-profile); latest release 1.0.1
+Client: not installed (install it with --install or --install-official-profile); latest release 1.2.0
 ```
 
 A client installed by "Use with Minecraft Launcher" (jar in `mods/`, no `instance.json`) counts as installed and is

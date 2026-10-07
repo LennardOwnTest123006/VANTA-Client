@@ -208,6 +208,16 @@ export const supportCategories: readonly SupportCategory[] = [
     ],
     troubleshooting: [
       {
+        label: 'Low FPS or exactly 30 FPS after a preset or profile in 1.1.0',
+        to: '/documentation/troubleshooting#low-fps-or-exactly-30-fps-after-choosing-a-preset-or-profile-in-vanta-110',
+        note: 'The caps 1.1.0 wrote, fixed in 1.2.0; choose Unlimited once or press Boost FPS.',
+      },
+      {
+        label: 'Buttons that cannot be clicked in a small window',
+        to: '/documentation/troubleshooting#buttons-that-cannot-be-clicked-in-a-small-window',
+        note: 'Mods & Shaders, main menu, Settings and HUD editor at small sizes; fixed in 1.2.0.',
+      },
+      {
         label: 'Does the Performance Center make the game faster?',
         to: '/faq#does-the-performance-center-make-the-game-faster',
         note: 'The short answer, in the FAQ.',

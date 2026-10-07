@@ -43,11 +43,13 @@ const options: readonly { readonly title: string; readonly text: ReactNode }[] =
       <>
         Start the official Minecraft Launcher once, then install Fabric Loader {site.fabricLoader}{' '}
         for Minecraft {site.minecraft} with the Fabric installer from fabricmc.net (keep “Create
-        profile” checked) and copy the two jars from the mods bundle into{' '}
-        <code className="font-mono text-[12px] text-text-primary">.minecraft/mods</code>.{' '}
-        <code className="font-mono text-[12px] text-text-primary">INSTALL.txt</code> in the bundle
-        lists these steps. From client 1.1.0 on, “Mods & Shaders” in the game installs the
-        performance pack and more.
+        profile” checked) and copy all jars from the mods bundle into{' '}
+        <code className="font-mono text-[12px] text-text-primary">.minecraft/mods</code>. From
+        client 1.2.0 on the bundle holds the VANTA jar, Fabric API and the Performance pack mods
+        whose licences allow redistribution (Sodium, Lithium, FerriteCore, ImmediatelyFast, Iris);
+        delete older copies of those first. EntityCulling is not in the zip: the game offers it with
+        one click. <code className="font-mono text-[12px] text-text-primary">INSTALL.txt</code> in
+        the bundle lists these steps, and “Mods & Shaders” in the game installs more from Modrinth.
       </>
     ),
   },

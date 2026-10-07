@@ -126,7 +126,7 @@ export default function DownloadPage() {
             icon={Package}
             eyebrow="Client"
             title="VANTA Client (jar)"
-            description={`The Fabric mod for Minecraft ${site.minecraft} with Fabric Loader ${site.fabricLoader}. It needs Fabric API ${site.fabricApi}, which is included in the mods bundle (VANTA + Fabric API) and also published as its own file.`}
+            description={`The Fabric mod for Minecraft ${site.minecraft} with Fabric Loader ${site.fabricLoader}. It needs Fabric API ${site.fabricApi}, which is included in the mods bundle and also published as its own file. From client 1.2.0 on the mods bundle also holds the Performance pack mods that may be redistributed (all but EntityCulling, which the game offers in one click).`}
             cta="Download client jar"
             upcoming={upcomingRelease(releases, 'client')}
             secondaryDownload={{ file: modsBundle, label: 'Download mods bundle' }}
