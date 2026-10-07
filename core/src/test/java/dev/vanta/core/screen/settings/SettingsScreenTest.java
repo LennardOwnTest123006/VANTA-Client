@@ -15,6 +15,7 @@ import dev.vanta.core.settings.SettingCategory;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.TestCanvas;
+import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.widget.Select;
 import dev.vanta.core.ui.widget.Slider;
 import dev.vanta.core.ui.widget.Toggle;
@@ -218,5 +219,29 @@ class SettingsScreenTest {
         t.frame(screen, -1000, -1000);
         Toggle vsync = (Toggle) screen.rowFor("video.vsync").orElseThrow().editor();
         assertFalse(vsync.isOn(), "the Video rows show what the preset wrote");
+    }
+
+    /** Ctrl+F waits while a dropdown is open: the popup owns the keyboard and the search field must not steal focus. */
+    @Test
+    void searchShortcutWaitsWhileADropdownIsOpen() {
+        SettingsScreen screen = t.show(ScreenId.SETTINGS, 854, 480);
+        screen.selectCategory(SettingCategory.PERFORMANCE);
+        t.frame(screen, -1000, -1000);
+        Select<?> select = (Select<?>) screen.rowFor("performance.fpsLimitPreset").orElseThrow().editor();
+        ScreenTestSupport.click(screen, select);
+        assertTrue(select.isOpen());
+        UiNode focused = screen.context().focus().focused();
+        assertSame(select.popupNode(), focused);
+
+        assertFalse(ScreenTestSupport.key(screen, Keys.F, Keys.MOD_CONTROL));
+        assertTrue(select.isOpen());
+        assertFalse(screen.searchField().isFocused());
+        t.frame(screen, -1000, -1000);
+        assertSame(focused, screen.context().focus().focused(), "the dropdown keeps the focus");
+
+        assertTrue(ScreenTestSupport.key(screen, Keys.ESCAPE));
+        assertFalse(select.isOpen());
+        assertTrue(ScreenTestSupport.key(screen, Keys.F, Keys.MOD_CONTROL));
+        assertTrue(screen.searchField().isFocused());
     }
 }

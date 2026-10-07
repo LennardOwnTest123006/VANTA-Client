@@ -157,6 +157,28 @@ class CosmeticsScreenTest {
         assertEquals(CosmeticsScreen.Section.BADGES, small.section());
     }
 
+    /** Every card of the current section lies inside its grid, within scroll reach and clear of the other cards. */
+    private static void assertCardsReachable(CosmeticsScreen s, String label) {
+        CardGrid grid = grid(s.root());
+        assertNotNull(grid, label + " shows a card grid");
+        ScrollPanel scroll = scrollOf(grid);
+        assertEquals(grid.preferredSize(s.context()).h(), grid.bounds().h(),
+                label + ": the grid is as tall as the rows it laid out");
+        int reach = scroll.bounds().bottom() + Math.round(scroll.maxScroll());
+        List<CosmeticCard> cards = s.cards();
+        for (CosmeticCard card : cards) {
+            assertTrue(grid.bounds().contains(card.bounds()), label + ": " + card.title() + " inside the grid");
+            assertTrue(card.bounds().bottom() <= reach,
+                    label + ": " + card.title() + " ends at " + card.bounds().bottom() + ", reachable to " + reach);
+        }
+        for (int i = 0; i < cards.size(); i++) {
+            for (int j = i + 1; j < cards.size(); j++) {
+                assertFalse(cards.get(i).bounds().intersects(cards.get(j).bounds()),
+                        label + ": " + cards.get(i).title() + " overlaps " + cards.get(j).title());
+            }
+        }
+    }
+
     @Test
     void sectionSwitchOnASmallScreenKeepsEveryCardReachable() {
         CosmeticsScreen small = fx.open(ScreenId.COSMETICS, 427, 240);
@@ -164,17 +186,7 @@ class CosmeticsScreenTest {
                 CosmeticsScreen.Section.BACKGROUNDS, CosmeticsScreen.Section.BADGES, CosmeticsScreen.Section.HUD)) {
             small.showSection(section);
             fx.frame(small);
-            CardGrid grid = grid(small.root());
-            assertNotNull(grid, section + " shows a card grid");
-            ScrollPanel scroll = scrollOf(grid);
-            assertEquals(grid.preferredSize(small.context()).h(), grid.bounds().h(),
-                    section + ": the grid is as tall as the rows it laid out");
-            int reach = scroll.bounds().bottom() + Math.round(scroll.maxScroll());
-            for (CosmeticCard card : small.cards()) {
-                assertTrue(grid.bounds().contains(card.bounds()), section + ": " + card.title() + " inside the grid");
-                assertTrue(card.bounds().bottom() <= reach,
-                        section + ": " + card.title() + " ends at " + card.bounds().bottom() + ", reachable to " + reach);
-            }
+            assertCardsReachable(small, section.toString());
         }
 
         small.showSection(CosmeticsScreen.Section.PARTICLES);
@@ -186,5 +198,39 @@ class CosmeticsScreenTest {
         assertTrue(dust.bounds().bottom() <= scroll.bounds().bottom(), "scrolled into view: " + dust.bounds());
         fx.click(small, dust);
         assertEquals(MenuParticles.DUST, fx.services.settings().get(VantaSettings.MENU_PARTICLES));
+    }
+
+    /**
+     * The settled layout holds for every card section at every supported size, with and without large text, right
+     * after a section switch and right after a resize (before the next frame): the second grid pass runs inside
+     * the same layout, so no frame ever shows cards outside their grid.
+     */
+    @Test
+    void everySectionAtEverySizeKeepsCardsReachable() {
+        int[][] sizes = {{320, 240}, {427, 240}, {480, 270}, {640, 360}, {854, 480}};
+        for (boolean large : new boolean[]{false, true}) {
+            ServicesFixture f = new ServicesFixture(dir.resolve(large ? "large" : "normal"));
+            f.services.settings().set(VantaSettings.ACCESSIBILITY_LARGE_TEXT, large);
+            for (int[] size : sizes) {
+                CosmeticsScreen s = f.open(ScreenId.COSMETICS, size[0], size[1]);
+                String at = size[0] + "x" + size[1] + (large ? " large text " : " ");
+                for (CosmeticsScreen.Section section : CosmeticsScreen.Section.values()) {
+                    if (section == CosmeticsScreen.Section.PACKS) {
+                        continue;
+                    }
+                    s.showSection(section);
+                    f.frame(s);
+                    assertCardsReachable(s, at + section);
+                }
+                s.showSection(CosmeticsScreen.Section.BADGES);
+                f.frame(s);
+                for (int[] to : new int[][]{{854, 480}, {320, 240}, {640, 360}}) {
+                    s.resize(to[0], to[1]);
+                    assertCardsReachable(s, at + "resized to " + to[0] + "x" + to[1] + " before the next frame");
+                    f.frame(s);
+                    assertCardsReachable(s, at + "resized to " + to[0] + "x" + to[1]);
+                }
+            }
+        }
     }
 }

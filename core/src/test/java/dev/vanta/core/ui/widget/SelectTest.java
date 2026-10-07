@@ -183,4 +183,74 @@ class SelectTest {
         assertTrue(popup.bottom() <= 120 && popup.y() >= 0, "re-clamped after the resize: " + popup);
         assertTrue(popup.bottom() <= select.bounds().y(), "flipped above the field: " + popup);
     }
+
+    /** A select {@code count} options wide, {@code spacer} px below the top of a {@code w}x{@code h} screen. */
+    private void host(int spacer, int count, int w, int h) {
+        Column root = new Column(0).align(Align.START);
+        if (spacer > 0) {
+            root.add(new Button("spacer", null)).size(120, spacer);
+        }
+        List<String> options = new ArrayList<>();
+        for (int i = 1; i <= count; i++) {
+            options.add("Opt" + i);
+        }
+        select = root.add(new Select<>(options, "Opt1"));
+        select.size(120, 20);
+        select.onChange(changes::add);
+        screen = t.screen(root, w, h);
+    }
+
+    private void openSelect() {
+        UiTestSupport.click(screen, select.bounds().centerX(), select.bounds().centerY());
+        assertTrue(select.isOpen());
+    }
+
+    @Test
+    void dropdownAtTheBottomFlipsAboveWhenEveryRowFitsThere() {
+        host(220, 8, 400, 240);
+        openSelect();
+        Rect popup = select.popupNode().bounds();
+        assertEquals(8 * Select.ROW_H + 4, popup.h(), "all rows: " + popup);
+        assertTrue(popup.y() >= 0 && popup.bottom() <= select.bounds().y(), "above the field: " + popup);
+    }
+
+    @Test
+    void dropdownKeepsOneRowOnATinyScreenAndEveryOptionStaysReachable() {
+        host(10, 8, 400, 40);
+        openSelect();
+        Rect popup = select.popupNode().bounds();
+        assertEquals(Select.ROW_H + 4, popup.h(), "one row: " + popup);
+        assertTrue(popup.y() >= 0 && popup.bottom() <= 40, "on screen: " + popup);
+        assertTrue(screen.keyDown(Keys.END, 0, 0));
+        assertTrue(screen.keyDown(Keys.ENTER, 0, 0));
+        assertEquals("Opt8", select.value());
+        openSelect();
+        popup = select.popupNode().bounds();
+        screen.mouseScroll(popup.centerX(), popup.centerY(), 0, 100);
+        UiTestSupport.click(screen, popup.centerX(), popup.centerY());
+        assertEquals("Opt1", select.value(), "wheel + click reaches the first row again");
+        assertEquals(List.of("Opt8", "Opt1"), changes);
+    }
+
+    @Test
+    void shortScreensShrinkTheRowsAndTallOnesRestoreThem() {
+        host(100, 20, 400, 240);
+        openSelect();
+        Rect popup = select.popupNode().bounds();
+        int rows = (popup.h() - 4) / Select.ROW_H;
+        assertEquals(7, rows, "as many rows as fit below: " + popup);
+        assertTrue(popup.bottom() <= 240, popup.toString());
+        assertTrue(screen.keyDown(Keys.PAGE_DOWN, 0, 0));
+        assertEquals(rows, select.highlightedIndex(), "Page Down steps by the visible rows");
+        assertTrue(screen.keyDown(Keys.END, 0, 0));
+        assertEquals(19, select.highlightedIndex());
+        UiTestSupport.click(screen, popup.centerX(), popup.bottom() - 2 - Select.ROW_H / 2);
+        assertEquals("Opt20", select.value(), "the last row is clickable once scrolled to");
+
+        openSelect();
+        screen.resize(400, 600);
+        popup = select.popupNode().bounds();
+        assertEquals(Select.MAX_VISIBLE * Select.ROW_H + 4, popup.h(), "rows restored on a tall screen: " + popup);
+        assertEquals(select.bounds().bottom() + 2, popup.y(), "below the field again: " + popup);
+    }
 }

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.bridge.FakeGameBridge;
@@ -27,6 +28,7 @@ import dev.vanta.core.ui.TestCanvas;
 import dev.vanta.core.ui.TestHost;
 import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiEnvironment;
+import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.UiScreen;
 import dev.vanta.core.ui.widget.Toggle;
 import java.nio.file.Files;
@@ -441,6 +443,40 @@ class HudEditorScreenTest {
         assertTrue(screen.keyDown(Keys.ESCAPE, 0, 0), "Escape cancels the dialog instead of closing the screen");
         assertFalse(screen.context().popups().isOpen());
         assertFalse(screen.isClosing());
+    }
+
+    /**
+     * The preset dialog re-centres on every layout pass (a resize while it is open cannot strand it off-screen) and
+     * owns the keyboard: editor shortcuts behind it are ignored instead of stealing the focus, Tab stays inside.
+     */
+    @Test
+    void savePresetDialogFollowsResizesAndOwnsTheKeyboard() {
+        open(640, 360);
+        screen.openSavePresetDialog();
+        PresetNameDialog dialog = (PresetNameDialog) screen.context().popups().top().node();
+        assertEquals((640 - dialog.bounds().w()) / 2, dialog.bounds().x());
+        screen.resize(320, 240);
+        Rect b = dialog.bounds();
+        assertEquals((320 - b.w()) / 2, b.x(), "re-centred: " + b);
+        assertEquals((240 - b.h()) / 2, b.y(), "re-centred: " + b);
+        assertTrue(new Rect(0, 0, 320, 240).contains(dialog.saveButton().bounds()));
+
+        assertSame(dialog.nameField(), screen.context().focus().focused());
+        assertFalse(screen.keyDown(Keys.D, 0, Keys.MOD_CONTROL), "duplicate shortcut waits behind the dialog");
+        frame();
+        assertSame(dialog.nameField(), screen.context().focus().focused(), "the field keeps the focus");
+        assertTrue(screen.keyDown(Keys.TAB, 0, 0));
+        UiNode next = screen.context().focus().focused();
+        assertNotNull(next);
+        assertTrue(dialog.isAncestorOf(next), "Tab stays inside the dialog: " + next);
+        assertTrue(screen.keyDown(Keys.TAB, 0, Keys.MOD_SHIFT));
+        assertSame(dialog.nameField(), screen.context().focus().focused());
+        for (char c : "Small".toCharArray()) {
+            screen.charTyped(c, 0);
+        }
+        assertTrue(screen.keyDown(Keys.ENTER, 0, 0));
+        assertFalse(screen.context().popups().isOpen());
+        assertEquals("Small", services.hud().userPresets().get(0).name());
     }
 
     @Test

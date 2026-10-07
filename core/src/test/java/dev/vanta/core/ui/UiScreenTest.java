@@ -404,6 +404,34 @@ class UiScreenTest {
     }
 
     @Test
+    void layoutRequestedInsideAPopupRunsAgainInTheSameLayout() {
+        int[] layouts = {0};
+        UiNode popup = new UiNode() {
+            private int lastWidth = -1;
+
+            @Override
+            public void layout(UiContext ctx) {
+                layouts[0]++;
+                if (bounds().w() != lastWidth) {
+                    lastWidth = bounds().w();
+                    ctx.requestLayout();
+                }
+            }
+        };
+        UiScreen screen = t.screen(new Column(), 200, 200);
+        popup.setBounds(10, 10, 50, 50);
+        screen.context().popups().open(screen.context(), popup, false, null);
+        int opened = layouts[0];
+        screen.invalidateLayout();
+        t.frame(screen, 0, 0);
+        assertEquals(opened + 1, layouts[0], "an unchanged width needs one pass");
+        popup.setBounds(10, 10, 80, 50);
+        screen.invalidateLayout();
+        t.frame(screen, 0, 0);
+        assertEquals(opened + 3, layouts[0], "the pass the popup asked for ran within the same layout");
+    }
+
+    @Test
     void layoutPassesAreBounded() {
         int[] layouts = {0};
         UiNode restless = new UiNode() {
