@@ -221,7 +221,7 @@ export const featureFamilies: readonly FeatureFamily[] = [
       'Sodium (rendering engine), Lithium (game logic), FerriteCore (memory), ImmediatelyFast (HUD, text and entity rendering), EntityCulling (skips what you cannot see) and Iris Shaders (shader packs)',
       'The newest Fabric version of each for Minecraft 1.21.11 is looked up on Modrinth when you install; nothing is pinned in VANTA',
       'Every file is checked against the SHA-512 Modrinth publishes; a mod without a 1.21.11 version is skipped with a message',
-      'In game: one click on the Mods & Shaders screen, with a tick box per mod. In the VANTA Launcher 1.1.0: installed by default, switchable in Settings',
+      'In game: one click on the Mods & Shaders screen, with a tick box per mod. In the VANTA Launcher, from 1.1.0 on: installed by default, switchable in Settings',
       'New in 1.2.0: the mods bundle for manual installs carries the five mods whose licences allow redistribution (Sodium under PolyForm Shield, licence texts included); EntityCulling is offered in game with one click, once, at the main menu',
       'No FPS promises: how much faster the game runs depends on your computer',
     ],

@@ -286,8 +286,7 @@ export function InterfacePreview() {
             className="mt-4 text-center text-xs leading-relaxed text-text-muted"
           >
             Interface preview — a stylised illustration of the HUD editor built from HTML, not a
-            screenshot. The values are examples. Real screenshots are published with the first
-            release.
+            screenshot. The values are examples. Real screenshots are on the Screenshots page.
           </figcaption>
         </figure>
       </Container>

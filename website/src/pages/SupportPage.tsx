@@ -224,7 +224,7 @@ export default function SupportPage() {
               `Check the versions: ${toolchainLine}. Other Minecraft versions are not supported.`,
               'Read the first error line of the log or crash report, not the last — it usually names the cause.',
               'Include the launcher log (launcher-0.log) and the game log (latest.log) with usernames removed if you prefer.',
-              'List your other mods. Performance mods are not tested with VANTA; remove them before reporting rendering issues.',
+              'List your other mods, including those from the Performance pack or Mods & Shaders (the list is in modrinth.json); other mod combinations are not tested with VANTA.',
             ].map((item) => (
               <li key={item} className="flex items-start gap-2.5">
                 <span
