@@ -11,21 +11,21 @@
   "files": [
     {
       "name": "vanta-client-1.2.1.jar",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.2.1/vanta-client-1.2.1.jar",
+      "size": 1679524,
+      "sha256": "6beb6edaaa59fc5bd30bbc10cb097adbea4627fe72f4e8d2f4d73b13e306ef0d"
     },
     {
       "name": "vanta-client-1.2.1-mods.zip",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.2.1/vanta-client-1.2.1-mods.zip",
+      "size": 9520357,
+      "sha256": "1bbc6ea9d6e6d6af8835d9a8589e26095c1ac7c9b9d0f986d635165a3983d76f"
     },
     {
       "name": "fabric-api-0.141.6+1.21.11.jar",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.2.1/fabric-api-0.141.6+1.21.11.jar",
+      "size": 2426039,
+      "sha256": "bdff7fd7e220085cfad2ff9b1f40dde6534ae0b96cf378f97a374bc54cb9ed0f"
     }
   ],
   "changelog": "website/content/changelog/client-1.2.1.md"
