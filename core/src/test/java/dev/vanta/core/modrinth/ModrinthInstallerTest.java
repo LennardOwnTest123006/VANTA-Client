@@ -221,6 +221,80 @@ class ModrinthInstallerTest {
     }
 
     @Test
+    void modThatNeedsAModBuiltForAnOlderMinecraftIsNotInstalledEither() throws Exception {
+        FakeModrinthApi api = apiWithOldMinecraftBuild().add("NEEDSFPS", "needs-fps", "Needs FPS", "mod", "someone",
+                "Needs Smart FPS Booster.", 10L, -1,
+                new ModrinthDependency(null, "SMARTFPS", null, ModrinthDependency.Type.REQUIRED));
+        InstallPlan plan = new InstallPlanner(api).plan(
+                List.of(InstallRequest.of("needs-fps"), InstallRequest.of("lithium")),
+                InstallState.of(library.index(), java.util.Set.of(), true));
+        InstallResult result = new ModrinthInstaller(api, library, clock).execute(plan, null);
+
+        assertEquals(List.of("LITHIUM1"), result.installed().stream().map(PlannedInstall::projectId).toList());
+        assertEquals(List.of("lithium-1.0.0.jar"), modsFolder());
+        assertTrue(result.notes().stream().anyMatch(n -> n.kind() == PlanNote.Kind.DEPENDENCY_FAILED
+                && n.subject().equals("Needs FPS")));
+        assertTrue(result.notes().stream().anyMatch(n -> n.kind() == PlanNote.Kind.DOWNLOAD_FAILED
+                && n.subject().equals("Smart FPS Booster")));
+    }
+
+    @Test
+    void identicalEnabledCopyBuiltForAnOlderMinecraftIsNotRecordedAsInstalled() throws Exception {
+        FakeModrinthApi api = apiWithOldMinecraftBuild();
+        byte[] jar = api.fileContent("VSMARTFPS");
+        Path enabled = gameDir.resolve("mods/smart-fps-booster-1.0.0+mc1.21.4.jar");
+        Files.createDirectories(enabled.getParent());
+        Files.write(enabled, jar);
+        InstallPlan plan = new InstallPlanner(api).plan(List.of(InstallRequest.of("smart-fps-booster")),
+                InstallState.of(library.index(), java.util.Set.of(), true));
+        InstallResult result = new ModrinthInstaller(api, library, clock).execute(plan, null);
+
+        assertTrue(result.installed().isEmpty(), "not reported as installed");
+        assertFalse(library.index().contains("SMARTFPS"));
+        assertArrayEquals(jar, Files.readAllBytes(enabled), "the player's file is left as it is");
+        assertTrue(result.notes().stream().anyMatch(n -> n.kind() == PlanNote.Kind.DOWNLOAD_FAILED
+                && n.detail().equals(dev.vanta.core.i18n.Lang.tr("vanta.mods.error.incompatible"))));
+    }
+
+    @Test
+    void disabledDependencyBuiltForAnOlderMinecraftIsNotSwitchedBackOn() throws Exception {
+        FakeModrinthApi api = apiWithOldMinecraftBuild().add("NEEDSFPS", "needs-fps", "Needs FPS", "mod", "someone",
+                "Needs Smart FPS Booster.", 10L, -1,
+                new ModrinthDependency(null, "SMARTFPS", null, ModrinthDependency.Type.REQUIRED));
+        byte[] jar = api.fileContent("VSMARTFPS");
+        Path enabled = gameDir.resolve("mods/smart-fps-booster-1.0.0+mc1.21.4.jar");
+        Path disabled = gameDir.resolve("mods/smart-fps-booster-1.0.0+mc1.21.4.jar.disabled");
+        Files.createDirectories(disabled.getParent());
+        Files.write(disabled, jar);
+        library.update(index -> {
+            index.put(new InstalledEntry("SMARTFPS", "smart-fps-booster", "Smart FPS Booster", "VSMARTFPS", "1.0.0",
+                    "mod", "mods/smart-fps-booster-1.0.0+mc1.21.4.jar", Sha512.hex(jar), false, List.of(),
+                    "2026-10-01T00:00:00Z", null));
+            return null;
+        });
+        InstallPlan plan = new InstallPlanner(api).plan(
+                List.of(InstallRequest.of("needs-fps"), InstallRequest.of("lithium")),
+                InstallState.of(library.index(), java.util.Set.of(), true));
+        assertEquals(List.of("SMARTFPS"), plan.enableExisting());
+        InstallResult result = new ModrinthInstaller(api, library, clock).execute(plan, null);
+
+        assertTrue(result.enabled().isEmpty());
+        assertFalse(Files.exists(enabled), "not switched on");
+        assertArrayEquals(jar, Files.readAllBytes(disabled), "the player's file is left as it is");
+        InstalledEntry entry = library.index().find("SMARTFPS").orElseThrow();
+        assertFalse(entry.enabled());
+        assertEquals(List.of(), entry.requiredBy(), "no link to a mod that was not installed");
+        assertTrue(result.notes().stream().anyMatch(n -> n.kind() == PlanNote.Kind.DOWNLOAD_FAILED
+                && n.subject().equals("Smart FPS Booster")
+                && n.detail().equals(dev.vanta.core.i18n.Lang.tr("vanta.mods.error.incompatible"))));
+        assertEquals(List.of("LITHIUM1"), result.installed().stream().map(PlannedInstall::projectId).toList(),
+                "what needs the switched-off jar is not installed; the rest is");
+        assertTrue(result.notes().stream().anyMatch(n -> n.kind() == PlanNote.Kind.DEPENDENCY_FAILED
+                && n.subject().equals("Needs FPS")));
+        assertFalse(library.index().contains("NEEDSFPS"));
+    }
+
+    @Test
     void shaderPacksGoToTheShaderpacksFolder() throws Exception {
         String project = ModrinthFixtures.project("HVnmMxH1", "complementary-reimagined", "Complementary Reimagined",
                 "shader");

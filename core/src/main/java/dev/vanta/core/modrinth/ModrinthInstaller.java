@@ -29,8 +29,8 @@ import java.util.Set;
  *       (a {@code .jar.disabled} copy is renamed back to {@code .jar}, so the mod really loads after the restart the
  *       result asks for), otherwise the item fails with {@link ModrinthException.Kind#FILE_EXISTS}.</li>
  *   <li>A mod jar built for an older Minecraft that would stop 1.21.11 while starting ({@link ModJarCheck}) fails
- *       with {@link ModrinthException.Kind#INCOMPATIBLE}: a download is deleted, a hand-disabled copy stays
- *       switched off.</li>
+ *       with {@link ModrinthException.Kind#INCOMPATIBLE}: a download is deleted, an identical copy already there is
+ *       neither recorded nor switched on, and a disabled dependency with such a jar stays switched off.</li>
  *   <li>Installed but disabled dependencies are switched back on and {@code requiredBy} links are added.</li>
  * </ol>
  */
@@ -81,10 +81,10 @@ public final class ModrinthInstaller {
                     if (Sha512.matches(present, item.file().sha512())) {
                         // The very file is already there (installed by hand): record it instead of downloading. A
                         // switched-off copy is switched back on when committed: the player asked for the mod, and
-                        // an entry reported as installed while the jar stays .disabled would never load.
+                        // an entry reported as installed while the jar stays .disabled would never load. A jar that
+                        // would stop the game is neither switched on nor recorded; the player's file stays as it is.
+                        refuseOlderMinecraftBuild(item, present);
                         if (!present.equals(target)) {
-                            // Never switch on a jar that would stop the game; the player's file stays as it is.
-                            refuseOlderMinecraftBuild(item, present);
                             disabledCopies.put(item.projectId(), present);
                         }
                     } else {
@@ -123,7 +123,19 @@ public final class ModrinthInstaller {
         for (PlannedInstall item : items) {
             byId.put(item.projectId(), item);
         }
+        // A disabled dependency whose jar would stop the game stays off, and what needs it is not installed.
+        Map<String, ModrinthException> refusedExisting = new LinkedHashMap<>();
+        for (String projectId : plan.enableExisting()) {
+            try {
+                refuseToSwitchOnOlderMinecraftBuild(projectId);
+            } catch (ModrinthException e) {
+                refusedExisting.put(projectId, e);
+            }
+        }
         Set<String> blocked = new HashSet<>(errors.keySet());
+        for (String refused : refusedExisting.keySet()) {
+            blocked.addAll(plan.requiredByExisting().getOrDefault(refused, Set.of()));
+        }
         boolean changed = true;
         while (changed) {
             changed = false;
@@ -185,6 +197,12 @@ public final class ModrinthInstaller {
         String now = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS).toString();
         List<String> enabled = new ArrayList<>();
         for (String projectId : plan.enableExisting()) {
+            ModrinthException refused = refusedExisting.get(projectId);
+            if (refused != null) {
+                String title = library.index().find(projectId).map(InstalledEntry::title).orElse(projectId);
+                notes.add(new PlanNote(PlanNote.Kind.DOWNLOAD_FAILED, title, errorText(refused)));
+                continue;
+            }
             try {
                 library.setEnabled(projectId, true);
                 enabled.add(projectId);
@@ -202,6 +220,9 @@ public final class ModrinthInstaller {
                             item.file().sha512(), true, parents, now, null));
                 }
                 for (Map.Entry<String, Set<String>> link : plan.requiredByExisting().entrySet()) {
+                    if (refusedExisting.containsKey(link.getKey())) {
+                        continue;
+                    }
                     index.find(link.getKey()).ifPresent(e -> index.put(e.withRequiredByAdded(link.getValue())));
                 }
                 return null;
@@ -242,6 +263,28 @@ public final class ModrinthInstaller {
                     check.className(), check.descriptor());
             throw new ModrinthException(ModrinthException.Kind.INCOMPATIBLE,
                     jar.getFileName() + " is " + check.reason());
+        }
+    }
+
+    /**
+     * Fails switching an installed, disabled dependency back on when its jar was built for an older Minecraft that
+     * would stop 1.21.11 while starting; the jar stays {@code .disabled}.
+     */
+    private void refuseToSwitchOnOlderMinecraftBuild(String projectId) throws ModrinthException {
+        InstalledEntry entry = library.index().find(projectId).orElse(null);
+        if (entry == null || entry.projectType().orElse(null) != ModrinthProjectType.MOD) {
+            return;
+        }
+        Path off = library.checkedPath(entry.disabledPath(library.gameDir()));
+        if (!Files.isRegularFile(off)) {
+            return;
+        }
+        ModJarCheck.Result check = ModJarCheck.check(off);
+        if (check.flagged()) {
+            CoreLog.warn("Not switching {} ({}) back on: {} calls KeyMapping.<init>{}", off.getFileName(),
+                    entry.title(), check.className(), check.descriptor());
+            throw new ModrinthException(ModrinthException.Kind.INCOMPATIBLE,
+                    off.getFileName() + " is " + check.reason());
         }
     }
 
