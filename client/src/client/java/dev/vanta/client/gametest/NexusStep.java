@@ -29,6 +29,7 @@ import dev.vanta.core.profiles.BuiltInProfiles;
 import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaServices;
+import dev.vanta.core.screen.nexus.NexusSection;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.Rect;
 import dev.vanta.core.ui.ScrollIntoView;
@@ -55,8 +56,9 @@ import net.minecraft.client.Minecraft;
  * Vanta Nexus in the real game (runs inside the test world):
  * <ol>
  *   <li>the Nexus screen opens at the small window of the click reproduction (854x480, GUI scale 2) and at the
- *       capture size; every section the sidebar offers is visited (buttons or tabs whose id starts with
- *       {@code nexus.} and names a section, nav entry, tab or sidebar item) and screenshotted
+ *       capture size; every section the sidebar offers is visited (the VantaShell rail buttons
+ *       {@code rail.<NexusSection id>}, or any button/tab whose id starts with {@code nexus.} and names a
+ *       section, nav entry, tab or sidebar item) and screenshotted
  *       ({@code 50_nexus_*}); in every view each showing, enabled button and toggle must be reachable: its centre
  *       inside every ancestor's bounds and the first hit of the core's own hit test (after scrolling it into view when
  *       it sits in a scroll panel). Unreachable controls are collected as findings, judged at the end of the test;</li>
@@ -130,8 +132,9 @@ final class NexusStep {
 
             List<String> sections = context.computeOnClient(client -> navIds(nexus(client)));
             if (sections.isEmpty()) {
-                warn("nexus [" + tag + "]: no sidebar buttons or tabs with an id starting with 'nexus.' and naming a "
-                        + "section/nav/tab/sidebar entry were found; only the opening view was checked");
+                warn("nexus [" + tag + "]: no rail buttons (rail.<section>) and no buttons or tabs with an id starting "
+                        + "with 'nexus.' and naming a section/nav/tab/sidebar entry were found; only the opening view "
+                        + "was checked");
             } else {
                 step("nexus [" + tag + "]: " + sections.size() + " section control(s): " + sections);
             }
@@ -162,6 +165,15 @@ final class NexusStep {
     private static List<String> navIds(UiScreen ui) {
         List<String> ids = new ArrayList<>();
         if (ui == null) {
+            return ids;
+        }
+        for (NexusSection section : NexusSection.values()) {
+            String railId = "rail." + section.id();
+            if (ui.root().findById(railId) instanceof Button) {
+                ids.add(railId);
+            }
+        }
+        if (!ids.isEmpty()) {
             return ids;
         }
         List<UiNode> nodes = new ArrayList<>();
