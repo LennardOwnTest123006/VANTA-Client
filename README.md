@@ -120,8 +120,7 @@ version contains is in [CHANGELOG.md](CHANGELOG.md).
 
 | Release | File | For |
 | --- | --- | --- |
-| `launcher-v1.3.0` | `VANTA-Launcher-1.3.0.msi` | Windows 10/11 x64, per-user installer with the Java 21 runtime (recommended) |
-| `launcher-v1.3.0` | `VANTA-Launcher-1.3.0.exe` | Windows 10/11 x64, the same installer as `.exe` |
+| `launcher-v1.3.0` | `VANTA-Launcher-1.3.0.msi` | Windows 10/11 x64, the installer: per-user, with the Java 21 runtime (recommended) |
 | `launcher-v1.3.0` | `VANTA-Launcher-1.3.0-windows-portable.zip` | Windows 10/11 x64, no installation: run `VANTA Launcher/VANTA Launcher.exe` |
 | `launcher-v1.3.0` | `vanta-launcher-1.3.0-windows-all.jar` | Windows x64 with Java 21 installed |
 | `launcher-v1.3.0` | `VANTA-Launcher-1.3.0-linux-x64.tar.gz` | Linux x64, app image with the Java 21 runtime: run `VANTA Launcher/bin/VANTA Launcher` |
@@ -231,7 +230,7 @@ On every release ([`release.yml`](.github/workflows/release.yml)):
   the bundled runtime of the Windows portable app image runs its jar with `--version`, the Linux app image runs
   `bin/VANTA Launcher --version`, and both archives are checked for their expected contents (the portable zip also
   for `VANTA Launcher/app/vanta-portable.marker`, which tells the launcher to update itself with the portable zip);
-  the `.msi` and `.exe` installers are built from a fresh app image without that marker.
+  the `.msi` installer is built from a fresh app image without that marker.
 - **publish**: the manifest is built from the real files and checked (names, order, sizes, SHA-256), the GitHub
   Release is created, then every public download URL is downloaded again and re-hashed; the run fails on a single
   mismatch.
@@ -245,10 +244,10 @@ On every release ([`release.yml`](.github/workflows/release.yml)):
   for the Minecraft API. The project does not have one, so the VANTA Launcher's main button is *PLAY via Minecraft
   Launcher* and the official Minecraft Launcher signs you in; PLAY inside VANTA works once you set `msClientId` /
   `VANTA_MS_CLIENT_ID`. The manual installation works without the VANTA Launcher.
-- **Windows packages**: the release workflow builds and statically checks the `.msi`, `.exe` and portable zip but does
+- **Windows packages**: the release workflow builds and statically checks the `.msi` and the portable zip but does
   not run them. The CI job *Launcher starts on Windows* installs and starts a CI build of the `.msi`, the portable zip
-  and the jar on a Windows runner; the `.exe` installer is not started in CI. Smart App Control on Windows 11 can block
-  the unsigned installers and `VANTA Launcher.exe` without a *Run anyway* option; see
+  and the jar on a Windows runner. Smart App Control on Windows 11 can block
+  the unsigned installer and `VANTA Launcher.exe` without a *Run anyway* option; see
   [Troubleshooting](docs/troubleshooting.md#smart-app-control-windows-11).
 - **Third-party mods**: the Performance pack and everything from Mods & Shaders are independent projects from
   Modrinth under their own licences. CI loads the six Performance pack mods in one game test; other combinations are

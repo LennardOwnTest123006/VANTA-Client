@@ -1,11 +1,11 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  assetsMarkdown, checkDirectory, checkManifest, extraAssetNames, formatSize, main, markdownCell, releaseAssetNames,
-  releaseAssets, releaseDownloadUrl, releaseTag,
+  LAUNCHER_EXE_DROPPED_FROM, assetsMarkdown, checkDirectory, checkManifest, extraAssetNames, formatSize, launcherHasExe, main,
+  markdownCell, releaseAssetNames, releaseAssets, releaseDownloadUrl, releaseTag,
 } from './release-assets.mjs';
 import { REPO_ROOT, readToolchain } from './lib/repo.mjs';
 
@@ -13,6 +13,7 @@ const TOOLCHAIN = Object.freeze({ minecraftVersion: '1.21.11', fabricVersion: '0
 const REPO = 'LennardOwnTest123006/VANTA-Client';
 
 const CLIENT_FILES = ['vanta-client-1.0.0.jar', 'vanta-client-1.0.0-mods.zip', 'fabric-api-0.141.6+1.21.11.jar'];
+/** The launcher files of a release before 1.4.0 (with the .exe wrapper of the installer). */
 const LAUNCHER_FILES = [
   'VANTA-Launcher-1.0.0.msi',
   'VANTA-Launcher-1.0.0.exe',
@@ -21,6 +22,15 @@ const LAUNCHER_FILES = [
   'VANTA-Launcher-1.0.0-linux-x64.tar.gz',
   'vanta-launcher-1.0.0-linux-all.jar',
   'vanta-launcher-1.0.0-macos-aarch64-all.jar',
+];
+/** The launcher files from 1.4.0 on: the .msi is the only Windows installer. */
+const LAUNCHER_FILES_140 = [
+  'VANTA-Launcher-1.4.0.msi',
+  'VANTA-Launcher-1.4.0-windows-portable.zip',
+  'vanta-launcher-1.4.0-windows-all.jar',
+  'VANTA-Launcher-1.4.0-linux-x64.tar.gz',
+  'vanta-launcher-1.4.0-linux-all.jar',
+  'vanta-launcher-1.4.0-macos-aarch64-all.jar',
 ];
 
 function manifest(product, names, filled = false, tag = `${product}-v1.0.0`) {
@@ -57,8 +67,24 @@ describe('release asset names', () => {
     assert.deepEqual(releaseAssetNames('client', '1.0.0', TOOLCHAIN), CLIENT_FILES);
   });
 
-  test('launcher: msi (primary), exe, portable zip, per-platform jars and the Linux app image', () => {
+  test('launcher before 1.4.0: msi (primary), exe, portable zip, per-platform jars and the Linux app image', () => {
     assert.deepEqual(releaseAssetNames('launcher', '1.0.0', TOOLCHAIN), LAUNCHER_FILES);
+    assert.deepEqual(releaseAssetNames('launcher', '1.3.0', TOOLCHAIN), LAUNCHER_FILES.map((name) => name.replace('1.0.0', '1.3.0')));
+  });
+
+  test('launcher from 1.4.0 on: the .exe installer is gone, the .msi is the Windows installer, everything else unchanged', () => {
+    assert.equal(LAUNCHER_EXE_DROPPED_FROM, '1.4.0');
+    assert.deepEqual(releaseAssetNames('launcher', '1.4.0', TOOLCHAIN), LAUNCHER_FILES_140);
+    assert.deepEqual(releaseAssetNames('launcher', '1.4.0-beta.1', TOOLCHAIN), LAUNCHER_FILES_140.map((name) => name.replace('1.4.0', '1.4.0-beta.1')), 'a 1.4.0 pre-release has no exe either (the workflow builds none)');
+    assert.deepEqual(releaseAssetNames('launcher', '2.0.0', TOOLCHAIN), LAUNCHER_FILES_140.map((name) => name.replace('1.4.0', '2.0.0')));
+    assert.ok(!releaseAssetNames('launcher', '1.4.1', TOOLCHAIN).some((name) => name.endsWith('.exe')));
+    assert.ok(!releaseAssetNames('launcher', '1.5.0', TOOLCHAIN).some((name) => name.endsWith('.exe')));
+    for (const [version, expected] of [['1.0.0', true], ['1.3.0', true], ['1.3.9', true], ['1.4.0-beta.1', false], ['1.4.0', false], ['1.4.1', false], ['1.10.0', false], ['2.0.0', false], ['0.9.0', true]]) {
+      assert.equal(launcherHasExe(version), expected, version);
+    }
+    assert.throws(() => launcherHasExe('v1'), /not a SemVer/);
+    assert.ok(!releaseAssets('launcher', '1.4.0', TOOLCHAIN).some((asset) => /\.exe;|as an \.exe/.test(asset.description)), 'no description mentions the exe installer');
+    assert.match(releaseAssets('launcher', '1.4.0', TOOLCHAIN)[0].description, /Windows x64 installer/);
   });
 
   test('every asset has a description and only uses manifest-safe characters', () => {
@@ -271,6 +297,21 @@ describe('CLI', () => {
     writeFileSync(join(dir, 'SHA256SUMS.txt'), 'x');
     writeFileSync(join(dir, 'client-1.0.0.json'), '{}');
     assert.equal(main(['check-dir', dir, '--product', 'client', '--version', '1.0.0', '--with-extras'], c.log, c.logError), 0);
+  });
+
+  test('a 1.4.0 launcher manifest must not list the exe; an older one must', () => {
+    const modern = { ...manifest('launcher', LAUNCHER_FILES_140), version: '1.4.0' };
+    assert.deepEqual(checkManifest(modern, { toolchain: TOOLCHAIN }).problems, []);
+    const withExe = { ...manifest('launcher', LAUNCHER_FILES.map((name) => name.replace('1.0.0', '1.4.0'))), version: '1.4.0' };
+    assert.match(checkManifest(withExe, { toolchain: TOOLCHAIN }).problems[0], /files\[\] must list exactly .*VANTA-Launcher-1\.4\.0\.msi","VANTA-Launcher-1\.4\.0-windows-portable\.zip"/);
+    const oldWithout = manifest('launcher', LAUNCHER_FILES.filter((name) => !name.endsWith('.exe')));
+    assert.equal(checkManifest(oldWithout, { toolchain: TOOLCHAIN }).ok, false, 'the 1.0.0 release did ship the exe');
+    // Every committed launcher manifest (all before 1.4.0) still passes.
+    const toolchain = readToolchain(REPO_ROOT);
+    for (const file of readdirSync(join(REPO_ROOT, 'shared', 'releases')).filter((name) => /^launcher-\d.*\.json$/.test(name))) {
+      const committed = JSON.parse(readFileSync(join(REPO_ROOT, 'shared', 'releases', file), 'utf8'));
+      assert.deepEqual(checkManifest(committed, { toolchain }).problems, [], file);
+    }
   });
 
   test('check-manifest exit codes', () => {

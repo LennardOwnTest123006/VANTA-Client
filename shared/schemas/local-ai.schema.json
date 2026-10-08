@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vanta.dev/schemas/local-ai.schema.json",
+  "title": "VANTA Local AI manifest",
+  "description": "shared/local-ai/local-ai.json: which llama.cpp release (the llama-server binary, one archive per platform) and which GGUF model the VANTA Client and the VANTA Launcher download on the player's first use of Vanta Nexus, from where, how large, with which SHA-256 and under which licence. Written only by `node scripts/release/local-ai.mjs resolve` (GitHub Releases API, Hugging Face API, every archive and the model downloaded once and hashed), never by hand. This schema rejects every unfilled value of the template (size 0, empty sha256, serverPath \"...\" or \"\"), so a template never reaches a build or a release. Both the client (assets/vanta/local-ai.json) and the launcher (local-ai.json) embed a copy at build time.",
+  "type": "object",
+  "required": ["schemaVersion", "resolvedAt", "runtime", "model", "requirements"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "description": "Manifest schema version. Only 1 exists.",
+      "const": 1
+    },
+    "resolvedAt": {
+      "description": "When the resolver ran, as an ISO-8601 UTC instant (YYYY-MM-DDTHH:MM:SSZ).",
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "runtime": {
+      "description": "The llama.cpp release that provides llama-server, one archive per supported platform.",
+      "type": "object",
+      "required": ["name", "component", "tag", "license", "sourceUrl", "releaseUrl", "platforms"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "description": "Project name (llama.cpp).", "type": "string", "minLength": 1 },
+        "component": { "description": "The binary VANTA runs from the archive (llama-server).", "type": "string", "minLength": 1 },
+        "tag": {
+          "description": "Git tag of the GitHub Release (for example b11429).",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "license": { "description": "SPDX id of the runtime's licence (MIT).", "type": "string", "minLength": 1 },
+        "sourceUrl": { "$ref": "#/$defs/httpsUrl" },
+        "releaseUrl": { "$ref": "#/$defs/httpsUrl" },
+        "platforms": {
+          "description": "Exactly the six platform keys <os>-<arch> (os: windows, linux, macos; arch: x64, arm64).",
+          "type": "object",
+          "required": ["windows-x64", "windows-arm64", "linux-x64", "linux-arm64", "macos-arm64", "macos-x64"],
+          "additionalProperties": false,
+          "properties": {
+            "windows-x64": { "$ref": "#/$defs/runtimeArchive" },
+            "windows-arm64": { "$ref": "#/$defs/runtimeArchive" },
+            "linux-x64": { "$ref": "#/$defs/runtimeArchive" },
+            "linux-arm64": { "$ref": "#/$defs/runtimeArchive" },
+            "macos-arm64": { "$ref": "#/$defs/runtimeArchive" },
+            "macos-x64": { "$ref": "#/$defs/runtimeArchive" }
+          }
+        }
+      }
+    },
+    "model": {
+      "description": "The GGUF model file llama-server loads.",
+      "type": "object",
+      "required": ["name", "quantization", "file", "url", "size", "sha256", "license", "licenseUrl", "sourceUrl", "contextSize"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "description": "Model name (Qwen3-1.7B).", "type": "string", "minLength": 1 },
+        "quantization": { "description": "GGUF quantization (Q8_0).", "type": "string", "pattern": "^[A-Za-z0-9_]+$" },
+        "file": {
+          "description": "File name of the model as stored under models/ (a .gguf file, no path separators).",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*\\.gguf$"
+        },
+        "url": { "$ref": "#/$defs/httpsUrl" },
+        "size": { "$ref": "#/$defs/byteCount" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "license": { "description": "SPDX id of the model's licence (Apache-2.0).", "type": "string", "minLength": 1 },
+        "licenseUrl": { "$ref": "#/$defs/httpsUrl" },
+        "sourceUrl": { "$ref": "#/$defs/httpsUrl" },
+        "contextSize": {
+          "description": "Context window llama-server is started with (-c).",
+          "type": "integer",
+          "minimum": 512
+        }
+      }
+    },
+    "requirements": {
+      "description": "What the install needs on the player's PC.",
+      "type": "object",
+      "required": ["diskMb", "ramMb"],
+      "additionalProperties": false,
+      "properties": {
+        "diskMb": { "description": "Free disk space for the runtime and the model, in MB.", "type": "integer", "minimum": 1 },
+        "ramMb": { "description": "RAM the running server needs, in MB.", "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "httpsUrl": {
+      "description": "Absolute https URL without whitespace.",
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://[^\\s]+$"
+    },
+    "byteCount": {
+      "description": "Size in bytes as published by the source and confirmed by a download; never 0.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "sha256": {
+      "description": "Lower-case hex SHA-256 digest of the file.",
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "runtimeArchive": {
+      "description": "One release archive: a .zip (Windows) or .tar.gz (Linux, macOS) with llama-server inside.",
+      "type": "object",
+      "required": ["file", "url", "size", "sha256", "serverPath"],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "description": "Asset name on the GitHub Release (no path separators).",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*\\.(zip|tar\\.gz)$"
+        },
+        "url": { "$ref": "#/$defs/httpsUrl" },
+        "size": { "$ref": "#/$defs/byteCount" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "serverPath": {
+          "description": "Path of llama-server (or llama-server.exe) relative to the extraction root of the archive, with '/' separators, no leading slash, no '.' or '..' segments; found by the resolver when it inspects the downloaded archive.",
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)*$"
+        }
+      }
+    }
+  }
+}

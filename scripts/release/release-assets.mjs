@@ -2,7 +2,9 @@
 /**
  * The exact set of files a GitHub Release of each product ships, in manifest order (primary file first).
  * This module is the single source of truth for those names: the release workflow, bump-version.mjs and the
- * checks below all read it, so a renamed or missing asset fails the release instead of reaching users.
+ * checks below all read it, so a renamed or missing asset fails the release instead of reaching users. The list
+ * depends on the version where a file was dropped (the launcher `.exe` installer, gone from 1.4.0 on), so the
+ * committed manifests of older releases keep passing the checks.
  *
  *   node scripts/release/release-assets.mjs list --product client --version 1.0.0
  *   node scripts/release/release-assets.mjs check-dir dist --product launcher --version 1.0.0 [--with-extras]
@@ -20,9 +22,28 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from './lib/args.mjs';
-import { REPO_ROOT, isSemVer, readToolchain } from './lib/repo.mjs';
+import { REPO_ROOT, SEMVER, isSemVer, readToolchain } from './lib/repo.mjs';
 
 export const PRODUCTS = Object.freeze(['client', 'launcher']);
+
+/**
+ * From this launcher version on there is no `.exe` installer any more: the `.msi` is the Windows installer.
+ * Releases before it list `VANTA-Launcher-<v>.exe` as their second file, and their committed manifests stay as they
+ * are (the website's file rules and the launcher's update check still understand the name). release.yml builds no
+ * `.exe` any more, so a launcher release below this version can no longer be produced by the workflow.
+ */
+export const LAUNCHER_EXE_DROPPED_FROM = '1.4.0';
+
+/** True when a launcher release of this version ships the `.exe` installer (versions before 1.4.0, pre-releases of 1.4.0 excluded). */
+export function launcherHasExe(version) {
+  const match = SEMVER.exec(version);
+  if (!match) throw new Error(`'${version}' is not a SemVer version`);
+  const [major, minor, patch] = [1, 2, 3].map((i) => Number(match[i]));
+  const [dropMajor, dropMinor, dropPatch] = LAUNCHER_EXE_DROPPED_FROM.split('.').map(Number);
+  if (major !== dropMajor) return major < dropMajor;
+  if (minor !== dropMinor) return minor < dropMinor;
+  return patch < dropPatch;
+}
 
 const USAGE = `Usage: node scripts/release/release-assets.mjs <command> [options]
   list            --product <client|launcher> --version <semver>
@@ -63,7 +84,8 @@ export function releaseAssets(product, version, toolchain) {
   const macJar = `vanta-launcher-${version}-macos-aarch64-all.jar`;
   return [
     { name: `VANTA-Launcher-${version}.msi`, description: 'Windows x64 installer (per-user, no admin rights), bundles the Java 21 runtime. Recommended for Windows.' },
-    { name: `VANTA-Launcher-${version}.exe`, description: 'Windows x64 installer as an .exe; same content as the .msi.' },
+    // Releases before 1.4.0 shipped the same installer a second time as an .exe wrapper (see LAUNCHER_EXE_DROPPED_FROM).
+    ...(launcherHasExe(version) ? [{ name: `VANTA-Launcher-${version}.exe`, description: 'Windows x64 installer as an .exe; same content as the .msi.' }] : []),
     { name: `VANTA-Launcher-${version}-windows-portable.zip`, description: 'Windows x64 portable app with the Java 21 runtime, no installation: unzip and run `VANTA Launcher/VANTA Launcher.exe`.' },
     { name: windowsJar, description: `Single jar with JavaFX for Windows x64. ${javaJar(windowsJar)}` },
     { name: `VANTA-Launcher-${version}-linux-x64.tar.gz`, description: 'Linux x64 app with the Java 21 runtime: extract and run `VANTA Launcher/bin/VANTA Launcher`.' },

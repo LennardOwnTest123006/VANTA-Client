@@ -49,6 +49,19 @@ tasks.named('processPreviewResources', ProcessResources) {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+// The Local AI manifest (shared/local-ai/local-ai.json: which llama.cpp release and which GGUF model Vanta Nexus
+// downloads and verifies) is embedded as assets/vanta/local-ai.json, read by dev.vanta.core.ai.LocalAiManifest.
+// Copied at build time, never committed twice; declared as an input so a changed manifest re-runs the copy. The client
+// module compiles core's sources and resource directory directly (client/build.gradle), so it copies the same file in
+// its own processResources.
+def localAiManifest = layout.projectDirectory.file('../shared/local-ai/local-ai.json')
+tasks.named('processResources', ProcessResources) {
+    inputs.file(localAiManifest).withPropertyName('localAiManifest')
+    from(localAiManifest) {
+        into('assets/vanta')
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 21

@@ -315,8 +315,8 @@ jobs:
           # The bundled runtime runs the bundled jar (the .exe itself is a GUI program without a console).
           "$APP/runtime/bin/java.exe" -jar "$APP/app/vanta-launcher-${VERSION}-all.jar" --version
           # Only the portable zip carries this marker: the launcher looks for <folder of the .exe>/app/vanta-portable.marker
-          # and then offers the portable zip as its update. The MSI and EXE below come from fresh jpackage runs (the
-          # jpackage task deletes build/jpackage first and its input folder holds only the fat jar), so they never have it.
+          # and then offers the portable zip as its update. The MSI below comes from a fresh jpackage run (the jpackage
+          # task deletes build/jpackage first and its input folder holds only the fat jar), so it never has it.
           printf 'portable\n' > "$APP/app/vanta-portable.marker"
           ZIP="VANTA-Launcher-${VERSION}-windows-portable.zip"
           (cd launcher/build/jpackage && 7z a -tzip -mx=9 "../../../dist/$ZIP" "VANTA Launcher" > /dev/null)
@@ -341,26 +341,18 @@ jobs:
           files=(launcher/build/jpackage/*.msi)
           [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one .msi, found ${#files[@]}"; ls -la launcher/build/jpackage; exit 1; }
           cp "${files[0]}" "dist/VANTA-Launcher-${VERSION}.msi"
-      - name: EXE installer
-        run: |
-          set -euo pipefail
-          (cd launcher && ./gradlew jpackage "-PjavafxPlatform=$JAVAFX_PLATFORM" -PjpackageType=exe --stacktrace)
-          shopt -s nullglob
-          markers=$(find launcher/build/jpackage launcher/build/jpackage-input -name vanta-portable.marker)
-          [ -z "$markers" ] || { echo "::error::the installer build saw the portable marker: $markers"; exit 1; }
-          files=(launcher/build/jpackage/*.exe)
-          [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one .exe, found ${#files[@]}"; ls -la launcher/build/jpackage; exit 1; }
-          cp "${files[0]}" "dist/VANTA-Launcher-${VERSION}.exe"
+      # From launcher 1.4.0 on the .msi is the only Windows installer: the .exe wrapper of the same installer is not
+      # built any more (scripts/release/release-assets.mjs LAUNCHER_EXE_DROPPED_FROM).
       - name: Check the staged Windows files
         run: |
           set -euo pipefail
-          for f in "VANTA-Launcher-${VERSION}.msi" "VANTA-Launcher-${VERSION}.exe" \
+          for f in "VANTA-Launcher-${VERSION}.msi" \
                    "VANTA-Launcher-${VERSION}-windows-portable.zip" "vanta-launcher-${VERSION}-windows-all.jar"; do
             test -s "dist/$f" || { echo "::error::dist/$f is missing or empty"; exit 1; }
           done
           shopt -s nullglob
           staged=(dist/*)
-          [ "${#staged[@]}" -eq 4 ] || { echo "::error::expected 4 files in dist, found ${#staged[@]}"; ls -la dist; exit 1; }
+          [ "${#staged[@]}" -eq 3 ] || { echo "::error::expected 3 files in dist, found ${#staged[@]}"; ls -la dist; exit 1; }
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:

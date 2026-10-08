@@ -166,7 +166,7 @@ not take VANTA files from anywhere else.
 
 | Your system | File |
 | --- | --- |
-| Windows 10/11 x64 | `VANTA-Launcher-1.3.0.msi` (installer with its own Java runtime), or `VANTA-Launcher-1.3.0.exe` if `.msi` files are blocked, or `VANTA-Launcher-1.3.0-windows-portable.zip` to run it without installing |
+| Windows 10/11 x64 | `VANTA-Launcher-1.3.0.msi` (the installer, with its own Java runtime), or `VANTA-Launcher-1.3.0-windows-portable.zip` to run it without installing |
 | Linux x64 | `VANTA-Launcher-1.3.0-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.3.0-linux-all.jar` with Java 21 |
 | Mac with Apple Silicon | `vanta-launcher-1.3.0-macos-aarch64-all.jar` with Java 21 |
 | Windows 11 on ARM | `VANTA-Launcher-1.3.0.msi` or `VANTA-Launcher-1.3.0-windows-portable.zip` (x64 with their own x64 Java runtime, run under emulation; not tested on such a device; [details](troubleshooting.md#windows-on-arm-which-launcher-file)) |

@@ -29,8 +29,11 @@
  *   README.txt                            what is inside, which file to take on which system, how to verify
  *   CHANGELOG.md, LICENSE                 copies of the repository files
  *   SHA256SUMS.txt                        sha256 of every other file in the zip (sha256sum -c format)
+ *   LOCAL-AI.txt                          what Vanta Nexus downloads on first use of the Local AI (runtime and model:
+ *                                         files, sizes, sources, SHA-256, licences), generated from the manifest
  *   release-notes/<product>-<version>.md  copies of website/content/changelog/<product>-<version>.md
  *   docs/*.md                             copies of every docs/*.md
+ *   local-ai/local-ai.json                copy of shared/local-ai/local-ai.json (must be resolved, never the template)
  *   client/                               every file of the client manifest, its SHA256SUMS.txt, client-<cv>.json
  *   launcher/                             every file of the launcher manifest, its SHA256SUMS.txt, launcher-<lv>.json
  *
@@ -46,10 +49,14 @@ import { isDeepStrictEqual } from 'node:util';
 import { parseArgs } from './lib/args.mjs';
 import { hashFile, isSha256Hex } from './lib/hash.mjs';
 import { REPO_ROOT, isSemVer, readJson, todayUtc, writeJsonAtomic, writeTextAtomic } from './lib/repo.mjs';
+import { wrapText } from './lib/text.mjs';
 import { openZip, readZipEntry } from './lib/zip.mjs';
+import { MANIFEST_PATH as LOCAL_AI_MANIFEST_PATH, loadLocalAiManifest, localAiNote } from './local-ai.mjs';
 import { checkDirectory, formatSize, markdownCell, releaseAssets } from './release-assets.mjs';
 import { validate } from './validate-json.mjs';
 import { hashUrl } from './verify-manifest.mjs';
+
+export { wrapText };
 
 const USAGE = `Usage: node scripts/release/build-bundle.mjs <command> [options]
   download  --client-version <cv> --launcher-version <lv> --out <dir>
@@ -335,22 +342,6 @@ async function checkReleaseInputs(product, manifest, fromDir) {
   return dir;
 }
 
-/** Word-wraps plain text at `width` columns, each line prefixed with `indent`. */
-export function wrapText(text, { width = 100, indent = '' } = {}) {
-  const lines = [];
-  let line = indent;
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    if (line.length > indent.length && line.length + 1 + word.length > width) {
-      lines.push(line);
-      line = indent + word;
-    } else {
-      line = line.length > indent.length ? `${line} ${word}` : indent + word;
-    }
-  }
-  if (line.length > indent.length) lines.push(line);
-  return lines;
-}
-
 /** One line of release-assets.mjs Markdown as plain text (code spans shown literally). */
 function plainDescription(text) {
   return text.replace(/`/g, '');
@@ -381,8 +372,10 @@ export function bundleReadme({ version, client, launcher, docFiles }) {
     ['CHANGELOG.md', 'the changelog of the repository, every version'],
     ['LICENSE', 'the licence of VANTA'],
     ['SHA256SUMS.txt', 'SHA-256 of every other file in this archive (sha256sum -c format)'],
+    ['LOCAL-AI.txt', 'what Vanta Nexus downloads on first use of the Local AI (the llama-server runtime and the model: files, sizes, sources, SHA-256, licences); none of it is in this archive'],
     ['release-notes/', `the release notes of VANTA Client ${cv} and VANTA Launcher ${lv}`],
     ['docs/', `the documentation (${docFiles.length} Markdown pages, the same text the website shows)`],
+    ['local-ai/', 'local-ai.json, the manifest the client and the launcher use for those Local AI downloads (the same copy both embed)'],
     ['client/', `the ${client.files.length} files of the client release, its SHA256SUMS.txt and its manifest client-${cv}.json`],
     ['launcher/', `the ${launcher.files.length} files of the launcher release, its SHA256SUMS.txt and its manifest launcher-${lv}.json`],
   ];
@@ -400,7 +393,7 @@ export function bundleReadme({ version, client, launcher, docFiles }) {
     }
   }
   lines.push('');
-  lines.push(...wrapText('LICENSE is the licence of VANTA itself. Third-party files under client/ (Fabric API, the Performance pack mods inside the mods zip) keep their own licences, which travel inside those files.'));
+  lines.push(...wrapText('LICENSE is the licence of VANTA itself. Third-party files under client/ (Fabric API, the Performance pack mods inside the mods zip) keep their own licences, which travel inside those files. The Local AI runtime and model are not in this archive: LOCAL-AI.txt says what the game downloads for them, from where and under which licences.'));
   lines.push('', 'Verify the files', '');
   lines.push(...wrapText('SHA256SUMS.txt lists every other file of this archive with its SHA-256. From inside the extracted folder:', { indent: '  ' }));
   lines.push('');
@@ -431,6 +424,15 @@ function requireRepoFile(root, rel) {
   if (!existsSync(path) || !statSync(path).isFile()) throw new UsageError(`${rel} is missing`);
   if (statSync(path).size === 0) throw new UsageError(`${rel} is empty`);
   return path;
+}
+
+/** The committed Local AI manifest, resolved (the zip never ships the template); a UsageError otherwise. */
+function requireLocalAiManifest(root) {
+  try {
+    return loadLocalAiManifest(root);
+  } catch (error) {
+    throw new UsageError(error.message);
+  }
 }
 
 /** Runs the system zip binary on a list of entry names relative to `cwd`, in that order, without directory entries. */
@@ -509,6 +511,7 @@ export async function assembleBundle({ version, clientVersion, launcherVersion, 
     launcher: requireRepoFile(root, `website/content/changelog/launcher-${launcherVersion}.md`),
   };
   const docFiles = listDocs(root);
+  const localAi = requireLocalAiManifest(root);
 
   const folder = bundleFolder(version);
   mkdirSync(outDir, { recursive: true });
@@ -524,20 +527,23 @@ export async function assembleBundle({ version, clientVersion, launcherVersion, 
       copyFileSync(source, dest);
       paths.push(path);
     };
-    // README.txt and SHA256SUMS.txt are written below but keep their place in the order.
+    // README.txt, SHA256SUMS.txt and LOCAL-AI.txt are written below but keep their place in the order.
     paths.push('README.txt');
     stage('CHANGELOG.md', changelog);
     stage('LICENSE', license);
     paths.push('SHA256SUMS.txt');
+    paths.push('LOCAL-AI.txt');
     stage(`release-notes/client-${clientVersion}.md`, notes.client);
     stage(`release-notes/launcher-${launcherVersion}.md`, notes.launcher);
     for (const name of docFiles) stage(`docs/${name}`, resolve(root, 'docs', name));
+    stage('local-ai/local-ai.json', localAi.path);
     for (const manifest of [client, launcher]) {
       const product = manifest.product;
       for (const file of manifest.files) stage(`${product}/${file.name}`, join(sources[product], file.name));
       for (const name of releaseExtras(product, manifest.version)) stage(`${product}/${name}`, join(sources[product], name));
     }
     writeTextAtomic(join(top, 'README.txt'), bundleReadme({ version, client, launcher, docFiles }));
+    writeTextAtomic(join(top, 'LOCAL-AI.txt'), localAiNote(localAi.manifest));
     const sumLines = [];
     for (const path of paths) {
       if (path === 'SHA256SUMS.txt') continue;
@@ -610,7 +616,7 @@ export async function writeBundleManifest({ version, clientVersion, launcherVers
       if (!byPath.has(`${manifest.product}/${extra}`)) problems.push(`${manifest.product}/${extra} is not in the zip`);
     }
   }
-  for (const path of ['README.txt', 'CHANGELOG.md', 'LICENSE', `release-notes/client-${clientVersion}.md`, `release-notes/launcher-${launcherVersion}.md`]) {
+  for (const path of ['README.txt', 'CHANGELOG.md', 'LICENSE', 'LOCAL-AI.txt', `release-notes/client-${clientVersion}.md`, `release-notes/launcher-${launcherVersion}.md`, `local-ai/${basename(LOCAL_AI_MANIFEST_PATH)}`]) {
     if (!byPath.has(path)) problems.push(`${path} is not in the zip`);
   }
   if (problems.length > 0) throw new CheckError(`${zipPath} is not a complete ${version} bundle: ${problems.join('; ')}`);
