@@ -202,7 +202,16 @@ def generateBuildInfo = tasks.register('generateBuildInfo') {
     }
 }
 sourceSets.main.resources.srcDir(generatedResources)
-tasks.named('processResources') { dependsOn generateBuildInfo }
+
+// The Local AI manifest (shared/local-ai/local-ai.json: which llama.cpp release and which GGUF model the launcher
+// downloads and verifies for Vanta Nexus) is embedded at the resource root as local-ai.json, read by
+// dev.vanta.launcher.core.ai.LocalAiManifest; the same bytes the client embeds as assets/vanta/local-ai.json.
+def localAiManifest = layout.projectDirectory.file('../shared/local-ai/local-ai.json')
+tasks.named('processResources', ProcessResources) {
+    dependsOn generateBuildInfo
+    inputs.file(localAiManifest).withPropertyName('localAiManifest')
+    from(localAiManifest)
+}
 
 // The Local AI manifest (llama-server release archives and the GGUF model with sizes and SHA-256 digests) is committed
 // once, resolved by CI, in shared/local-ai/local-ai.json and embedded into the launcher as /local-ai.json at build

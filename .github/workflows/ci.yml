@@ -98,6 +98,29 @@ jobs:
           shopt -u nullglob
           if [ "${#BUNDLES[@]}" -eq 0 ]; then echo "no bundle manifests committed yet"; exit 0; fi
           node scripts/release/validate-json.mjs shared/schemas/bundle-manifest.schema.json "${BUNDLES[@]}"
+      - name: Validate the Local AI manifest and verify it against GitHub Releases and Hugging Face (skipped while it is the template)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # After a runtime or model change the committed manifest is the template (sizes 0, empty model sha256) until
+          # someone runs the Local AI resolve workflow and commits its local-ai.json. That is not a failure; a manifest
+          # that is neither resolved nor the template (broken by hand) is.
+          STATUS=$(node scripts/release/local-ai.mjs status || true)
+          echo "$STATUS"
+          if grep -q "not resolved yet" <<< "$STATUS"; then
+            if grep -q "template values" <<< "$STATUS"; then
+              echo "::notice::Local AI manifest not resolved yet: shared/local-ai/local-ai.json still holds template values; run the Local AI resolve workflow and commit its result"
+              exit 0
+            fi
+            echo "::error::shared/local-ai/local-ai.json does not match shared/schemas/local-ai.schema.json"
+            exit 1
+          fi
+          node scripts/release/validate-json.mjs shared/schemas/local-ai.schema.json shared/local-ai/local-ai.json
+          # Downloads the six llama.cpp archives again and re-hashes them, checks their server paths and the model's
+          # size and SHA-256 through the Hugging Face API; the model itself (about 1.8 GB) is downloaded by the resolve
+          # workflow and by the prepare steps of the game test jobs, not here.
+          node scripts/release/local-ai.mjs verify shared/local-ai/local-ai.json --skip-model-download --work "$RUNNER_TEMP/local-ai-verify"
       - name: Resolve and download the Performance pack for real (what the release does for the mods bundle)
         run: |
           set -euo pipefail
@@ -149,6 +172,46 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Local AI for the LocalAiStep of the game test: the real llama-server archive and model of the committed
+      # manifest, prepared once per manifest (cache key = hash of the manifest) and handed to the game through
+      # VANTA_LOCAL_AI_DIR. Before the resolve workflow has run the manifest is the template; then nothing is prepared
+      # and the game test runs without a Local AI install (the step skips itself).
+      - name: Local AI manifest (the cached install is prepared only from a resolved manifest)
+        id: local-ai-manifest
+        run: |
+          set -euo pipefail
+          if node scripts/release/local-ai.mjs status; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Local AI manifest not resolved yet (shared/local-ai/local-ai.json holds template values or fails its schema); the game test runs without a prepared Local AI install"
+          fi
+      - uses: actions/cache/restore@v4
+        id: local-ai-cache
+        if: steps.local-ai-manifest.outputs.ready == 'true'
+        with:
+          path: ${{ runner.temp }}/local-ai
+          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
+      - name: Prepare the Local AI install (llama-server archive + model from the manifest; cache miss only)
+        if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release/local-ai.mjs prepare --dir "$RUNNER_TEMP/local-ai" --platform linux-x64
+      - uses: actions/cache/save@v4
+        # Saved right after the download, so a failing game test does not throw the 1.8 GB away.
+        if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/local-ai
+          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
+      - name: Hand the Local AI install to the game test (VANTA_LOCAL_AI_DIR)
+        if: steps.local-ai-manifest.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          node scripts/release/local-ai.mjs status --dir "$RUNNER_TEMP/local-ai" --platform linux-x64
+          echo "VANTA_LOCAL_AI_DIR=$RUNNER_TEMP/local-ai" >> "$GITHUB_ENV"
       - name: Run the production client game test under Xvfb (built jar + Fabric API in a real 1.21.11 client)
         working-directory: client
         env:
@@ -219,6 +282,43 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Same Local AI preparation as the client-gametest job (see the comment there): cached per manifest hash,
+      # skipped while the manifest is the unresolved template.
+      - name: Local AI manifest (the cached install is prepared only from a resolved manifest)
+        id: local-ai-manifest
+        run: |
+          set -euo pipefail
+          if node scripts/release/local-ai.mjs status; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Local AI manifest not resolved yet (shared/local-ai/local-ai.json holds template values or fails its schema); the game test runs without a prepared Local AI install"
+          fi
+      - uses: actions/cache/restore@v4
+        id: local-ai-cache
+        if: steps.local-ai-manifest.outputs.ready == 'true'
+        with:
+          path: ${{ runner.temp }}/local-ai
+          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
+      - name: Prepare the Local AI install (llama-server archive + model from the manifest; cache miss only)
+        if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release/local-ai.mjs prepare --dir "$RUNNER_TEMP/local-ai" --platform linux-x64
+      - uses: actions/cache/save@v4
+        if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/local-ai
+          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
+      - name: Hand the Local AI install to the game test (VANTA_LOCAL_AI_DIR)
+        if: steps.local-ai-manifest.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          node scripts/release/local-ai.mjs status --dir "$RUNNER_TEMP/local-ai" --platform linux-x64
+          echo "VANTA_LOCAL_AI_DIR=$RUNNER_TEMP/local-ai" >> "$GITHUB_ENV"
       - name: Resolve the newest Minecraft 1.21.11 Fabric version of each Performance pack mod on Modrinth
         run: |
           set -euo pipefail
@@ -630,6 +730,44 @@ jobs:
         with:
           name: vanta-client-jar
           path: client-jar
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Local AI for the launcher's --install-local-ai and the headless launch: the real llama-server archive and
+      # model of the committed manifest, prepared once per manifest (cache key = hash of the manifest) and named by
+      # VANTA_LOCAL_AI_DIR. Skipped while the manifest is the unresolved template (before the resolve workflow ran).
+      - name: Local AI manifest (the cached install is prepared only from a resolved manifest)
+        id: local-ai-manifest
+        run: |
+          set -euo pipefail
+          if node scripts/release/local-ai.mjs status; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Local AI manifest not resolved yet (shared/local-ai/local-ai.json holds template values or fails its schema); the launcher integration runs without a prepared Local AI install"
+          fi
+      - uses: actions/cache/restore@v4
+        id: local-ai-cache
+        if: steps.local-ai-manifest.outputs.ready == 'true'
+        with:
+          path: ${{ runner.temp }}/local-ai
+          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
+      - name: Prepare the Local AI install (llama-server archive + model from the manifest; cache miss only)
+        if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release/local-ai.mjs prepare --dir "$RUNNER_TEMP/local-ai" --platform linux-x64
+      - uses: actions/cache/save@v4
+        if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/local-ai
+          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
+      - name: Hand the Local AI install to the launcher steps (VANTA_LOCAL_AI_DIR)
+        if: steps.local-ai-manifest.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          node scripts/release/local-ai.mjs status --dir "$RUNNER_TEMP/local-ai" --platform linux-x64
+          echo "VANTA_LOCAL_AI_DIR=$RUNNER_TEMP/local-ai" >> "$GITHUB_ENV"
       - name: Install Minecraft 1.21.11, Fabric Loader, Fabric API, the VANTA client jar and the performance pack through the launcher
         run: |
           set -euo pipefail

@@ -1,0 +1,111 @@
+# Local AI resolve workflow: fills shared/local-ai/local-ai.json from its sources and hands the result back.
+#
+# The committed manifest starts as a template (archive sizes 0, model sha256 "", serverPath "..." for the tar.gz
+# archives); only this workflow, run by hand, turns it into the manifest the client and the launcher embed. It asks
+# the GitHub Releases API for the llama.cpp assets of the pinned tag, downloads each of the six archives and checks its
+# SHA-256 against the template (the digests GitHub shows on the release page), finds llama-server inside, asks the
+# Hugging Face API for the model's size and LFS SHA-256 and downloads the model once to confirm them
+# (scripts/release/local-ai.mjs resolve). The workflow never pushes to the default branch: the manifest lands on the
+# orphan branch ci-artifacts, folder local-ai/, with LOCAL-AI-INFO.txt holding the apply hint. A person copies it to
+# shared/local-ai/local-ai.json and commits; ci.yml then validates it and prepares the cached install for the tests.
+#
+# Secrets   none beyond the automatic GITHUB_TOKEN (used for the GitHub API rate limit and the hand-back push).
+# Network   api.github.com, github.com (release assets), huggingface.co (API and the model, about 1.8 GB).
+name: Local AI resolve
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_model_download:
+        description: Trust the Hugging Face LFS metadata for the model size and SHA-256 instead of downloading the model once (faster; the default downloads it)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-ai-resolve
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve the Local AI manifest (GitHub Releases + Hugging Face)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Release script tests (node --test)
+        run: node --test scripts/release/
+      - name: Show the template that is going to be resolved
+        run: |
+          set -euo pipefail
+          node scripts/release/local-ai.mjs status || true
+          cat shared/local-ai/local-ai.json
+      - name: Resolve (downloads the six runtime archives and, unless skipped, the model)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_MODEL: ${{ inputs.skip_model_download }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/local-ai-out"
+          WORK="$RUNNER_TEMP/local-ai-work"
+          mkdir -p "$OUT" "$WORK"
+          FLAGS=()
+          if [ "$SKIP_MODEL" = true ]; then FLAGS+=(--skip-model-download); fi
+          node scripts/release/local-ai.mjs resolve --out "$OUT/local-ai.json" --work "$WORK" "${FLAGS[@]}" | tee "$OUT/resolve.log"
+          df -h "$RUNNER_TEMP" || true
+      - name: Validate the resolved manifest against the schema and print it
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/local-ai-out"
+          node scripts/release/validate-json.mjs shared/schemas/local-ai.schema.json "$OUT/local-ai.json"
+          node scripts/release/local-ai.mjs status --manifest "$OUT/local-ai.json"
+          echo "---- $OUT/local-ai.json"
+          cat "$OUT/local-ai.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: local-ai-manifest
+          path: ${{ runner.temp }}/local-ai-out
+          if-no-files-found: ignore
+      - name: Hand the manifest back through the ci-artifacts branch (folder local-ai)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/local-ai-out"
+          {
+            echo "commit=${GITHUB_SHA}"
+            echo "run=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "resolvedAt=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).resolvedAt)' "$OUT/local-ai.json")"
+            echo "apply=cp local-ai.json <repo>/shared/local-ai/"
+          } > "$OUT/LOCAL-AI-INFO.txt"
+          cat "$OUT/LOCAL-AI-INFO.txt"
+          bash scripts/ci/publish-screenshots.sh "$OUT" local-ai
+      - name: Job summary
+        if: always()
+        run: |
+          OUT="$RUNNER_TEMP/local-ai-out"
+          {
+            echo "## Local AI manifest"
+            echo
+            if [ -s "$OUT/local-ai.json" ]; then
+              echo "Resolved manifest on branch \`ci-artifacts\`, folder \`local-ai/\`. Apply it with:"
+              echo
+              echo '```'
+              echo "cp local-ai.json <repo>/shared/local-ai/"
+              echo '```'
+              echo
+              echo '```json'
+              cat "$OUT/local-ai.json"
+              echo '```'
+            else
+              echo "The resolver did not produce a manifest; see the log of the Resolve step."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

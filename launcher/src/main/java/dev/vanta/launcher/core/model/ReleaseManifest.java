@@ -125,8 +125,9 @@ public record ReleaseManifest(int schemaVersion, String product, String version,
      * preference. The file replaces exactly the kind of installation that is running:
      *
      * <ul>
-     *   <li>Windows x64, installed with the MSI/EXE (packaged, no portable marker): {@code VANTA-Launcher-<v>.msi},
-     *       then {@code VANTA-Launcher-<v>.exe}</li>
+     *   <li>Windows x64, installed with the MSI (or the EXE of a release before 1.4.0; packaged, no portable marker):
+     *       {@code VANTA-Launcher-<v>.msi}. The {@code .exe} wrapper is never picked: from 1.4.0 on no release has
+     *       one, and every release lists the {@code .msi}</li>
      *   <li>Windows x64, portable folder (marker present): {@code VANTA-Launcher-<v>-windows-portable.zip}</li>
      *   <li>Windows x64, plain jar: {@code vanta-launcher-<v>-windows-all.jar}</li>
      *   <li>Linux x64, app image (packaged): {@code VANTA-Launcher-<v>-linux-x64.tar.gz}</li>
@@ -146,7 +147,7 @@ public record ReleaseManifest(int schemaVersion, String product, String version,
         if (os.isWindows() && x64) {
             return switch (packaging.kind()) {
                 case PORTABLE -> List.of(LAUNCHER_INSTALLER_PREFIX + launcherVersion + "-windows-portable.zip");
-                case PACKAGED -> List.of(LAUNCHER_INSTALLER_PREFIX + launcherVersion + ".msi", LAUNCHER_INSTALLER_PREFIX + launcherVersion + ".exe");
+                case PACKAGED -> List.of(LAUNCHER_INSTALLER_PREFIX + launcherVersion + ".msi");
                 case PLAIN_JAR -> List.of(LAUNCHER_JAR_PREFIX + launcherVersion + "-windows-all.jar");
             };
         }

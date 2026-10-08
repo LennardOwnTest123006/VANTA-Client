@@ -71,16 +71,18 @@ class ReleaseManifestTest {
             assertTrue(m.launcherAssetFor(WINDOWS_ARM, p).isEmpty(), "the Windows files are x64 only");
         }
         assertEquals(m.launcherAssetFor(WINDOWS, INSTALLED), m.preferredFile(WINDOWS, INSTALLED));
-        assertEquals(List.of("VANTA-Launcher-2.0.0.msi", "VANTA-Launcher-2.0.0.exe"), ReleaseManifest.launcherAssetNames("2.0.0", WINDOWS, INSTALLED));
+        // Only the .msi: the .exe wrapper is gone from launcher 1.4.0 on and is never offered as an update.
+        assertEquals(List.of("VANTA-Launcher-2.0.0.msi"), ReleaseManifest.launcherAssetNames("2.0.0", WINDOWS, INSTALLED));
         assertEquals(List.of("VANTA-Launcher-2.0.0-windows-portable.zip"), ReleaseManifest.launcherAssetNames("2.0.0", WINDOWS, PORTABLE));
         assertEquals(List.of("vanta-launcher-2.0.0-windows-all.jar"), ReleaseManifest.launcherAssetNames("2.0.0", WINDOWS, JAR));
         assertEquals(List.of("VANTA-Launcher-2.0.0-linux-x64.tar.gz"), ReleaseManifest.launcherAssetNames("2.0.0", LINUX, APP_IMAGE));
         assertEquals(List.of("vanta-launcher-2.0.0-linux-all.jar"), ReleaseManifest.launcherAssetNames("2.0.0", LINUX, JAR));
 
-        // Without an msi an installed launcher uses the exe; the portable zip and fat jars are never picked for it.
+        // Without an msi an installed launcher gets nothing (the exe of older releases is never picked); the portable zip
+        // and fat jars are never picked for it either.
         final ReleaseManifest exeOnly = new ReleaseManifest(1, "launcher", "1.1.0", "1.21.11", "0.19.5", "0.141.6+1.21.11", 21, "", "stable",
             List.of(file("vanta-launcher-1.1.0-windows-all.jar"), file("VANTA-Launcher-1.1.0-windows-portable.zip"), file("VANTA-Launcher-1.1.0.exe")), "");
-        assertEquals("VANTA-Launcher-1.1.0.exe", exeOnly.launcherAssetFor(WINDOWS, INSTALLED).orElseThrow().name());
+        assertTrue(exeOnly.launcherAssetFor(WINDOWS, INSTALLED).isEmpty(), "the .exe is never offered as an update");
         assertTrue(exeOnly.launcherAssetFor(LINUX, JAR).isEmpty(), "the Windows fat jar does not run on Linux");
         assertTrue(exeOnly.launcherAssetFor(LINUX, APP_IMAGE).isEmpty());
         // A portable folder is never "updated" with an installer, nor an installed launcher with the portable zip.

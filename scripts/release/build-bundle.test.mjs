@@ -7,12 +7,14 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fixtureManifest } from './lib/local-ai-fixture.mjs';
 import { REPO_ROOT } from './lib/repo.mjs';
 import { openZip } from './lib/zip.mjs';
 import { buildZip } from './lib/zip-writer.mjs';
+import { localAiNote } from './local-ai.mjs';
 import { formatSize, releaseAssetNames } from './release-assets.mjs';
 import { validateWithSchemaFile } from './validate-json.mjs';
 import {
@@ -57,16 +59,19 @@ const sumsText = (files) => `${files.map((file) => `${sha256(file.bytes)}  ${fil
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
 /**
- * A fake repository root: both schemas, published manifests of client and launcher, CHANGELOG.md, LICENSE, two
- * docs pages (and a non-Markdown file that must be left out) and the two release notes.
+ * A fake repository root: the three schemas, published manifests of client and launcher, a resolved Local AI manifest
+ * (or the template with `localAiTemplate`), CHANGELOG.md, LICENSE, two docs pages (and a non-Markdown file that must
+ * be left out) and the two release notes.
  */
-function makeRoot({ cv = '1.0.0', lv = '1.0.0', urlBase, launcherChannel = 'stable', launcherUnpublished = false } = {}) {
+function makeRoot({ cv = '1.0.0', lv = '1.0.0', urlBase, launcherChannel = 'stable', launcherUnpublished = false, localAiTemplate = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'vanta-bundle-root-'));
   mkdirSync(join(root, 'shared', 'schemas'), { recursive: true });
   mkdirSync(join(root, 'shared', 'releases'), { recursive: true });
-  for (const schema of ['release-manifest.schema.json', 'bundle-manifest.schema.json']) {
+  mkdirSync(join(root, 'shared', 'local-ai'), { recursive: true });
+  for (const schema of ['release-manifest.schema.json', 'bundle-manifest.schema.json', 'local-ai.schema.json']) {
     copyFileSync(join(REPO_ROOT, 'shared', 'schemas', schema), join(root, 'shared', 'schemas', schema));
   }
+  writeFileSync(join(root, 'shared', 'local-ai', 'local-ai.json'), json(fixtureManifest({ template: localAiTemplate })));
   const client = { files: releaseFiles('client', cv) };
   client.manifest = manifestFor('client', cv, client.files, { urlBase });
   const launcher = { files: releaseFiles('launcher', lv) };
@@ -101,9 +106,10 @@ function makeInputs(fixture, dirName = 'in') {
 /** Every path the zip of the default fixture must hold, relative to its top-level folder, in zip order. */
 function expectedPaths(fixture) {
   return [
-    'README.txt', 'CHANGELOG.md', 'LICENSE', 'SHA256SUMS.txt',
+    'README.txt', 'CHANGELOG.md', 'LICENSE', 'SHA256SUMS.txt', 'LOCAL-AI.txt',
     `release-notes/client-${fixture.cv}.md`, `release-notes/launcher-${fixture.lv}.md`,
     'docs/index.md', 'docs/launcher.md',
+    'local-ai/local-ai.json',
     ...fixture.client.files.map((file) => `client/${file.name}`), 'client/SHA256SUMS.txt', `client/client-${fixture.cv}.json`,
     ...fixture.launcher.files.map((file) => `launcher/${file.name}`), 'launcher/SHA256SUMS.txt', `launcher/launcher-${fixture.lv}.json`,
   ];
@@ -135,6 +141,9 @@ describe('assemble, manifest and verify on one zip', { skip: skipZip }, () => {
     assert.deepEqual(zip.read(`${folder}/LICENSE`), readFileSync(join(fixture.root, 'LICENSE')));
     assert.deepEqual(zip.read(`${folder}/docs/launcher.md`), readFileSync(join(fixture.root, 'docs', 'launcher.md')));
     assert.deepEqual(zip.read(`${folder}/release-notes/client-1.0.0.md`), readFileSync(join(fixture.root, 'website', 'content', 'changelog', 'client-1.0.0.md')));
+    assert.deepEqual(zip.read(`${folder}/local-ai/local-ai.json`), readFileSync(join(fixture.root, 'shared', 'local-ai', 'local-ai.json')), 'the committed Local AI manifest byte for byte');
+    assert.equal(zip.read(`${folder}/LOCAL-AI.txt`).toString('utf8'), localAiNote(fixtureManifest()), 'LOCAL-AI.txt generated from that manifest');
+    assert.match(zip.read(`${folder}/LOCAL-AI.txt`).toString('utf8'), /^VANTA Local AI: what Vanta Nexus downloads on first use\n/);
     assert.equal(zip.read(`${folder}/client/SHA256SUMS.txt`).toString('utf8'), sumsText(fixture.client.files));
     assert.deepEqual(JSON.parse(zip.read(`${folder}/launcher/launcher-1.0.0.json`).toString('utf8')), fixture.launcher.manifest);
     // Only the zip and its checksum file are left in the output folder.
@@ -177,6 +186,9 @@ describe('assemble, manifest and verify on one zip', { skip: skipZip }, () => {
     assert.match(unwrapped, /Windows x64 installer \(per-user, no admin rights\), bundles the Java 21 runtime\. Recommended for Windows\./);
     assert.match(unwrapped, /The VANTA Client Fabric mod for Minecraft 1\.21\.11\. Put it in your mods folder together with Fabric API\./);
     assert.match(readme, /the documentation \(2 Markdown pages/);
+    assert.match(unwrapped, /LOCAL-AI\.txt +what Vanta Nexus downloads on first use of the Local AI \(the llama-server runtime and the model: files, sizes, sources, SHA-256, licences\); none of it is in this archive/);
+    assert.match(unwrapped, /local-ai\/ +local-ai\.json, the manifest the client and the launcher use for those Local AI downloads/);
+    assert.match(unwrapped, /The Local AI runtime and model are not in this archive: LOCAL-AI\.txt says what the game downloads for them/);
     assert.match(unwrapped, /the 3 files of the client release, its SHA256SUMS\.txt and its manifest client-1\.0\.0\.json/);
     assert.match(readme, /the 7 files of the launcher release/);
     assert.match(readme, /^ {4}Linux: {4}sha256sum -c SHA256SUMS\.txt$/m);
@@ -185,7 +197,8 @@ describe('assemble, manifest and verify on one zip', { skip: skipZip }, () => {
     assert.match(unwrapped, /not code-signed yet, so Windows SmartScreen or macOS may warn before opening them\. Compare the SHA-256 first\./);
     assert.match(readme, /not affiliated with Mojang or Microsoft/);
     assert.doesNotMatch(readme, /`/, 'plain text, no Markdown code spans');
-    assert.doesNotMatch(readme, /\bAI\b|artificial intelligence|machine learning/i);
+    // The Local AI is real and local; the README never promises a cloud service or anything beyond LOCAL-AI.txt.
+    assert.doesNotMatch(readme, /cloud|API key|account|artificial intelligence|machine learning/i);
     assert.match(readme, /^[\x09\x0a\x20-\x7e]*$/, 'plain ASCII');
     for (const line of readme.split('\n')) assert.ok(line.length <= 120, `line too long: ${line}`);
   });
@@ -244,7 +257,8 @@ describe('assemble, manifest and verify on one zip', { skip: skipZip }, () => {
     const partial = join(fixture.root, 'partial', 'VantaClient-1.0.0-Release.zip');
     mkdirSync(join(fixture.root, 'partial'));
     writeFileSync(partial, buildZip([{ name: `${folder}/README.txt`, data: readme }, { name: `${folder}/SHA256SUMS.txt`, data: `${sha256(readme)}  README.txt\n` }]));
-    await assert.rejects(writeBundleManifest({ ...base, zipPath: partial }), (error) => error instanceof CheckError && /client\/vanta-client-1\.0\.0\.jar is not in the zip/.test(error.message));
+    await assert.rejects(writeBundleManifest({ ...base, zipPath: partial }), (error) => error instanceof CheckError && /client\/vanta-client-1\.0\.0\.jar is not in the zip/.test(error.message)
+      && /LOCAL-AI\.txt is not in the zip/.test(error.message) && /local-ai\/local-ai\.json is not in the zip/.test(error.message));
     // A SHA256SUMS.txt that disagrees with the bytes.
     writeFileSync(partial, buildZip([{ name: `${folder}/README.txt`, data: readme }, { name: `${folder}/SHA256SUMS.txt`, data: `${'0'.repeat(64)}  README.txt\n` }]));
     await assert.rejects(writeBundleManifest({ ...base, zipPath: partial }), /README\.txt is listed with 0{64}/);
@@ -307,7 +321,8 @@ describe('assemble, manifest and verify on one zip', { skip: skipZip }, () => {
     assert.match(notes, /not code-signed yet, so Windows SmartScreen or macOS may warn before opening them\. Compare the SHA-256 first\./);
     assert.match(notes, /Also attached: `SHA256SUMS.txt` \(SHA-256 of the zip\) and `vanta-1\.0\.0\.json`/);
     assert.match(notes, /\nMinecraft 1\.21\.11 · Fabric Loader 0\.19\.5 · Java 21\. Not affiliated with Mojang or Microsoft\.\n$/);
-    assert.doesNotMatch(notes, /\bAI\b|artificial intelligence|machine learning/i);
+    assert.ok(notes.includes('| `LOCAL-AI.txt` |') && notes.includes('| `local-ai/local-ai.json` |'), 'the two Local AI files are rows of the contents table');
+    assert.doesNotMatch(notes, /cloud|API key|artificial intelligence|machine learning/i);
     assert.doesNotMatch(notes, /—/, 'no em dashes');
     assert.throws(() => releaseNotes({ version: '1.0.1', clientVersion: '1.0.0', launcherVersion: '1.0.0', manifest, root: fixture.root }), /has version 1\.0\.0, expected 1\.0\.1/);
     const manifestPath = join(fixture.root, 'notes-manifest.json');
@@ -362,6 +377,16 @@ describe('assemble refuses inputs that do not match the manifests', { skip: skip
     from = makeInputs(fixture);
     writeFileSync(join(fixture.root, 'website', 'content', 'changelog', 'launcher-1.0.0.md'), '');
     await assert.rejects(assembleBundle(assembleArgs(fixture, from, out)), (error) => error instanceof UsageError && /launcher-1\.0\.0\.md is empty/.test(error.message));
+
+    // The zip never ships the unresolved Local AI template (or no manifest at all).
+    fixture = makeRoot({ localAiTemplate: true });
+    from = makeInputs(fixture);
+    await assert.rejects(assembleBundle(assembleArgs(fixture, from, out)), (error) => error instanceof UsageError && /shared\/local-ai\/local-ai\.json is not resolved: it still holds template values/.test(error.message));
+    assert.equal(existsSync(join(out, 'VantaClient-1.0.0-Release.zip')), false);
+    fixture = makeRoot();
+    from = makeInputs(fixture);
+    rmSync(join(fixture.root, 'shared', 'local-ai', 'local-ai.json'));
+    await assert.rejects(assembleBundle(assembleArgs(fixture, from, out)), (error) => error instanceof UsageError && /shared\/local-ai\/local-ai\.json is missing/.test(error.message));
 
     fixture = makeRoot();
     await assert.rejects(assembleBundle(assembleArgs(fixture, join(fixture.root, 'nowhere'), out)), /is not a directory/);
@@ -518,7 +543,7 @@ describe('helpers', () => {
     assert.equal(releasePageUrl(releaseBaseUrl(launcher)), 'https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.3.0');
     const readme = bundleReadme({ version: '1.3.0', client, launcher, docFiles: readdirSync(join(REPO_ROOT, 'docs')).filter((f) => f.endsWith('.md')) });
     for (const line of readme.split('\n')) assert.ok(line.length <= 120, `line too long: ${line}`);
-    assert.doesNotMatch(readme, /\bAI\b/);
+    assert.doesNotMatch(readme, /cloud|API key|artificial intelligence|machine learning/i);
   });
 
   test('wrapText keeps words whole and indents every line', () => {

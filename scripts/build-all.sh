@@ -73,6 +73,20 @@ fi
 
 T=$(date +%s); step "release metadata: validate manifests, content front matter and documentation links"
 node "$ROOT/scripts/release/validate-json.mjs" --quiet "$ROOT/shared/schemas/release-manifest.schema.json" "$ROOT"/shared/releases/*.json
+# The Local AI manifest is a template (sizes 0, empty model digest) until the Local AI resolve workflow has run and its
+# result was committed; that is not an error here or in CI. A resolved manifest must match its schema.
+LOCAL_AI_STATUS=$(node "$ROOT/scripts/release/local-ai.mjs" status --root "$ROOT" || true)
+if grep -q "not resolved yet" <<< "$LOCAL_AI_STATUS"; then
+  if grep -q "template values" <<< "$LOCAL_AI_STATUS"; then
+    echo "note: Local AI manifest not resolved yet (shared/local-ai/local-ai.json holds template values); run the Local AI resolve workflow"
+  else
+    echo "error: shared/local-ai/local-ai.json does not match shared/schemas/local-ai.schema.json" >&2
+    echo "$LOCAL_AI_STATUS" >&2
+    exit 1
+  fi
+else
+  node "$ROOT/scripts/release/validate-json.mjs" --quiet "$ROOT/shared/schemas/local-ai.schema.json" "$ROOT/shared/local-ai/local-ai.json"
+fi
 node "$ROOT/scripts/release/validate-json.mjs" --quiet --front-matter "$ROOT/shared/schemas/doc-page.schema.json" "$ROOT"/docs/*.md
 node "$ROOT/scripts/release/validate-json.mjs" --quiet --front-matter "$ROOT/shared/schemas/changelog-entry.schema.json" "$ROOT"/website/content/changelog/*.md
 node "$ROOT/scripts/release/validate-json.mjs" --quiet --front-matter "$ROOT/shared/schemas/news-post.schema.json" "$ROOT"/website/content/news/*-*.md

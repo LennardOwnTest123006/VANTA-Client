@@ -50,15 +50,18 @@ describe('release.yml portable marker', () => {
     assert.match(windows, /if \(text !== "portable\\n"\)/);
   });
 
-  test('the MSI and EXE come from fresh jpackage runs after the zip and refuse a stray marker', () => {
+  test('the MSI comes from a fresh jpackage run after the zip and refuses a stray marker; no EXE is built from 1.4.0 on', () => {
     const zip = indexOfOrFail(windows, '7z a -tzip');
-    for (const type of ['msi', 'exe']) {
-      const build = indexOfOrFail(windows, `-PjpackageType=${type}`);
-      assert.ok(build > zip, `${type} is built after the portable zip`);
-      const guard = windows.indexOf('-name vanta-portable.marker', build);
-      const copy = indexOfOrFail(windows, `dist/VANTA-Launcher-\${VERSION}.${type}"`);
-      assert.ok(guard > build && guard < copy, `${type} step checks for a stray marker before staging`);
-    }
+    const build = indexOfOrFail(windows, '-PjpackageType=msi');
+    assert.ok(build > zip, 'msi is built after the portable zip');
+    const guard = windows.indexOf('-name vanta-portable.marker', build);
+    const copy = indexOfOrFail(windows, 'dist/VANTA-Launcher-${VERSION}.msi"');
+    assert.ok(guard > build && guard < copy, 'msi step checks for a stray marker before staging');
+    assert.doesNotMatch(windows, /-PjpackageType=exe/, 'the .exe installer was dropped with launcher 1.4.0');
+    assert.doesNotMatch(windows, /VANTA-Launcher-\$\{VERSION\}\.exe/);
+    // Exactly the three Windows files are staged: msi, portable zip, Windows fat jar.
+    assert.match(windows, /\[ "\$\{#staged\[@\]\}" -eq 3 \] \|\| \{ echo "::error::expected 3 files in dist/);
+    assert.doesNotMatch(windows, /expected 4 files in dist/);
     // jpackage deletes its destination before every run and takes the app from a Sync of the fat jar only.
     assert.match(BUILD_GRADLE, /tasks\.register\('prepareJpackageInput', Sync\) \{\s*dependsOn fatJar\s*from\(fatJar\.flatMap \{ it\.archiveFile \}\)\s*into\(jpackageInput\)\s*\}/);
     assert.match(BUILD_GRADLE, /doFirst \{\s*def dest = jpackageDest\.get\(\)\.asFile\s*if \(dest\.exists\(\)\) \{\s*delete\(dest\)/);

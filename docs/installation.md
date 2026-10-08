@@ -77,8 +77,7 @@ From the release `launcher-v1.3.0`:
 
 | Your system | File | What it is |
 | --- | --- | --- |
-| Windows 10/11 x64 | `VANTA-Launcher-1.3.0.msi` | **recommended**: per-user installer, no administrator rights, includes the Java 21 runtime |
-| Windows 10/11 x64 | `VANTA-Launcher-1.3.0.exe` | the same installer as an `.exe`, for systems that block `.msi` files |
+| Windows 10/11 x64 | `VANTA-Launcher-1.3.0.msi` | **recommended**: the installer; per-user, no administrator rights, includes the Java 21 runtime |
 | Windows 10/11 x64 | `VANTA-Launcher-1.3.0-windows-portable.zip` | no installation: unzip and run `VANTA Launcher\VANTA Launcher.exe`; includes the Java 21 runtime |
 | Windows 10/11 x64 | `vanta-launcher-1.3.0-windows-all.jar` | single jar for Windows x64; needs Java 21 installed |
 | Linux x64 | `VANTA-Launcher-1.3.0-linux-x64.tar.gz` | **recommended**: app image, includes the Java 21 runtime; run `VANTA Launcher/bin/VANTA Launcher` |
@@ -200,7 +199,7 @@ it again; if it still differs, do not use it and [report it](troubleshooting.md#
 
 Paths A and B start here. For path C skip to [C. Manual installation](#c-manual-installation).
 
-**Windows installer (`.msi` or `.exe`)**
+**Windows installer (`.msi`)**
 
 1. Double-click the installer. Because it is not signed, Windows SmartScreen may show **"Windows protected your
    PC"**. Choose **More info → Run anyway** only after the checksum from step 2 matched. If it did not match, do not

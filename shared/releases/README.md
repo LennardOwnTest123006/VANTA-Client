@@ -6,7 +6,7 @@ One JSON file per published version of each product, validated by
 | File | Product | Read by |
 | --- | --- | --- |
 | `client-<version>.json` | VANTA Client: the mod jar, the mods bundle and the Fabric API jar | website download page, launcher install/update |
-| `launcher-<version>.json` | VANTA Launcher: Windows `.msi`/`.exe`/portable `.zip`, Linux `.tar.gz`, one fat jar per platform | website download page, launcher self-update |
+| `launcher-<version>.json` | VANTA Launcher: Windows `.msi` (releases before 1.4.0 also an `.exe`), portable `.zip`, Linux `.tar.gz`, one fat jar per platform | website download page, launcher self-update |
 | `latest/<product>-latest.json` | identical copy of the newest **stable** manifest per product (beta releases never write it) | launcher update check (`<releasesBaseUrl>/client-latest.json`, `<releasesBaseUrl>/launcher-latest.json`) |
 | `bundles/vanta-<version>.json` | the full release zip `VantaClient-<version>-Release.zip` (both products' published files plus the docs), validated by [`bundle-manifest.schema.json`](../schemas/bundle-manifest.schema.json); written by the bundle workflow (`RELEASE.md`, "Full release zip") | website download page only (the launcher and the readers of `shared/releases/*.json` never see this folder) |
 
@@ -28,13 +28,14 @@ Client (`client-v<version>`):
 
 Launcher (`launcher-v<version>`):
 
-1. `VANTA-Launcher-<version>.msi`: Windows x64 per-user installer with the Java 21 runtime
-2. `VANTA-Launcher-<version>.exe`: Windows x64 installer (exe wrapper)
-3. `VANTA-Launcher-<version>-windows-portable.zip`: app image with the runtime; run `VANTA Launcher/VANTA Launcher.exe`
-4. `vanta-launcher-<version>-windows-all.jar`: fat jar with the JavaFX natives for Windows x64 (needs Java 21)
-5. `VANTA-Launcher-<version>-linux-x64.tar.gz`: app image with the runtime; run `VANTA Launcher/bin/VANTA Launcher`
-6. `vanta-launcher-<version>-linux-all.jar`: fat jar with the JavaFX natives for Linux x64 (needs Java 21)
-7. `vanta-launcher-<version>-macos-aarch64-all.jar`: fat jar with the JavaFX natives for Apple Silicon macOS (needs
+1. `VANTA-Launcher-<version>.msi`: Windows x64 per-user installer with the Java 21 runtime; from 1.4.0 on the only
+   Windows installer (releases before 1.4.0 list the same installer a second time as `VANTA-Launcher-<version>.exe`,
+   and `release-assets.mjs` expects it there by version)
+2. `VANTA-Launcher-<version>-windows-portable.zip`: app image with the runtime; run `VANTA Launcher/VANTA Launcher.exe`
+3. `vanta-launcher-<version>-windows-all.jar`: fat jar with the JavaFX natives for Windows x64 (needs Java 21)
+4. `VANTA-Launcher-<version>-linux-x64.tar.gz`: app image with the runtime; run `VANTA Launcher/bin/VANTA Launcher`
+5. `vanta-launcher-<version>-linux-all.jar`: fat jar with the JavaFX natives for Linux x64 (needs Java 21)
+6. `vanta-launcher-<version>-macos-aarch64-all.jar`: fat jar with the JavaFX natives for Apple Silicon macOS (needs
    Java 21; built and command-line smoke-tested on a macOS runner, window not tested, unsigned)
 
 A fat jar only carries the JavaFX natives of the platform it was built on, so each platform has its own jar;
