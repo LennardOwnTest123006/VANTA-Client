@@ -1,6 +1,6 @@
 ---
 title: FAQ
-description: Frequently asked questions about VANTA Client and Launcher — servers, versions, downloads, sign-in, the Minecraft Launcher profile, the Performance pack, shaders, price, data and mods.
+description: FAQ about VANTA Client and Launcher: servers, versions, downloads, sign-in, the Minecraft Launcher profile, the Performance pack, shaders, Vanta Nexus and the Local AI, price, data and mods.
 order: 41
 category: Help
 ---
@@ -9,8 +9,9 @@ category: Help
 
 VANTA adds no unfair advantage: no combat automation, no packet manipulation, no anti-cheat bypass, no player
 tracking, no X-ray, nothing that shows you information about other players or the world beyond what vanilla shows.
-Its HUD displays your own FPS, coordinates, armor, effects and keystrokes; the zoom only changes your camera FOV.
-That said, **server rules vary**. Some servers forbid all client modifications, some whitelist specific mods, and the
+Its HUD displays your own FPS, coordinates, armor, effects and keystrokes; the zoom only changes your camera FOV; the
+Vanta Nexus assistant (from client 1.4.0 on) changes only your own client's HUD, settings, profiles, waypoints and Lab
+features and never acts in the game world ([Vanta Nexus](nexus.md)). That said, **server rules vary**. Some servers forbid all client modifications, some whitelist specific mods, and the
 server operators decide, not us. If a server's rules forbid client mods or require approval, respect them and ask.
 We cannot promise that any particular server accepts VANTA.
 
@@ -50,11 +51,59 @@ subscription, no paid tier and nothing to unlock. Badges and themes are visual l
 
 ## Does it collect data?
 
-No. The client keeps optional **local** statistics in a JSON file on your computer and sends them nowhere. The only
-service the client contacts itself is Modrinth, and only while you use Mods & Shaders (search text, project ids, no
-account data). The launcher talks only to Mojang, Microsoft/Xbox, Fabric, Adoptium (Java), GitHub (releases) and
-Modrinth (Performance pack, Mods page) to do its job. The website has no analytics, cookies or third-party scripts. Details: [Statistics and privacy](statistics-and-privacy.md),
-[Privacy](privacy.md).
+No. The client keeps optional **local** statistics in a JSON file on your computer and sends them nowhere. From client
+1.4.0 on the client contacts exactly these hosts and nothing else, ever: Modrinth, only while you use Mods & Shaders
+(search text, project ids, no account data), and, only when you install the Local AI, `github.com` (the llama.cpp
+runtime archive) and `huggingface.co` (the model). The Vanta Nexus assistant's prompts go to `127.0.0.1` only: no cloud
+AI, no API key, no account, no telemetry. The launcher talks only to Mojang, Microsoft/Xbox, Fabric, Adoptium (Java),
+GitHub (releases, and the Local AI runtime when you agreed to it), Hugging Face (the Local AI model, same condition) and
+Modrinth (Performance pack, Mods page) to do its job. The website has no analytics, cookies or third-party scripts.
+Details: [Statistics and privacy](statistics-and-privacy.md), [Privacy](privacy.md).
+
+## What is Vanta Nexus?
+
+A screen of client 1.4.0 (main menu button, the **N** key, `/vanta nexus`) with seven sections: an assistant you ask in
+plain language ("Only show FPS and coordinates", "Create a recording profile"), the HUD Designer with six presets and
+your named layouts, profiles, live performance values, waypoints, Vanta Lab and the Nexus settings. The assistant
+applies only a fixed list of actions to your own client, shows exactly what it changed and lets you undo it. Details:
+[Vanta Nexus](nexus.md).
+
+## Is the Local AI a cloud service? Does it cost anything? Do I need an account?
+
+No, no and no. The [Local AI](local-ai.md) is `llama-server` from llama.cpp (MIT) running the Qwen3-1.7B model
+(Apache-2.0) **on your own PC**, started by the game on `127.0.0.1`. There is no cloud AI behind it, no API key, no
+account, no subscription and no telemetry; nothing you type leaves your computer. Both parts are free software by their
+authors; VANTA downloads them unchanged from GitHub and Hugging Face on your request.
+
+## How big is the Local AI, and what does it need?
+
+One download of about 1.85 GB: the model `Qwen3-1.7B-Q8_0.gguf` is 1.83 GB (1,834,426,016 bytes) and the `llama-server`
+archive for your system 11.5 to 19.4 MB (19.4 MB on Windows x64, 17.7 MB on Linux x64, 12.0 MB on Apple Silicon). The
+manifest asks for 2200 MB of free disk space and 3072 MB of free RAM while the server runs, next to the game. It runs on
+the CPU; by default it stops after 10 minutes without a question and frees the memory
+([Minecraft requirements → Local AI](minecraft-requirements.md#local-ai)). Every file is verified by SHA-256.
+
+## Does the Local AI work offline?
+
+Yes, after the one-time download. The server listens on `127.0.0.1` only and the game talks to it there; no internet
+connection is needed to ask the assistant anything, and the Local AI never checks for updates or contacts a host
+afterwards ([Local AI → Offline afterwards](local-ai.md#offline-afterwards)).
+
+## Do I have to install the Local AI? How do I remove it?
+
+No. Nothing is downloaded until you click **Install Local AI** in Vanta Nexus or **Download and install** in the VANTA
+Launcher; the first-start dialogs only point you there, and *Not now* keeps everything as it is. Every other part of
+VANTA, including the other six Nexus sections, works without it. To remove it: Vanta Nexus → Settings → **Remove Local
+AI** when the game installed it, or *Settings → Local AI → Remove* (or `--remove-local-ai`) in the VANTA Launcher when
+the launcher did. Only the Local AI folder is deleted; settings, profiles and waypoints stay
+([Local AI → Verify, Reinstall, Remove](local-ai.md#verify-reinstall-remove)).
+
+## Which systems can run the Local AI?
+
+Windows x64 and ARM64, Linux x64 and ARM64, macOS on Apple Silicon and Intel: every system the llama.cpp release has a
+CPU build for, detected from the Java runtime that runs the game. On another system Nexus says *Not available on this
+system* and the rest of VANTA is unchanged. The VANTA Launcher itself is still published for Windows x64, Linux x64 and
+Apple Silicon only; on an Intel Mac or Linux on ARM you install VANTA by hand and the game installs the Local AI itself.
 
 ## Do I need to buy Minecraft?
 
@@ -80,8 +129,8 @@ notarised macOS app.
 
 ## Which launcher file do I need on Linux or macOS?
 
-Linux x64: `VANTA-Launcher-1.3.0-linux-x64.tar.gz` (or `vanta-launcher-1.3.0-linux-all.jar` with Java 21). Apple
-Silicon Mac: `vanta-launcher-1.3.0-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
+Linux x64: `VANTA-Launcher-1.4.0-linux-x64.tar.gz` (or `vanta-launcher-1.4.0-linux-all.jar` with Java 21). Apple
+Silicon Mac: `vanta-launcher-1.4.0-macos-aarch64-all.jar`, started with `java -jar` (Java 21). The jars are not
 interchangeable: each contains JavaFX for one system only, so the Windows or Linux jar does not run on a Mac. Started on
 the wrong system, a jar does not open its window; it names the file to download instead (in a message window as well
 when you double-clicked it) and exits with code 1. The macOS jar is built and tested from the command line in CI; its
@@ -90,7 +139,7 @@ window has not been tested yet. Details:
 
 ## Can I use VANTA without the VANTA Launcher?
 
-Yes. Download `vanta-client-1.3.0-mods.zip`: it contains `vanta-client-1.3.0.jar`, Fabric API 0.141.6+1.21.11 and,
+Yes. Download `vanta-client-1.4.0-mods.zip`: it contains `vanta-client-1.4.0.jar`, Fabric API 0.141.6+1.21.11 and,
 from client 1.2.0 on, the redistributable Performance pack mods (all but EntityCulling) in a `mods/` folder, plus
 `INSTALL.txt` with the steps ([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)). Start the official Minecraft Launcher once,
 install Fabric Loader 0.19.5 for 1.21.11 with the Fabric installer (keep *Create profile* checked) and copy all jars
@@ -161,21 +210,25 @@ third-party combinations; see [Fabric](fabric.md#using-vanta-with-other-fabric-m
 
 On the website's [Download page](https://vanta-client.netlify.app/download) or directly from
 [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases). The newest releases are
-`launcher-v1.3.0` and `client-v1.3.0`. Both places offer the same files, built and published by the project's release workflow with their SHA-256 checksums. Do
+`launcher-v1.4.0` and `client-v1.4.0`. Both places offer the same files, built and published by the project's release workflow with their SHA-256 checksums. Do
 not take VANTA files from anywhere else.
 
 | Your system | File |
 | --- | --- |
-| Windows 10/11 x64 | `VANTA-Launcher-1.3.0.msi` (the installer, with its own Java runtime), or `VANTA-Launcher-1.3.0-windows-portable.zip` to run it without installing |
-| Linux x64 | `VANTA-Launcher-1.3.0-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.3.0-linux-all.jar` with Java 21 |
-| Mac with Apple Silicon | `vanta-launcher-1.3.0-macos-aarch64-all.jar` with Java 21 |
-| Windows 11 on ARM | `VANTA-Launcher-1.3.0.msi` or `VANTA-Launcher-1.3.0-windows-portable.zip` (x64 with their own x64 Java runtime, run under emulation; not tested on such a device; [details](troubleshooting.md#windows-on-arm-which-launcher-file)) |
-| Intel Mac, Linux on ARM, or no VANTA Launcher | `vanta-client-1.3.0-mods.zip` and the Fabric installer ([manual installation](installation.md#c-manual-installation)) |
+| Windows 10/11 x64 | `VANTA-Launcher-1.4.0.msi` (the installer, with its own Java runtime), or `VANTA-Launcher-1.4.0-windows-portable.zip` to run it without installing |
+| Linux x64 | `VANTA-Launcher-1.4.0-linux-x64.tar.gz` (app image with its own Java runtime), or `vanta-launcher-1.4.0-linux-all.jar` with Java 21 |
+| Mac with Apple Silicon | `vanta-launcher-1.4.0-macos-aarch64-all.jar` with Java 21 |
+| Windows 11 on ARM | `VANTA-Launcher-1.4.0.msi` or `VANTA-Launcher-1.4.0-windows-portable.zip` (x64 with their own x64 Java runtime, run under emulation; not tested on such a device; [details](troubleshooting.md#windows-on-arm-which-launcher-file)) |
+| Intel Mac, Linux on ARM, or no VANTA Launcher | `vanta-client-1.4.0-mods.zip` and the Fabric installer ([manual installation](installation.md#c-manual-installation)) |
+
+From 1.4.0 on the `.msi` is the only Windows installer: releases before 1.4.0 also offered the same installer as an
+`.exe`, which stays on their release pages. The client jar is the same on every system, and the launcher jars exist for
+Windows, Linux and Apple Silicon macOS.
 
 Verify the file with `SHA256SUMS.txt` from the same release before you run it
 ([Installation → Verify the checksum](installation.md#2-verify-the-checksum)). Older versions stay available on
 GitHub Releases. The Download page lists every earlier release under *Older versions*, with its main file, checksum and release
-notes. The release [`v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.3.0) adds `VantaClient-1.3.0-Release.zip`, both releases plus the documentation in
+notes. The release [`v1.4.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.4.0) adds `VantaClient-1.4.0-Release.zip`, both releases plus the documentation in
 one archive for anyone who wants everything at once, packed from the published files with the same checksums; you
 still take only one launcher file from it
 ([Installation → The full release zip](installation.md#the-full-release-zip)).

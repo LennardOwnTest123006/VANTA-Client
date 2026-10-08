@@ -48,9 +48,14 @@ regardless of their content, and you are responsible for following the rules of 
 
 ## 6. Privacy
 
-VANTA collects no data; the launcher communicates with Microsoft, Mojang, Fabric, Adoptium, GitHub and Modrinth to do
-its job, and the client contacts Modrinth only while you use Mods & Shaders or, from client 1.2.0 on, after you press
-*Boost FPS* or accept the *Boost your FPS?* offer.
+VANTA collects no data; the launcher communicates with Microsoft, Mojang, Fabric, Adoptium, GitHub, Modrinth and,
+from launcher 1.4.0 on and only when you agree to install the Local AI, Hugging Face to do its job. From client 1.4.0
+on the client contacts exactly these hosts and nothing else, ever: Modrinth while you use Mods & Shaders (or, from
+client 1.2.0 on, after you press *Boost FPS* or accept the *Boost your FPS?* offer) and, only when you install the
+Local AI from the game, `github.com` (the llama.cpp runtime archive) and `huggingface.co` (the model). The Vanta Nexus
+assistant runs on your own PC and its prompts go to `127.0.0.1` only: no cloud AI, no API key, no account, no
+telemetry. The Local AI's runtime (llama.cpp, MIT) and model (Qwen3-1.7B, Apache-2.0) are third-party software under
+their own licences, downloaded unchanged from their authors' pages on your request.
 Details are on the [Privacy](privacy.md) page, which is part of these terms.
 
 ## 7. Contributions

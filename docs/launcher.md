@@ -1,18 +1,20 @@
 ---
 title: VANTA Launcher
-description: The VANTA Launcher explained: PLAY, PLAY via Minecraft Launcher, the Mods page, the Performance pack, sign-in, Java, Versions, Logs, Settings, updates, start-up errors and the command line.
+description: The VANTA Launcher: PLAY, PLAY via Minecraft Launcher, the Mods page, the Performance pack, the Local AI, sign-in, Java, Versions, Logs, Settings, updates, start-up errors and the command line.
 order: 10
 category: Launcher
 ---
 
-The VANTA Launcher installs and starts Minecraft 1.21.11 with Fabric Loader 0.19.5, Fabric API, the VANTA Client
-and, from launcher 1.1.0 on, the [Performance pack](#performance-pack) from Modrinth. It is a JavaFX 21 desktop
-application. It is published as Windows x64 installers and a portable app, a Linux x64 app image, and one launcher jar
-each for Windows x64, Linux x64 and Apple Silicon macOS (each jar runs only on the system in its name; see
-[Installation → Download](installation.md#1-download)). It does three things and nothing more: download verified
-files, sign you in with Microsoft or hand the game over to the official Minecraft Launcher, and start the game.
+The VANTA Launcher installs and starts Minecraft 1.21.11 with Fabric Loader 0.19.5, Fabric API, the VANTA Client,
+from launcher 1.1.0 on the [Performance pack](#performance-pack) from Modrinth and, from launcher 1.4.0 on and only
+after you agree, the [Local AI](#local-ai) of Vanta Nexus. It is a JavaFX 21 desktop application. It is published as a
+Windows x64 installer (`.msi`; releases before 1.4.0 also shipped it as an `.exe`) and a portable app, a Linux x64 app
+image, and one launcher jar each for Windows x64, Linux x64 and Apple Silicon macOS (each jar runs only on the system
+in its name; see [Installation → Download](installation.md#1-download)). It does three things and nothing more:
+download verified files, sign you in with Microsoft or hand the game over to the official Minecraft Launcher, and start
+the game.
 
-This page describes launcher 1.3.0. Where earlier versions behave differently, the text says so.
+This page describes launcher 1.4.0. Where earlier versions behave differently, the text says so.
 
 ## Home
 
@@ -28,21 +30,27 @@ The Home screen has one big main button. Which one depends on whether PLAY can s
 - **PLAY** — when a Microsoft client id is configured or an account is stored. It tells you why it is disabled when
   it is: *Sign in first*, *No Java 21 found*, *Installing…*, *Verifying…* or *Running*.
 
-Under it the facts line reads `Minecraft 1.21.11 · Fabric 0.19.5 · Java 21 (<detected version>)`.
+Under it the facts line reads `Minecraft 1.21.11 · Fabric 0.19.5 · Java 21 (<detected version>)`. From launcher
+1.4.0 on a status line follows: *Local AI: ready*, *Local AI: not installed*, *Local AI: incomplete*, *Local AI: not
+available for <os>/<arch>* or *Local AI: not available in this build*, with the button **Install Local AI** (opens the
+consent dialog) while it is not installed, or **Local AI settings** otherwise ([Local AI](#local-ai)).
 
 Pressing PLAY runs the launch flow:
 
 1. **Java** — pick the configured or best detected Java 21 (or stop with *No Java 21 found*).
 2. **Install / verify** — compare every required file (client jar, libraries, assets, Fabric libraries, Fabric API,
    VANTA jar) with its checksum; download what is missing or wrong. The [Performance pack](#performance-pack) is
-   installed or updated in the same step unless it is switched off. A progress bar shows the current step and bytes.
+   installed or updated in the same step unless it is switched off, and from launcher 1.4.0 on the
+   [Local AI](#local-ai) too, when you agreed to it (the step *Installing the Local AI*; like the pack it never stops
+   the installation when it fails). A progress bar shows the current step and bytes.
    Sizes are shown in decimal units with one decimal place (1 MB = 1,000,000 bytes, for example "66.9 MB"), the same
    numbers the website and the release notes show.
 3. **Account** — refresh the Microsoft/Minecraft token when it has expired.
 4. **Launch** — from launcher 1.3.0 on, first record the standard Minecraft folder in
    `config/vanta/minecraft-folder.json` when that folder exists and no note names an existing folder yet, so
-   Singleplayer lists its worlds ([Installation → Where your worlds are](installation.md#where-your-worlds-are)); then
-   start `java` with the Fabric main class and stream the game output to the Logs screen. The status
+   Singleplayer lists its worlds ([Installation → Where your worlds are](installation.md#where-your-worlds-are)), and
+   from launcher 1.4.0 on write the note `config/vanta/local-ai.json` that names the launcher's Local AI folder
+   ([Local AI](#local-ai)); then start `java` with the Fabric main class and stream the game output to the Logs screen. The status
    turns to **Running**; a notification reports the exit code when the game closes. When the game asks for a
    restart after you changed mods in it, the launcher starts it again ([Restart from the game](#restart-from-the-game)).
 
@@ -169,6 +177,7 @@ folder, `<version>` the VANTA Client version). A file that is already identical 
 | `<data>/instances/vanta-1.21.11/instance.json` | the installed VANTA Client version is noted; only when this file already exists |
 | `<data>/instances/vanta-1.21.11/mods/<file>` and `config/vanta/modrinth.json` | the [Performance pack](#performance-pack) mods and their record, verified with the SHA-512 from Modrinth; only when the pack is switched on |
 | `<data>/instances/vanta-1.21.11/config/vanta/minecraft-folder.json` | from launcher 1.3.0 on: `{"minecraftDir": "<minecraft>"}`, the note that tells the VANTA Client which Minecraft folder's worlds Singleplayer lists ([Installation → Where your worlds are](installation.md#where-your-worlds-are)); listed as *Note for the VANTA Client: Singleplayer lists the worlds of this Minecraft folder (nothing in it is changed)* |
+| `<data>/instances/vanta-1.21.11/config/vanta/local-ai.json` | from launcher 1.4.0 on: `{"localAiDir": "<data>/local-ai"}`, the note that tells the VANTA Client to use the launcher's [Local AI](#local-ai) folder read-only; listed as *Note for the VANTA Client: the Local AI (llama-server and model) lives in the launcher folder local-ai and is used read-only*. Written whether or not the Local AI is installed. The Local AI files themselves are not written by this setup; the first-start offer, PLAY, *Settings → Local AI* and `--install-local-ai` install them |
 | `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.json` | the Fabric Loader version JSON as `meta.fabricmc.net/v2/versions/loader/1.21.11/0.19.5/profile/json` serves it (the file the official Fabric installer writes) |
 | `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/fabric-loader-0.19.5-1.21.11.jar` | an empty file, as the official Fabric installer writes it |
 | `<minecraft>/launcher_profiles.json.vanta-backup` | a one-time copy of the original `launcher_profiles.json`, only when that file exists and has no backup yet |
@@ -289,6 +298,48 @@ and size Modrinth publishes, and replaces an older version of the same mod.
 
 The mods are third-party projects from Modrinth under their own licences; the launcher installs them unchanged. More
 about each mod: [Mods & Shaders → The Performance pack](mods-and-shaders.md#the-performance-pack).
+
+## Local AI
+
+From launcher 1.4.0 on the launcher can install the [Local AI](local-ai.md) that the [Vanta Nexus](nexus.md) assistant
+of client 1.4.0 runs on your PC: `llama-server` from llama.cpp release `b11429` (MIT) and the Qwen3-1.7B Q8_0 GGUF
+model (Apache-2.0), about 1.85 GB in one download from `github.com` and `huggingface.co`, every file verified by
+SHA-256 from the manifest built into the launcher. The launcher only downloads and verifies; the game starts the
+server, on `127.0.0.1`, and nothing you type is sent anywhere. **Nothing is downloaded before you agree.**
+
+- **First start.** With *Install the Local AI automatically* on (the default) and nothing installed, the launcher asks
+  once per session: **Install the Local AI?** The dialog lists the runtime and the model (name, version, file, size,
+  licence, host), the folder, the total download, the disk space and memory the manifest asks for, and the sentence
+  that the assistant runs on this PC only. **Download and install** records your consent (`localAiAccepted` in
+  `settings.json`) and installs; **Not now** switches *Install the Local AI automatically* off, so you are not asked
+  again. When you agreed earlier and files are missing or outdated, the install runs at start without asking again.
+- **Afterwards.** Once you agreed and the switch is on, the launcher keeps the files complete: a start with files
+  missing or outdated installs them right away without asking again, and PLAY and `--install` (the regular
+  installation) run the step **Installing the Local AI** after the Performance pack: *Checking Local AI*, *Downloading
+  Local AI runtime*, *Downloading Local AI model*, *Verifying files*, *Installing*, *Local AI ready*. Verified files are
+  not downloaded again; the model request may take up to six hours and stops after 60 s without progress. A failed
+  step never fails the installation (the log says *Local AI skipped: <reason>*). *PLAY via Minecraft Launcher*, *Use
+  with Minecraft Launcher* and `--install-official-profile` do not install the Local AI; they write the note below,
+  which their confirmation lists.
+- **Settings → Local AI** shows the status and versions, the download size or the size on disk, problems when there are
+  any, a progress bar while something runs, the folder with **Open**, **Install** (or **Update** when a newer launcher's
+  manifest names other files), **Cancel**, **Verify files** (hashes the model again and checks the server), **Remove**
+  (asks first, deletes only the folder and switches the automatic installation off) and the switch *Install the Local
+  AI automatically*.
+- **Where**: `<data directory>/local-ai/` with `installed.json`, `runtime/b11429/<platform>/` (the extracted archive
+  with `llama-server`), `models/Qwen3-1.7B-Q8_0.gguf`, `downloads/` and `logs/llama-server.log` (written by the game
+  when it starts the server). The note `config/vanta/local-ai.json` in the game folder points at it, so the game uses
+  this install read-only and shows *Installed by the VANTA Launcher* in Nexus; the game's own Install and Remove buttons
+  are hidden then ([Local AI → Two install paths](local-ai.md#two-install-paths)).
+- **Systems**: the manifest has builds for Windows x64 and ARM64, Linux x64 and ARM64 and macOS on Apple Silicon and
+  Intel, chosen by the Java runtime the launcher runs on; on another system the status says *not available for
+  <os>/<arch>* and nothing else changes. A launcher built without a resolved manifest says *not available in this
+  build*.
+- **Command line**: `--install-local-ai`, `--local-ai-status`, `--remove-local-ai`, `--with-local-ai` and
+  `--without-local-ai` ([Command line reference](#command-line-reference)).
+
+The launcher never runs anything it downloaded for the Local AI. Problems: [Troubleshooting → Local AI
+problems](troubleshooting.md#local-ai-problems).
 
 ## Restart from the game
 
@@ -416,6 +467,7 @@ Minecraft's own `latest.log` is in the instance). The launcher log is `logs/laun
 | Check for updates automatically | on | at start, against the releases URL in use |
 | Share official Minecraft files | on | reuse verified libraries/assets from the official `.minecraft` directory read-only |
 | Install the performance pack | on | *Settings → Game*; installs the [Performance pack](#performance-pack) with every installation (`installPerformancePack`) |
+| Install the Local AI automatically | on | *Settings → Local AI*, from launcher 1.4.0 on (`installLocalAi`): offers the [Local AI](#local-ai) download once at the first start and keeps the files complete with every installation once you agreed (`localAiAccepted`, set by *Download and install*, *Install*, `--install-local-ai` or `--with-local-ai`; not editable in Settings). Nothing is downloaded before you agree; *Not now* and *Remove* switch it off |
 | Developer mode | off | reveals *Offline session* only when allowed by the rules above; enables `--dev-offline` |
 | Theme | VANTA Dark | the launcher has one dark theme |
 | High contrast | off | stronger borders, brighter secondary and muted text and a brighter focus outline |
@@ -481,7 +533,7 @@ At start (and with `--check-update`) the launcher fetches `launcher-latest.json`
 
   | Running launcher | Self-update file | What happens after the download |
   | --- | --- | --- |
-  | Windows x64, installed with the `.msi` or `.exe` | `VANTA-Launcher-<version>.msi` (`.exe` when a release has no `.msi`) | after your confirmation the installer is handed to Windows; the launcher never runs it itself |
+  | Windows x64, installed with the `.msi` (or the `.exe` of a release before 1.4.0) | `VANTA-Launcher-<version>.msi` (from 1.4.0 on the only Windows installer) | after your confirmation the installer is handed to Windows; the launcher never runs it itself |
   | Windows x64, portable folder (from `-windows-portable.zip`) | `VANTA-Launcher-<version>-windows-portable.zip` | shown with instructions that name your folders (*Show in folder* opens the download): close the launcher, then extract the zip into the folder that **contains** your `VANTA Launcher` folder (its parent) and let it replace the existing files; the zip's top-level `VANTA Launcher` folder lands on top of the old one. Extracting it into the `VANTA Launcher` folder itself only nests a second `VANTA Launcher` folder and leaves the old version in place. For a renamed portable folder the dialog says to copy everything inside the zip's `VANTA Launcher` folder into your portable folder instead. The launcher never unpacks or runs it |
   | Windows x64, `java -jar` | `vanta-launcher-<version>-windows-all.jar` | shown in its folder: start it with Java 21 using the `java -jar "<full path>"` command the dialog shows |
   | Linux x64 app image (from `-linux-x64.tar.gz`) | `VANTA-Launcher-<version>-linux-x64.tar.gz` | shown in its folder: extract it and start `VANTA Launcher/bin/VANTA Launcher` |
@@ -491,33 +543,33 @@ At start (and with `--check-update`) the launcher fetches `launcher-latest.json`
 
   The launcher tells these installations apart by how it was started: the installers and app images start it through
   their own launcher program (`VANTA Launcher.exe`, `bin/VANTA Launcher`), a jar is started with `java -jar`, and the
-  portable zip carries the file `VANTA Launcher/app/vanta-portable.marker`, which the `.msi` and `.exe` do not
-  contain. Rolling the launcher back means installing the previous release from GitHub Releases, where every version
+  portable zip carries the file `VANTA Launcher/app/vanta-portable.marker`, which the `.msi` (and the `.exe` of older
+  releases) does not contain. Rolling the launcher back means installing the previous release from GitHub Releases, where every version
   stays available with its checksum.
 
   **Updating from launcher 1.0.0.** The table describes launcher 1.0.1 and newer. An update is offered by the
-  launcher you are running, and launcher 1.0.0 still picks the file by system only, for the update to 1.3.0 as for
-  every earlier one: on Windows it offers `VANTA-Launcher-1.3.0.msi` (also in the portable folder and when started as
-  a jar), on Linux x64 `VANTA-Launcher-1.3.0-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a
+  launcher you are running, and launcher 1.0.0 still picks the file by system only, for the update to 1.4.0 as for
+  every earlier one: on Windows it offers `VANTA-Launcher-1.4.0.msi` (also in the portable folder and when started as
+  a jar), on Linux x64 `VANTA-Launcher-1.4.0-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a
   portable folder or a jar installs a second launcher and leaves the portable copy or jar at 1.0.0. To keep a portable
   or jar setup, choose *Not now* in the 1.0.0 launcher, close it and download
-  `VANTA-Launcher-1.3.0-windows-portable.zip` or the jar for your system from the release
-  [`launcher-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.3.0) yourself
+  `VANTA-Launcher-1.4.0-windows-portable.zip` or the jar for your system from the release
+  [`launcher-v1.4.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.4.0) yourself
   (verify it as in [Installation → Verify the checksum](installation.md#2-verify-the-checksum) and replace the files
   as described in the table). From 1.0.1 on, the launcher picks the matching file itself.
 
   **Update files saved by launcher 1.0.0 and 1.0.1.** They save the download as `cache/updates/<version>-<file name>`,
-  for example `1.3.0-vanta-launcher-1.3.0-linux-all.jar`. It is the verified release file under a different name:
+  for example `1.4.0-vanta-launcher-1.4.0-linux-all.jar`. It is the verified release file under a different name:
   *Show in folder* opens that folder and the file starts from there as it is. To check it yourself with
   `sha256sum -c --ignore-missing SHA256SUMS.txt` from the release, rename it to the release name first
-  (`vanta-launcher-1.3.0-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name
+  (`vanta-launcher-1.4.0-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name
   ([Installation → Updating](installation.md#updating)).
 - An announced release whose manifest still has an empty download URL is shown as *announced, not downloadable yet*.
 
 `--check-update` prints the same result, for example on a fresh launcher:
 
 ```text
-Client: not installed (install it with --install or --install-official-profile); latest release 1.3.0
+Client: not installed (install it with --install or --install-official-profile); latest release 1.4.0
 ```
 
 ## About and links
@@ -546,8 +598,8 @@ you just copied stays there.
 | Linux | `$XDG_DATA_HOME/vanta-launcher` or `~/.local/share/vanta-launcher` |
 
 The environment variable `VANTA_LAUNCHER_HOME` (or `--data-dir` on the command line) overrides all three. The layout
-(`instances/`, `libraries/`, `assets/`, `versions/`, `runtimes/`, `logs/`, `cache/`, `settings.json`, `accounts.dat`,
-`key.bin`) is described in [Installation → Where files live](installation.md#5-where-files-live).
+(`instances/`, `libraries/`, `assets/`, `versions/`, `runtimes/`, `local-ai/` from 1.4.0 on, `logs/`, `cache/`,
+`settings.json`, `accounts.dat`, `key.bin`) is described in [Installation → Where files live](installation.md#5-where-files-live).
 
 ## Start-up errors
 
@@ -583,12 +635,13 @@ on Linux, `"VANTA Launcher/bin/VANTA Launcher"` from the app image. The command 
 every launcher jar on every system; only the window needs the jar for your system. On Windows `VANTA Launcher.exe` is a
 window program without console output; use the jar with an installed Java 21 there, or the bundled runtime:
 `"VANTA Launcher\runtime\bin\java.exe" -jar "VANTA Launcher\app\vanta-launcher-<version>-all.jar"` inside the
-unzipped portable app (for 1.3.0: `vanta-launcher-1.3.0-all.jar`).
+unzipped portable app (for 1.4.0: `vanta-launcher-1.4.0-all.jar`).
 
 ```text
-vanta-launcher --install [--client-jar <path>] [--without-client] [--without-performance-pack] [--no-assets]
+vanta-launcher --install [--client-jar <path>] [--without-client] [--without-performance-pack] [--with-local-ai | --without-local-ai] [--no-assets]
 vanta-launcher --install-official-profile [--minecraft-dir <path>] [--client-jar <path>] [--without-performance-pack]
 vanta-launcher --open-official-launcher [--minecraft-dir <path>]
+vanta-launcher --install-local-ai | --local-ai-status | --remove-local-ai
 vanta-launcher --launch [--dev-offline --username <name>] [--world <name> | --server <host>] [--exit-after <seconds>]
 vanta-launcher --check-java [--java <path>]
 vanta-launcher --install-java
@@ -600,7 +653,10 @@ common options: --data-dir <path>  --memory <mb>  --java <path>  --resolution <W
 
 | Command | What it does |
 | --- | --- |
-| `--install` | installs Minecraft 1.21.11, Fabric Loader, Fabric API, the VANTA Client and the [Performance pack](#performance-pack); `--client-jar` uses a local jar instead of the release manifest, `--without-client` skips VANTA, `--without-performance-pack` skips the pack for this run, `--no-assets` skips the asset download |
+| `--install` | installs Minecraft 1.21.11, Fabric Loader, Fabric API, the VANTA Client and the [Performance pack](#performance-pack); `--client-jar` uses a local jar instead of the release manifest, `--without-client` skips VANTA, `--without-performance-pack` skips the pack for this run, `--no-assets` skips the asset download. From 1.4.0 on it also installs the [Local AI](#local-ai) when the settings say so (*Install the Local AI automatically* on and consent given); `--with-local-ai` adds it to this run and counts as your consent, `--without-local-ai` skips it for this run. The output says `Local AI: on (...)` or `Local AI: off (...)` |
+| `--install-local-ai` | from 1.4.0 on: downloads, verifies and installs the Local AI into `<data>/local-ai/` (counts as your consent and records it); prints the runtime and model lines with file, size, licence and URL, the steps, then the status block of `--local-ai-status` and `Note: <game folder>/config/vanta/local-ai.json`. Exit code 4 with `SHA256 mismatch` on a digest or size mismatch (nothing is recorded), 3 when the build has no usable manifest, 1 on an unsupported system |
+| `--local-ai-status` | from 1.4.0 on: prints `Local AI: installed (llama.cpp b11429, Qwen3-1.7B Q8_0)` (plus `; update available: ...` when the manifest names other files), `Local AI: partially installed (<problems>; --install-local-ai completes it)`, `Local AI: not installed (install it with --install-local-ai)`, `Local AI: not available for <os>/<arch>` or `Local AI: not available in this build (<reason>)`, then `Download: <size> (llama.cpp b11429 from github.com, MIT; Qwen3-1.7B Q8_0 from huggingface.co, Apache-2.0)` while it is installable and not installed, always `Folder: <data>/local-ai` and `Size on disk: <n>`, and when installed `Server: <path>` and `Model: <path>`. Exit code 0 for every state |
+| `--remove-local-ai` | from 1.4.0 on: deletes `<data>/local-ai/` and nothing else, prints `Removed the Local AI from <dir> (<n> freed)` or `Local AI: not installed (nothing to remove in <dir>)`, and switches *Install the Local AI automatically* off (`Automatic installation of the Local AI switched off ...`) |
 | `--install-official-profile` | [Use with the Minecraft Launcher](#use-with-the-minecraft-launcher): installs Fabric API, the VANTA Client and the Performance pack into the VANTA instance, writes the Fabric Loader version to `<minecraft>/versions/fabric-loader-0.19.5-1.21.11/` and adds the profile `vanta-1.21.11` to `launcher_profiles.json` and/or `launcher_profiles_microsoft_store.json`, whichever exist; prints a warning when the Minecraft Launcher is running; `--minecraft-dir` selects the Minecraft folder, `--client-jar` a local jar, `--without-performance-pack` skips the pack |
 | `--open-official-launcher` | starts the official Minecraft Launcher ([Opening the Minecraft Launcher](#opening-the-minecraft-launcher)); a running one is left alone; exit code 3 when none is found |
 | `--launch` | launches the installed instance with the active account and starts it again when the game asks for a [restart](#restart-from-the-game) (at most 5 times); `--dev-offline` requires developer mode and `VANTA_DEV_OFFLINE=1`; `--world`/`--server` use Minecraft's quick play; `--exit-after` stops the game after N seconds (CI) |
@@ -617,8 +673,8 @@ Exit codes:
 | 0 | success |
 | 1 | unexpected failure, or the window could not start: a launcher jar started on another system (the message names the file to download), JavaFX missing or no display ([Start-up errors](#start-up-errors)) |
 | 2 | invalid command line |
-| 3 | not configured: Microsoft client id missing, releases URL unusable, the Minecraft Launcher was never started (neither `launcher_profiles.json` nor `launcher_profiles_microsoft_store.json` exists), or `--open-official-launcher` found no Minecraft Launcher |
-| 4 | integrity check failed (checksum mismatch) |
+| 3 | not configured: Microsoft client id missing, releases URL unusable, the Minecraft Launcher was never started (neither `launcher_profiles.json` nor `launcher_profiles_microsoft_store.json` exists), `--open-official-launcher` found no Minecraft Launcher, or (from 1.4.0 on) `--install-local-ai` has no usable Local AI manifest |
+| 4 | integrity check failed (checksum mismatch, also for a Local AI download) |
 | 5 | network or server failure: refused connection, DNS, TLS, timeout, HTTP error, or an HTTPS proxy that refuses the connection; the message names the step and the URL |
 | 6 | no Java 21 runtime found |
 | 7 | the requested release is not published yet |
@@ -635,5 +691,6 @@ Exit codes:
 | `VANTA_RELEASES_BASE_URL` | releases base URL used when the setting is empty (otherwise the built-in default) |
 | `VANTA_LAUNCHER_HOME` | overrides the data directory |
 | `VANTA_DEV_OFFLINE` | `1` allows development offline accounts together with developer mode (CI only) |
+| `VANTA_LOCAL_AI_MANIFEST` | from 1.4.0 on: a file that replaces the Local AI manifest built into the launcher (strictly parsed; CI uses it to install from a local mirror of the files). Not needed to use the launcher |
 | `VANTA_UI_SMOKE_SCREENSHOT`, `VANTA_UI_SMOKE_EXIT_AFTER` | for automated tests: write a screenshot of the window once it is shown (`<png>`), close the launcher that many seconds after the window was shown with exit code 0 |
 | `VANTA_UI_SMOKE_PAGE`, `VANTA_UI_SMOKE_SIZE` | from launcher 1.2.0 on, only together with one of the two above: show that page (`home`, `mods`, `versions`, `logs`, `settings`, `about`) before the screenshot and size the window first (`<width>x<height>`, raised to the 960 x 600 minimum). On their own they do nothing |

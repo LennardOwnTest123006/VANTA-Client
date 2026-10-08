@@ -117,7 +117,15 @@ without one. From that commit until the completed manifest is committed (step 7)
    For 1.0.1: `--product client --to 1.0.1 --date 2026-10-05` and `--product launcher --to 1.0.1 --date 2026-10-05`.
    A release of one product bumps only that product, for example the launcher-only 1.0.2:
    `--product launcher --to 1.0.2 --date 2026-10-05` (the client stays at 1.0.1). For 1.2.0:
-   `--product client --to 1.2.0 --date 2026-10-07` and `--product launcher --to 1.2.0 --date 2026-10-07`.
+   `--product client --to 1.2.0 --date 2026-10-07` and `--product launcher --to 1.2.0 --date 2026-10-07`. For 1.4.0:
+   `--product client --to 1.4.0 --date 2026-10-08`, `--product launcher --to 1.4.0 --date 2026-10-08` and
+   `--product website --to 1.2.0`; `LauncherVersion`'s in-code fallback version is refreshed by hand with it.
+   **From 1.4.0 on both products embed `shared/local-ai/local-ai.json` at build time** (`core` as
+   `assets/vanta/local-ai.json`, the client's `processResources` copies it into the mod jar, the launcher as
+   `/local-ai.json`), so the committed manifest must be resolved before a client or launcher release
+   (`node scripts/release/local-ai.mjs status` exits 0; otherwise run the workflow `local-ai-resolve.yml` and commit
+   its result first). A build from the unresolved template reports the Local AI as not available and installs
+   nothing; `release.yml` does not check this itself, CI's release scripts job does.
 2. **Notes.** Write `website/content/changelog/<product>-<version>.md` and update `CHANGELOG.md`. Launchers load the
    release notes of an update from
    `https://raw.githubusercontent.com/LennardOwnTest123006/VANTA-Client/HEAD/<changelog path of the manifest>` when
@@ -144,7 +152,8 @@ without one. From that commit until the completed manifest is committed (step 7)
      download, its `fabric.mod.json` and license) and builds the mods bundle (verified with `sha256sum -c` before and
      after zipping).
    - `launcher-windows`: fat jar (JavaFX natives checked, `--version`), the app image zipped as the portable build
-     (its bundled runtime runs the jar with `--version`), then the `.msi`. The installer is built, not installed.
+     (its bundled runtime runs the jar with `--version`), then the `.msi`; from 1.4.0 on exactly these three files,
+     no `.exe`. The installer is built, not installed.
    - `launcher-linux`: fat jar (natives checked, `--version`, `--check-java`) and the app image packed as `.tar.gz`
      (`bin/VANTA Launcher --version`, archive listing checked).
    - `launcher-macos` (Apple Silicon runner, `uname -m` must be `arm64`): fat jar for `mac-aarch64` (every JavaFX native

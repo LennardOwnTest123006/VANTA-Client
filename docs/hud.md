@@ -30,12 +30,20 @@ is open.
 | **CPU** | process CPU load when the JVM can report it, otherwise "n/a" | show label |
 | **Entity count** | entities currently loaded around you | show label |
 | **Minecraft version** | `1.21.11`, optionally the Fabric Loader version | show Fabric |
+| **Frame time graph** (Vanta Lab, from client 1.4.0 on) | the last 120 frame times as a bar graph, frames over 50 ms in the danger colour, with p50 and p99 labels; "n/a" without history | show p50 and p99 labels. Available only while *Vanta Lab → Frame time HUD graph* is on (see below) |
 | **Crosshair** | VANTA's crosshair, always centred | configured in the crosshair customizer |
 
 Every widget except the crosshair can be moved, scaled (0.5×–2×), made translucent, given its own background, text
 and accent colours, and resized (keystrokes keeps its aspect). The HUD honours the global **HUD scale**, **HUD
 opacity** and **text shadow** settings from *Settings → HUD* and the **HUD theme** from Cosmetics
 (Clean, Glass, Outline, Minimal — see [Cosmetics](cosmetics.md)).
+
+**The Frame time graph** is a [Vanta Lab](nexus.md#6-vanta-lab) widget. While *Frame time HUD graph* is off (the
+default) it is not drawn, not listed in the HUD editor's widget list and not offered to the Nexus assistant, and the
+Nexus presets hide it like every widget outside their set; a layout that already contains it keeps it, and it comes
+back when you switch the feature on. The frame times are collected only while the widget is enabled. With *Vanta Lab →
+Dynamic HUD* on, the whole HUD fades out after 10 seconds without input in a world and returns on any input
+([Settings → Vanta Lab](settings.md#vanta-lab)).
 
 ## The HUD editor
 
@@ -55,8 +63,8 @@ world it uses clearly labelled sample data.
 | Scale / opacity | sliders in the inspector |
 | Colours | background, text and accent colour fields (hex with alpha, swatch palette) |
 | Widget options | the per-widget options from the table above |
-| Enable / disable widgets | the sidebar lists all widgets with a search field and a toggle each |
-| Presets | toolbar dropdown: built-in **Default, Minimal, PvP, Streamer, Performance** plus your saved presets; **Save preset…** stores the current layout under a name you choose |
+| Enable / disable widgets | the sidebar lists all widgets with a search field and a toggle each (the Frame time graph only while its Vanta Lab feature is on) |
+| Presets | toolbar dropdown: built-in **Default, Minimal, PvP, Streamer, Performance** plus your saved presets; **Save preset…** stores the current layout under a name you choose. From client 1.4.0 on the same presets are the **layouts** of the [HUD Designer in Vanta Nexus](#the-hud-designer-in-vanta-nexus) |
 | Reset layout | restores the Default preset |
 | Undo / redo | toolbar buttons or Ctrl+Z / Ctrl+Y, 50 steps deep |
 | Grid | toggle the grid overlay (also *Settings → HUD → Editor grid*) |
@@ -85,6 +93,41 @@ On small windows (GUI scale 3 on a small screen) the sidebar and inspector colla
 Layouts are JSON documents validated by the shared schema `hud-preset.schema.json`; each widget has `id`, `type`,
 `enabled`, `anchor`, `offsetX`, `offsetY`, `scale`, `opacity`, `width`, `height`, `background`, `backgroundColor`,
 `textColor`, `accentColor` and `props`. Profiles embed a copy of the layout — see [Profiles](profiles.md).
+
+## The HUD Designer in Vanta Nexus
+
+From client 1.4.0 on, [Vanta Nexus → HUD Designer](nexus.md#2-hud-designer) is a second front for the same layouts
+and the home of the six **Nexus presets**. It does not replace the editor: *Open editor* opens the editor above,
+which remains the place to move, resize, scale and set the opacity of single widgets.
+
+- **Presets**: six chips, *Minimal*, *PvP*, *Recording*, *Survival*, *Building*, *Full*. A chip applies the preset to
+  your live HUD through the same code the assistant's `hud.preset` action uses, as one undoable change: the widgets
+  of the set are enabled (and added at their default place when your layout does not have them) with the preset's
+  scale, every other widget is hidden, the crosshair stays, and the positions of widgets you already placed are kept.
+- **Layouts**: the built-in presets (*Default*, *Minimal*, *PvP*, *Streamer*, *Performance*) and your saved ones from
+  `config/vanta/hud/presets/`, with *Load*, *Duplicate*, *Delete* (your own only, asks first), *Save current* and *New
+  layout* (a preset applied and saved under a name). *Load* is the assistant's `hud.layout.load`, *Save current* its
+  `hud.layout.save`.
+- The assistant can also change single widgets (`hud.set`: visible, anchor, position as fractions of the screen,
+  scale 0.5 to 2.0, opacity 0.1 to 1.0) and show exactly a set of widgets (`hud.only`); everything it may do is listed
+  in [Vanta Nexus → What the assistant can do](nexus.md#what-the-assistant-can-do), and **Undo** takes a change back.
+
+### Nexus presets
+
+| Preset | Widgets | Scale |
+| --- | --- | --- |
+| **Minimal** | FPS, Coordinates | 1.0 |
+| **PvP** | FPS, Ping, CPS, Keystrokes, Armor, Item durability, Potion effects | 1.0 |
+| **Recording** | FPS, Clock, Coordinates, Direction, Keystrokes, Minecraft version (no Server widget, so no server address on a recording) | 0.9 |
+| **Survival** | FPS, Coordinates, Direction, Biome, Clock, Armor, Item durability, Potion effects | 1.0 |
+| **Building** | Coordinates, Direction, Biome, Clock | 0.9 |
+| **Full** | every widget | 1.0 |
+
+The crosshair is always kept; the Frame time graph is never added by a preset (it belongs to Vanta Lab). The built-in
+profiles *PvP*, *Survival*, *Building*, *Recording* and *Minimal* carry the matching preset applied to the *Default*
+layout, so a profile and the assistant produce the same HUD ([Profiles → Built-in profiles](profiles.md#built-in-profiles)).
+The Nexus presets are not the same thing as the editor's built-in presets of the same name (*Minimal* and *PvP* exist in
+both): a Nexus preset is a widget set applied to your current layout, an editor preset is a complete stored layout.
 
 ## The crosshair customizer
 
