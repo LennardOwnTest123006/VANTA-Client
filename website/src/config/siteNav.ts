@@ -30,7 +30,8 @@ export const siteNav: readonly NavItem[] = [
     ready: true,
     group: 'product',
     inHeader: true,
-    description: 'Launcher installer and client jar with checksums.',
+    description:
+      'The Windows installer, the client and launcher jars for Windows, Linux and macOS and the full release zip, with checksums.',
   },
   {
     label: 'Features',
@@ -38,7 +39,8 @@ export const siteNav: readonly NavItem[] = [
     ready: true,
     group: 'product',
     inHeader: true,
-    description: 'Everything VANTA adds on top of vanilla Minecraft 1.21.11.',
+    description:
+      'Everything VANTA adds on top of vanilla Minecraft 1.21.11, from the HUD to Vanta Nexus and its local AI.',
   },
   {
     label: 'Performance',
@@ -78,7 +80,8 @@ export const siteNav: readonly NavItem[] = [
     ready: true,
     group: 'resources',
     inHeader: true,
-    description: 'Installation, launcher, settings, HUD, profiles and troubleshooting guides.',
+    description:
+      'Installation, launcher, Vanta Nexus and the Local AI, settings, HUD, profiles, waypoints and troubleshooting guides.',
   },
   {
     label: 'Support',
@@ -110,7 +113,8 @@ export const siteNav: readonly NavItem[] = [
     ready: true,
     group: 'legal',
     inHeader: false,
-    description: 'What data the client, the launcher and the website process.',
+    description:
+      'What data the client, the launcher and the website process, and which hosts the client contacts.',
   },
   {
     label: 'Terms',

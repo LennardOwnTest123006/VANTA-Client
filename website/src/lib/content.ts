@@ -11,8 +11,8 @@ import {
  *
  * Files start with a front matter block validated against the shape of
  * `shared/schemas/changelog-entry.schema.json` (product, version, date, optional title and
- * minecraftVersion). The body uses the headings `## Added`, `## Improved`, `## Fixed` and
- * optionally `## Notes`; {@link parseChangelogSections} turns them into typed sections for the
+ * minecraftVersion). The body uses the headings `## Added`, `## Improved`, `## Fixed`, `## Removed`
+ * (from launcher 1.4.0 on) and optionally `## Notes`; {@link parseChangelogSections} turns them into typed sections for the
  * changelog page. The entries are small and the download page shows an excerpt synchronously, so
  * this collection is loaded eagerly.
  */
@@ -55,7 +55,7 @@ export const CHANGELOG_PRODUCTS = ['client', 'launcher', 'website'] as const;
 export type ChangelogProduct = (typeof CHANGELOG_PRODUCTS)[number];
 
 /** Section kinds in display order. Unknown headings are kept with `kind: 'other'`. */
-export const SECTION_KINDS = ['added', 'improved', 'fixed', 'notes', 'other'] as const;
+export const SECTION_KINDS = ['added', 'improved', 'fixed', 'removed', 'notes', 'other'] as const;
 export type SectionKind = (typeof SECTION_KINDS)[number];
 
 export interface ChangelogSection {
@@ -99,7 +99,11 @@ function isProduct(value: string): value is ChangelogProduct {
 
 function sectionKind(heading: string): SectionKind {
   const key = heading.trim().toLowerCase();
-  return key === 'added' || key === 'improved' || key === 'fixed' || key === 'notes'
+  return key === 'added' ||
+    key === 'improved' ||
+    key === 'fixed' ||
+    key === 'removed' ||
+    key === 'notes'
     ? key
     : 'other';
 }

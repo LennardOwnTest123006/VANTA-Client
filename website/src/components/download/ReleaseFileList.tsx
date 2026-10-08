@@ -12,6 +12,13 @@ export interface ReleaseFileListProps {
   readonly idPrefix: string;
   /** Name of the file the card's main button offers; marked as recommended in the list. */
   readonly primaryName?: string | undefined;
+  /**
+   * The files to list, in order; defaults to every file of the manifest. The download page splits a
+   * launcher release into its Windows setup files and its cross-platform files, one list per card.
+   */
+  readonly files?: readonly ReleaseFile[] | undefined;
+  /** Heading of the list; "All files in this release" when the whole manifest is listed. */
+  readonly heading?: string | undefined;
 }
 
 function FileRow({ file, primary }: { file: ReleaseFile; primary: boolean }) {
@@ -80,16 +87,23 @@ function FileRow({ file, primary }: { file: ReleaseFile; primary: boolean }) {
 }
 
 /**
- * Every file of a release manifest in manifest order: what it is (derived from the file name), size,
- * SHA-256 with a copy button and a direct download link. Files without a `downloadUrl` are listed
- * but never linked. The GitHub release page is linked only when it can be derived from a manifest URL.
+ * The files of a release manifest (all of them, or the given subset) in manifest order: what each
+ * one is (derived from the file name), size, SHA-256 with a copy button and a direct download link.
+ * Files without a `downloadUrl` are listed but never linked. The GitHub release page is linked only
+ * when it can be derived from a manifest URL.
  */
-export function ReleaseFileList({ manifest, idPrefix, primaryName }: ReleaseFileListProps) {
+export function ReleaseFileList({
+  manifest,
+  idPrefix,
+  primaryName,
+  files = manifest.files,
+  heading = 'All files in this release',
+}: ReleaseFileListProps) {
   const headingId = `${idPrefix}-files`;
   const pageUrl = releasePageUrl(manifest);
 
   return (
-    // A plain wrapper, not a region: both cards have this list, and duplicate landmarks confuse
+    // A plain wrapper, not a region: several cards have this list, and duplicate landmarks confuse
     // screen reader navigation. The list itself is named by the heading.
     <div className="mt-6 border-t border-border-subtle pt-6">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -97,7 +111,7 @@ export function ReleaseFileList({ manifest, idPrefix, primaryName }: ReleaseFile
           id={headingId}
           className="text-[11px] font-semibold tracking-label text-text-muted uppercase"
         >
-          All files in this release
+          {heading}
         </h3>
         {pageUrl ? (
           <Button href={pageUrl} variant="link" trailingIcon={<ExternalLink />} className="text-sm">
@@ -109,14 +123,14 @@ export function ReleaseFileList({ manifest, idPrefix, primaryName }: ReleaseFile
         aria-labelledby={headingId}
         className="mt-3 divide-y divide-border-subtle overflow-hidden rounded-lg border border-border-subtle bg-bg-void/40"
       >
-        {manifest.files.map((file) => (
+        {files.map((file) => (
           <FileRow key={file.name} file={file} primary={file.name === primaryName} />
         ))}
       </ul>
       {pageUrl ? (
         <p className="mt-3 text-xs leading-relaxed text-text-muted">
-          The release page also has SHA256SUMS.txt with every checksum above and the release
-          manifest.
+          The release page also has SHA256SUMS.txt with every checksum of the release and the
+          release manifest.
         </p>
       ) : null}
     </div>

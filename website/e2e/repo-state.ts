@@ -3,14 +3,15 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * What the build under test was made from: the release manifests in `shared/releases/`, the bundle
- * manifests in `shared/releases/bundles/` and the release notes in `content/changelog/`, read from
- * disk. The tests derive their expectations from these files, so they hold before and after the
- * release workflow fills a manifest, while a newer version is committed but not published yet, and
- * with or without a published full release zip.
+ * manifests in `shared/releases/bundles/`, the Local AI manifest in `shared/local-ai/` and the
+ * release notes in `content/changelog/`, read from disk. The tests derive their expectations from
+ * these files, so they hold before and after the release workflow fills a manifest, while a newer
+ * version is committed but not published yet, and with or without a published full release zip.
  */
 
 const releasesDir = fileURLToPath(new URL('../../shared/releases/', import.meta.url));
 const bundlesDir = fileURLToPath(new URL('../../shared/releases/bundles/', import.meta.url));
+const localAiFile = fileURLToPath(new URL('../../shared/local-ai/local-ai.json', import.meta.url));
 const changelogDir = fileURLToPath(new URL('../content/changelog/', import.meta.url));
 
 export type Product = 'client' | 'launcher';
@@ -95,6 +96,24 @@ export function primaryFileName(manifest: ManifestSummary): string | undefined {
   return manifest.fileNames[0];
 }
 
+/** Same rule as `isWindowsSetupFile` in src/lib/downloads.ts: the `.msi`, the `.exe` and the portable app. */
+export function isWindowsSetupFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (
+    lower.endsWith('.msi') || lower.endsWith('.exe') || lower.endsWith('-windows-portable.zip')
+  );
+}
+
+/** The launcher files the WINDOWS card lists (`launcherSetupFiles`). */
+export function launcherSetupFileNames(manifest: ManifestSummary): string[] {
+  return manifest.fileNames.filter(isWindowsSetupFile);
+}
+
+/** The launcher files the CROSS-PLATFORM jars card lists (`launcherCrossPlatformFiles`). */
+export function launcherCrossPlatformFileNames(manifest: ManifestSummary): string[] {
+  return manifest.fileNames.filter((name) => !isWindowsSetupFile(name));
+}
+
 export interface BundleSummary {
   readonly version: string;
   readonly clientVersion: string;
@@ -147,6 +166,55 @@ export function olderBundles(): BundleSummary[] {
   return repositoryBundles().filter(
     (bundle) => bundle.channel === 'stable' && bundle.published && bundle.version !== offered,
   );
+}
+
+export interface LocalAiSummary {
+  /** Every size and digest filled in (the resolve workflow has run). */
+  readonly resolved: boolean;
+  readonly runtimeTag: string;
+  readonly runtimeComponent: string;
+  readonly modelFile: string;
+  /** Host names of the runtime archives and the model, without duplicates. */
+  readonly hosts: readonly string[];
+  readonly diskMb: number;
+  readonly ramMb: number;
+  /** Archive file names per platform, in manifest order. */
+  readonly archiveFiles: readonly string[];
+}
+
+interface RawLocalAi {
+  readonly resolvedAt: string;
+  readonly runtime: {
+    readonly tag: string;
+    readonly component: string;
+    readonly platforms: Readonly<
+      Record<string, { readonly file: string; readonly url: string; readonly size: number }>
+    >;
+  };
+  readonly model: { readonly file: string; readonly url: string; readonly size: number };
+  readonly requirements: { readonly diskMb: number; readonly ramMb: number };
+}
+
+/** The Local AI manifest the Download page's note is built from; `undefined` without the file. */
+export function localAiManifest(): LocalAiSummary | undefined {
+  if (!existsSync(localAiFile)) return undefined;
+  const raw = JSON.parse(readFileSync(localAiFile, 'utf8')) as RawLocalAi;
+  const platforms = Object.values(raw.runtime.platforms);
+  const hosts: string[] = [];
+  for (const url of [...platforms.map((p) => p.url), raw.model.url]) {
+    const host = new URL(url).hostname;
+    if (!hosts.includes(host)) hosts.push(host);
+  }
+  return {
+    resolved: raw.resolvedAt !== '' && raw.model.size > 0 && platforms.every((p) => p.size > 0),
+    runtimeTag: raw.runtime.tag,
+    runtimeComponent: raw.runtime.component,
+    modelFile: raw.model.file,
+    hosts,
+    diskMb: raw.requirements.diskMb,
+    ramMb: raw.requirements.ramMb,
+    archiveFiles: platforms.map((p) => p.file),
+  };
 }
 
 /** Ids (`<product>-<version>`) of every release notes file, as the changelog page renders them. */

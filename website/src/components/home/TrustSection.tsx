@@ -12,8 +12,8 @@ const pillars = [
   },
   {
     icon: <Lock />,
-    title: 'Local-only statistics',
-    text: 'Playtime and activity are written to config/vanta/stats.json on your computer. There is no account, no telemetry and nothing to opt out of — you can pause or delete the data any time.',
+    title: 'Local only',
+    text: 'Playtime and activity are written to config/vanta/stats.json on your computer, and from 1.4.0 the Vanta Nexus assistant runs on your PC too: its prompts go to 127.0.0.1 only. There is no account, no telemetry, no cloud AI and nothing to opt out of; you can pause or delete the data any time.',
   },
   {
     icon: <Code />,

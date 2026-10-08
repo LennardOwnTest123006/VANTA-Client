@@ -2,7 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { loadDocs } from '../lib/docs';
 import { parseFaq } from '../lib/faq';
 import { extractHeadings } from '../lib/slug';
+import { featureFamilies } from './features';
+import { isRouteReady } from './siteNav';
 import { supportCategories } from './support';
+
+/** Section ids of the website pages a support link may point at (the Download page's are fixed in DownloadPage.tsx). */
+const SITE_ANCHORS: Readonly<Record<string, readonly string[]>> = {
+  '/features': [...featureFamilies.map((family) => family.id), 'never'],
+  '/download': [
+    'downloads',
+    'windows',
+    'cross-platform',
+    'complete-release',
+    'local-ai',
+    'whats-new',
+    'what-you-need',
+    'requirements',
+    'verify',
+    'older-versions',
+  ],
+};
 
 describe('supportCategories', () => {
   it('covers the required areas with unique ids', () => {
@@ -14,10 +33,12 @@ describe('supportCategories', () => {
         'Minecraft',
         'Fabric',
         'Performance',
+        'Vanta Nexus and Local AI',
         'Account',
         'Website',
       ]),
     );
+    expect(supportCategories).toHaveLength(9);
     expect(new Set(supportCategories.map((c) => c.id)).size).toBe(supportCategories.length);
     for (const category of supportCategories) {
       expect(category.guides.length).toBeGreaterThan(0);
@@ -36,7 +57,22 @@ describe('supportCategories', () => {
     expect(all.join('\n')).not.toMatch(/no download yet|not there yet/i);
   });
 
-  it('links only to documentation pages, FAQ questions and anchors that exist', async () => {
+  it('describes the Local AI as strictly local and names the two download hosts nowhere else', () => {
+    const nexus = supportCategories.find((category) => category.id === 'nexus');
+    expect(nexus).toBeDefined();
+    expect(nexus?.guides.map((guide) => guide.to)).toEqual([
+      '/features#nexus',
+      '/features#local-ai',
+      '/download#local-ai',
+      '/privacy',
+    ]);
+    const text = [nexus?.summary, ...(nexus?.guides.map((g) => g.note) ?? [])].join('\n');
+    expect(text).toMatch(/127\.0\.0\.1/);
+    expect(text).toMatch(/no cloud/i);
+    expect(text).not.toMatch(/api key|openai|cloud ai service/i);
+  });
+
+  it('links only to documentation pages, FAQ questions, website sections and anchors that exist', async () => {
     const pages = await loadDocs();
     const byRoute = new Map(pages.map((page) => [page.route, page]));
     const faq = parseFaq(pages.find((page) => page.slug === 'faq')?.body ?? '');
@@ -47,6 +83,12 @@ describe('supportCategories', () => {
         const [route = '', hash] = link.to.split('#');
         if (route === '/faq') {
           if (hash && !faqIds.has(hash)) problems.push(`${link.to}: unknown FAQ question`);
+          continue;
+        }
+        const siteAnchors = SITE_ANCHORS[route];
+        if (siteAnchors) {
+          if (!isRouteReady(route)) problems.push(`${link.to}: route is not ready`);
+          if (hash && !siteAnchors.includes(hash)) problems.push(`${link.to}: unknown section`);
           continue;
         }
         const page = byRoute.get(route);

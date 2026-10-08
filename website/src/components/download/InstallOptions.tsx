@@ -18,11 +18,12 @@ const options: readonly { readonly title: string; readonly text: ReactNode }[] =
         to the official Minecraft Launcher and opens it; you sign in there with Microsoft. Close the
         Minecraft Launcher first, also from the system tray: it reads new profiles only when it
         starts. The performance pack (Sodium, Lithium, FerriteCore, ImmediatelyFast, EntityCulling,
-        Iris from Modrinth) is installed with it by default. In launcher 1.0.x the same setup is the
-        button “Use with Minecraft Launcher”. For the Minecraft Launcher from the Microsoft Store or
-        the Xbox app it writes the profile into that launcher’s profiles file too; whether the
-        profile then shows up there has not been tested on Windows yet — if it does not, use option
-        3.
+        Iris from Modrinth) is installed with it by default. From launcher 1.4.0 on the first start
+        also offers the optional Local AI for Vanta Nexus once; nothing of it downloads before you
+        agree. In launcher 1.0.x the same setup is the button “Use with Minecraft Launcher”. For the
+        Minecraft Launcher from the Microsoft Store or the Xbox app it writes the profile into that
+        launcher’s profiles file too; whether the profile then shows up there has not been tested on
+        Windows yet — if it does not, use option 3.
       </>
     ),
   },

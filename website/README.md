@@ -55,6 +55,19 @@ All optional; see `.env.example`. Read through the typed, validated accessor in 
 | `VITE_GITHUB_URL`            | Source repository. Defaults to `https://github.com/LennardOwnTest123006/VANTA-Client`; set to an empty string to hide every GitHub link.                                                                                                                                                                                                                                                                |
 | `VITE_SITE_URL`              | Public origin of the deployment (no trailing slash). Used for the canonical URLs and Open Graph tags `PageMeta` sets, absolute sitemap URLs (Netlify's `URL` is used when unset) and the absolute `og:image`/`twitter:image` of the static `index.html` (only with `VITE_SITE_URL`; without it they stay relative). `index.html` never gets `og:url` or a canonical link: it is served for every route. |
 
+The Download page has three labelled sections in this order (`src/pages/DownloadPage.tsx`): WINDOWS
+(the launcher setup card: the `.msi` from the newest published launcher manifest plus the other
+Windows setup files of that release, `launcherSetupFiles` in `src/lib/downloads.ts`), CROSS-PLATFORM
+(the client jar card, which is the same jar on Windows, Linux and macOS, next to a
+`ReleaseFilesCard` with the launcher jars for Windows x64, Linux x64 and Apple Silicon macOS and the
+Linux app, `launcherCrossPlatformFiles`) and COMPLETE RELEASE (the full release zip card, or an honest
+sentence while no bundle is published). After them comes the Local AI note
+(`src/components/download/LocalAiNote.tsx`): what Vanta Nexus downloads when the player installs the
+Local AI, from which hosts, how big, that it is optional and asks first. Every name, size, host,
+licence and requirement in it comes from `shared/local-ai/local-ai.json` through `src/lib/localAi.ts`
+(an unresolved manifest shows no sizes; a missing file leaves the note out), and the system
+requirements get a "Local AI (optional)" row from the same manifest.
+
 Download URLs are never hardcoded. Each card offers the newest **published** release of its product
 (`latestRelease` in `src/lib/releases.ts`: the newest manifest with at least one `downloadUrl`). A new
 version is committed with an unpublished manifest before the release workflow fills it; until then
@@ -104,8 +117,8 @@ website/
     │   ├── layout/          Header (sticky, mobile sheet with focus trap), Footer, Layout, PageMeta, Reveal
     │   ├── page/            PageHero, PresetTable, TocNav, PrevNext, IsoCube
     │   ├── home/            Hero, TrustSection, FeatureGrid, InterfacePreview, HowItWorks, FinalCta
-    │   ├── download/        DownloadCard, ReleaseFileList, InstallOptions, LatestVersion, BundleCard,
-    │   │                    WhatsNew, OlderVersions
+    │   ├── download/        DownloadCard, ReleaseFileList, ReleaseFilesCard, InstallOptions, LatestVersion,
+    │   │                    BundleCard, LocalAiNote, WhatsNew, OlderVersions
     │   ├── docs/            DocsSidebar, DocsSearch (MiniSearch combobox), DocToc (scroll spy)
     │   ├── changelog/       ChangelogEntryCard
     │   ├── news/            NewsCard
@@ -136,6 +149,7 @@ real file and fail the build when a required field is missing.
 | `content/news/<date>-<slug>.md`                   | `src/lib/news.ts`        | lazy, one `news-content` chunk, drafts skipped | `/news`, `/news/:slug`                                                                 |
 | `content/changelog/<product>-<v>.md`              | `src/lib/content.ts`     | eager (the download page shows excerpts)       | `/changelog`, Download page                                                            |
 | `../shared/releases/*.json`                       | `src/lib/releases.ts`    | eager                                          | Download page, footer, site facts                                                      |
+| `../shared/local-ai/local-ai.json`                | `src/lib/localAi.ts`     | eager                                          | Download page (Local AI note, requirements), Features page (Local AI section)          |
 | `../assets/screenshots/*.png` (+ `captions.json`) | `src/lib/screenshots.ts` | eager asset URLs                               | `/screenshots` (honest empty state when none)                                          |
 
 Markdown is rendered by react-markdown + remark-gfm in a lazy chunk with raw HTML skipped and

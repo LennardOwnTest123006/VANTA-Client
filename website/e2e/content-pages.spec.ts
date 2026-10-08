@@ -169,7 +169,10 @@ test.describe('support (no channels configured)', () => {
     );
     expect(await page.locator('a[href^="mailto:"]').count()).toBe(0);
     const topics = page.getByRole('list', { name: 'Support topics' });
-    await expect(topics.getByRole('article')).toHaveCount(8);
+    await expect(topics.getByRole('article')).toHaveCount(9);
+    await expect(
+      topics.getByRole('heading', { level: 2, name: 'Vanta Nexus and Local AI' }),
+    ).toBeVisible();
     await topics.getByRole('link', { name: /^Checksum mismatch/ }).click();
     await expect(page).toHaveURL(/\/documentation\/troubleshooting#checksum-mismatch$/);
     await expect(page.locator('#checksum-mismatch')).toBeInViewport();
