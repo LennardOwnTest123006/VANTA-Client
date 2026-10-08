@@ -11,7 +11,9 @@ import java.net.http.HttpClient;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.junit.jupiter.api.AfterEach;
@@ -134,6 +136,36 @@ class LocalAiRuntimeTest {
         });
         assertEquals(1, replies.size());
         assertEquals(2, processes.processes.size(), "a new process after the idle stop");
+        runtime.close();
+    }
+
+    @Test
+    void anIdleStopIsQueuedOnceWhileTheWorkerIsBusy() {
+        Deque<Runnable> worker = new ArrayDeque<>();
+        LocalAiRuntime runtime = new LocalAiRuntime(exe, model, dir.resolve("logs").resolve("llama-server.log"),
+                config().withIdle(Duration.ofMinutes(10), false), processes, server::port, HTTP,
+                duration -> clock.advance(duration.toMillis()), worker::add, DIRECT, clock);
+        runtime.addListener((status, reason) -> statuses.add(status.id()));
+        runtime.start();
+        assertEquals(1, worker.size());
+        worker.poll().run();
+        assertEquals(LocalAiStatus.READY, runtime.status());
+        statuses.clear();
+
+        // The worker is busy with something else (a verification hashing the whole model): the idle limit passes
+        // while the status stays READY, and 200 ticks go by before the worker gets to the stop.
+        clock.advance(Duration.ofMinutes(10).toMillis() + 1);
+        for (int i = 0; i < 200; i++) {
+            runtime.tick(clock.millis());
+            clock.advance(50);
+        }
+        assertEquals(1, worker.size(), "one stop task, not one per tick");
+        worker.poll().run();
+        assertFalse(processes.last().alive);
+        assertEquals(LocalAiStatus.INSTALLED, runtime.status());
+        assertEquals(List.of("installed"), statuses, "one status callback, not two hundred");
+        runtime.tick(clock.millis());
+        assertTrue(worker.isEmpty(), "a stopped server is not stopped again");
         runtime.close();
     }
 

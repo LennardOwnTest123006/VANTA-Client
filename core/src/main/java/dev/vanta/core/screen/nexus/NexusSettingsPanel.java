@@ -73,7 +73,7 @@ public final class NexusSettingsPanel extends NexusPanel {
         verify = Button.secondary(Lang.tr("vanta.localai.verify"), () -> localAi.verify()).compact(true);
         verify.icon(Icons.CHECK);
         verify.setId("nexus.settings.verify");
-        reinstall = Button.secondary(Lang.tr("vanta.localai.reinstall"), this::openSetup).compact(true);
+        reinstall = Button.secondary(Lang.tr("vanta.localai.reinstall"), this::openReinstall).compact(true);
         reinstall.icon(Icons.DOWNLOAD);
         reinstall.setId("nexus.settings.reinstall");
         remove = Button.danger(Lang.tr("vanta.localai.remove"), this::confirmRemove).compact(true);
@@ -161,6 +161,11 @@ public final class NexusSettingsPanel extends NexusPanel {
 
     private void openSetup() {
         navigator().openScreen(lastContext, ScreenId.LOCAL_AI_SETUP);
+    }
+
+    /** Opens the setup screen with the install offered although the files are installed (repair or refresh). */
+    private void openReinstall() {
+        navigator().openLocalAiReinstall(lastContext);
     }
 
     /** Asks before deleting the client-managed Local AI folder. */

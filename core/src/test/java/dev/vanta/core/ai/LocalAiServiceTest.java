@@ -246,6 +246,47 @@ class LocalAiServiceTest {
     }
 
     @Test
+    void aNotePointingAtAFolderWithoutAnInstallLeavesTheClientItsOwnFolder() throws Exception {
+        LocalAiManifest manifest = manifest();
+        Path launcherDir = dir.resolve("launcher").resolve("local-ai");
+        Files.createDirectories(launcherDir);
+        LocalAiPaths.writeNote(paths.localAiNoteFile(), launcherDir);
+
+        // The launcher wrote the note but installed nothing (the player clicked "Not now"): Install works from the game.
+        LocalAiService service = service(deps(Optional.of(LINUX), Optional.of(manifest), ""));
+        assertFalse(service.isLauncherManaged());
+        assertEquals(paths.localAiDir(), service.paths().root());
+        assertEquals(LocalAiStatus.NOT_INSTALLED, service.status());
+        assertEquals("", service.statusReason());
+        assertTrue(service.install());
+        assertEquals(LocalAiStatus.INSTALLED, service.status());
+        assertTrue(Files.isRegularFile(paths.localAiDir().resolve("installed.json")));
+        assertFalse(Files.exists(launcherDir.resolve("installed.json")), "nothing is written into the launcher's folder");
+        assertFalse(service.isLauncherManaged());
+        service.refresh();
+        assertFalse(service.isLauncherManaged(), "a refresh with the launcher's folder still empty changes nothing");
+        assertEquals(LocalAiStatus.INSTALLED, service.status());
+
+        // The launcher installs later: the next refresh picks its folder up again, read-only.
+        new LocalAiInstaller(manifest, LocalAiPaths.clientManaged(launcherDir), LINUX, () -> HTTP,
+                LocalAiInstaller.Config.defaults("test"), clock).install(LocalAiInstaller.Progress.none());
+        service.refresh();
+        assertTrue(service.isLauncherManaged());
+        assertEquals(launcherDir.toAbsolutePath().normalize(), service.paths().root());
+        assertEquals(LocalAiStatus.INSTALLED, service.status());
+        assertEquals("Installed by the VANTA Launcher", service.statusReason());
+        assertFalse(service.install());
+
+        // A launcher folder with installed.json but incomplete files (the launcher updates it) stays the launcher's.
+        Files.delete(launcherDir.resolve("models").resolve(ManifestFixtures.MODEL_FILE));
+        service.refresh();
+        assertTrue(service.isLauncherManaged());
+        assertEquals(LocalAiStatus.PARTIAL, service.status());
+        assertFalse(service.install());
+        service.close();
+    }
+
+    @Test
     void cancelStopsARunningInstall() throws Exception {
         LocalAiManifest manifest = manifest();
         // A worker that cancels before running the task: the installer sees isCancelled() at its first check.

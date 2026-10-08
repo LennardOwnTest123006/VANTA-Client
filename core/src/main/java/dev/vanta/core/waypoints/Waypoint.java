@@ -80,9 +80,13 @@ public record Waypoint(String id, String name, String worldKey, String dimension
         return isIn(worldKey) && this.dimension.equals(dimension);
     }
 
-    /** True when {@code other} is this waypoint's name, ignoring case and surrounding whitespace. */
+    /**
+     * True when {@code other} is this waypoint's name, ignoring case. {@code other} goes through the same
+     * {@link #sanitizeName(String)} as a stored name, so the text a caller passed to {@link WaypointStore#add}
+     * (doubled spaces, control characters, more than {@value #MAX_NAME_LENGTH} characters) finds the waypoint again.
+     */
     public boolean hasName(String other) {
-        return other != null && name.equalsIgnoreCase(other.strip());
+        return other != null && name.equalsIgnoreCase(sanitizeName(other));
     }
 
     // ---- withers -----------------------------------------------------------------------------------------------

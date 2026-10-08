@@ -121,11 +121,28 @@ class LabEffectsTest {
         effects.onScreenClosed(9_000L);
         assertEquals(1f, effects.transitionProgress(9_000L), 1e-6f);
         assertEquals(0.5f, effects.transitionProgress(9_080L), 1e-6f);
-        assertEquals(0f, effects.transitionProgress(9_160L), 1e-6f);
-        assertEquals(0f, effects.transitionProgress(20_000L), 1e-6f);
+        assertEquals(1f / 160f, effects.transitionProgress(9_159L), 1e-6f, "the last frame of the close");
+        assertEquals(1f, effects.transitionProgress(9_160L), 1e-6f,
+                "the close finished: whatever screen is shown now sits at its hit boxes again");
+        assertEquals(1f, effects.transitionProgress(20_000L), 1e-6f, "and stays there");
         effects.onScreenOpened(20_000L);
         assertEquals(0f, effects.transitionProgress(20_000L), 1e-6f, "the next open starts over");
         assertEquals(1f, effects.transitionProgress(20_200L), 1e-6f);
+    }
+
+    @Test
+    void transitionReturnsToOneOnceTheCloseFinished() {
+        // The client keeps a parent screen and re-shows it after a child closed, without a new open event: the
+        // shared curve must not keep that parent 14 px below its hit boxes.
+        lab.set(LabFeature.SCREEN_TRANSITIONS, true);
+        effects.onScreenOpened(1_000L);
+        effects.onScreenClosed(5_000L);
+        assertEquals(0.25f, effects.transitionProgress(5_120L), 1e-6f, "still closing");
+        assertEquals(1f, effects.transitionProgress(5_000L + LabEffects.TRANSITION_MS), 1e-6f,
+                "the close finished; the re-shown parent is drawn where its buttons are");
+        assertEquals(1f, effects.transitionProgress(60_000L), 1e-6f);
+        effects.onScreenOpened(60_000L);
+        assertEquals(0f, effects.transitionProgress(60_000L), 1e-6f, "the next open still slides in");
     }
 
     @Test

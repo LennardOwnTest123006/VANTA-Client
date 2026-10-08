@@ -44,6 +44,21 @@ class WaypointTest {
     }
 
     @Test
+    void hasNameNormalisesLikeTheStoreDoesWhenItSavesAName() {
+        // WaypointStore.add stores sanitizeName(name); the text that was passed in must find the waypoint again.
+        Waypoint base = HOME.withName("My Base");
+        assertTrue(base.hasName("My  Base"), "doubled spaces collapse");
+        assertTrue(base.hasName("my\tbase"), "a tab is whitespace");
+        assertTrue(base.hasName("My\u0001 Base"), "control characters are dropped");
+        assertFalse(base.hasName("MyBase"));
+        String longName = "n".repeat(60);
+        Waypoint truncated = HOME.withName(Waypoint.sanitizeName(longName));
+        assertEquals(Waypoint.MAX_NAME_LENGTH, truncated.name().length());
+        assertTrue(truncated.hasName(longName), "an over-long name finds the truncated waypoint");
+        assertFalse(truncated.hasName("n".repeat(Waypoint.MAX_NAME_LENGTH - 1)));
+    }
+
+    @Test
     void withersCopyEverythingElse() {
         Waypoint moved = HOME.withPosition(new Vec3d(1, 2, 3)).withColor(0xFF00FF00).withCategory("Farm")
                 .withEnabled(false).withDimension("minecraft:the_end").withName("Farm 1");

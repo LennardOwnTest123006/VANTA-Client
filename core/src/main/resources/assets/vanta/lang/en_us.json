@@ -1612,6 +1612,8 @@
   "vanta.localai.setup.steps": "Steps",
   "vanta.localai.setup.step_label": "%s/%s %s",
   "vanta.localai.setup.idle": "Ready to install. The download starts only when you click Install Local AI.",
+  "vanta.localai.setup.reinstall": "Reinstall Local AI",
+  "vanta.localai.setup.reinstall_idle": "Ready to reinstall. A running Local AI server is stopped first; files that still match the manifest are kept and checked, the others are downloaded again. Nothing happens before you click Reinstall Local AI.",
   "vanta.localai.setup.installing": "Installing. You can keep playing; the steps update here.",
   "vanta.localai.setup.open_assistant": "Open the assistant",
   "vanta.nexus.hud.summary": "Current layout: %s. %s of %s widgets visible.",

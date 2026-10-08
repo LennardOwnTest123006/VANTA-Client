@@ -105,7 +105,8 @@ Which one you use follows from how you installed VANTA
   `{"localAiDir": "<absolute path of the launcher's local-ai folder>"}`, next to `minecraft-folder.json`. The game
   starts `llama-server` from that folder, checks the files and never writes into them (apart from the server log,
   see below); Nexus shows *Installed by the VANTA Launcher*. The note is written whether or not the Local AI is
-  installed; while the folder it points at holds no complete install, the game falls back to its own folder.
+  installed; when it points at a folder without a complete install (for example after **Not now** in the launcher's
+  offer), the game installs into its own folder `config/vanta/local-ai` instead.
 - **Command line**: `--install-local-ai`, `--local-ai-status`, `--remove-local-ai`, and `--with-local-ai` /
   `--without-local-ai` for `--install` ([Launcher → Command line reference](launcher.md#command-line-reference)).
 
