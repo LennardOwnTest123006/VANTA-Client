@@ -18,8 +18,8 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.network.chat.Component;
 
 /**
- * The client-side {@code /vanta} command: {@code menu}, {@code hud}, {@code perf}, {@code profiles [name]},
- * {@code stats} and {@code reload}. Everything runs locally; nothing is sent to the server.
+ * The client-side {@code /vanta} command: {@code menu}, {@code hud}, {@code perf}, {@code nexus},
+ * {@code profiles [name]}, {@code stats} and {@code reload}. Everything runs locally; nothing is sent to the server.
  * <p>
  * Screens are opened on the next tick because the chat screen closes itself after the command ran and would
  * otherwise replace the screen we just opened.
@@ -39,6 +39,8 @@ public final class VantaCommands {
                                 .executes(ctx -> openScreen(ctx, runtime, ScreenId.HUD_EDITOR, "vanta.command.hud")))
                         .then(ClientCommandManager.literal("perf")
                                 .executes(ctx -> openScreen(ctx, runtime, ScreenId.PERFORMANCE, "vanta.command.perf")))
+                        .then(ClientCommandManager.literal("nexus")
+                                .executes(ctx -> openScreen(ctx, runtime, ScreenId.NEXUS, "vanta.command.nexus")))
                         .then(ClientCommandManager.literal("profiles")
                                 .executes(ctx -> listProfiles(ctx, runtime))
                                 .then(ClientCommandManager.argument("name", StringArgumentType.greedyString())
@@ -57,7 +59,10 @@ public final class VantaCommands {
 
     private static int openScreen(CommandContext<FabricClientCommandSource> ctx, VantaRuntime runtime, ScreenId id,
                                   String feedbackKey) {
-        ctx.getSource().sendFeedback(text(feedbackKey));
+        // A feedback key the language file does not know yet falls back to the screen's own title, never to the
+        // raw key (vanta.command.nexus is new in 1.4.0).
+        String feedback = Lang.has(feedbackKey) ? Lang.tr(feedbackKey) : Lang.tr(id.langKey());
+        ctx.getSource().sendFeedback(Component.literal(feedback));
         runtime.scheduler().nextTick(() -> VantaScreens.open(id, null));
         return 1;
     }

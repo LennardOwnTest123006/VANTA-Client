@@ -19,8 +19,9 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.BlockItem;
 
 /**
- * Wires the Fabric client events to the core services: ticking, lifecycle saves, statistics sessions and the VANTA
- * key mappings. All handlers are observers of the user's own actions; none changes gameplay.
+ * Wires the Fabric client events to the core services: ticking (services, HUD, crosshair, notifications, screenshots,
+ * the Vanta Lab input relay), lifecycle saves, statistics sessions and the VANTA key mappings. All handlers are
+ * observers of the user's own actions; none changes gameplay.
  */
 public final class GameEvents {
     private GameEvents() {
@@ -45,6 +46,7 @@ public final class GameEvents {
 
     private static void onEndTick(VantaRuntime runtime, Minecraft client) {
         runtime.services().tick();
+        runtime.labInputs().tick(client);
         runtime.hud().tick();
         runtime.crosshair().tick();
         runtime.notifications().tick();
@@ -63,6 +65,7 @@ public final class GameEvents {
             case VantaKeys.TOGGLE_HUD -> runtime.services().runAction(ActionEntry.TOGGLE_HUD);
             case VantaKeys.HUD_EDITOR -> VantaScreens.open(ScreenId.HUD_EDITOR, null);
             case VantaKeys.PERFORMANCE -> VantaScreens.open(ScreenId.PERFORMANCE, null);
+            case VantaKeys.OPEN_NEXUS -> VantaScreens.open(ScreenId.NEXUS, null);
             case VantaKeys.SCREENSHOT_HUD_FREE -> runtime.services().runAction(ActionEntry.SCREENSHOT_HUD_FREE);
             default -> {
                 // The zoom key is read while held (see ZoomController), not on click.

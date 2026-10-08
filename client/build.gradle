@@ -123,6 +123,12 @@ tasks.register('runProductionClientGametest', net.fabricmc.loom.task.prod.Client
     }
 }
 
+// The Local AI manifest (shared/local-ai/local-ai.json) is embedded as assets/vanta/local-ai.json, the resource
+// core's LocalAiManifest.bundled() reads. The client's resources source set reads ../core/src/main/resources directly,
+// so the copy core's own processResources makes never reaches the mod jar; this copy from the same shared file does.
+// Declared as an input so a resolved manifest rebuilds the jar.
+def localAiManifest = layout.projectDirectory.file('../shared/local-ai/local-ai.json')
+
 processResources {
     def props = [
         version            : project.version,
@@ -133,6 +139,10 @@ processResources {
     inputs.properties props
     filesMatching("fabric.mod.json") {
         expand props
+    }
+    inputs.file(localAiManifest).withPropertyName('localAiManifest')
+    from(localAiManifest) {
+        into('assets/vanta')
     }
 }
 

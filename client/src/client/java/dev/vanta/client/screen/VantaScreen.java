@@ -74,6 +74,10 @@ public final class VantaScreen extends Screen {
     protected void init() {
         syncTheme();
         ui.init(width, height);
+        if (id == ScreenId.MAIN_MENU) {
+            // Next to the core's main menu hooks (Performance pack offer): the one-time Vanta Nexus notice.
+            NexusFirstStart.onMainMenuShown(this, runtime);
+        }
     }
 
     @Override

@@ -11,10 +11,12 @@ import dev.vanta.client.command.VantaCommands;
 import dev.vanta.client.event.GameEvents;
 import dev.vanta.client.hud.VantaCrosshairElement;
 import dev.vanta.client.hud.VantaHudElement;
+import dev.vanta.client.hud.WaypointMarkerElement;
 import dev.vanta.client.keys.VantaKeyMappings;
 import dev.vanta.client.lang.MinecraftLangProvider;
 import dev.vanta.client.log.Slf4jCoreLogSink;
 import dev.vanta.client.render.TextCacheReloader;
+import dev.vanta.client.render.WaypointBeamRenderer;
 import dev.vanta.client.screen.ScreenOverlays;
 import dev.vanta.core.VantaVersion;
 import dev.vanta.core.config.CoreLog;
@@ -49,6 +51,9 @@ public final class VantaClient implements ClientModInitializer {
 
     /** Identifier of the VANTA HUD element. */
     public static final Identifier HUD_ELEMENT = Identifier.fromNamespaceAndPath(MOD_ID, "hud");
+    /** Identifier of the waypoint marker HUD element. */
+    public static final Identifier WAYPOINT_MARKERS_ELEMENT = Identifier.fromNamespaceAndPath(MOD_ID,
+            "waypoint_markers");
     /** Identifier of the resource reloader that drops the text caches. */
     public static final Identifier TEXT_CACHE_RELOADER = Identifier.fromNamespaceAndPath(MOD_ID, "text_caches");
 
@@ -67,6 +72,9 @@ public final class VantaClient implements ClientModInitializer {
         VantaKeyMappings keys = VantaKeyMappings.register();
 
         VantaPaths paths = new VantaPaths(FabricLoader.getInstance().getConfigDir().resolve(MOD_ID));
+        // Client game test only (VANTA_LOCAL_AI_DIR): point the Local AI note at a prepared install before the
+        // services resolve their Local AI directory. A no-op in normal play.
+        VantaRuntime.prepareLocalAiNote(paths);
         MinecraftResourcePackBridge resourcePacks = new MinecraftResourcePackBridge();
         MinecraftScreenshotBridge screenshots = new MinecraftScreenshotBridge();
         VantaServices services = VantaServices.create(paths, new MinecraftGameBridge(), new MinecraftOptionsBridge(),
@@ -91,7 +99,11 @@ public final class VantaClient implements ClientModInitializer {
         ScreenOverlays.register(runtime);
         VantaCommands.register(runtime);
         HudElementRegistry.attachElementAfter(VanillaHudElements.CHAT, HUD_ELEMENT, new VantaHudElement());
+        // Waypoint markers draw under the VANTA widgets (projected from the camera the world pass captured).
+        HudElementRegistry.attachElementBefore(HUD_ELEMENT, WAYPOINT_MARKERS_ELEMENT, new WaypointMarkerElement());
         HudElementRegistry.replaceElement(VanillaHudElements.CROSSHAIR, VantaCrosshairElement::new);
+        // World pass: captures the camera (view matrix, position) for the markers and draws the Lab waypoint beams.
+        WaypointBeamRenderer.register();
         // Glyph advances can change with a resource pack, so the memoised text widths die with every reload.
         ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloader(TEXT_CACHE_RELOADER, new TextCacheReloader());
 

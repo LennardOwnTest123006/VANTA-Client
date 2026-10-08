@@ -58,7 +58,8 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *       Singleplayer opens Create New World (no worlds yet) → Escape, and → Cancel; Multiplayer → Escape, and → Back;
  *       {@code setScreen(null)} without a world;</li>
  *   <li>every VANTA screen opens through the registry → {@code 02_settings} … {@code 14_mods} (Mods &amp; Shaders
- *       waits for its first Modrinth answer);</li>
+ *       waits for its first Modrinth answer), then {@code 16_nexus} and {@code 17_local_ai_setup} (opening the setup
+ *       screen downloads nothing; only its Install button does);</li>
  *   <li>the Performance pack mods the run was started with are loaded ({@code -Dvanta.gametest.expectMods}); with Iris
  *       loaded its shader pack screen opens from VANTA → {@code 15_iris_shader_packs};</li>
  *   <li>a setting written through the core API is persisted to {@code settings.json};</li>
@@ -71,14 +72,44 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *       HUD / with the GUI hidden, VANTA render hook wall times and primitive counts over 300 frames each, written to
  *       {@code screenshots/vanta-perf-probe.json}) and the windowed click reproduction ({@link ModsClickReproduction}:
  *       Mods &amp; Shaders buttons clicked through the real mouse path at 854x480/scale 2, 1920x1080/scale 4 and
- *       1920x1080/scale 2) → {@code 30_mods_*};</li>
+ *       1920x1080/scale 2) → {@code 30_mods_*}; then Smart Boost ({@link SmartBoostStep}) and Vanta Nexus
+ *       ({@link NexusStep}: every section of the Nexus screen at 854x480/scale 2 and at the capture size with every
+ *       showing control reachable → {@code 50_nexus_*}; the "minimal" HUD preset through the assistant's
+ *       {@code NexusActions} path and its Undo; the Recording profile and back; a waypoint added through the store
+ *       under the bridge's world key, drawn by the marker element → {@code 60_waypoint_marker} and, with the Lab
+ *       feature on, as a beam → {@code 61_waypoint_beam}, then removed; every Lab toggle and the
+ *       {@code LabEffects} curves);</li>
  *   <li>with a world on disk, Singleplayer opens the world list → Escape, and → Back, both back on the VANTA menu;</li>
+ *   <li>the Local AI ({@link LocalAiStep}), only when {@code VANTA_LOCAL_AI_DIR} names the prepared install: status
+ *       INSTALLED (launcher-managed), {@code llama-server} started and READY within 5 minutes, "Only show FPS and
+ *       coordinates" answered within 4 minutes and the HUD reduced to exactly those two widgets, the runtime stopped
+ *       with its port closed, and the installer run against a loopback HTTP server into a temporary folder
+ *       (download, verify, extract, {@code installed.json}, executable bit, quick check, remove);</li>
  *   <li>the click reproduction again without a world → {@code 40_mods_*};</li>
  *   <li>the test ends on the vanilla title screen as the Fabric runner requires;</li>
- *   <li>finally every collected finding (clicks without effect, a HUD render average above the baseline) fails the
- *       test in one assertion, so all numbers and screenshots exist before CI turns red. With
- *       {@code -Dvanta.gametest.clickReproduction=report} the findings are only logged.</li>
+ *   <li>finally every collected finding (clicks without effect, unreachable Nexus controls, a HUD render average
+ *       above the baseline) fails the test in one assertion, so all numbers and screenshots exist before CI turns
+ *       red. With {@code -Dvanta.gametest.clickReproduction=report} the findings are only logged.</li>
  * </ol>
+ * Expected log lines (all prefixed {@code [VANTA gametest]}), useful when reading a CI log:
+ * <ul>
+ *   <li>{@code nexus [854x480_gui2]: opened (...)}, {@code nexus [...]: N section control(s): [...]},
+ *       {@code nexus [...]: section <id> renders (...)}, {@code nexus [...]: N of M showing controls reachable};
+ *       a finding reads {@code UNREACHABLE [nexus ...] <control>: <reason>};</li>
+ *   <li>{@code nexus: hud.preset minimal applied through NexusActions (...)}, {@code nexus: Undo restored the layout},
+ *       {@code nexus: profile 'Recording' activated (...)}, {@code nexus: waypoint '...' added at ...},
+ *       {@code nexus: marker drawn (...)}, {@code nexus: waypoint beam drawn}, {@code nexus: waypoint removed, no
+ *       marker drawn}, {@code nexus: every Lab toggle flips its setting and back (5 features)},
+ *       {@code nexus: LabEffects curves (...)}, {@code nexus: first-start notice decision checked (...)};</li>
+ *   <li>{@code local ai: VANTA_LOCAL_AI_DIR is not set, the Local AI step is skipped} without the variable;
+ *       with it {@code local ai: VANTA_LOCAL_AI_DIR=... status INSTALLED (...)}, {@code local ai: status STARTING},
+ *       {@code local ai: status READY}, {@code local ai: READY after N s on 127.0.0.1:PORT (...)},
+ *       {@code local ai: reply after N s: message="..." applied=[...] rejected=[...] error=none ...},
+ *       {@code local ai: the HUD shows exactly [FPS, COORDINATES] (...)}, {@code local ai: runtime stopped, ...},
+ *       {@code local ai: mirror on http://127.0.0.1:PORT/ serving ...}, {@code local ai: installer step
+ *       <step> ...}, {@code local ai: installed from the mirror in N s into ...}, {@code local ai: installed.json,
+ *       executable bit, model and quick check INSTALLED verified}, {@code local ai: install removed, ... is gone}.</li>
+ * </ul>
  */
 public final class VantaClientGameTest implements FabricClientGameTest {
     /** Screens exercised after the main menu, in screenshot order. */
@@ -95,12 +126,14 @@ public final class VantaClientGameTest implements FabricClientGameTest {
             Map.entry(ScreenId.ACCESSIBILITY, "11_accessibility"),
             Map.entry(ScreenId.SEARCH, "12_search"),
             Map.entry(ScreenId.ABOUT, "13_about"),
-            Map.entry(ScreenId.MODS, "14_mods"));
+            Map.entry(ScreenId.MODS, "14_mods"),
+            Map.entry(ScreenId.NEXUS, "16_nexus"),
+            Map.entry(ScreenId.LOCAL_AI_SETUP, "17_local_ai_setup"));
 
     private static final List<ScreenId> SCREEN_ORDER = List.of(ScreenId.SETTINGS, ScreenId.HUD_EDITOR,
             ScreenId.PERFORMANCE, ScreenId.PROFILES, ScreenId.KEYBINDS, ScreenId.CROSSHAIR, ScreenId.COSMETICS,
             ScreenId.STATISTICS, ScreenId.RESOURCE_PACKS, ScreenId.ACCESSIBILITY, ScreenId.SEARCH, ScreenId.ABOUT,
-            ScreenId.MODS);
+            ScreenId.MODS, ScreenId.NEXUS, ScreenId.LOCAL_AI_SETUP);
 
     /** Ticks a vanilla screen may take to appear (Create New World loads the data packs first). */
     private static final int SCREEN_TIMEOUT_TICKS = 600;
@@ -154,6 +187,9 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         inWorld(context, services, findings);
         backPathsWithAWorld(context);
         WorldsFolderStep.run(context);
+        // The Local AI end to end (only with VANTA_LOCAL_AI_DIR; logs that it is skipped otherwise), in the menu so
+        // llama-server does not compete with the world renderer for the CI runner's cores.
+        LocalAiStep.run(context, services);
         // Without a world, last: the findings are collected and judged once at the end.
         ModsClickReproduction.run(context, services, "menu", 40, findings);
         ModsClickReproduction.applyWindow(context,
@@ -390,10 +426,14 @@ public final class VantaClientGameTest implements FabricClientGameTest {
             context.setScreen(() -> null);
             context.waitForScreen(null);
             SmartBoostStep.run(context, services);
+            // Vanta Nexus: sections and their controls at the small window, the assistant's HUD preset path, a
+            // profile switch, a waypoint with its marker and beam, the Lab toggles and curves.
+            NexusStep.run(context, services, findings);
         }
     }
 
-    private static void enableWidgets(VantaServices services, int guiWidth, int guiHeight) {
+    /** Makes the in-game widget set visible (adds missing widgets clear of the others, enables disabled ones). */
+    static void enableWidgets(VantaServices services, int guiWidth, int guiHeight) {
         HudStore hud = services.hud();
         HudLayout layout = hud.layout();
         for (HudWidgetType type : INGAME_WIDGETS) {
