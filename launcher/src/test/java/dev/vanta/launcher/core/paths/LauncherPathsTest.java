@@ -48,6 +48,9 @@ class LauncherPathsTest {
         assertEquals(p.dataDir().resolve("versions/1.21.11/1.21.11.json"), p.versionJson("1.21.11"));
         assertEquals(p.dataDir().resolve("versions/1.21.11/1.21.11.jar"), p.versionJar("1.21.11"));
         assertEquals(p.dataDir().resolve("runtimes"), p.runtimesDir());
+        assertEquals(p.dataDir().resolve("local-ai"), p.localAiDir());
+        assertEquals(p.instanceDir().resolve("config/vanta/local-ai.json"), p.localAiNoteFile());
+        assertTrue(p.allDirectories().contains(p.localAiDir()), "the Local AI folder is created on start");
         assertEquals(p.dataDir().resolve("logs"), p.logsDir());
         assertEquals(p.dataDir().resolve("cache/updates"), p.updatesCacheDir());
         assertEquals(p.dataDir().resolve("settings.json"), p.settingsFile());

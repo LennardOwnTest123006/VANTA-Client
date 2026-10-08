@@ -183,6 +183,8 @@ the zip's `VANTA Launcher` folder into it (`UpdateViewModel.portableUpdateInstru
 | `shareOfficialMinecraftFiles` | reuse verified libraries/assets from the official `.minecraft` (read-only) | `true` |
 | `theme` | UI theme id | `vanta-dark` |
 | `installPerformancePack` | install the [performance pack](#performance-pack-and-mods-page) with every install | `true` (also when the key is missing) |
+| `installLocalAi` | offer the [Local AI](#local-ai) once at the first start and keep it complete with every install (nothing downloads before `localAiAccepted`) | `true` (also when the key is missing) |
+| `localAiAccepted` | the player agreed to the Local AI download once (first-start dialog, Settings > Install, `--install-local-ai`, `--with-local-ai`) | `false` |
 
 ### Offline accounts
 
@@ -299,6 +301,31 @@ Client reads the same file:
 on disk and `"enabled": false`). Keys the launcher does not know are kept on every write, the file is replaced
 atomically, and an unreadable file is moved aside as `modrinth.json.corrupt` instead of being overwritten.
 
+## Local AI
+
+From 1.4.0 on the launcher can install the Local AI that Vanta Nexus (the in-game assistant) runs on the player's PC:
+`llama-server` from a [llama.cpp](https://github.com/ggml-org/llama.cpp) GitHub release (MIT) and the Qwen3-1.7B GGUF model
+from Hugging Face (Apache-2.0). Which release archive exists for which platform, and the size and SHA-256 of every file,
+comes from the manifest `shared/local-ai/local-ai.json` (resolved by CI with `node scripts/release/local-ai.mjs resolve`,
+never typed by hand); Gradle embeds it as `/local-ai.json`, and `VANTA_LOCAL_AI_MANIFEST=<file>` points a run at another
+manifest (CI, tests). A build without a complete manifest reports the Local AI as not available and installs nothing.
+
+- Nothing downloads before the player agrees: the first start shows one dialog (what, from where, how big, licences);
+  "Not now" switches `installLocalAi` off. Settings > Local AI has the switch and Install / Verify files / Remove; Home
+  shows "Local AI: ready / not installed" with a button.
+- Every download goes through `Downloader` with its SHA-256 from the manifest (the model with a 6 hour exchange
+  timeout, the stall watchdog unchanged); the archive is extracted with `ArchiveExtractor` into
+  `local-ai/runtime/<tag>/<platform>/` (staging folder first, moved only when the server executable is really inside,
+  executable bit set on Linux and macOS), the model lands in `local-ai/models/`, `installed.json` records platform,
+  times and the verified sizes and digests. The quick check at start compares sizes and modification times, "Verify
+  files" and `--local-ai-status` after an install hash everything again.
+- With consent given and `installLocalAi` on, PLAY, "Use with Minecraft Launcher" and `--install` include the step
+  "Installing the Local AI" after the performance pack; like the pack it never fails the install.
+- Every game folder the launcher sets up gets the note `config/vanta/local-ai.json` (`{"localAiDir": "<absolute
+  path>"}`) next to `minecraft-folder.json`: the VANTA Client starts llama-server from there and uses the folder
+  read-only. The launcher itself never runs anything it downloaded.
+- "Remove Local AI" deletes only `<data>/local-ai/` and switches the automatic installation off.
+
 ## Restart from the game
 
 Games started by the launcher get `-Dvanta.launcher.restartable=true`. When the game exits and
@@ -381,6 +408,8 @@ Data directory: Windows `%APPDATA%\VANTA Launcher`, macOS `~/Library/Application
 ├── versions/fabric-loader-0.19.5-1.21.11/   Fabric profile JSON
 ├── versions/vanta-client/<v>/   rollback copies of the 3 newest client versions + manifests
 ├── runtimes/                    Java runtimes installed by the launcher (temurin-21-<release>)
+├── local-ai/                    Local AI: installed.json, runtime/<tag>/<platform>/ (llama-server), models/<file>.gguf,
+│                                downloads/ (archives while they download), logs/ (llama-server.log, written by the client)
 ├── logs/                        launcher-N.log (rotating), game-<timestamp>.log, startup-error.txt (failed start)
 ├── cache/updates/<v>/<file>      downloaded launcher updates under their release file names (verified before use)
 ├── settings.json
@@ -407,6 +436,12 @@ Commands
   --check-java       list detected Java runtimes and the one that would be used
   --install-java     download and install Eclipse Temurin 21 (verified) into runtimes/
   --check-update     check the release manifests for launcher and client updates
+  --install-local-ai download and install the Local AI (llama-server from llama.cpp + the Qwen3 GGUF model, SHA-256
+                     verified) into local-ai/; prints "Local AI: installed (<runtime>, <model>)", "Folder: <dir>",
+                     "Size on disk: <n>" and "Note: <game folder>/config/vanta/local-ai.json"; counts as the consent
+  --local-ai-status  print "Local AI: installed (...)" | "not installed (...)" | "partially installed (...)" |
+                     "not available for <os>/<arch>" | "not available in this build (...)", then Folder and Size on disk
+  --remove-local-ai  delete the Local AI folder (nothing else) and switch its automatic installation off
   --print-command    print the game command line (secrets redacted) without launching
   --version          print the launcher version
   --help             show help
@@ -420,6 +455,9 @@ Options
   --without-client         --install: plain Fabric instance without the VANTA client
   --without-performance-pack
                            --install / --install-official-profile: skip the performance pack for this run
+  --with-local-ai          --install: also install the Local AI (counts as your consent to the download); default:
+                           Settings (installLocalAi and localAiAccepted)
+  --without-local-ai       --install: skip the Local AI for this run
   --no-assets              --install: skip assets (development only)
   --dev-offline            --launch/--print-command: development offline account (needs VANTA_DEV_OFFLINE=1)
   --username <name>        player name for --dev-offline (default Dev)
@@ -479,6 +517,8 @@ dev.vanta.launcher.core.modrinth        ModrinthApi (v2 client, User-Agent, 429)
                                         enable/disable, remove, update), ModrinthIndex (modrinth.json), PerformancePack,
                                         ContentType, ModrinthModels
 dev.vanta.launcher.core.java            JavaDetector, ProcessJavaProbe, AdoptiumService, ArchiveExtractor
+dev.vanta.launcher.core.ai              LocalAiManifest (embedded local-ai.json), LocalAiService (download, verify, extract,
+                                        installed.json, remove), LocalAiNote (config/vanta/local-ai.json), LocalAiReport
 dev.vanta.launcher.core.auth            MicrosoftAuthService, AccountStore (DPAPI / AES-GCM), OfflineAccountPolicy
 dev.vanta.launcher.core.settings        LauncherSettings, SettingsStore, ReleasesBaseUrl (URL in effect + source)
 dev.vanta.launcher.core.update          UpdateService (+ClientCheck), UpdateInfo, SemVer

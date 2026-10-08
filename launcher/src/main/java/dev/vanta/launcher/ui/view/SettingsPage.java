@@ -2,6 +2,7 @@ package dev.vanta.launcher.ui.view;
 
 import dev.vanta.launcher.LauncherVersion;
 import dev.vanta.launcher.core.settings.LauncherSettings;
+import dev.vanta.launcher.ui.model.LocalAiViewModel;
 import dev.vanta.launcher.ui.model.SettingsViewModel;
 import javafx.beans.binding.Bindings;
 import javafx.geometry.Pos;
@@ -9,6 +10,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
@@ -28,15 +30,20 @@ public final class SettingsPage extends VBox {
 
     private final AppContext ctx;
     private final SettingsViewModel vm;
+    private final LocalAiViewModel localAi;
+    private final DialogLayer dialogs;
     private final Runnable onThemeChanged;
 
     /**
      * @param ctx            context
+     * @param dialogs        dialog layer (the "Remove Local AI" confirmation)
      * @param onThemeChanged re-applies the theme after a save
      */
-    public SettingsPage(final AppContext ctx, final Runnable onThemeChanged) {
+    public SettingsPage(final AppContext ctx, final DialogLayer dialogs, final Runnable onThemeChanged) {
         this.ctx = ctx;
         this.vm = ctx.settings();
+        this.localAi = ctx.localAi();
+        this.dialogs = dialogs;
         this.onThemeChanged = onThemeChanged;
         getStyleClass().add("page");
         setSpacing(18);
@@ -69,7 +76,10 @@ public final class SettingsPage extends VBox {
             vm.releasesBaseUrlProperty(), vm.errorTextProperty()));
         Ui.bindVisible(error, Bindings.createBooleanBinding(() -> !error.getText().isEmpty(), error.textProperty()));
 
-        final VBox sections = new VBox(16, gameSection(), javaSection(), releasesSection(), advancedSection(), appearanceSection());
+        final VBox sections = new VBox(16, gameSection(), localAiSection(), javaSection(), releasesSection(), advancedSection(), appearanceSection());
+        if (localAi.report().isEmpty()) {
+            localAi.refresh();
+        }
         sections.setPadding(Ui.insets(0, 16, 8, 0));
         final ScrollPane scroll = new ScrollPane(sections);
         scroll.setFitToWidth(true);
@@ -132,6 +142,87 @@ public final class SettingsPage extends VBox {
         final VBox packRow = row(ctx.t("settings.performancePack.label"), ctx.t("settings.performancePack.help", LauncherVersion.MINECRAFT), pack);
 
         return section(ctx.t("settings.section.game"), memoryBlock, resolution, keep, packRow);
+    }
+
+    /**
+     * Local AI: status, versions, folder and size on disk from the shared {@link LocalAiViewModel}, the Install / Verify /
+     * Remove actions (Remove asks first) and the "install automatically" switch, which is saved like every other setting.
+     */
+    private VBox localAiSection() {
+        final Label status = Ui.label("", "value-medium", "local-ai-status");
+        status.textProperty().bind(localAi.statusTextProperty());
+        status.setWrapText(true);
+        status.setMaxWidth(Double.MAX_VALUE);
+        final Label versions = Ui.paragraph("", "card-caption", "local-ai-versions");
+        versions.textProperty().bind(localAi.detailTextProperty());
+        final Label size = Ui.paragraph("", "card-caption");
+        size.textProperty().bind(localAi.sizeTextProperty());
+        final Label problems = Ui.paragraph("", "field-error", "text-small");
+        problems.textProperty().bind(Bindings.createStringBinding(() -> String.join(System.lineSeparator(), localAi.problems()),
+            localAi.reportProperty()));
+        Ui.bindVisible(problems, Bindings.createBooleanBinding(() -> !localAi.problems().isEmpty() && !localAi.installedProperty().get(),
+            localAi.reportProperty()));
+        final VBox statusBlock = new VBox(4, Ui.label(ctx.t("settings.localAi.status.label"), "field-label"), status, versions, size, problems);
+
+        final Label progressText = Ui.paragraph("", "field-help");
+        progressText.textProperty().bind(localAi.progressTextProperty());
+        final ProgressBar progress = new ProgressBar(-1);
+        progress.setMaxWidth(Double.MAX_VALUE);
+        progress.progressProperty().bind(localAi.progressProperty());
+        final VBox progressBlock = new VBox(6, progress, progressText);
+        Ui.bindVisible(progressBlock, Bindings.createBooleanBinding(() -> localAi.activityProperty().get() == LocalAiViewModel.Activity.INSTALLING,
+            localAi.activityProperty()));
+
+        final Path folder = localAi.folder();
+        final Label dir = Ui.label(folder.toString(), "mono", "text-secondary", "local-ai-folder");
+        dir.setStyle("-fx-font-size: 12px;");
+        dir.setMinWidth(0);
+        dir.setMaxWidth(Double.MAX_VALUE);
+        dir.setTextOverrun(javafx.scene.control.OverrunStyle.CENTER_ELLIPSIS);
+        dir.setTooltip(Ui.tooltip(folder.toString()));
+        HBox.setHgrow(dir, Priority.ALWAYS);
+        final Button open = Ui.button(ctx.t("settings.localAi.open"), Icons.Icon.FOLDER, "secondary", "small");
+        open.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
+        open.disableProperty().bind(localAi.removableProperty().not());
+        open.setOnAction(e -> ctx.opener().openFolder(folder));
+        final HBox dirRow = new HBox(10, dir, open);
+        dirRow.setAlignment(Pos.CENTER_LEFT);
+        final VBox folderBlock = new VBox(8, Ui.label(ctx.t("settings.localAi.folder.label"), "field-label"), dirRow);
+
+        final Button install = Ui.button(ctx.t("settings.localAi.install"), Icons.Icon.DOWNLOAD, "primary", "small");
+        install.getStyleClass().add("local-ai-install");
+        install.textProperty().bind(Bindings.createStringBinding(() -> localAi.report().map(r -> r.isInstalled() && r.outdated()).orElse(false)
+            ? ctx.t("settings.localAi.update") : ctx.t("settings.localAi.install"), localAi.reportProperty()));
+        install.disableProperty().bind(localAi.busyProperty().or(localAi.installableProperty().not())
+            .or(Bindings.createBooleanBinding(() -> localAi.report().map(r -> r.isInstalled() && !r.outdated()).orElse(false), localAi.reportProperty())));
+        install.setOnAction(e -> localAi.install());
+        final Button cancel = Ui.button(ctx.t("home.cancel"), Icons.Icon.STOP, "secondary", "small");
+        cancel.setOnAction(e -> localAi.cancel());
+        Ui.bindVisible(cancel, Bindings.createBooleanBinding(() -> localAi.activityProperty().get() == LocalAiViewModel.Activity.INSTALLING,
+            localAi.activityProperty()));
+        final Button verify = Ui.button(ctx.t("settings.localAi.verify"), Icons.Icon.SHIELD, "secondary", "small");
+        verify.getStyleClass().add("local-ai-verify");
+        verify.disableProperty().bind(localAi.busyProperty().or(localAi.installedProperty().not()));
+        verify.setOnAction(e -> localAi.verify());
+        final Button remove = Ui.button(ctx.t("settings.localAi.remove"), Icons.Icon.TRASH, "ghost", "small");
+        remove.getStyleClass().add("local-ai-remove");
+        remove.disableProperty().bind(localAi.busyProperty().or(localAi.removableProperty().not()));
+        remove.setOnAction(e -> dialogs.show(new ConfirmDialog(ctx.t("settings.localAi.remove.title"),
+            ctx.t("settings.localAi.remove.text", folder.toString(), localAi.sizeTextProperty().get()),
+            ctx.t("settings.localAi.remove.confirm"), ctx.t("common.cancel"), localAi::remove, () -> { }, dialogs::close)));
+        for (Button b : new Button[] {install, cancel, verify, remove}) {
+            b.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
+        }
+        final javafx.scene.layout.FlowPane actions = new javafx.scene.layout.FlowPane(8, 8, install, cancel, verify, remove);
+        actions.setAlignment(Pos.CENTER_LEFT);
+
+        final Switch auto = new Switch();
+        auto.getStyleClass().add("local-ai-auto-switch");
+        auto.selectedProperty().bindBidirectional(vm.localAiAutoInstallProperty());
+        final VBox autoRow = row(ctx.t("settings.localAi.autoInstall.label"), ctx.t("settings.localAi.autoInstall.help"), auto);
+
+        final Label help = Ui.paragraph(ctx.t("settings.localAi.help"), "field-help");
+        return section(ctx.t("settings.section.localAi"), statusBlock, progressBlock, folderBlock, actions, autoRow, help);
     }
 
     private VBox javaSection() {

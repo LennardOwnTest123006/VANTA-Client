@@ -53,6 +53,29 @@ class SettingsViewModelTest {
         assertTrue(vm.validProperty().get());
         assertEquals(16384, vm.maxMemoryMb());
         assertTrue(vm.memoryHelp().contains("16 GB"));
+        assertTrue(vm.localAiAutoInstallProperty().get(), "the 12-argument settings default to the Local AI being offered");
+    }
+
+    @Test
+    void localAiAutoInstallIsDirtyTrackedSavedAndKeepsTheConsent() {
+        ctx.backend.settings = ctx.backend.settings.withLocalAiAccepted(true);
+        vm.load(ctx.backend.settings, UiPreferences.defaults());
+        assertFalse(vm.dirtyProperty().get());
+        vm.localAiAutoInstallProperty().set(false);
+        assertTrue(vm.dirtyProperty().get(), "the switch marks the editor dirty");
+        assertFalse(vm.toSettings().localAiAutoInstall());
+        assertTrue(vm.toSettings().localAiConsent(), "the consent is not edited on the Settings page");
+        final AtomicReference<LauncherSettings> saved = new AtomicReference<>();
+        vm.save((s, p) -> saved.set(s), e -> { });
+        assertFalse(vm.dirtyProperty().get());
+        assertFalse(saved.get().localAiAutoInstall());
+        assertTrue(saved.get().localAiConsent());
+        assertFalse(ctx.backend.settings.localAiAutoInstall());
+        vm.discard();
+        assertFalse(vm.localAiAutoInstallProperty().get(), "discard reloads the saved value");
+        vm.resetToDefaults();
+        assertTrue(vm.localAiAutoInstallProperty().get(), "the machine default offers the Local AI");
+        assertTrue(vm.dirtyProperty().get());
     }
 
     @Test

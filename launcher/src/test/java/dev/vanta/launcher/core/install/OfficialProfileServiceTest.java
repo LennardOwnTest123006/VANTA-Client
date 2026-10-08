@@ -102,8 +102,9 @@ class OfficialProfileServiceTest {
         assertEquals(List.of(OfficialProfileService.Kind.FABRIC_API, OfficialProfileService.Kind.VANTA_CLIENT,
             OfficialProfileService.Kind.CLIENT_ROLLBACK_COPY, OfficialProfileService.Kind.CLIENT_ROLLBACK_COPY, OfficialProfileService.Kind.VERSION_JSON,
             OfficialProfileService.Kind.VERSION_JAR, OfficialProfileService.Kind.PROFILES_BACKUP, OfficialProfileService.Kind.PROFILES,
-            OfficialProfileService.Kind.MINECRAFT_FOLDER_NOTE), kinds(plan));
+            OfficialProfileService.Kind.MINECRAFT_FOLDER_NOTE, OfficialProfileService.Kind.LOCAL_AI_NOTE), kinds(plan));
         assertEquals(paths.minecraftFolderFile().toString(), plan.files().get(8).location());
+        assertEquals(paths.localAiNoteFile().toString(), plan.files().get(9).location(), "the Local AI note sits next to the Minecraft folder note");
         assertEquals(paths.modsDir().resolve("fabric-api-" + LauncherVersion.FABRIC_API + ".jar").toString(), plan.files().get(0).location());
         assertEquals(paths.modsDir().resolve("vanta-client-1.0.0.jar").toString(), plan.files().get(1).location(),
             "the release is resolved, so the jar is named exactly");
@@ -128,7 +129,7 @@ class OfficialProfileServiceTest {
         assertEquals(List.of(OfficialProfileService.Kind.FABRIC_API, OfficialProfileService.Kind.VANTA_CLIENT_LOCAL, OfficialProfileService.Kind.VERSION_JSON,
             OfficialProfileService.Kind.VERSION_JAR, OfficialProfileService.Kind.PROFILES_BACKUP, OfficialProfileService.Kind.PROFILES,
             OfficialProfileService.Kind.STORE_PROFILES_BACKUP, OfficialProfileService.Kind.STORE_PROFILES,
-            OfficialProfileService.Kind.MINECRAFT_FOLDER_NOTE), kinds(withStore));
+            OfficialProfileService.Kind.MINECRAFT_FOLDER_NOTE, OfficialProfileService.Kind.LOCAL_AI_NOTE), kinds(withStore));
         assertEquals(paths.modsDir().resolve("vanta-client-dev.jar").toString(), withStore.files().get(1).location());
         assertEquals("dev", withStore.vantaClientVersion());
         assertEquals(1, world.server().totalHits(), "a local jar needs no release manifest");
@@ -190,6 +191,9 @@ class OfficialProfileServiceTest {
         assertFalse(kinds(again).contains(OfficialProfileService.Kind.PROFILES_BACKUP));
         assertFalse(kinds(again).contains(OfficialProfileService.Kind.STORE_PROFILES_BACKUP));
         assertFalse(kinds(again).contains(OfficialProfileService.Kind.MINECRAFT_FOLDER_NOTE), "an unchanged note is not rewritten");
+        assertFalse(kinds(again).contains(OfficialProfileService.Kind.LOCAL_AI_NOTE), "the unchanged Local AI note is not rewritten either");
+        assertEquals(java.util.Optional.of(paths.localAiDir()), dev.vanta.launcher.core.ai.LocalAiNote.read(paths.instanceDir()),
+            "the install wrote the Local AI note into the game folder");
         assertTrue(again.removed().isEmpty(), String.valueOf(again.removed()));
         assertTrue(again.profileExists());
     }

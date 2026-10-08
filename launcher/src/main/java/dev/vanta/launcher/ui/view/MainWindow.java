@@ -48,11 +48,11 @@ public final class MainWindow extends StackPane {
         getStyleClass().add("app-shell");
 
         factories.put(NavigationModel.Page.HOME, () -> new HomePage(ctx, this::showSignIn, this::showClientUpdate, this::showOfficialProfile,
-            this::playViaOfficialLauncher));
+            this::playViaOfficialLauncher, () -> showLocalAiOffer(false)));
         factories.put(NavigationModel.Page.MODS, () -> new ModsPage(ctx, dialogs));
         factories.put(NavigationModel.Page.VERSIONS, () -> new VersionsPage(ctx));
         factories.put(NavigationModel.Page.LOGS, () -> new LogsPage(ctx));
-        factories.put(NavigationModel.Page.SETTINGS, () -> new SettingsPage(ctx, this::applyTheme));
+        factories.put(NavigationModel.Page.SETTINGS, () -> new SettingsPage(ctx, dialogs, this::applyTheme));
         factories.put(NavigationModel.Page.ABOUT, () -> new AboutPage(ctx));
 
         sidebar = new Sidebar(ctx, this::showSignIn, this::showAccounts);
@@ -362,6 +362,48 @@ public final class MainWindow extends StackPane {
         box.getChildren().add(Ui.paragraph(ctx.t("official.confirm.note"), "text-muted", "text-small"));
         box.getStyleClass().add("official-plan");
         return box;
+    }
+
+    /**
+     * The Local AI consent dialog: what is downloaded (runtime and model with file, size and licence), from where, how
+     * big, into which folder, and that nothing is sent anywhere afterwards. Confirming records the consent and installs;
+     * "Not now" from the first-start offer switches the automatic install off (asked once), from the Home button it
+     * changes nothing.
+     *
+     * @param firstStart whether this is the automatic first-start offer (then "Not now" switches the automatic install off)
+     */
+    public void showLocalAiOffer(final boolean firstStart) {
+        final java.util.Optional<dev.vanta.launcher.ui.model.LocalAiViewModel.Offer> offer = ctx.localAi().offer();
+        if (offer.isEmpty()) {
+            ctx.toasts().error(ctx.t("localai.toast.notAvailable.title"), ctx.localAi().statusTextProperty().get());
+            return;
+        }
+        if (dialogs.isOpen()) {
+            return;
+        }
+        final dev.vanta.launcher.ui.model.LocalAiViewModel.Offer o = offer.get();
+        final VBox details = new VBox(8,
+            Ui.paragraph(o.runtimeLine(), "field-label"),
+            Ui.paragraph(o.modelLine(), "field-label"),
+            Ui.paragraph(o.requirements(), "field-help"),
+            Ui.paragraph(ctx.t("localai.offer.later"), "text-muted", "text-small"));
+        details.getStyleClass().add("local-ai-offer");
+        dialogs.show(new ConfirmDialog(ctx.t("localai.offer.title"), ctx.t("localai.offer.text", o.totalSize(), o.folder()), details,
+            ctx.t("localai.offer.install"), ctx.t("localai.offer.notNow"), () -> ctx.localAi().accept(),
+            () -> {
+                if (firstStart) {
+                    ctx.localAi().decline();
+                }
+            }, dialogs::close));
+    }
+
+    /**
+     * Shows the first-start offer when the Local AI view model asks for it.
+     *
+     * @param offer the offer (already built; the dialog reads the current one from the view model)
+     */
+    public void showLocalAiOffer(final dev.vanta.launcher.ui.model.LocalAiViewModel.Offer offer) {
+        showLocalAiOffer(true);
     }
 
     /** Applies the theme variant from the saved settings (high contrast on/off). */

@@ -22,6 +22,13 @@ public enum CliCommand {
     INSTALL_JAVA("--install-java", "Download and install Eclipse Temurin 21 (verified) into the launcher directory"),
     /** Check for updates. */
     CHECK_UPDATE("--check-update", "Check the release manifests for launcher and client updates"),
+    /** Install the Local AI (llama-server runtime and model). */
+    INSTALL_LOCAL_AI("--install-local-ai",
+        "Download and install the Local AI (llama-server from llama.cpp and the Qwen3 GGUF model, SHA-256 verified) into local-ai/"),
+    /** Report the Local AI install state. */
+    LOCAL_AI_STATUS("--local-ai-status", "Show whether the Local AI is installed, its versions, folder and size on disk"),
+    /** Remove the Local AI folder. */
+    REMOVE_LOCAL_AI("--remove-local-ai", "Delete the Local AI folder (runtime and model) and switch its automatic installation off"),
     /** Print the launch command. */
     PRINT_COMMAND("--print-command", "Print the game command line (secrets redacted) without launching"),
     /** Print the version. */

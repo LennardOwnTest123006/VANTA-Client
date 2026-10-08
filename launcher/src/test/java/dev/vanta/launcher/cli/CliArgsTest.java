@@ -22,6 +22,23 @@ class CliArgsTest {
     }
 
     @Test
+    void localAiCommandsAndFlags() {
+        assertEquals(CliCommand.INSTALL_LOCAL_AI, CliArgs.parse(new String[] {"--install-local-ai", "--data-dir", "/d"}).command());
+        assertEquals(CliCommand.LOCAL_AI_STATUS, CliArgs.parse(new String[] {"--local-ai-status"}).command());
+        assertEquals(CliCommand.REMOVE_LOCAL_AI, CliArgs.parse(new String[] {"--remove-local-ai"}).command());
+        final CliArgs with = CliArgs.parse(new String[] {"--install", "--with-local-ai"});
+        assertTrue(with.isValid(), with.errors().toString());
+        assertTrue(with.has("with-local-ai"));
+        final CliArgs without = CliArgs.parse(new String[] {"--install", "--without-local-ai"});
+        assertTrue(without.isValid(), without.errors().toString());
+        assertTrue(without.has("without-local-ai"));
+        assertEquals("Flag --with-local-ai does not take a value", CliArgs.parse(new String[] {"--install", "--with-local-ai=yes"}).errors().get(0));
+        assertEquals("--install-local-ai", CliCommand.INSTALL_LOCAL_AI.flag());
+        assertEquals("--local-ai-status", CliCommand.LOCAL_AI_STATUS.flag());
+        assertEquals("--remove-local-ai", CliCommand.REMOVE_LOCAL_AI.flag());
+    }
+
+    @Test
     void launchWithDevOffline() {
         final CliArgs args = CliArgs.parse(new String[] {"--dev-offline", "--username", "CI", "--launch", "--exit-after", "10"});
         assertTrue(args.isValid());

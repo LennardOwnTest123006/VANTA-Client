@@ -6,6 +6,7 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import dev.vanta.launcher.LauncherVersion;
 import dev.vanta.launcher.core.launch.JvmArgsBuilder;
+import dev.vanta.launcher.core.ai.LocalAiNote;
 import dev.vanta.launcher.core.launch.MinecraftFolderHint;
 import dev.vanta.launcher.core.model.ReleaseManifest;
 import dev.vanta.launcher.core.modrinth.ModrinthIndex;
@@ -365,7 +366,9 @@ public final class OfficialProfileService {
         /** {@code launcher_profiles_microsoft_store.json}. */
         STORE_PROFILES("same profile entry for the Microsoft Store edition of the launcher", false),
         /** {@code <instance>/config/vanta/minecraft-folder.json}: which Minecraft folder's worlds Singleplayer lists. */
-        MINECRAFT_FOLDER_NOTE("note for the VANTA Client: Singleplayer lists the worlds of this Minecraft folder", false);
+        MINECRAFT_FOLDER_NOTE("note for the VANTA Client: Singleplayer lists the worlds of this Minecraft folder", false),
+        /** {@code <instance>/config/vanta/local-ai.json}: where the launcher keeps the Local AI (used read-only by the client). */
+        LOCAL_AI_NOTE("note for the VANTA Client: the Local AI (llama-server and model) lives in the launcher's local-ai folder", false);
 
         private final String description;
         private final boolean removal;
@@ -700,6 +703,10 @@ public final class OfficialProfileService {
             // Tells the client which Minecraft folder this profile belongs to, so Singleplayer lists its worlds.
             if (MinecraftFolderHint.write(paths.instanceDir(), mc)) {
                 written.add(MinecraftFolderHint.file(paths.instanceDir()));
+            }
+            // Tells the client where the launcher keeps the Local AI, so it never downloads a second copy.
+            if (LocalAiNote.write(paths.instanceDir(), paths.localAiDir())) {
+                written.add(LocalAiNote.file(paths.instanceDir()));
             }
             final Path versionDir = mc.resolve("versions").resolve(versionId);
             final Path versionJson = versionDir.resolve(versionId + ".json");
@@ -1085,6 +1092,9 @@ public final class OfficialProfileService {
         }
         if (MinecraftFolderHint.wouldChange(paths.instanceDir(), mc)) {
             files.add(new PlannedFile(Kind.MINECRAFT_FOLDER_NOTE, MinecraftFolderHint.file(paths.instanceDir()).toString()));
+        }
+        if (LocalAiNote.wouldChange(paths.instanceDir(), paths.localAiDir())) {
+            files.add(new PlannedFile(Kind.LOCAL_AI_NOTE, LocalAiNote.file(paths.instanceDir()).toString()));
         }
         return files;
     }

@@ -1,5 +1,6 @@
 package dev.vanta.launcher.ui.backend;
 
+import dev.vanta.launcher.core.ai.LocalAiReport;
 import dev.vanta.launcher.core.auth.Account;
 import dev.vanta.launcher.core.auth.AuthException;
 import dev.vanta.launcher.core.auth.DeviceCode;
@@ -456,6 +457,45 @@ public interface LauncherBackend extends AutoCloseable {
      * @throws IOException when a folder cannot be read
      */
     StartupGuard.Report crashReportCheck() throws IOException;
+
+    // ---------------------------------------------------------------- Local AI
+
+    /**
+     * Quick check of the launcher-managed Local AI ({@code <data>/local-ai}): {@code installed.json} plus sizes and
+     * modification times; nothing is hashed.
+     *
+     * @return report
+     * @throws IOException when the folder cannot be read
+     */
+    LocalAiReport localAiStatus() throws IOException;
+
+    /**
+     * Full check: every installed file is hashed again.
+     *
+     * @return report
+     * @throws IOException when the folder cannot be read
+     */
+    LocalAiReport verifyLocalAi() throws IOException;
+
+    /**
+     * Downloads (SHA-256 verified), extracts and records the Local AI; a complete, current install is only checked.
+     *
+     * @param listener progress (one step, bytes as units)
+     * @param token    cancellation
+     * @return report after the install
+     * @throws IOException          on failure ({@link dev.vanta.launcher.core.ai.LocalAiUnavailableException} when this
+     *                              build has no manifest or none for this platform)
+     * @throws InterruptedException when interrupted
+     */
+    LocalAiReport installLocalAi(InstallListener listener, CancellationToken token) throws IOException, InterruptedException;
+
+    /**
+     * Deletes the Local AI folder and nothing else.
+     *
+     * @return whether anything existed
+     * @throws IOException when a file cannot be deleted
+     */
+    boolean removeLocalAi() throws IOException;
 
     // ---------------------------------------------------------------- misc
 

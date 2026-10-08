@@ -2,6 +2,7 @@ package dev.vanta.launcher.ui.backend;
 
 import dev.vanta.launcher.LauncherVersion;
 import dev.vanta.launcher.core.LauncherServices;
+import dev.vanta.launcher.core.ai.LocalAiReport;
 import dev.vanta.launcher.core.auth.Account;
 import dev.vanta.launcher.core.auth.AuthException;
 import dev.vanta.launcher.core.auth.DeviceCode;
@@ -378,6 +379,26 @@ public final class CoreBackend implements LauncherBackend {
             }
             return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
         }
+    }
+
+    @Override
+    public LocalAiReport localAiStatus() throws IOException {
+        return services.localAi().status();
+    }
+
+    @Override
+    public LocalAiReport verifyLocalAi() throws IOException {
+        return services.localAi().verify();
+    }
+
+    @Override
+    public LocalAiReport installLocalAi(final InstallListener listener, final CancellationToken token) throws IOException, InterruptedException {
+        return services.localAi().install(listener, token);
+    }
+
+    @Override
+    public boolean removeLocalAi() throws IOException {
+        return services.localAi().remove();
     }
 
     @Override

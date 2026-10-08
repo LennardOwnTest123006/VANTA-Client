@@ -24,6 +24,11 @@ public enum InstallStep {
     VANTA_CLIENT("Installing VANTA Client"),
     /** Install the performance pack from Modrinth (Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Iris). */
     PERFORMANCE_PACK("Installing the performance pack"),
+    /**
+     * Install the Local AI (llama-server runtime from llama.cpp and the GGUF model) into the launcher's {@code local-ai/}
+     * folder; optional and never fatal, like the performance pack.
+     */
+    LOCAL_AI("Installing the Local AI"),
     /** Write instance metadata. */
     FINALIZE("Finishing installation");
 

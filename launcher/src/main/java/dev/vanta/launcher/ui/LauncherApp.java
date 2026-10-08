@@ -198,6 +198,10 @@ public final class LauncherApp extends Application {
             if (now && backend.settings().autoUpdateCheck()) {
                 context.updates().check(false);
             }
+            if (now) {
+                // First start: the Local AI is offered once (consent dialog) or, agreed earlier and missing, installed.
+                context.home().offerLocalAi(window::showLocalAiOffer);
+            }
         });
         final Consumer<LauncherApp> ready = readyHook;
         if (ready != null) {

@@ -17,9 +17,12 @@ import java.util.Optional;
  * @param includeAssets          whether to download assets (always true for real installs; false speeds up tests)
  * @param includePerformancePack whether to install the performance pack from Modrinth (Settings: "Install the
  *                               performance pack"); it never makes the install fail
+ * @param includeLocalAi         whether to install the Local AI (llama-server runtime and model) into the launcher's
+ *                               {@code local-ai/} folder when it is missing or outdated (Settings: "Install the Local AI
+ *                               automatically", after the player agreed to the download once); never fatal either
  */
 public record InstallRequest(String minecraftVersion, String fabricLoaderVersion, String fabricApiVersion, Path localClientJar,
-                             boolean includeVantaClient, boolean includeAssets, boolean includePerformancePack) {
+                             boolean includeVantaClient, boolean includeAssets, boolean includePerformancePack, boolean includeLocalAi) {
 
     public InstallRequest {
         Objects.requireNonNull(minecraftVersion, "minecraftVersion");
@@ -28,7 +31,25 @@ public record InstallRequest(String minecraftVersion, String fabricLoaderVersion
     }
 
     /**
-     * A request without the performance pack.
+     * A request without the Local AI.
+     *
+     * @param minecraftVersion       Minecraft version id
+     * @param fabricLoaderVersion    Fabric Loader version
+     * @param fabricApiVersion       Fabric API version
+     * @param localClientJar         local client jar (may be null)
+     * @param includeVantaClient     whether to install the VANTA client
+     * @param includeAssets          whether to download assets
+     * @param includePerformancePack whether to install the performance pack
+     */
+    public InstallRequest(final String minecraftVersion, final String fabricLoaderVersion, final String fabricApiVersion,
+                          final Path localClientJar, final boolean includeVantaClient, final boolean includeAssets,
+                          final boolean includePerformancePack) {
+        this(minecraftVersion, fabricLoaderVersion, fabricApiVersion, localClientJar, includeVantaClient, includeAssets, includePerformancePack,
+            false);
+    }
+
+    /**
+     * A request without the performance pack and without the Local AI.
      *
      * @param minecraftVersion    Minecraft version id
      * @param fabricLoaderVersion Fabric Loader version
@@ -39,13 +60,13 @@ public record InstallRequest(String minecraftVersion, String fabricLoaderVersion
      */
     public InstallRequest(final String minecraftVersion, final String fabricLoaderVersion, final String fabricApiVersion,
                           final Path localClientJar, final boolean includeVantaClient, final boolean includeAssets) {
-        this(minecraftVersion, fabricLoaderVersion, fabricApiVersion, localClientJar, includeVantaClient, includeAssets, false);
+        this(minecraftVersion, fabricLoaderVersion, fabricApiVersion, localClientJar, includeVantaClient, includeAssets, false, false);
     }
 
-    /** @return the standard VANTA install (pinned versions, published client, performance pack) */
+    /** @return the standard VANTA install (pinned versions, published client, performance pack, no Local AI) */
     public static InstallRequest standard() {
         return new InstallRequest(LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER, LauncherVersion.FABRIC_API,
-            null, true, true, true);
+            null, true, true, true, false);
     }
 
     /**
@@ -56,7 +77,7 @@ public record InstallRequest(String minecraftVersion, String fabricLoaderVersion
      */
     public static InstallRequest withLocalClient(final Path clientJar) {
         return new InstallRequest(LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER, LauncherVersion.FABRIC_API,
-            Objects.requireNonNull(clientJar, "clientJar"), true, true, true);
+            Objects.requireNonNull(clientJar, "clientJar"), true, true, true, false);
     }
 
     /**
@@ -65,7 +86,16 @@ public record InstallRequest(String minecraftVersion, String fabricLoaderVersion
      */
     public InstallRequest withPerformancePack(final boolean include) {
         return new InstallRequest(minecraftVersion, fabricLoaderVersion, fabricApiVersion, localClientJar, includeVantaClient,
-            includeAssets, include);
+            includeAssets, include, includeLocalAi);
+    }
+
+    /**
+     * @param include whether to install the Local AI
+     * @return copy
+     */
+    public InstallRequest withLocalAi(final boolean include) {
+        return new InstallRequest(minecraftVersion, fabricLoaderVersion, fabricApiVersion, localClientJar, includeVantaClient,
+            includeAssets, includePerformancePack, include);
     }
 
     /** @return local jar override when set */

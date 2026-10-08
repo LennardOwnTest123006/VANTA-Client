@@ -235,6 +235,9 @@ class LaunchServiceTest {
 
         assertEquals(0, withFolder.start(command, List.of()).exitCode().get(60, TimeUnit.SECONDS));
         assertEquals(Optional.of(official.toAbsolutePath().normalize()), MinecraftFolderHint.read(command.workingDirectory()));
+        // PLAY also tells the client where the launcher keeps the Local AI (next to the Minecraft folder note).
+        assertEquals(Optional.of(paths.localAiDir()), dev.vanta.launcher.core.ai.LocalAiNote.read(command.workingDirectory()));
+        assertEquals(paths.localAiNoteFile(), dev.vanta.launcher.core.ai.LocalAiNote.file(command.workingDirectory()));
 
         final Path custom = tmp.resolve("D").resolve("minecraft");
         Files.createDirectories(custom);

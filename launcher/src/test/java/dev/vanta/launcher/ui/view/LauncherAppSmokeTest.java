@@ -101,6 +101,8 @@ class LauncherAppSmokeTest {
         backend.javaInstalls.add(backend.temurin21());
         backend.instance = FakeBackend.installedInstance("1.0.0");
         backend.clientUpdate = Optional.of(FakeBackend.update(ReleaseManifest.PRODUCT_CLIENT, "1.0.0", "1.1.0", true));
+        // The automatic first-start Local AI offer would open a dialog over every other test; it is exercised explicitly below.
+        backend.settings = backend.settings.withInstallLocalAi(false);
         Logger.getLogger("VANTA").addHandler(CAPTURE);
         Logger.getLogger("javafx.css").addHandler(CSS_CAPTURE);
         Logger.getLogger("javafx.css").setLevel(Level.WARNING);
@@ -277,6 +279,89 @@ class LauncherAppSmokeTest {
             waitUntil(() -> app.context().session().account().isPresent());
         }
         assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+    }
+
+    /**
+     * The Local AI: Home shows the status line with its button, the Settings page renders the section with Install /
+     * Verify / Remove and the switch, the consent dialog names what is downloaded and installs only after confirming.
+     */
+    @Test
+    void localAiStatusLineSettingsSectionAndConsentDialog() throws Exception {
+        waitUntil(() -> app.context().session().loadedProperty().get());
+        waitUntil(() -> app.context().localAi().report().isPresent());
+        fx(() -> {
+            app.context().navigation().navigate(NavigationModel.Page.HOME);
+            return null;
+        });
+        fx(() -> {
+            final Label line = (Label) app.window().lookup(".local-ai-line");
+            assertNotNull(line, "Home has the Local AI status line");
+            assertEquals("Local AI: not installed", line.getText());
+            final Button button = (Button) app.window().lookup(".local-ai-button");
+            assertNotNull(button);
+            assertEquals(app.context().t("home.localAi.install"), button.getText());
+            assertFalse(button.isDisabled());
+            return null;
+        });
+        fx(() -> {
+            app.context().navigation().navigate(NavigationModel.Page.SETTINGS);
+            return null;
+        });
+        fx(() -> {
+            final Node page = app.window().page(NavigationModel.Page.SETTINGS);
+            assertNotNull(page.lookup(".local-ai-status"), "Settings has the Local AI section");
+            assertEquals("Local AI: not installed", ((Label) page.lookup(".local-ai-status")).getText());
+            assertNotNull(page.lookup(".local-ai-install"));
+            assertFalse(page.lookup(".local-ai-install").isDisabled(), "Install is offered while nothing is installed");
+            assertTrue(page.lookup(".local-ai-verify").isDisabled(), "nothing to verify yet");
+            assertTrue(page.lookup(".local-ai-remove").isDisabled(), "nothing to remove yet");
+            assertNotNull(page.lookup(".local-ai-auto-switch"));
+            assertTrue(((Label) page.lookup(".local-ai-folder")).getText().endsWith("local-ai"));
+            return null;
+        });
+        // The consent dialog: what, from where, how big; closing it installs nothing.
+        fx(() -> {
+            app.window().showLocalAiOffer(false);
+            assertTrue(app.window().dialogs().isOpen());
+            final Node offer = app.window().dialogs().lookup(".local-ai-offer");
+            assertNotNull(offer, "the dialog lists runtime and model");
+            final List<String> lines = offer.lookupAll(".label").stream().map(n -> ((Label) n).getText()).toList();
+            assertTrue(lines.stream().anyMatch(t -> t.startsWith("Runtime: llama.cpp b11429") && t.contains("github.com")), lines.toString());
+            assertTrue(lines.stream().anyMatch(t -> t.startsWith("Model: Qwen3-1.7B Q8_0") && t.contains("huggingface.co")), lines.toString());
+            app.window().dialogs().close();
+            return null;
+        });
+        assertFalse(backend.calls.contains("installLocalAi"), "closing the dialog downloads nothing");
+        assertFalse(backend.settings.localAiConsent());
+        // Confirming records the consent and installs through the backend.
+        fx(() -> {
+            app.window().showLocalAiOffer(false);
+            final Button confirm = app.window().dialogs().lookupAll(".button").stream().map(n -> (Button) n)
+                .filter(b -> app.context().t("localai.offer.install").equals(b.getText())).findFirst().orElseThrow();
+            confirm.fire();
+            return null;
+        });
+        waitUntil(() -> backend.calls.contains("installLocalAi"));
+        waitUntil(() -> app.context().localAi().installedProperty().get());
+        fx(() -> {
+            assertTrue(backend.settings.localAiConsent(), "confirming records the consent");
+            assertEquals("Local AI: ready", ((Label) app.window().lookup(".local-ai-status")).getText());
+            assertFalse(app.window().lookup(".local-ai-verify").isDisabled());
+            assertFalse(app.window().lookup(".local-ai-remove").isDisabled());
+            assertTrue(app.window().lookup(".local-ai-install").isDisabled(), "installed and current: nothing to install");
+            return null;
+        });
+        fx(() -> {
+            app.context().navigation().navigate(NavigationModel.Page.HOME);
+            return null;
+        });
+        fx(() -> {
+            assertEquals("Local AI: ready", ((Label) app.window().lookup(".local-ai-line")).getText());
+            assertEquals(app.context().t("home.localAi.manage"), ((Button) app.window().lookup(".local-ai-button")).getText());
+            return null;
+        });
+        assertTrue(SEVERE.isEmpty(), "no severe UI log entries: " + SEVERE.stream().map(LogRecord::getMessage).toList());
+        assertTrue(CSS_WARNINGS.isEmpty(), "no CSS warnings: " + CSS_WARNINGS.stream().map(LogRecord::getMessage).toList());
     }
 
     @Test

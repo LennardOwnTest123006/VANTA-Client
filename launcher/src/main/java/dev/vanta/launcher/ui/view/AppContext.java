@@ -5,6 +5,7 @@ import dev.vanta.launcher.ui.Messages;
 import dev.vanta.launcher.ui.backend.LauncherBackend;
 import dev.vanta.launcher.ui.model.Formats;
 import dev.vanta.launcher.ui.model.HomeViewModel;
+import dev.vanta.launcher.ui.model.LocalAiViewModel;
 import dev.vanta.launcher.ui.model.LogBuffer;
 import dev.vanta.launcher.ui.model.LogsViewModel;
 import dev.vanta.launcher.ui.model.ModsViewModel;
@@ -39,6 +40,7 @@ public final class AppContext {
     private final LogBuffer launcherLog;
     private final LogBuffer gameLog;
     private final SessionModel session;
+    private final LocalAiViewModel localAi;
     private final HomeViewModel home;
     private final SignInViewModel signIn;
     private final SettingsViewModel settings;
@@ -78,7 +80,8 @@ public final class AppContext {
             SystemOpener::copyToSystemClipboard, executors, toasts, messages);
         final dev.vanta.launcher.ui.model.ErrorMessages errors = new dev.vanta.launcher.ui.model.ErrorMessages(messages, formats);
         this.session = new SessionModel(backend, executors, error -> toasts.error(messages.get("home.toast.error.title"), errors.describe(error)));
-        this.home = new HomeViewModel(session, backend, executors, messages, formats, toasts, launcherLog, gameLog);
+        this.localAi = new LocalAiViewModel(session, backend, executors, messages, formats, toasts, launcherLog);
+        this.home = new HomeViewModel(session, backend, executors, messages, formats, toasts, launcherLog, gameLog, localAi);
         this.signIn = new SignInViewModel(backend, executors, messages, formats);
         this.settings = new SettingsViewModel(backend, executors, messages, formats);
         this.settings.load(backend.settings(), prefs);
@@ -141,6 +144,11 @@ public final class AppContext {
     /** @return home view model */
     public HomeViewModel home() {
         return home;
+    }
+
+    /** @return Local AI state and actions (Home status line, Settings section, first-start offer) */
+    public LocalAiViewModel localAi() {
+        return localAi;
     }
 
     /** @return sign-in view model */
