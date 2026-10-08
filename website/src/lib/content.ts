@@ -41,6 +41,7 @@ export function markdownExcerpt(body: string, limit = 4): string[] {
     if (!match) continue;
     const text = (match[1] ?? '')
       .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*([^*]+?)\*/g, '$1')
       .replace(/`(.+?)`/g, '$1')
       .replace(/\[(.+?)\]\((.+?)\)/g, '$1')
       .trim();

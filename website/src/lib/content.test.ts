@@ -30,6 +30,12 @@ describe('markdownExcerpt', () => {
       'Intro\n\n- **Bold** item with `code`\n- Second [link](https://x)\n* Third\n- Fourth\n- Fifth';
     expect(markdownExcerpt(body, 3)).toEqual(['Bold item with code', 'Second link', 'Third']);
   });
+  it('strips single-asterisk emphasis as the release notes write it', () => {
+    expect(markdownExcerpt('- Shows *Custom*; choose *Fast*, *Fancy* or **Fabulous**')).toEqual([
+      'Shows Custom; choose Fast, Fancy or Fabulous',
+    ]);
+    expect(markdownExcerpt('- 2 * 3 stays')).toEqual(['2 * 3 stays']);
+  });
   it('returns an empty list when there are no bullets', () => {
     expect(markdownExcerpt('No bullets here')).toEqual([]);
   });

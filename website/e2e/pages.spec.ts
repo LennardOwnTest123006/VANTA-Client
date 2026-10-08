@@ -6,6 +6,7 @@ import {
   trackConsoleErrors,
   waitForApp,
 } from './helpers';
+import { offeredBundle } from './repo-state';
 import { routes } from './routes';
 
 /**
@@ -85,11 +86,16 @@ test('the download buttons are on the first phone screen of their cards, before 
   expect(viewport).toEqual({ width: 390, height: 844 });
   if (!viewport || !siteHeader) return;
   const available = viewport.height - siteHeader.height;
-  for (const { name, cta } of [
+  const cards = [
     { name: 'VANTA Launcher', cta: 'Download launcher' },
     { name: 'VANTA Client (jar)', cta: 'Download client jar' },
-  ]) {
-    const card = page.getByRole('article', { name });
+  ];
+  // The full release zip card exists only once a bundle manifest is published.
+  if (offeredBundle()) {
+    cards.push({ name: 'Full release (zip)', cta: 'Download full release (.zip)' });
+  }
+  for (const { name, cta } of cards) {
+    const card = page.getByRole('article', { name, exact: true });
     const button = card
       .getByRole('link', { name: cta, exact: true })
       .or(card.getByRole('button', { name: cta, exact: true }));

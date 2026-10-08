@@ -60,12 +60,20 @@ interface FixtureOptions {
   readonly unpublished?: readonly string[];
   /** Replaces the URL builder, e.g. for a mirror that is not a GitHub release. */
   readonly url?: (tag: string, name: string) => string;
+  /** Release date `YYYY-MM-DD`; defaults to `2026-10-04`. */
+  readonly releaseDate?: string;
 }
 
 function manifest(
   product: 'client' | 'launcher',
   names: readonly string[],
-  { published, version = '1.0.0', unpublished = [], url = fixtureDownloadUrl }: FixtureOptions,
+  {
+    published,
+    version = '1.0.0',
+    unpublished = [],
+    url = fixtureDownloadUrl,
+    releaseDate = '2026-10-04',
+  }: FixtureOptions,
 ): ReleaseManifest {
   const tag = `${product}-v${version}`;
   return parseReleaseManifest(
@@ -77,7 +85,7 @@ function manifest(
       fabricVersion: '0.19.5',
       fabricApiVersion: '0.141.6+1.21.11',
       javaVersion: 21,
-      releaseDate: '2026-10-04',
+      releaseDate,
       channel: 'stable',
       files: names.map((name, index) =>
         published && !unpublished.includes(name)
