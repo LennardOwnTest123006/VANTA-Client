@@ -27,6 +27,8 @@ public final class FakeGameBridge implements GameBridge {
     public Optional<String> serverAddress = Optional.empty();
     public Optional<String> serverName = Optional.empty();
     public boolean singleplayer = true;
+    /** Folder name of the open singleplayer level (reported only while in a singleplayer world). */
+    public Optional<String> levelName = Optional.of("New World");
     public OptionalInt ping = OptionalInt.empty();
     public int armorValue = 15;
     public List<ItemInfo> armorPieces = new ArrayList<>(List.of(
@@ -150,6 +152,11 @@ public final class FakeGameBridge implements GameBridge {
     @Override
     public OptionalInt pingMillis() {
         return ping;
+    }
+
+    @Override
+    public Optional<String> singleplayerLevelName() {
+        return inWorld && singleplayer ? levelName : Optional.empty();
     }
 
     @Override

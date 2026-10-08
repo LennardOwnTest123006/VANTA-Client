@@ -19,6 +19,7 @@ import dev.vanta.core.crosshair.CrosshairStore;
 import dev.vanta.core.hud.HudStore;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.keybinds.KeybindModel;
+import dev.vanta.core.lab.LabSettings;
 import dev.vanta.core.modrinth.LocalItem;
 import dev.vanta.core.modrinth.ModrinthService;
 import dev.vanta.core.modrinth.PackOffer;
@@ -38,6 +39,7 @@ import dev.vanta.core.settings.SettingsStore;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.stats.StatsStore;
 import dev.vanta.core.stats.StatsTracker;
+import dev.vanta.core.waypoints.WaypointStore;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -78,6 +80,8 @@ public final class VantaServices {
     private final ProfileManager profiles;
     private final AccessibilityService accessibility;
     private final GlobalSearch search;
+    private final WaypointStore waypoints;
+    private final LabSettings lab;
     private final ScreenRegistry screens = new ScreenRegistry();
     private Optional<String> websiteUrl = Optional.empty();
     private ModrinthService modrinth;
@@ -117,6 +121,8 @@ public final class VantaServices {
         this.profiles = new ProfileManager(jsonStore, paths, clock, settings, hud, crosshair, keybindBridge);
         this.accessibility = new AccessibilityService(settings);
         this.search = new GlobalSearch(settingsRegistry, ActionEntry.builtIns(), keybinds::all);
+        this.waypoints = new WaypointStore(jsonStore, paths, clock);
+        this.lab = new LabSettings(settings);
     }
 
     /** Creates the services with the four mandatory bridges. */
@@ -149,6 +155,7 @@ public final class VantaServices {
         crosshair.load();
         cosmetics.load();
         statsStore.load();
+        waypoints.load();
         profiles.load();
         smartBoost.load();
         keybinds.refresh();
@@ -171,6 +178,7 @@ public final class VantaServices {
         profiles.saveAll();
         cosmetics.saveIfDirty();
         smartBoost.saveIfDirty();
+        waypoints.saveIfDirty();
     }
 
     /** Ends the statistics session and saves everything. */
@@ -487,6 +495,16 @@ public final class VantaServices {
 
     public GlobalSearch search() {
         return search;
+    }
+
+    /** Waypoints of every world ({@code config/vanta/waypoints.json}). */
+    public WaypointStore waypoints() {
+        return waypoints;
+    }
+
+    /** Vanta Lab feature toggles (backed by settings). */
+    public LabSettings lab() {
+        return lab;
     }
 
     public ScreenRegistry screens() {

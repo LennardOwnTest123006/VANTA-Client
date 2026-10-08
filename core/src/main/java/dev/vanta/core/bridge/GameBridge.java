@@ -1,5 +1,6 @@
 package dev.vanta.core.bridge;
 
+import dev.vanta.core.waypoints.WorldKeys;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -87,6 +88,23 @@ public interface GameBridge {
 
     /** Latency to the server in milliseconds when known. */
     OptionalInt pingMillis();
+
+    /**
+     * Folder name of the open singleplayer level (its directory under {@code saves/}); empty on a server and outside
+     * a world. Hosts that do not report it get the default, and waypoints then stay unavailable in singleplayer
+     * rather than being filed under a wrong world.
+     */
+    default Optional<String> singleplayerLevelName() {
+        return Optional.empty();
+    }
+
+    /**
+     * Key of the current world for waypoints: {@code sp:<level folder name>} in singleplayer, {@code mp:<address>}
+     * on a server, {@code none} outside a world or when the world cannot be identified (see {@link WorldKeys}).
+     */
+    default String worldKey() {
+        return WorldKeys.forGame(this);
+    }
 
     /** Armor points (0–20). */
     int armorValue();

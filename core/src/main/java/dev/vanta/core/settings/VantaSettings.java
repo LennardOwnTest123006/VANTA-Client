@@ -20,10 +20,12 @@ import static dev.vanta.core.settings.SettingCategory.CONTROLS;
 import static dev.vanta.core.settings.SettingCategory.COSMETICS;
 import static dev.vanta.core.settings.SettingCategory.GENERAL;
 import static dev.vanta.core.settings.SettingCategory.HUD;
+import static dev.vanta.core.settings.SettingCategory.LAB;
 import static dev.vanta.core.settings.SettingCategory.LANGUAGE;
 import static dev.vanta.core.settings.SettingCategory.PERFORMANCE;
 import static dev.vanta.core.settings.SettingCategory.PRIVACY;
 import static dev.vanta.core.settings.SettingCategory.VIDEO;
+import static dev.vanta.core.settings.SettingCategory.WAYPOINTS;
 
 /**
  * Every VANTA setting, defined once. Vanilla-bound entries make the VIDEO / AUDIO / CONTROLS categories edit the
@@ -104,6 +106,21 @@ public final class VantaSettings {
     /** Button: open the HUD editor. */
     public static final Setting<String> HUD_OPEN_EDITOR = add(Setting.action("hud.openEditor", HUD, "open_hud_editor")
             .keywords("editor", "layout", "move widgets"));
+
+    // ---- waypoints: screen markers (the waypoints themselves live in dev.vanta.core.waypoints) ------------------------
+    /** Draw screen markers for the enabled waypoints of the current world. */
+    public static final Setting<Boolean> WAYPOINTS_ENABLED = add(Setting.bool("waypoints.enabled", WAYPOINTS, true)
+            .keywords("waypoint", "waypoints", "marker", "markers", "nexus", "hud"));
+    /** Waypoints further away than this many blocks get no marker. */
+    public static final Setting<Integer> WAYPOINTS_MAX_MARKER_DISTANCE = add(Setting.intRange(
+            "waypoints.maxMarkerDistance", WAYPOINTS, 512, 16, 4096, 16)
+            .keywords("waypoint", "marker", "distance", "range", "blocks"));
+    /** Write the distance next to the waypoint name on a marker. */
+    public static final Setting<Boolean> WAYPOINTS_SHOW_DISTANCE = add(Setting.bool("waypoints.showDistance",
+            WAYPOINTS, true).keywords("waypoint", "marker", "distance", "blocks", "label"));
+    /** Scale of the waypoint markers. */
+    public static final Setting<Double> WAYPOINTS_MARKER_SCALE = add(Setting.doubleRange("waypoints.markerScale",
+            WAYPOINTS, 1.0, 0.5, 2.0, 0.05).keywords("waypoint", "marker", "size", "scale"));
 
     // ---- performance ------------------------------------------------------------------------------------------------
     /** Quick frame-rate limit choice (writes the vanilla limit and vsync). */
@@ -328,6 +345,23 @@ public final class VantaSettings {
     /** Show VANTA translation keys instead of text (for translators). */
     public static final Setting<Boolean> LANGUAGE_SHOW_KEYS = add(Setting.bool("language.showKeys", LANGUAGE, false)
             .keywords("translation", "keys", "debug", "translators"));
+
+    // ---- lab (see dev.vanta.core.lab.LabFeature; every toggle is off by default) --------------------------------------
+    /** Lab: the HUD fades out after 10 seconds without input while in a world and returns on any input. */
+    public static final Setting<Boolean> LAB_DYNAMIC_HUD = add(Setting.bool("lab.dynamicHud", LAB, false)
+            .keywords("lab", "experimental", "hud", "fade", "hide", "idle", "dynamic"));
+    /** Lab: the crosshair spreads with movement and on attack. */
+    public static final Setting<Boolean> LAB_ANIMATED_CROSSHAIR = add(Setting.bool("lab.animatedCrosshair", LAB, false)
+            .keywords("lab", "experimental", "crosshair", "animated", "spread", "attack"));
+    /** Lab: 3D beams in the world at enabled waypoints. */
+    public static final Setting<Boolean> LAB_WAYPOINT_BEAMS = add(Setting.bool("lab.waypointBeams", LAB, false)
+            .keywords("lab", "experimental", "waypoint", "beam", "beacon", "3d"));
+    /** Lab: a HUD element drawing the last 120 frame times as a sparkline with p50/p99 labels. */
+    public static final Setting<Boolean> LAB_FRAMETIME_GRAPH = add(Setting.bool("lab.frametimeGraph", LAB, false)
+            .keywords("lab", "experimental", "frametime", "graph", "sparkline", "hud", "p99"));
+    /** Lab: fade/slide when VANTA screens open and close. */
+    public static final Setting<Boolean> LAB_SCREEN_TRANSITIONS = add(Setting.bool("lab.screenTransitions", LAB, false)
+            .keywords("lab", "experimental", "transition", "fade", "slide", "animation", "screens"));
 
     private VantaSettings() {
     }

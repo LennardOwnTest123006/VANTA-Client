@@ -87,6 +87,11 @@ public final class VantaPaths {
         return root.resolve("cosmetics");
     }
 
+    /** {@code waypoints.json}: the player's waypoints for every world (local only, never sent anywhere). */
+    public Path waypointsFile() {
+        return root.resolve("waypoints.json");
+    }
+
     /** All directories that must exist before the stores write. */
     public List<Path> directories() {
         return List.of(root, profilesDir(), hudDir(), hudPresetsDir(), cosmeticPacksDir());
