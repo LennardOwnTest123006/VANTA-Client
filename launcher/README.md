@@ -183,7 +183,7 @@ the zip's `VANTA Launcher` folder into it (`UpdateViewModel.portableUpdateInstru
 | `shareOfficialMinecraftFiles` | reuse verified libraries/assets from the official `.minecraft` (read-only) | `true` |
 | `theme` | UI theme id | `vanta-dark` |
 | `installPerformancePack` | install the [performance pack](#performance-pack-and-mods-page) with every install | `true` (also when the key is missing) |
-| `installLocalAi` | offer the [Local AI](#local-ai) once at the first start and keep it complete with every install (nothing downloads before `localAiAccepted`) | `true` (also when the key is missing) |
+| `installLocalAi` | offer the [Local AI](#local-ai) once at the first start and keep it complete and current with every install and start (an install a launcher update marks outdated is updated under the earlier consent; nothing downloads before `localAiAccepted`) | `true` (also when the key is missing) |
 | `localAiAccepted` | the player agreed to the Local AI download once (first-start dialog, Settings > Install, `--install-local-ai`, `--with-local-ai`) | `false` |
 
 ### Offline accounts
@@ -310,9 +310,11 @@ comes from the manifest `shared/local-ai/local-ai.json` (resolved by CI with `no
 never typed by hand); Gradle embeds it as `/local-ai.json`, and `VANTA_LOCAL_AI_MANIFEST=<file>` points a run at another
 manifest (CI, tests). A build without a complete manifest reports the Local AI as not available and installs nothing.
 
-- Nothing downloads before the player agrees: the first start shows one dialog (what, from where, how big, licences);
-  "Not now" switches `installLocalAi` off. Settings > Local AI has the switch and Install / Verify files / Remove; Home
-  shows "Local AI: ready / not installed" with a button.
+- Nothing downloads before the player agrees: the first start shows one dialog (what, from where, how big, licences,
+  that both sites redirect the download to their own download hosts, and that newer versions named by a launcher
+  update are downloaded automatically while `installLocalAi` stays on); "Not now" switches `installLocalAi` off.
+  Settings > Local AI has the switch and Install / Verify files / Remove; Home shows "Local AI: ready / not installed"
+  with a button.
 - Every download goes through `Downloader` with its SHA-256 from the manifest (the model with a 6 hour exchange
   timeout, the stall watchdog unchanged); the archive is extracted with `ArchiveExtractor` into
   `local-ai/runtime/<tag>/<platform>/` (staging folder first, moved only when the server executable is really inside,
@@ -328,7 +330,10 @@ manifest (CI, tests). A build without a complete manifest reports the Local AI a
 - With consent given and `installLocalAi` on, PLAY and `--install` (the `Installer` pipeline) include the step
   "Installing the Local AI" after the performance pack; like the pack it never fails the install. "Use with Minecraft
   Launcher" / `--install-official-profile` (`OfficialProfileService`) write only the note below; a start with consent
-  recorded and files missing or outdated installs them directly (`LocalAiViewModel.checkOffer`).
+  recorded and files missing or outdated installs them directly (`LocalAiViewModel.checkOffer`). One `LocalAiService`
+  is shared by all of these: install, verify and remove run one at a time (a lock; a second caller waits and then only
+  confirms the finished install), and the pipeline step is skipped with a log line while the service is busy
+  (`LocalAiService.isBusy()`), for example when PLAY is pressed while the first-start install still downloads.
 - Every game folder the launcher sets up gets the note `config/vanta/local-ai.json` (`{"localAiDir": "<absolute
   path>"}`) next to `minecraft-folder.json`: the VANTA Client starts llama-server from there and uses the folder
   read-only. The launcher itself never runs anything it downloaded.
