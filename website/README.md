@@ -72,6 +72,13 @@ manifests in `src/test/fixtures/releases.ts` (fake values, test-only), so they d
 state of the repository manifests; the end-to-end tests read `shared/releases/` and
 `content/changelog/` (`e2e/repo-state.ts`) and check whichever state the build has.
 
+The full release zip (`VantaClient-<version>-Release.zip`, built by the bundle workflow from the
+published files of both products) has its own manifests in `shared/releases/bundles/vanta-<version>.json`
+(`src/lib/bundles.ts`). The download page shows a third card for the newest published stable bundle
+(`latestBundle`) and no card at all while no bundle manifest is published; the "Latest version" block
+and the "What's new" section come from the newest published release manifests and their changelog
+entries. Fixtures: `src/test/fixtures/bundles.ts`.
+
 ## Project layout
 
 ```

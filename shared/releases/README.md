@@ -8,6 +8,7 @@ One JSON file per published version of each product, validated by
 | `client-<version>.json` | VANTA Client: the mod jar, the mods bundle and the Fabric API jar | website download page, launcher install/update |
 | `launcher-<version>.json` | VANTA Launcher: Windows `.msi`/`.exe`/portable `.zip`, Linux `.tar.gz`, one fat jar per platform | website download page, launcher self-update |
 | `latest/<product>-latest.json` | identical copy of the newest **stable** manifest per product (beta releases never write it) | launcher update check (`<releasesBaseUrl>/client-latest.json`, `<releasesBaseUrl>/launcher-latest.json`) |
+| `bundles/vanta-<version>.json` | the full release zip `VantaClient-<version>-Release.zip` (both products' published files plus the docs), validated by [`bundle-manifest.schema.json`](../schemas/bundle-manifest.schema.json); written by the bundle workflow (`RELEASE.md`, "Full release zip") | website download page only (the launcher and the readers of `shared/releases/*.json` never see this folder) |
 
 ## Release files
 
