@@ -25,6 +25,10 @@ class VantaPathsTest {
         assertEquals("stats.json", paths.statsFile().getFileName().toString());
         assertEquals("crosshair.json", paths.crosshairFile().getFileName().toString());
         assertEquals("cosmetics.json", paths.cosmeticsFile().getFileName().toString());
+        assertEquals(paths.root().resolve("local-ai"), paths.localAiDir());
+        assertEquals("local-ai.json", paths.localAiNoteFile().getFileName().toString());
+        assertEquals("nexus-chat.json", paths.nexusChatFile().getFileName().toString());
+        assertTrue(paths.directories().contains(paths.localAiDir()));
         paths.createDirectories();
         for (Path p : paths.directories()) {
             assertTrue(Files.isDirectory(p), p.toString());

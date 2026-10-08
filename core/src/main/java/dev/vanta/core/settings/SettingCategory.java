@@ -16,6 +16,7 @@ public enum SettingCategory implements LangKeyed {
     ACCESSIBILITY("accessibility"),
     LANGUAGE("list"),
     COSMETICS("palette"),
+    NEXUS("star"),
     PRIVACY("lock");
 
     private final String iconId;

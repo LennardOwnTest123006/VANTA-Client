@@ -87,9 +87,31 @@ public final class VantaPaths {
         return root.resolve("cosmetics");
     }
 
+    /**
+     * {@code local-ai/}: the client-managed Local AI install (llama.cpp runtime, model, logs). The only place the
+     * client itself writes Local AI files to; a launcher-managed install lives outside the game folder and is named
+     * by {@link #localAiNoteFile()}.
+     */
+    public Path localAiDir() {
+        return root.resolve("local-ai");
+    }
+
+    /**
+     * {@code local-ai.json}: the launcher's note {@code {"localAiDir": "<absolute path>"}} telling the client to use
+     * the launcher's Local AI install read-only. Absent for manual jar installs.
+     */
+    public Path localAiNoteFile() {
+        return root.resolve("local-ai.json");
+    }
+
+    /** {@code nexus-chat.json}: the Vanta Nexus conversation (last turns, local only). */
+    public Path nexusChatFile() {
+        return root.resolve("nexus-chat.json");
+    }
+
     /** All directories that must exist before the stores write. */
     public List<Path> directories() {
-        return List.of(root, profilesDir(), hudDir(), hudPresetsDir(), cosmeticPacksDir());
+        return List.of(root, profilesDir(), hudDir(), hudPresetsDir(), cosmeticPacksDir(), localAiDir());
     }
 
     /**

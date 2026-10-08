@@ -21,6 +21,7 @@ import static dev.vanta.core.settings.SettingCategory.COSMETICS;
 import static dev.vanta.core.settings.SettingCategory.GENERAL;
 import static dev.vanta.core.settings.SettingCategory.HUD;
 import static dev.vanta.core.settings.SettingCategory.LANGUAGE;
+import static dev.vanta.core.settings.SettingCategory.NEXUS;
 import static dev.vanta.core.settings.SettingCategory.PERFORMANCE;
 import static dev.vanta.core.settings.SettingCategory.PRIVACY;
 import static dev.vanta.core.settings.SettingCategory.VIDEO;
@@ -179,6 +180,26 @@ public final class VantaSettings {
     /** Button: delete all statistics. */
     public static final Setting<String> PRIVACY_CLEAR_STATS = add(Setting.action("privacy.clearStats", PRIVACY,
             "clear_statistics").keywords("delete", "erase", "statistics"));
+
+    // ---- nexus (Vanta Nexus assistant and the Local AI) ------------------------------------------------------------------
+    /** Master switch of the Nexus assistant (the Local AI answers only when this is on). */
+    public static final Setting<Boolean> NEXUS_ENABLED = add(Setting.bool("nexus.enabled", NEXUS, true)
+            .keywords("nexus", "assistant", "ai", "local ai", "chat", "llama"));
+    /** Offer the Local AI install card when Nexus opens without an install (the download still needs a click). */
+    public static final Setting<Boolean> NEXUS_AUTO_INSTALL = add(Setting.bool("nexus.autoInstall", NEXUS, true)
+            .keywords("nexus", "local ai", "install", "download", "offer", "first start"));
+    /** Minutes without a question after which the llama-server process stops (restarts on demand). */
+    public static final Setting<Integer> NEXUS_IDLE_TIMEOUT_MINUTES = add(Setting.intRange("nexus.idleTimeoutMinutes",
+            NEXUS, 10, 1, 120, 1).keywords("nexus", "local ai", "idle", "timeout", "stop", "ram", "memory"));
+    /** CPU threads for llama-server; 0 = automatic (max(2, min(8, cores - 2))). */
+    public static final Setting<Integer> NEXUS_THREADS = add(Setting.intRange("nexus.threads", NEXUS, 0, 0, 32, 1)
+            .keywords("nexus", "local ai", "threads", "cpu", "cores", "auto"));
+    /** Never stop llama-server for idleness while the game runs. */
+    public static final Setting<Boolean> NEXUS_KEEP_RUNNING = add(Setting.bool("nexus.keepRunning", NEXUS, false)
+            .keywords("nexus", "local ai", "keep running", "always on", "ram"));
+    /** Show the model's reasoning text in the transcript when the server returns any. */
+    public static final Setting<Boolean> NEXUS_SHOW_THINKING = add(Setting.bool("nexus.showThinking", NEXUS, false)
+            .keywords("nexus", "thinking", "reasoning", "debug", "model"));
 
     // ---- cosmetics ----------------------------------------------------------------------------------------------------
     /** Visual-only profile badge. */

@@ -374,4 +374,46 @@ public final class NotificationCenter {
         return post(NotificationKind.INFO, Lang.tr("vanta.notification.hud_toggled.title"),
                 Lang.tr(enabled ? "vanta.notification.hud_toggled.on" : "vanta.notification.hud_toggled.off"), 2000);
     }
+
+    // ---- Vanta Nexus and the Local AI ---------------------------------------------------------------------------
+
+    /**
+     * Sticky progress toast of a Local AI install; the caller updates body and progress with the step and bytes and
+     * dismisses it when the install ends.
+     */
+    public Optional<Notification> localAiDownload(String stepTitle) {
+        return postProgress(NotificationKind.INFO, Lang.tr("vanta.notification.local_ai_download.title"), stepTitle);
+    }
+
+    /** Runtime and model are installed and verified. */
+    public Optional<Notification> localAiInstalled() {
+        return post(NotificationKind.SUCCESS, Lang.tr("vanta.notification.local_ai_installed.title"),
+                Lang.tr("vanta.notification.local_ai_installed.body"), 6000);
+    }
+
+    /** An install, verification, removal or the server failed; {@code reason} is already readable. */
+    public Optional<Notification> localAiFailed(String reason) {
+        return post(NotificationKind.ERROR, Lang.tr("vanta.notification.local_ai_failed.title"), reason, 8000);
+    }
+
+    /** "Verify files" finished. */
+    public Optional<Notification> localAiVerified(boolean ok) {
+        return post(ok ? NotificationKind.SUCCESS : NotificationKind.WARNING,
+                Lang.tr("vanta.notification.local_ai_verified.title"),
+                Lang.tr(ok ? "vanta.notification.local_ai_verified.ok" : "vanta.notification.local_ai_verified.bad"),
+                ok ? 4000 : 8000);
+    }
+
+    /** The client-managed Local AI folder was deleted. */
+    public Optional<Notification> localAiRemoved() {
+        return post(NotificationKind.INFO, Lang.tr("vanta.notification.local_ai_removed.title"),
+                Lang.tr("vanta.notification.local_ai_removed.body"));
+    }
+
+    /** The assistant applied {@code count} changes in one turn. */
+    public Optional<Notification> nexusApplied(int count) {
+        return post(NotificationKind.SUCCESS, Lang.tr("vanta.notification.nexus_applied.title"),
+                count == 1 ? Lang.tr("vanta.notification.nexus_applied.one")
+                        : Lang.tr("vanta.notification.nexus_applied.many", count));
+    }
 }
