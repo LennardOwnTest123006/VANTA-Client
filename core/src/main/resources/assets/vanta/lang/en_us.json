@@ -1496,7 +1496,7 @@
   "vanta.notification.local_ai_removed.body": "The Local AI folder was deleted; nothing else was touched",
   "vanta.notification.nexus_applied.title": "Vanta Nexus",
   "vanta.notification.nexus_applied.one": "1 change applied",
-  "vanta.notification.nexus_applied.many": "%d changes applied"
+  "vanta.notification.nexus_applied.many": "%d changes applied",
   "vanta.category.waypoints": "Waypoints",
   "vanta.category.waypoints.description": "Screen markers for your saved waypoints",
   "vanta.category.lab": "Vanta Lab",
