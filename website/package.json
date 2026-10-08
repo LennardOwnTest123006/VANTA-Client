@@ -1,8 +1,8 @@
 {
   "name": "vanta-website",
   "private": true,
-  "version": "1.1.0",
-  "description": "Official website of VANTA Client \u2014 a Fabric client for Minecraft 1.21.11.",
+  "version": "1.2.0",
+  "description": "Official website of VANTA Client — a Fabric client for Minecraft 1.21.11.",
   "type": "module",
   "engines": {
     "node": ">=22.12.0",
