@@ -31,6 +31,7 @@ import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.screen.nexus.NexusSection;
 import dev.vanta.core.settings.VantaSettings;
+import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.Rect;
 import dev.vanta.core.ui.ScrollIntoView;
 import dev.vanta.core.ui.UiContext;
@@ -169,7 +170,8 @@ final class NexusStep {
         }
         for (NexusSection section : NexusSection.values()) {
             String railId = "rail." + section.id();
-            if (ui.root().findById(railId) instanceof Button) {
+            UiNode rail = ui.root().findById(railId);
+            if (rail != null && rail.isShowing()) {
                 ids.add(railId);
             }
         }
@@ -220,6 +222,18 @@ final class NexusStep {
         }
         if (node instanceof Tabs tabs && hash >= 0) {
             tabs.select(ctx, Integer.parseInt(section.substring(hash + 1)));
+            return true;
+        }
+        if (node != null && id.startsWith("rail.")) {
+            // VantaShell rail entries are plain nodes: a full left click through the screen's input routing, at the
+            // node's centre in window coordinates (bounds are in logical pixels, the screen scales them).
+            ScrollIntoView.reveal(ctx, node);
+            Rect b = node.bounds();
+            float s = ui.effectiveScale();
+            double x = b.centerX() * s;
+            double y = b.centerY() * s;
+            ui.mouseDown(x, y, Keys.MOUSE_LEFT);
+            ui.mouseUp(x, y, Keys.MOUSE_LEFT);
             return true;
         }
         return false;
