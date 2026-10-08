@@ -3,6 +3,13 @@ package dev.vanta.core.i18n;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.accessibility.ColorBlindPalette;
+import dev.vanta.core.ai.AppliedAction;
+import dev.vanta.core.ai.InstallStep;
+import dev.vanta.core.ai.LocalAiException;
+import dev.vanta.core.ai.LocalAiStatus;
+import dev.vanta.core.ai.NexusActions;
+import dev.vanta.core.ai.NexusHudPreset;
+import dev.vanta.core.ai.RejectedAction;
 import dev.vanta.core.bridge.Cardinal;
 import dev.vanta.core.bridge.VanillaOption;
 import dev.vanta.core.cosmetics.Badge;
@@ -109,8 +116,15 @@ class LangCoverageTest {
         }
         for (LangKeyed keyed : all(FpsLimitPreset.values(), NotificationPosition.values(), NotificationKind.values(),
                 Badge.values(), HudTheme.values(), MenuBackground.values(), MenuParticles.values(),
-                ColorBlindPalette.values(), ProfileImportException.Reason.values())) {
+                ColorBlindPalette.values(), ProfileImportException.Reason.values(), LocalAiStatus.values(),
+                InstallStep.values(), LocalAiException.Kind.values(), RejectedAction.Reason.values())) {
             check(missing, keyed.langKey());
+        }
+        for (NexusHudPreset preset : NexusHudPreset.values()) {
+            check(missing, preset.langKey(), preset.descriptionKey());
+        }
+        for (String type : NexusActions.TYPES) {
+            check(missing, new AppliedAction(type, "", "").langKey());
         }
         for (Cardinal cardinal : Cardinal.values()) {
             check(missing, cardinal.langKey(), cardinal.axisKey());

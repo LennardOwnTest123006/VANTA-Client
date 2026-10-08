@@ -2,8 +2,11 @@ package dev.vanta.core.screen;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.vanta.core.ai.LocalAiStatus;
 import dev.vanta.core.bridge.FakeClipboardBridge;
 import dev.vanta.core.bridge.FakeGameBridge;
 import dev.vanta.core.bridge.FakeKeybindBridge;
@@ -20,6 +23,8 @@ import dev.vanta.core.search.ActionEntry;
 import dev.vanta.core.settings.VantaSettings;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -82,7 +87,30 @@ class VantaServicesTest {
         assertEquals(16, options.getInt(VanillaOption.RENDER_DISTANCE, 0));
         assertEquals("VANTA Client 1.0.0 · Minecraft 1.21.11 · Fabric Loader 0.19.5", services.versionLine());
 
+        // Vanta Nexus and the Local AI are wired: the test classpath carries the unresolved manifest template, so
+        // the Local AI reports an honest FAILED state with a reason instead of offering an install it cannot verify.
+        assertNotNull(services.nexus());
+        assertNotNull(services.nexusActions());
+        assertSame(services.nexusUndo(), services.nexus().undo());
+        assertSame(services.nexusTranscript(), services.nexus().transcript());
+        assertTrue(services.nexusTranscript().isEmpty());
+        assertEquals(LocalAiStatus.FAILED, services.localAi().status());
+        assertFalse(services.localAi().statusReason().isEmpty());
+        assertFalse(services.localAi().install(), "no install without a resolved manifest");
+        assertTrue(services.paths().contains(services.localAi().paths().root()));
+        // Background results reach the render thread through mainThread(): queued until the next tick.
+        List<String> ran = new ArrayList<>();
+        services.mainThread().execute(() -> ran.add("queued"));
+        assertTrue(ran.isEmpty(), "nothing runs before the tick");
+        services.tick();
+        assertEquals(List.of("queued"), ran);
+        services.setMainThreadExecutor(Runnable::run);
+        services.mainThread().execute(() -> ran.add("direct"));
+        assertEquals(List.of("queued", "direct"), ran);
+        services.nexusTranscript().append(dev.vanta.core.ai.NexusTranscript.Entry.user("hello", clock.millis()));
+
         services.shutdown();
+        assertTrue(Files.exists(paths.nexusChatFile()), "the Nexus chat is saved with everything else");
         assertFalse(services.isLoaded());
         assertTrue(Files.exists(paths.settingsFile()));
         assertTrue(Files.exists(paths.hudLayoutFile()));

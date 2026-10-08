@@ -1,6 +1,15 @@
 package dev.vanta.core.screen;
 
+import dev.vanta.core.VantaVersion;
 import dev.vanta.core.accessibility.AccessibilityService;
+import dev.vanta.core.ai.LabToggle;
+import dev.vanta.core.ai.LocalAiService;
+import dev.vanta.core.ai.NexusActions;
+import dev.vanta.core.ai.NexusAssistant;
+import dev.vanta.core.ai.NexusTranscript;
+import dev.vanta.core.ai.NexusUndo;
+import dev.vanta.core.ai.NexusWaypointActions;
+import dev.vanta.core.ai.WaypointLookup;
 import dev.vanta.core.bridge.ClipboardBridge;
 import dev.vanta.core.bridge.GameBridge;
 import dev.vanta.core.bridge.KeybindBridge;
@@ -47,6 +56,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
 
 /**
  * Composition root of the domain layer. The client creates one instance at start-up with its bridge implementations,
@@ -78,6 +89,13 @@ public final class VantaServices {
     private final ProfileManager profiles;
     private final AccessibilityService accessibility;
     private final GlobalSearch search;
+    private final TickQueue mainThreadQueue = new TickQueue();
+    private volatile Executor mainThread;
+    private final LocalAiService localAi;
+    private final NexusActions nexusActions;
+    private final NexusUndo nexusUndo;
+    private final NexusTranscript nexusTranscript;
+    private final NexusAssistant nexus;
     private final ScreenRegistry screens = new ScreenRegistry();
     private Optional<String> websiteUrl = Optional.empty();
     private ModrinthService modrinth;
@@ -117,6 +135,45 @@ public final class VantaServices {
         this.profiles = new ProfileManager(jsonStore, paths, clock, settings, hud, crosshair, keybindBridge);
         this.accessibility = new AccessibilityService(settings);
         this.search = new GlobalSearch(settingsRegistry, ActionEntry.builtIns(), keybinds::all);
+        // Vanta Nexus and the Local AI: background work on the Local AI worker, every result back through
+        // mainThread() (the client installs its scheduler; until then the queue drained in tick()).
+        this.mainThread = mainThreadQueue;
+        this.localAi = new LocalAiService(paths, settings, notifications, this::runOnMainThread, clock,
+                LocalAiService.Dependencies.system(VantaVersion.CLIENT,
+                        java.lang.Runtime.getRuntime().availableProcessors()));
+        this.nexusActions = new NexusActions(hud, settings, profiles, this::activateProfile, performance,
+                smartBoost::retune);
+        this.nexusUndo = new NexusUndo(hud, settings, profiles, this::activateProfile);
+        this.nexusTranscript = new NexusTranscript(jsonStore, paths.nexusChatFile());
+        this.nexus = new NexusAssistant(nexusActions, nexusUndo, nexusTranscript, localAi, hud, profiles, performance,
+                clock);
+    }
+
+    /** Runs {@code task} on the render thread: through the host's executor, or the queue drained by {@link #tick()}. */
+    private void runOnMainThread(Runnable task) {
+        mainThread.execute(task);
+    }
+
+    /** Executor queue drained once per tick (default main-thread executor for hosts without a scheduler). */
+    private static final class TickQueue implements Executor {
+        private final ConcurrentLinkedQueue<Runnable> queue = new ConcurrentLinkedQueue<>();
+
+        @Override
+        public void execute(Runnable task) {
+            queue.add(Objects.requireNonNull(task, "task"));
+        }
+
+        void drain() {
+            Runnable task;
+            int budget = 1000;
+            while (budget-- > 0 && (task = queue.poll()) != null) {
+                try {
+                    task.run();
+                } catch (RuntimeException e) {
+                    CoreLog.warn(e, "A main-thread task failed");
+                }
+            }
+        }
     }
 
     /** Creates the services with the four mandatory bridges. */
@@ -151,6 +208,8 @@ public final class VantaServices {
         statsStore.load();
         profiles.load();
         smartBoost.load();
+        nexusTranscript.load();
+        localAi.load();
         keybinds.refresh();
         search.rebuild();
         stats.startSession();
@@ -171,23 +230,27 @@ public final class VantaServices {
         profiles.saveAll();
         cosmetics.saveIfDirty();
         smartBoost.saveIfDirty();
+        nexusTranscript.saveIfDirty();
     }
 
-    /** Ends the statistics session and saves everything. */
+    /** Ends the statistics session, saves everything and stops the Local AI server. */
     public void shutdown() {
         stats.endSession();
         saveAll();
         if (modrinth != null) {
             modrinth.close();
         }
+        localAi.close();
         loaded = false;
     }
 
     /** Once per client tick. */
     public void tick() {
+        mainThreadQueue.drain();
         notifications.tick();
         stats.onTick(game);
         performance.tick();
+        localAi.tick();
     }
 
     /** True after {@link #load()}. */
@@ -376,6 +439,29 @@ public final class VantaServices {
         return Optional.ofNullable(modrinth);
     }
 
+    /**
+     * Installs the host's main-thread executor (the client passes {@code runtime.scheduler()::nextTick}). Background
+     * work of the Local AI delivers its results through it; without one the results wait for the next {@link #tick()}.
+     */
+    public void setMainThreadExecutor(Executor executor) {
+        this.mainThread = Objects.requireNonNull(executor, "executor");
+    }
+
+    /** The main-thread executor: callbacks handed to it run on the render thread. */
+    public Executor mainThread() {
+        return this::runOnMainThread;
+    }
+
+    /** Wires the waypoints store into the assistant (until then waypoint actions are refused). */
+    public void setWaypoints(WaypointLookup lookup, NexusWaypointActions actions) {
+        nexusActions.setWaypoints(lookup, actions);
+    }
+
+    /** Wires the Vanta Lab features into the assistant (until then lab actions are refused). */
+    public void setLabToggle(LabToggle toggle) {
+        nexusActions.setLab(toggle);
+    }
+
     /** The one-time Performance pack offer of this session (created on first use). */
     public PackOffer packOffer() {
         if (packOffer == null) {
@@ -487,6 +573,31 @@ public final class VantaServices {
 
     public GlobalSearch search() {
         return search;
+    }
+
+    /** The Local AI: install state, installer, llama-server runtime. */
+    public LocalAiService localAi() {
+        return localAi;
+    }
+
+    /** The Vanta Nexus assistant. */
+    public NexusAssistant nexus() {
+        return nexus;
+    }
+
+    /** The validated actions the assistant (and the Nexus HUD Designer) can run. */
+    public NexusActions nexusActions() {
+        return nexusActions;
+    }
+
+    /** Undo of assistant turns. */
+    public NexusUndo nexusUndo() {
+        return nexusUndo;
+    }
+
+    /** The Nexus conversation. */
+    public NexusTranscript nexusTranscript() {
+        return nexusTranscript;
     }
 
     public ScreenRegistry screens() {
