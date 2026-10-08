@@ -13,13 +13,12 @@ the game or in the launcher changed; this is a website release.
 ## One zip with everything
 
 `VantaClient-1.3.0-Release.zip` (316.4 MB) is attached to the GitHub Release
-[`v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.3.0). It holds every published file
-of both releases: the Windows installer as `.msi` and `.exe`, the portable Windows app, the Linux app, the launcher
+[`v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.3.0). It holds every published file of both releases plus the Windows installer as `.msi` and `.exe`, the portable Windows app, the Linux app, the launcher
 jars for Windows, Linux and Apple Silicon macOS, the client jar, the mods bundle with Fabric API and the Performance
 pack, Fabric API on its own, the documentation, the changelog, both release notes, the licence and a `SHA256SUMS.txt`.
 The bundle workflow built it from the files that were already published as `client-v1.3.0` and `launcher-v1.3.0`,
-checked each one against its release manifest and hashed the zip again after uploading it. Nothing in the zip was
-built anew.
+checked each one against its release manifest and hashed the zip again after uploading it. No client or launcher file was built anew; the workflow only copied the documentation, the changelog,
+the release notes and the licence from the repository and wrote the zip's README.txt and SHA256SUMS.txt.
 
 It is large because it holds every launcher build at once. If you need one file for your system, the launcher and
 client cards on the [Download page](https://vanta-client.netlify.app/download) are still the shorter way.
@@ -46,4 +45,4 @@ certutil -hashfile VantaClient-1.3.0-Release.zip SHA256
 ```
 
 On macOS and Linux: `shasum -a 256 VantaClient-1.3.0-Release.zip`. Inside the unpacked folder,
-`sha256sum -c SHA256SUMS.txt` checks every other file, and `README.txt` says which file to take on which system.
+`sha256sum -c SHA256SUMS.txt` (on macOS `shasum -a 256 -c SHA256SUMS.txt`) checks every other file, and `README.txt` says which file to take on which system.

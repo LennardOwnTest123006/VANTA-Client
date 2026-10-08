@@ -198,7 +198,7 @@ export function OlderVersions(props: OlderVersionsProps) {
       id="older-versions"
       eyebrow="Older versions"
       title="Every earlier release stays available."
-      lead="The cards above always offer the newest release, and the newest is the one to install. Earlier versions are listed here for anyone who needs one, for example to go back after a problem or to reproduce a report. Each file is the one on its release page, with the same SHA-256 checksum."
+      lead="The cards above always offer the newest published release, and that is the one to install. Earlier versions are listed here for anyone who needs one, for example to go back after a problem or to reproduce a report. Each file is the one on its release page, with the same SHA-256 checksum."
       className="scroll-mt-24 border-t border-border-subtle"
       spacing="md"
     >

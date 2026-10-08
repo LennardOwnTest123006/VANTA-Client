@@ -622,7 +622,7 @@ describe('DownloadPage older versions', () => {
     expect(within(older).getByRole('heading', { level: 2 })).toHaveTextContent(
       'Every earlier release stays available.',
     );
-    expect(older).toHaveTextContent('The cards above always offer the newest release');
+    expect(older).toHaveTextContent('The cards above always offer the newest published release');
     // The cards keep offering the newest versions; the line under them points at this section.
     expect(within(launcher).getByRole('link', { name: 'Download launcher' })).toHaveAttribute(
       'href',
