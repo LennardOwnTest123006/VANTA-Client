@@ -10,6 +10,288 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 No changes yet.
 
+## [Client 1.4.0] - 2026-10-08
+
+VANTA Client 1.4.0 adds **Vanta Nexus**: one screen with an assistant you ask in plain language, the HUD Designer,
+profiles, live performance values, waypoints, Vanta Lab and the Nexus settings. The assistant runs on the **Local AI**,
+`llama-server` from llama.cpp (release b11429, MIT) with the Qwen3-1.7B Q8_0 GGUF model (Apache-2.0), **strictly on the
+player's PC**: downloaded once after a click, verified by SHA-256, offline afterwards; the prompts go to `127.0.0.1`
+only. There is no cloud AI, no API key, no account and no telemetry. From 1.4.0 on the client contacts exactly these
+hosts and nothing else, ever: Modrinth (Mods & Shaders) and, only when the player installs the Local AI, `github.com`
+(the llama.cpp runtime archive) and `huggingface.co` (the model). Minecraft 1.21.11, Fabric Loader 0.19.5, Fabric API
+0.141.6+1.21.11 and Java 21 are unchanged. Released together with VANTA Launcher 1.4.0 and website 1.2.0.
+
+### Added
+- **Vanta Nexus** (`ScreenId.NEXUS`): a new screen with a rail of seven sections, opened from the new main-menu button
+  *Vanta Nexus* (between Multiplayer and Options), the new key *Open Vanta Nexus* (default **N**; the seventh key of
+  the VANTA category), `/vanta nexus` and the command palette entry *Open Vanta Nexus* (also found by "ai",
+  "assistant", "local ai", "hud designer", "waypoints", "lab"). Every section is reachable with keyboard and mouse down
+  to 320 x 240 and with large text; the rail collapses in small windows like the other VANTA screens.
+- **AI Assistant** section: a status pill with the honest Local AI state (*Ready*, *Starting*, *Busy*, *Installed*,
+  *Not installed*, *Incomplete install*, *Not available on this system*, *Failed*) and its reason, the transcript with
+  *Applied: …* and *Not applied: …* receipts under each answer, **Undo** on the last applied turn, *Clear chat*, a
+  single-line input (Enter sends) and four example chips while the transcript is empty (*Make my HUD minimal*, *Only
+  show FPS and coordinates*, *Create a recording profile*, *Move the FPS counter to the bottom right*). While the Local
+  AI is not installed, the section shows the Local AI card (runtime, model, download size, licences, hosts,
+  requirements, the sentence that nothing is downloaded before the click) with **Install Local AI**; while the
+  assistant is switched off, a banner with *Turn on*.
+- **How the assistant works**: every question is sent with a system prompt built from the live registries (HUD widget
+  ids and states, addable widget types, the settings it may change with kinds, ranges, options and current values,
+  profiles, performance presets, saved HUD layouts, the waypoints of the current world, Lab features) and the last 8
+  turns, to `llama-server` on `127.0.0.1` (`/v1/chat/completions`, temperature 0.2, 512 tokens, 90 s timeout, no
+  thinking phase) with a JSON schema that enumerates the real ids, so the model cannot name a thing that does not
+  exist. The answer's actions are validated again against the same registries and applied through the code the
+  screens use; rejected actions are listed with a reason (unknown type, missing value, not allowed, unknown widget /
+  setting / preset / profile / layout / waypoint / feature, forbidden setting, not available right now, could not
+  apply). A notification names the number of applied changes.
+- **The 14 actions**, the only things the assistant can do: `hud.set` (element, visible, anchor, x/y as screen
+  fractions, scale 0.5 to 2.0, opacity 0.1 to 1.0), `hud.only`, `hud.layout.save`, `hud.layout.load`, `hud.preset`
+  (minimal, pvp, recording, survival, building, full), `profile.switch`, `profile.create` (from the current settings),
+  `perf.preset` (boost, low, balanced, high, ultra), `perf.smartBoost` (Re-tune), `setting.set` (settings of the
+  categories Video, HUD, Performance and Accessibility only; never keys, actions, restart settings or any other
+  category), `waypoint.add` (name; x/y/z default to the player's position; category), `waypoint.remove`,
+  `waypoint.toggle`, `lab.set`. It never acts in the game world, never touches other players, key bindings or the
+  network, and never downloads anything.
+- **Undo**: every answer that changed something is one undo turn (active profile, changed settings, the HUD layout,
+  a restore step per other action); the last 20 turns are kept while the game runs. **Transcript**: the conversation
+  is kept in `config/vanta/nexus-chat.json` (last 100 entries, texts cut at 4,000 characters), written when VANTA
+  saves and read at start; *Clear chat* empties it.
+- **Local AI** (`dev.vanta.core.ai`): the manifest `shared/local-ai/local-ai.json` embedded in the client, parsed
+  strictly (sizes, 64-hex SHA-256, https URLs, safe file names, the six platform keys); platform detection from
+  `os.name` / `os.arch` (windows / linux / macos, x64 / arm64); the installer downloads into `downloads/<name>.part`
+  while hashing, rejects size and SHA-256 mismatches (the partial file is deleted), extracts zip and tar.gz with its
+  own reader (pax and GNU long names, mode bits, zip-slip checks, symlinks only inside the folder) into a staging
+  folder that is moved into place, sets the executable bit, writes `installed.json` and offers a quick check (size,
+  modification time, recorded hash), a full verify and remove; the runtime starts `llama-server -m <model> --host
+  127.0.0.1 --port <free port> -c 4096 -t <threads> -ngl 0 --jinja --reasoning-budget 0 --no-webui`, waits for
+  `GET /health`, stops after the idle timeout, on game exit and through a JVM shutdown hook, and restarts on demand;
+  threads default to `max(2, min(8, cores - 2))`; its output goes to `logs/llama-server.log`. All work runs on a
+  daemon worker; results come back on the render thread.
+- **Local AI setup screen** (`ScreenId.LOCAL_AI_SETUP`): the manifest facts and seven step rows with progress bars,
+  bytes and speed (*Checking Local AI*, *Downloading Local AI runtime*, *Downloading Local AI model*, *Verifying
+  files*, *Installing*, *Initializing Local AI*, *Vanta Nexus ready*), **Cancel**, the failure reason with **Retry**,
+  and **Open the assistant** on success. Nothing downloads before the click on **Install Local AI**; the test asserts
+  zero requests before it.
+- **Two install paths**: the launcher-managed Local AI in `<launcher data dir>/local-ai/`, announced by the note
+  `config/vanta/local-ai.json` (`{"localAiDir": "<absolute path>"}`), which the client uses read-only (Nexus shows
+  *Installed by the VANTA Launcher* and hides Install, Reinstall and Remove), and the client-managed install in
+  `config/vanta/local-ai/` (`VantaPaths.localAiDir()`, inside the only folder core writes to). Layout in both:
+  `installed.json`, `runtime/<tag>/<platform>/`, `models/<file>`, `downloads/`, `logs/llama-server.log`.
+- **First start**: once per client version, when the VANTA main menu is first shown in a session and no other popup
+  is open, with Nexus enabled and the Local AI neither installed nor launcher-managed, a dialog *Vanta Nexus: Local AI
+  is not installed. Open Nexus to install it. Nothing is downloaded until you click Install Local AI there* with
+  **Open Nexus** and **Not now**; the choice is recorded in `config/vanta/nexus-first-start.json`. It downloads
+  nothing.
+- **Settings → Vanta Nexus** (new category): *Vanta Nexus assistant* (on), *Offer the Local AI install when Nexus
+  opens* (on; stored but not read in 1.4.0, the install card is shown whenever the Local AI is not installed), *Stop
+  the Local AI after idle minutes* (10, 1 to 120), *Local AI CPU threads* (0 = automatic, 0 to 32), *Keep the Local AI
+  running* (off), *Show the model's reasoning* (off; stays empty with the bundled model).
+- **HUD Designer** section: the six Nexus presets as chips (each the `hud.preset` action and one undoable change),
+  the built-in and saved HUD layouts (the HUD editor's presets) with *Load* (`hud.layout.load`), *Duplicate*, *Delete*
+  (saved layouts only, asks first), *Save current* (`hud.layout.save`, with blank / too long / taken name checks),
+  *New layout* from a preset and *Open editor*. The presets (`NexusHudPreset`): **Minimal** FPS, Coordinates; **PvP**
+  FPS, Ping, CPS, Keystrokes, Armor, Item durability, Potion effects; **Recording** FPS, Clock, Coordinates, Direction,
+  Keystrokes, Minecraft version at 90 %; **Survival** FPS, Coordinates, Direction, Biome, Clock, Armor, Item
+  durability, Potion effects; **Building** Coordinates, Direction, Biome, Clock at 90 %; **Full** every widget. A
+  preset keeps the player's positions, enables its widgets (adding missing ones at their default place), hides the
+  rest and always keeps the crosshair.
+- **Frame time graph** HUD widget (`HudWidgetType.FRAMETIME_GRAPH`, 120 x 40, top right): one bar per frame for the
+  last 120 frame times, frames over 50 ms in the danger colour, p50 and p99 labels (option *Show p50 and p99 labels*),
+  "n/a" without history. It is a Vanta Lab widget: while *Frame time HUD graph* is off it is not drawn, not listed in
+  the HUD editor, not offered to the assistant and hidden by every Nexus preset; a layout keeps it. The frame times
+  are captured only while the widget is enabled.
+- **Profiles**: two new built-in profiles, **Survival** (Nexus Survival HUD, Balanced, default crosshair, HUD text
+  shadow, FOV 75) and **Minimal** (Nexus Minimal HUD, Balanced, thin crosshair, HUD opacity 90 %, menu particles off,
+  notifications 2.5 s), seven in all. The Profiles section of Nexus shows the same cards and actions as the Profiles
+  screen plus a link to it.
+- **Performance** section: live values only, refreshed every tick, "n/a" when a value is missing, nothing estimated:
+  FPS now, frame time p50 and p99, hitches over 50 ms ("n of m frames"), ping (*Singleplayer* in a singleplayer
+  world), render distance, GPU name, Java heap used (with percentage), allocated and maximum, the Smart Boost state,
+  plus the five preset buttons, **Boost FPS** and **Open Performance Center**.
+- **Waypoints** (`dev.vanta.core.waypoints`): `config/vanta/waypoints.json` (schema 1, at most 500 entries) with
+  id, name (1 to 48 characters, unique per world ignoring case), world key (`sp:<level folder>`, `mp:<server
+  address>`), dimension, position, colour (an eight-colour palette), category (free text up to 24 characters;
+  suggestions Home, Base, Farm, Portal, Resource, Other), enabled and creation time. Screen markers in the HUD pass
+  for the enabled waypoints of the current world and dimension within the marker distance: a filled diamond in the
+  waypoint colour one block above the position and a label pill with name and distance (`Home · 120 m`, `1.2 km`),
+  projected with the game's own camera (view matrix and position from Fabric's `END_EXTRACTION`, FOV from the
+  existing `GameRendererMixin`), nearest on top; hidden outside a world, with F1, with F3, during a HUD-free
+  screenshot and while a VANTA screen is open. New **Settings → Waypoints** category: *Waypoint markers* (on), *Marker
+  distance* (512, 16 to 4096 in steps of 16), *Show distance on markers* (on), *Marker size* (1.0, 0.5 to 2.0). The
+  **Waypoints** section of Nexus: search, sort (Name, Distance, Newest first), *All worlds* (grouped by world), rows
+  with colour dot, name, category, live distance, enable switch, edit and delete (asks first), **Add waypoint** with a
+  dialog (name, X/Y/Z prefilled with the player's position, category with suggestions, colour swatches) and honest
+  empty states. Notifications *Waypoint added* / *Waypoint removed*.
+- **Vanta Lab** (`LabFeature`, new **Settings → Vanta Lab** category, all off by default, also the Lab section of
+  Nexus with one switch and one honest description per feature): **Dynamic HUD** (the HUD fades out over 0.5 s after
+  10 s without input in a world and returns on any key, mouse button, wheel, mouse movement or turning; while a screen
+  is open it never fades), **Animated crosshair** (up to 4 px of spread with movement relative to sprint speed, held
+  100 ms and eased out over 400 ms, plus a 250 ms pulse per attack), **Waypoint beams** (a translucent column in the
+  waypoint colour from y −64 to 320, half width 0.15, for every waypoint with a marker, drawn after the terrain),
+  **Frame time HUD graph** (above), **Screen transitions** (a 14 px slide on top of the existing fade over 160 ms when
+  VANTA screens open and close; off under *Reduced motion*; input is never blocked).
+- **Notifications**: Local AI download progress, *Local AI installed*, *Local AI problem*, *Local AI files checked*,
+  *Local AI removed*, *Vanta Nexus: n changes applied*, *Undone*.
+- New language keys under `vanta.nexus.*`, `vanta.localai.*`, `vanta.lab.*`, `vanta.waypoints.*`, for the new
+  categories and settings, the new widget and the new profiles; `LangCoverageTest` covers the new enums.
+- **Game test** (both CI jobs): `NexusStep` opens Nexus at two window sizes, visits every section, checks that every
+  showing button and switch is reachable, applies the Minimal preset through the assistant's code path and undoes it,
+  switches to the Recording profile and back, adds a waypoint, requires its marker and (with the Lab feature) its beam
+  on screen, removes it, flips every Lab feature and samples the Lab curves; `LocalAiStep` runs with the real Local AI
+  when CI prepared it: starts `llama-server`, waits for READY, asks "Only show FPS and coordinates", requires exactly
+  those two widgets, stops the server and installs from a loopback mirror of the real files to check download,
+  verification and extraction without the internet. Screenshots `16_nexus`, `17_local_ai_setup`, `50_nexus_*`,
+  `60_waypoint_marker`, `61_waypoint_beam`.
+
+### Changed
+- **Built-in profiles**: *PvP*, *Building* and *Recording* carry the matching Nexus HUD preset applied to the Default
+  layout instead of the HUD editor's *PvP*, *Minimal* and *Streamer* presets (`BuiltInProfiles.CONTENT_VERSION` 3).
+  On the first start of 1.4.0, built-in profiles the player never changed are refreshed once, and *Survival* and
+  *Minimal* are added once to existing installations (not again if deleted). Renamed or edited built-ins and the
+  player's own profiles keep their content; the profile schema stays at version 2.
+- **Settings**: the rail lists thirteen categories (Waypoints after HUD, Vanta Nexus after Cosmetics, Vanta Lab after
+  Privacy; before: ten). The main menu stack has eight entries (before: seven).
+- **HUD**: seventeen widget types (before: sixteen plus the crosshair); the HUD renderer multiplies the global
+  opacity by the Dynamic HUD alpha and skips drawing at zero; the crosshair renderer adds the Lab spread to its
+  eased expansion; VANTA screens gained close-started and slide hooks for the Lab transitions. Without a Lab feature
+  on, nothing of this changes the picture.
+- The client embeds `shared/local-ai/local-ai.json` into the mod jar at build time (`client/build.gradle
+  processResources`), the same copy `core` embeds for its tests and previews.
+- `/vanta` lists `nexus` in its usage line; `MinecraftGameBridge` reports the singleplayer level folder name, which
+  the waypoint world key uses.
+
+### Release tooling and CI (client and launcher)
+- `scripts/release/local-ai.mjs`: `resolve` fills the manifest from the GitHub Releases API (asset sizes and digests,
+  cross-checked with the SHA-256 values in the template before downloading), downloads every archive through SHA-256,
+  inspects it for exactly one `llama-server` entry, reads the model's size and SHA-256 from the Hugging Face API and
+  downloads it once to verify; `verify` re-checks a committed manifest (`--full` downloads the model, the default asks
+  the API); `prepare --dir` builds a complete install the way the client does (`installed.json` in the client's
+  shape; `--keep-downloads` keeps the verified files); `mirror` writes a manifest copy whose archive and model URLs
+  point at a local server; `serve` serves a folder on `127.0.0.1`; `status` says whether the committed manifest is
+  resolved. 45 negative schema fixtures and tests against a local server playing GitHub and Hugging Face.
+- `shared/schemas/local-ai.schema.json` (strict: the six platform keys, sizes at least 1, 64-hex digests, https URLs,
+  safe server paths, a resolved `resolvedAt`); CI validates the committed manifest. New workflow `local-ai-resolve.yml`
+  (workflow_dispatch) runs `resolve` and hands the manifest back through the `ci-artifacts` branch (`local-ai/`).
+- `ci.yml`: the release scripts job validates the manifest and runs `verify --skip-model-download`; the two game test
+  jobs and the launcher integration job restore a cache keyed by the manifest's hash, run `prepare --keep-downloads`
+  (so `installed.json` records the restored files' modification times) and export `VANTA_LOCAL_AI_DIR`; the launcher
+  job serves the prepared files on `127.0.0.1:18765`, installs through the launcher from a mirror manifest
+  (`VANTA_LOCAL_AI_MANIFEST`), asserts the status line `Local AI: installed (llama.cpp b11429, Qwen3-1.7B Q8_0)`
+  (versions read from the manifest), the key set of `installed.json` against the shared fixture, the note, and
+  `--remove-local-ai`.
+- Shared fixtures `shared/local-ai/fixtures/manifest.example.json` and `installed.example.json` pin the one
+  `installed.json` shape that core, the launcher and the release scripts write; tests in all three check it.
+- The full release zip (`build-bundle.mjs`) gains `LOCAL-AI.txt` (what Vanta Nexus downloads on first use: per-platform
+  archives with sizes and SHA-256, the model, requirements, the MIT and Apache-2.0 licences) and
+  `local-ai/local-ai.json`; `assemble` refuses an unresolved manifest. `core/build.gradle` and `launcher/build.gradle`
+  copy the manifest into their resources as declared inputs.
+- `release-assets.mjs` lists the launcher `.exe` only for versions below 1.4.0, so the committed manifests of older
+  releases still pass `check-manifest`; `release.yml`'s Windows job builds exactly three files; `RELEASE.md`,
+  `shared/releases/README.md` and the docs describe it.
+
+## [Launcher 1.4.0] - 2026-10-08
+
+VANTA Launcher 1.4.0 can install the **Local AI** that Vanta Nexus runs on the player's PC, after the player agrees
+once, and tells the game where it is. The Windows installer is the **`.msi` only** from this release on. Minecraft
+1.21.11, Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged.
+
+### Added
+- **Local AI** (`dev.vanta.launcher.core.ai`): the embedded manifest `local-ai.json` (strict parsing; a build without
+  a complete manifest reports *not available in this build* and installs nothing; `VANTA_LOCAL_AI_MANIFEST=<file>`
+  replaces it for CI and tests), `LocalAiService` with status (quick check: `installed.json`, sizes, modification
+  times), verify (re-hashes the model, checks the server by presence and size), install (free disk space check, both
+  downloads with their SHA-256 from the manifest, the runtime with a 1 hour and the model with a 6 hour request
+  timeout and the unchanged 60 s stall watchdog, extraction into a staging folder that is moved only when
+  `llama-server` is inside, executable bit on POSIX, `installed.json` in exactly the shape the client reads, pruning of
+  runtimes and models the manifest no longer names) and remove (deletes only `<data>/local-ai/`).
+- **Install pipeline**: the step *Installing the Local AI* after the Performance pack and before finalisation, with
+  the existing progress UI (*Checking Local AI*, *Downloading Local AI runtime*, *Downloading Local AI model*,
+  *Verifying files*, *Installing*, *Local AI ready*), run by PLAY (the regular installation) and `--install` while
+  *Install the Local AI automatically* is on and the player agreed; like the Performance pack it never fails the
+  installation (*Local AI skipped: <reason>*). *PLAY via Minecraft Launcher*, *Use with Minecraft Launcher* and
+  `--install-official-profile` write only the note (below); a launcher start with consent recorded and files missing
+  or outdated installs them directly, without asking again.
+- **The note for the game**: `config/vanta/local-ai.json` (`{"localAiDir": "<absolute path>"}`) is written into
+  every VANTA game folder the launcher sets up, next to `minecraft-folder.json`, before PLAY and by *Use with Minecraft
+  Launcher* (listed in its confirmation as *Note for the VANTA Client: the Local AI (llama-server and model) lives in
+  the launcher folder local-ai and is used read-only*). It is written whether or not the Local AI is installed; the
+  game falls back to its own folder while the note points at an incomplete install.
+- **First-start offer**: once per session, with *Install the Local AI automatically* on, nothing installed and no
+  consent recorded, the dialog *Install the Local AI?* lists the runtime and the model (name, version, file, size,
+  licence, host), the requirements, the folder and the total download; **Download and install** records the consent
+  and installs, **Not now** switches the automatic installation off. With consent recorded and files missing or
+  outdated, the install runs at start without asking again.
+- **Home**: the status line *Local AI: ready / not installed / incomplete / not available for <os>/<arch> / not
+  available in this build* (and *installing…*, *verifying…*, *removing…* while something runs) with **Install Local
+  AI** or **Local AI settings**. **Settings → Local AI**: status, versions, size on disk or download size, problems,
+  progress bar, folder with *Open*, **Install** / **Update**, **Cancel**, **Verify files**, **Remove** (asks first) and
+  the switch *Install the Local AI automatically*.
+- **Settings** keys `installLocalAi` (default on; also when the key is missing) and `localAiAccepted` (default off;
+  set by *Download and install*, *Install*, `--install-local-ai` and `--with-local-ai`).
+- **Command line**: `--install-local-ai` (prints the runtime and model lines with file, size, licence and URL, the
+  steps, the status block and `Note: <game folder>/config/vanta/local-ai.json`; exit code 4 with `SHA256 mismatch` on
+  a digest or size mismatch, 3 without a usable manifest, 1 on an unsupported system; records the consent),
+  `--local-ai-status` (`Local AI: installed (llama.cpp b11429, Qwen3-1.7B Q8_0)` with an *update available* note
+  when the manifest names other files, `partially installed (...)`, `not installed (...)`, `not available for
+  <os>/<arch>` or `not available in this build (...)`, then `Download: ...` while installable, `Folder:`, `Size on
+  disk:` and, when installed, `Server:` and `Model:`; exit code 0 for every state), `--remove-local-ai` (`Removed the
+  Local AI from <dir> (<n> freed)` or `not installed (nothing to remove ...)`, switches the automatic installation off
+  and says so), `--with-local-ai` and `--without-local-ai` for `--install` (which now prints `Local AI: on (...)` or
+  `Local AI: off (...)`). `--help` lists everything.
+- New launcher strings (`localai.*`, `home.localAi.*`, `settings.localAi.*`); `MessagesTest` covers them. Unit tests with a local HTTP server and small fake
+  archives (tar.gz and zip end to end, executable bit, `installed.json`, the note, progress, no re-download, a corrupt
+  model refused with three retries and nothing recorded, a corrupt archive refused before extraction, unsupported
+  platform and missing manifest, quick and full checks with touched, tampered, missing and short files, repair,
+  update with pruning, remove, cancellation, the first-start offer rules, the CLI through the real services), and the
+  headless smoke test covers the Home line, the Settings section and the consent dialog.
+
+### Changed
+- `DownloadRequest` carries a per-request timeout (default unchanged); the Local AI downloads use 1 hour (runtime) and
+  6 hours (model). Every download of the Local AI carries its SHA-256; nothing without a digest is downloaded.
+- The self-update picks the `.msi` for every packaged Windows installation (installed with the `.msi`, or with the
+  `.exe` of a release before 1.4.0); the `.exe` is never offered as an update.
+- `installed.json` has the same shape as the client's (`schemaVersion`, `platform`, `installedAt`, `verifiedAt`, the
+  manifest's `runtime` section reduced to the installed platform, `model`, `files` with `serverSize`, `serverMtime`,
+  `modelSize`, `modelMtime`), so a folder prepared by the release tooling, one installed by the launcher and one
+  installed by the client read alike. The server executable is verified by presence and size (the manifest names the
+  archive's digest, not the extracted file's); the model is re-hashed.
+- *Remove* and `--remove-local-ai` switch *Install the Local AI automatically* off so that the next start does not
+  download the files again; `--install-local-ai` and `--with-local-ai` record the consent in `settings.json`. These
+  are the only command line runs that persist a setting.
+- `LauncherVersion`'s in-code fallback version is 1.4.0.
+
+### Removed
+- **The `.exe` installer variant.** `VANTA-Launcher-<version>.exe` is no longer built or published; the Windows
+  installer is `VANTA-Launcher-<version>.msi` (per-user, with the Java 21 runtime), next to the portable zip and the
+  Windows jar. Releases before 1.4.0 keep their `.exe` on their release pages, and a launcher installed with one of
+  them updates itself with the `.msi`.
+
+## [Website 1.2.0] - 2026-10-08
+
+Website-only version, released with client 1.4.0 and launcher 1.4.0 (`client-v1.4.0`, `launcher-v1.4.0`). Minecraft
+1.21.11, Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged.
+
+### Added
+- **Features page**: Vanta Nexus, the Local AI (strictly local; the two hosts `github.com` and `huggingface.co` are
+  contacted at install time only, after a click), the HUD Designer, Profiles (the seven built-in profiles), Performance
+  (live values), Waypoints and Vanta Lab, each described in one honest paragraph; no invented screenshots.
+- **Download page**: three labelled sections in this order: **WINDOWS** (Launcher Setup, the `.msi` from the newest
+  published launcher manifest), **CROSS-PLATFORM** (the client jar for Windows, Linux and macOS, plus the launcher jars)
+  and **COMPLETE RELEASE** (the `.zip` from the newest published bundle manifest; no card while none is published).
+  "Latest version", "What's new in 1.4.0" from the changelog entries, and "Older versions" stay. A **Local AI** note
+  says what the first use of the assistant downloads, from where, how big, and that it is optional and asks first.
+  Until the 1.4.0 releases are published, the page keeps working from the published 1.3.0 manifests; unpublished
+  manifests are never offered.
+- **Privacy page**: the hosts paragraph of 1.4.0 (Modrinth; `github.com` and `huggingface.co` only when the player
+  installs the Local AI; nothing else, ever; prompts to `127.0.0.1` only; no cloud AI, no API key, no account, no
+  telemetry).
+- The release notes `website/content/changelog/client-1.4.0.md`, `launcher-1.4.0.md` and `website-1.2.0.md`, and the
+  news post `website/content/news/2026-10-08-vanta-1-4-nexus.md` ("Vanta Nexus and the strictly local AI").
+
+### Changed
+- The pinned test texts (site navigation, support topics, docs search expectations, Download page copy) follow the
+  new texts; new tests cover the three download sections and the Local AI note.
+
 ## [Website 1.1.0] - 2026-10-08
 
 Website-only release. The Download page offers the full release zip `VantaClient-1.3.0-Release.zip` (GitHub Release

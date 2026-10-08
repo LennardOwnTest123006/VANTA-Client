@@ -23,6 +23,11 @@ For the running session, and summarised when it ends:
 | Blocks broken / placed | counted from your own block interactions on the client |
 | Screenshots | the number of screenshots you took |
 
+The Vanta Nexus conversation (`config/vanta/nexus-chat.json`, [Vanta Nexus → The transcript file](nexus.md#the-transcript-file))
+and your waypoints (`config/vanta/waypoints.json`, [Waypoints](waypoints.md)) are not statistics and are not shown on
+the Statistics screen; they are local files of the same kind, never uploaded, and you delete them by deleting the file
+(or with *Clear chat* in Nexus).
+
 Lifetime totals (playtime, sessions, distance, blocks, screenshots, best FPS, distinct worlds and servers — at most 200
 names each) and the **last 30 sessions** are kept. Nothing about other players is ever recorded.
 
@@ -61,8 +66,11 @@ The built-in **Recording** profile turns *Remember servers* off.
 
 ## What never happens
 
-- No statistic, setting, crash report or identifier is sent to the VANTA project or anyone else. VANTA opens no
-  network connection of its own except to Modrinth while you use [Mods & Shaders](mods-and-shaders.md), and that
-  sends no statistics; the game's own connections (Mojang services, the servers you join) are unchanged.
+- No statistic, setting, crash report or identifier is sent to the VANTA project or anyone else. From client 1.4.0
+  on the client contacts exactly these hosts and nothing else, ever: Modrinth while you use
+  [Mods & Shaders](mods-and-shaders.md), and, only when you install the [Local AI](local-ai.md), `github.com` (the
+  llama.cpp runtime archive) and `huggingface.co` (the model). None of them receives statistics. The Vanta Nexus
+  assistant's prompts go to `127.0.0.1` only; there is no cloud AI, no API key, no account and no telemetry. The
+  game's own connections (Mojang services, the servers you join) are unchanged.
 - No statistic is shown to other players or servers.
 - The launcher and the website follow the same rule — see [Privacy](privacy.md).

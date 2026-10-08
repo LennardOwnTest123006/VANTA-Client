@@ -16,11 +16,13 @@ controls screen as well and are saved in `options.txt` like every other binding.
 | Toggle HUD | unbound | shows/hides the VANTA HUD without touching the vanilla HUD (F1) |
 | HUD editor | unbound | opens the [HUD editor](hud.md) directly |
 | Performance Center | unbound | opens the [Performance Center](performance.md) |
+| Open Vanta Nexus | **N** | from client 1.4.0 on: opens [Vanta Nexus](nexus.md) (the local assistant, HUD Designer, profiles, performance, waypoints, Vanta Lab) |
 | Zoom | **C** | hold to zoom (see below); shares C with vanilla's *Save Hotbar Activator* |
 | HUD-free screenshot | unbound | takes a screenshot with the VANTA HUD hidden for that frame |
 
 Unbound keys do nothing until you assign them. The keys that open a screen react in a world when no other screen is
-open; `/vanta menu` opens the VANTA settings as well.
+open; `/vanta menu` opens the VANTA settings as well, `/vanta nexus` opens Vanta Nexus. The Nexus assistant can never
+change a key binding: key bindings are outside its list of actions ([Vanta Nexus](nexus.md#what-the-assistant-can-do)).
 
 ## The keybind manager
 

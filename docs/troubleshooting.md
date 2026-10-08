@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: Fixes for "Not published yet", SmartScreen, the launcher, the Minecraft Launcher profile, Java, checksums, sign-in, crashes, low FPS, stutter, graphics shows Custom, Singleplayer worlds, mods.
+description: Fixes for "Not published yet", SmartScreen, the launcher, the Minecraft Launcher profile, Java, checksums, sign-in, crashes, low FPS, stutter, Singleplayer worlds, mods and the Local AI.
 order: 40
 category: Help
 ---
@@ -22,7 +22,7 @@ yet; the changelog page says the same next to that version. Only a product that 
 **"Not published yet — release pending"** with a disabled button. The page never links to a file that does not exist.
 
 1. Open [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases). If the release you want
-   (for example `launcher-v1.3.0` or `client-v1.3.0`) is listed, the website has not been rebuilt yet: download the
+   (for example `launcher-v1.4.0` or `client-v1.4.0`) is listed, the website has not been rebuilt yet: download the
    file from its release page and compare it with `SHA256SUMS.txt` from the same page
    ([Installation → Verify the checksum](installation.md#2-verify-the-checksum)).
 2. If GitHub Releases does not list it either, that version has not been published yet and there is nothing to
@@ -39,7 +39,7 @@ configured value is not an `http(s)` URL; correct it or reset it.
 ## "Windows protected your PC"
 
 Windows SmartScreen shows this for programs without a code-signing certificate. The VANTA installers
-(`VANTA-Launcher-1.3.0.msi`, `.exe`) and the portable app are **not code-signed** yet (a certificate is a paid item
+(`VANTA-Launcher-1.4.0.msi`; releases before 1.4.0 also had an `.exe`) and the portable app are **not code-signed** yet (a certificate is a paid item
 the project does not have), so the warning is expected for the files from GitHub Releases.
 
 1. First compare the file's SHA-256 with `SHA256SUMS.txt` from the release page
@@ -62,13 +62,14 @@ Smart App Control is a Windows 11 security feature (*Windows Security → App & 
 When it is **on**, it blocks apps that are not signed with a trusted certificate and that Microsoft's cloud service
 does not consider safe, and it offers **no "Run anyway"**. What this means for VANTA, as far as we know:
 
-- The `.msi`, the `.exe` installer and the program `VANTA Launcher.exe` (installed, and in the portable zip) are not
-  signed, so Smart App Control can block all of them. The portable zip is therefore no way around it.
-- The launcher jars (`vanta-launcher-1.3.0-windows-all.jar`) are started by an installed Java 21 (`java` or `javaw`
+- The `.msi` (and the `.exe` installer of releases before 1.4.0) and the program `VANTA Launcher.exe` (installed, and
+  in the portable zip) are not signed, so Smart App Control can block all of them. The portable zip is therefore no way
+  around it.
+- The launcher jars (`vanta-launcher-1.4.0-windows-all.jar`) are started by an installed Java 21 (`java` or `javaw`
   from Eclipse Temurin or another vendor), not by a VANTA program, so they may start where the other files are
   blocked. We have **not tested** this on a PC with Smart App Control turned on; the jar also unpacks JavaFX libraries
   when it starts, and we cannot say whether Smart App Control lets them load. Install
-  [Java 21](java-21.md#install-options), then run `java -jar vanta-launcher-1.3.0-windows-all.jar` in PowerShell
+  [Java 21](java-21.md#install-options), then run `java -jar vanta-launcher-1.4.0-windows-all.jar` in PowerShell
   in the folder with the download (verify its SHA-256 first).
 - The [manual installation](installation.md#c-manual-installation) runs no VANTA program at all: the VANTA Client
   and Fabric API are mods that the game loads. Its Fabric installer is a separate program from fabricmc.net; with
@@ -83,12 +84,13 @@ worked; it helps others.
 ### The `.msi` is blocked or will not install
 
 - **"Windows protected your PC"**: SmartScreen; see [above](#windows-protected-your-pc).
-- **Blocked by your organisation** (a work or school PC with a policy against installers): use
-  `VANTA-Launcher-1.3.0.exe` only if your policy allows it; otherwise ask your administrator. Do not try to get
-  around a policy.
-- **Other installer errors**: try `VANTA-Launcher-1.3.0.exe` (the same installer as an `.exe`), or the portable zip
-  `VANTA-Launcher-1.3.0-windows-portable.zip`, which needs no installation: unzip it into a folder you own and start
-  `VANTA Launcher\VANTA Launcher.exe`.
+- **Blocked by your organisation** (a work or school PC with a policy against installers): use the portable zip
+  `VANTA-Launcher-1.4.0-windows-portable.zip` only if your policy allows it; otherwise ask your administrator. Do not
+  try to get around a policy.
+- **Other installer errors**: try the portable zip `VANTA-Launcher-1.4.0-windows-portable.zip`, which needs no
+  installation: unzip it into a folder you own and start `VANTA Launcher\VANTA Launcher.exe`. From 1.4.0 on the `.msi`
+  is the only Windows installer; releases before 1.4.0 offered the same installer a second time as an `.exe`, which
+  stays on their release pages.
 
 ### The window does not open
 
@@ -124,18 +126,18 @@ Each launcher jar contains the JavaFX libraries for one system only, so take the
 
 | Your computer | File | Needs |
 | --- | --- | --- |
-| Linux x64 (`uname -m` prints `x86_64`) | `VANTA-Launcher-1.3.0-linux-x64.tar.gz` (recommended) or `vanta-launcher-1.3.0-linux-all.jar` | nothing for the `.tar.gz`; Java 21 for the jar |
-| Mac with Apple Silicon (*About This Mac* shows an Apple M chip; `uname -m` prints `arm64`) | `vanta-launcher-1.3.0-macos-aarch64-all.jar` | Java 21; start it with `java -jar` from Terminal |
-| Mac with an Intel processor (`uname -m` prints `x86_64`) | none | use the [manual installation](installation.md#c-manual-installation) with `vanta-client-1.3.0-mods.zip` |
+| Linux x64 (`uname -m` prints `x86_64`) | `VANTA-Launcher-1.4.0-linux-x64.tar.gz` (recommended) or `vanta-launcher-1.4.0-linux-all.jar` | nothing for the `.tar.gz`; Java 21 for the jar |
+| Mac with Apple Silicon (*About This Mac* shows an Apple M chip; `uname -m` prints `arm64`) | `vanta-launcher-1.4.0-macos-aarch64-all.jar` | Java 21; start it with `java -jar` from Terminal |
+| Mac with an Intel processor (`uname -m` prints `x86_64`) | none | use the [manual installation](installation.md#c-manual-installation) with `vanta-client-1.4.0-mods.zip` |
 | Linux on ARM (`aarch64`) | none | use the manual installation |
 
 The Windows jar (`-windows-all.jar`) does not start its window on Linux or macOS, and the Linux jar does not start it
 on Windows or macOS, even though all of them are `.jar` files. Started on the wrong system, a jar says so before it
 tries to open a window: *"This jar is for Windows x64, but it was started by a Java runtime for Linux x64. …"* followed
-by the file to download instead (for example `vanta-launcher-1.3.0-linux-all.jar` or
-`VANTA-Launcher-1.3.0-linux-x64.tar.gz`) and the releases page. The check looks at the Java runtime, not at the
+by the file to download instead (for example `vanta-launcher-1.4.0-linux-all.jar` or
+`VANTA-Launcher-1.4.0-linux-x64.tar.gz`) and the releases page. The check looks at the Java runtime, not at the
 computer: an x64 (Intel) Java on an Apple Silicon Mac runs under Rosetta 2 and is told to install an arm64 (aarch64)
-Java 21 and start `vanta-launcher-1.3.0-macos-aarch64-all.jar` with it, and a 32-bit Java is told to use a 64-bit
+Java 21 and start `vanta-launcher-1.4.0-macos-aarch64-all.jar` with it, and a 32-bit Java is told to use a 64-bit
 Java 21 or a download that brings its own Java runtime (the `.msi`, the portable app or the Linux `.tar.gz`). The jar
 prints the message, also shows it in a message window when a display is available (a double-clicked jar has no
 console), and exits with code 1. Command line options such as `--help`, `--version` and `--install-official-profile`
@@ -147,9 +149,9 @@ the manual installation and [report it](#how-to-report-a-problem).
 ## Windows on ARM: which launcher file?
 
 There is no native arm64 build of the VANTA Launcher for Windows, but Windows 11 on ARM runs x64 programs under
-emulation. Use `VANTA-Launcher-1.3.0.msi` or the portable app `VANTA-Launcher-1.3.0-windows-portable.zip`: both are
+emulation. Use `VANTA-Launcher-1.4.0.msi` or the portable app `VANTA-Launcher-1.4.0-windows-portable.zip`: both are
 x64 and bring their own x64 Java runtime. Alternatively install an x64 Java 21 and start
-`vanta-launcher-1.3.0-windows-all.jar` with it. The project has not tested the launcher on a Windows on ARM device;
+`vanta-launcher-1.4.0-windows-all.jar` with it. The project has not tested the launcher on a Windows on ARM device;
 if it does not work for you, use the [manual installation](installation.md#c-manual-installation) and
 [report it](#how-to-report-a-problem).
 
@@ -157,7 +159,7 @@ Started with an arm64 Java, the Windows jar cannot open its window. From launche
 above instead (launcher 1.0.1 said that there is no download for Windows on ARM and pointed only to building from
 source or `--install-official-profile`) and exits with code 1. Windows 10
 on ARM cannot run x64 programs; there the jar's command line still works with an arm64 Java:
-`java -jar vanta-launcher-1.3.0-windows-all.jar --install-official-profile` sets VANTA up for the official Minecraft
+`java -jar vanta-launcher-1.4.0-windows-all.jar --install-official-profile` sets VANTA up for the official Minecraft
 Launcher ([Launcher → Use with the Minecraft Launcher](launcher.md#use-with-the-minecraft-launcher)).
 
 ## PLAY is disabled or sign-in is not configured
@@ -452,9 +454,9 @@ With the VANTA Launcher (paths A and B) the game runs in VANTA's own game folder
 `.minecraft/saves`. **Fixed in client 1.3.0** with the setting *Settings → General → Singleplayer worlds*
 ([Installation → Where your worlds are](installation.md#where-your-worlds-are)). Nothing is moved, copied or deleted.
 
-1. **Update** to VANTA Client 1.3.0 and, when you play through the Minecraft Launcher, run **PLAY via Minecraft
-   Launcher** once with VANTA Launcher 1.3.0. It writes the note `config/vanta/minecraft-folder.json` that names your
-   Minecraft folder.
+1. **Update** to VANTA Client 1.3.0 or newer and, when you play through the Minecraft Launcher, run **PLAY via
+   Minecraft Launcher** once with VANTA Launcher 1.3.0 or newer. It writes the note `config/vanta/minecraft-folder.json`
+   that names your Minecraft folder.
 2. **Check the setting**: *Settings → General → Singleplayer worlds* must be *Minecraft folder* (the default). After a
    change, restart the game; Minecraft opens its world storage only at start.
 3. **Read the reason** in `logs/latest.log` of the game folder: the line *Singleplayer worlds: …* names the folder in
@@ -521,6 +523,62 @@ page:
 - **A resource pack does nothing**: installed resource packs are not turned on automatically. Enable them in the
   resource pack screen (*Open resource packs*).
 
+## Local AI problems
+
+Problems with the [Local AI](local-ai.md) that runs the [Vanta Nexus](nexus.md) assistant (from client and launcher
+1.4.0 on). Everything the Local AI does happens on your PC; the only downloads are the runtime archive from
+`github.com` and the model from `huggingface.co`, once, after you click Install.
+
+- **The download fails** (*Connection problem*, *The download source answered with an error*; in the launcher a network
+  failure with the URL): check the internet connection, firewall and proxy; `github.com` and `huggingface.co` and the
+  file hosts they redirect to must be reachable, and the model is 1.83 GB, so a slow or metered connection takes a
+  while (the launcher allows the model request up to six hours and gives up after 60 s without progress). **Retry**
+  (game) or **Install** (launcher) continues: files that arrived complete and verified are kept, partial `.part`
+  files are deleted. Nothing is installed from a failed download.
+- **Checksum or size mismatch** (*A downloaded file did not match its checksum*, *A downloaded file has the wrong
+  size*; the launcher's `--install-local-ai` exits with code 4 and *SHA256 mismatch*): the file is deleted and not
+  used. Try again; if it happens again, something between you and GitHub or Hugging Face changes downloads (a proxy or
+  a "security" product), or the published file changed, which the project needs to know
+  ([report it](#how-to-report-a-problem)). VANTA never offers to skip the check.
+- **"Not available on this system"** (launcher: *Local AI: not available for <os>/<arch>*): the manifest has
+  `llama-server` builds for Windows x64 and ARM64, Linux x64 and ARM64 and macOS on Apple Silicon and Intel, detected
+  from the Java runtime that runs the game. A 32-bit Java, or another architecture, has no build; everything else in
+  VANTA works, only the assistant is unavailable ([Local AI → Unsupported systems](local-ai.md#unsupported-systems)).
+  An x64 Java on an Apple Silicon Mac gets the Intel build under Rosetta.
+- **"The Local AI manifest of this build is incomplete"** / *Local AI: not available in this build*: the client or
+  launcher was built from a repository whose Local AI manifest was not resolved (a development build). Published
+  releases from 1.4.0 on carry the resolved manifest; take the files from GitHub Releases.
+- **The Local AI shows "Installed by the VANTA Launcher" and the game has no Install or Remove button**: the launcher
+  wrote the note `config/vanta/local-ai.json` into the game folder and manages the files in its own `local-ai/`
+  folder. Install, verify or remove it there (*Settings → Local AI*, or `--install-local-ai`, `--local-ai-status`,
+  `--remove-local-ai`); the game only uses that folder. To let the game manage its own copy instead, remove the note
+  (the game then installs into `config/vanta/local-ai/` of the game folder).
+- **"Incomplete install"**: a file is missing, has another size or another modification time than `installed.json`
+  records, or the manifest of a newer VANTA names other files; the status reason under the pill names the problem.
+  **Install Local AI** (game) or **Install** / **Update** (launcher) downloads only what is missing or wrong and checks
+  the rest.
+- **llama-server does not start** (*The Local AI server could not run*, the status stays *Starting* and then turns to
+  *Failed*): read `logs/llama-server.log` in the Local AI folder (below); it is the server's own output and names the
+  cause, for example a CPU without the instruction set the build needs, or too little free memory to load the 1.83 GB
+  model (the manifest asks for 3072 MB of free RAM). Close other programs or lower the game's memory in the launcher's
+  *Settings → Memory*, then ask again: the game starts the server again on the next question. The server runs on the
+  CPU; the graphics card is not involved. On Linux and macOS the executable bit is set at install time; *Verify
+  files* reports a server that is not where `installed.json` says.
+- **Answers are slow or time out** (*Could not answer* after 90 s): the model runs on your CPU with the threads from
+  *Settings → Vanta Nexus → Local AI CPU threads* (automatic: at least 2, at most 8, two fewer than your cores). Give
+  it more threads, close other programs, or switch *Keep the Local AI running* on so that the start-up after an idle
+  stop does not add to the first answer. A request that timed out changed nothing. VANTA promises no answer time.
+- **The assistant did something you did not want**: **Undo** in the assistant section takes the last answer's changes
+  back; *Not applied* lists what it tried and VANTA refused ([Vanta Nexus → Undo](nexus.md#undo)).
+- **The assistant section only shows a banner**: *Settings → Vanta Nexus → Vanta Nexus assistant* is off; **Turn on**
+  switches it on. The first-start dialog does not appear while it is off.
+- **The install dialog keeps coming back** (game): it appears once per client version per `nexus-first-start.json`;
+  deleting that file brings it back once. The launcher asks once; *Not now* switches *Install the Local AI
+  automatically* off.
+- **Removing it**: Vanta Nexus → Settings → **Remove Local AI** (game) or *Settings → Local AI → Remove* /
+  `--remove-local-ai` (launcher) deletes only the Local AI folder; your settings, profiles, waypoints and the
+  conversation stay ([Local AI → Verify, Reinstall, Remove](local-ai.md#verify-reinstall-remove)).
+
 ## Launcher problems
 
 - **PLAY stays disabled** (launcher 1.0.x) or the main button says *PLAY via Minecraft Launcher*: see
@@ -554,17 +612,17 @@ page:
 - **After a portable update there is a `VANTA Launcher` folder inside your `VANTA Launcher` folder and the version did
   not change**: the zip was extracted into the portable folder instead of its parent. Close the launcher, delete the
   inner `VANTA Launcher` folder and extract the zip again into the folder that contains your portable folder.
-- **Launcher 1.0.0 offers `VANTA-Launcher-1.3.0.msi` although you use the portable folder or a jar** (or the
+- **Launcher 1.0.0 offers `VANTA-Launcher-1.4.0.msi` although you use the portable folder or a jar** (or the
   `.tar.gz` for a Linux jar): launcher 1.0.0 picks the update by system only. Choose *Not now* and download the
-  portable zip or the jar for your system from the release `launcher-v1.3.0` yourself; from 1.0.1 on the launcher
+  portable zip or the jar for your system from the release `launcher-v1.4.0` yourself; from 1.0.1 on the launcher
   picks the matching file ([Installation → Updating](installation.md#updating)). If you already installed the `.msi`,
   you have an installed launcher next to the portable copy or jar; both use the same data directory, so you can keep
   the installed one and delete the portable folder or jar.
-- **The downloaded update is called `1.3.0-vanta-launcher-1.3.0-linux-all.jar`** (or `1.3.0-` followed by another
+- **The downloaded update is called `1.4.0-vanta-launcher-1.4.0-linux-all.jar`** (or `1.4.0-` followed by another
   release file name) and `sha256sum -c --ignore-missing SHA256SUMS.txt` does not find it: launcher 1.0.0 and 1.0.1
   save an update as `cache/updates/<version>-<file name>`. It is the verified release file under a different name; it
   starts as it is from that folder (*Show in folder* opens it). Rename it to the release name (here
-  `vanta-launcher-1.3.0-linux-all.jar`) before you check it yourself. From launcher 1.0.2 on, updates are saved as
+  `vanta-launcher-1.4.0-linux-all.jar`) before you check it yourself. From launcher 1.0.2 on, updates are saved as
   `cache/updates/<version>/<file name>` with the release name.
 - **"Verify files" is missing on the Home screen**: expected while nothing is installed, and after setting up only
   *Use with Minecraft Launcher*. From launcher 1.0.2 on, *Verify files* works only on an existing installation and is
@@ -595,6 +653,8 @@ page:
 | Crash reports | `instances/vanta-1.21.11/crash-reports/` |
 | VANTA configuration | `instances/vanta-1.21.11/config/vanta/` |
 | What was installed from Modrinth | `instances/vanta-1.21.11/config/vanta/modrinth.json` |
+| Local AI server output (from 1.4.0 on) | `<data directory>/local-ai/logs/llama-server.log` when the launcher installed the Local AI (the note `instances/vanta-1.21.11/config/vanta/local-ai.json` names that folder); `instances/vanta-1.21.11/config/vanta/local-ai/logs/llama-server.log` when the game installed it (`.minecraft/config/vanta/local-ai/logs/` for a manual install) |
+| Vanta Nexus conversation and waypoints (from 1.4.0 on) | `instances/vanta-1.21.11/config/vanta/nexus-chat.json`, `instances/vanta-1.21.11/config/vanta/waypoints.json` (local files, never uploaded) |
 
 Data directory: `%APPDATA%\VANTA Launcher` (Windows), `~/Library/Application Support/VANTA Launcher` (macOS),
 `~/.local/share/vanta-launcher` (Linux). *Logs → Open logs folder* takes you there. Access tokens never appear in any
@@ -608,8 +668,8 @@ using the *Bug report* template and include:
 
 - VANTA Client and Launcher versions, Minecraft version (must be 1.21.11), Java version (`java -version`), OS;
 - what you did, what you expected, what happened;
-- the relevant log (`latest.log` and/or `launcher-0.log`), `startup-error.txt` when the launcher did not start, and
-  the crash report if there is one;
+- the relevant log (`latest.log` and/or `launcher-0.log`), `startup-error.txt` when the launcher did not start, the
+  crash report if there is one, and `llama-server.log` from the Local AI folder for a Local AI problem;
 - your other mods, including those from the Performance pack or Mods & Shaders (the list is in `modrinth.json`).
 
 Security problems (anything about downloads, tokens, extraction or sign-in) go through the private channel described

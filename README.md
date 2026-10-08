@@ -23,8 +23,24 @@ manipulation or anything that gives an unfair advantage on multiplayer servers.
 
 - **VANTA main menu** in place of the vanilla title screen (can be switched off), with every vanilla destination one
   click away.
-- **HUD** with sixteen movable widgets (FPS, ping, coordinates, armor, effects, keystrokes, …), a drag-and-drop HUD
-  editor and a crosshair designer.
+- **HUD** with seventeen movable widgets (FPS, ping, coordinates, armor, effects, keystrokes, …; the frame time graph
+  belongs to Vanta Lab), a drag-and-drop HUD editor, named layouts with six presets in the Nexus HUD Designer and a
+  crosshair designer.
+- **Vanta Nexus** (client 1.4.0, [docs/nexus.md](docs/nexus.md)): one screen with an assistant you ask in plain
+  language ("Only show FPS and coordinates", "Create a recording profile"), the HUD Designer, profiles, live
+  performance values, waypoints, Vanta Lab and its settings. The assistant applies only a fixed list of actions to your own client, shows exactly what it
+  applied and lets you undo it; it never acts in the game world, never touches other players, keybinds or the network.
+  Main menu button, the **N** key, `/vanta nexus`.
+- **Local AI** (client and launcher 1.4.0, [docs/local-ai.md](docs/local-ai.md)): the assistant runs on `llama-server` from llama.cpp (release b11429, MIT)
+  with the Qwen3-1.7B Q8_0 model (Apache-2.0) **on the player's PC**, started by the game on `127.0.0.1`. Downloaded
+  once, only after a click on *Install Local AI* (game) or *Download and install* (launcher): the runtime archive for the
+  system from `github.com` (11.5 to 19.4 MB) and the model from `huggingface.co` (1.83 GB), every file verified by
+  SHA-256 from the committed manifest `shared/local-ai/local-ai.json`; offline afterwards. No cloud AI, no API key, no
+  account, no telemetry. Optional: everything else works without it.
+- **Waypoints** (client 1.4.0, [docs/waypoints.md](docs/waypoints.md)): saved places per world with screen markers (name, distance, colour), categories, a
+  marker distance, the Waypoints section of Nexus and, in Vanta Lab, beams in the world.
+- **Vanta Lab** (client 1.4.0): optional features, all off by default: Dynamic HUD, Animated crosshair, Waypoint beams,
+  Frame time HUD graph, Screen transitions.
 - **Performance Center**: live FPS, frame time, memory and distances, five presets that change vanilla video
   options only and never cap the frame rate, and a one-click Boost FPS.
 - **Mods & Shaders** (client 1.1.0): search Modrinth in the game for Fabric mods, shader packs for Iris and resource
@@ -34,12 +50,14 @@ manipulation or anything that gives an unfair advantage on multiplayer servers.
   Iris Shaders, the newest 1.21.11 Fabric versions from Modrinth at install time. One click in the game; installed by
   default by the VANTA Launcher (can be switched off). These are third-party mods under their own licences; from
   client 1.2.0 on, the ones whose licences allow redistribution (all but EntityCulling) also ship unmodified in the
-  client's mods bundle `vanta-client-1.3.0-mods.zip`, with their licence texts in `THIRD-PARTY-LICENSES.txt`.
-- **Profiles, settings search, keybind manager, cosmetics, local statistics and accessibility options** (UI scale,
-  reduced motion, high contrast, larger text, colour-blind palettes, keyboard navigation).
+  client's mods bundle `vanta-client-1.4.0-mods.zip`, with their licence texts in `THIRD-PARTY-LICENSES.txt`.
+- **Profiles** (seven built-in from 1.4.0 on: Default, PvP, Survival, Building, Recording, Performance, Minimal),
+  **settings search, keybind manager, cosmetics, local statistics and accessibility options** (UI scale, reduced
+  motion, high contrast, larger text, colour-blind palettes, keyboard navigation).
 - **VANTA Launcher**: installs Minecraft 1.21.11, Fabric and the client with checksum verification, or sets VANTA up
-  in the official Minecraft Launcher with *PLAY via Minecraft Launcher*; a Mods page for Modrinth; Java 21 detection
-  and installation; verified updates and rollback.
+  in the official Minecraft Launcher with *PLAY via Minecraft Launcher*; a Mods page for Modrinth; from 1.4.0 on the
+  Local AI (offered once at the first start, Settings section, Home status line, `--install-local-ai`,
+  `--local-ai-status`, `--remove-local-ai`); Java 21 detection and installation; verified updates and rollback.
 
 Details: [docs/](docs/) and the [Features page](https://vanta-client.netlify.app/features) of the website.
 
@@ -50,7 +68,7 @@ This is a monorepo. Each product is an independent build with its own README.
 | Directory | What it is | Build |
 | --- | --- | --- |
 | [`client/`](client/) | The Fabric mod for Minecraft 1.21.11 (Mojang official mappings, Loom 1.17.21) | `./gradlew build` |
-| [`core/`](core/) | Pure Java 21 library with the whole UI kit, settings, HUD engine, profiles and statistics logic. No Minecraft dependency, fully unit tested. Compiled into the client jar. | `./gradlew build` |
+| [`core/`](core/) | Pure Java 21 library with the whole UI kit, settings, HUD engine, profiles, statistics, waypoints, Vanta Nexus and Local AI logic (manifest, installer, `llama-server` runtime, assistant, actions, undo). No Minecraft dependency, fully unit tested. Compiled into the client jar. | `./gradlew build` |
 | [`launcher/`](launcher/) | VANTA Launcher (JavaFX 21). Installs Minecraft 1.21.11 + Fabric legitimately, detects or installs Java 21, installs the Performance pack and other mods from Modrinth, launches the client, and can add a VANTA profile to the official Minecraft Launcher. | `./gradlew build` / `./gradlew jpackage` |
 | [`website/`](website/) | Official website (Vite, React, TypeScript, Tailwind). Deployed to Netlify. | `npm install && npm run build` |
 | [`shared/`](shared/) | Design tokens, JSON schemas, release manifests, i18n strings shared by all products | – |
@@ -66,7 +84,8 @@ This is a monorepo. Each product is an independent build with its own README.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contribution guidelines
 - [CHANGELOG.md](CHANGELOG.md) — release notes
 - [docs/](docs/) — user documentation: installation, launcher, settings, HUD, profiles, mods and shaders,
-  troubleshooting, FAQ, privacy
+  [Vanta Nexus](docs/nexus.md), the [Local AI](docs/local-ai.md), [waypoints](docs/waypoints.md), troubleshooting,
+  FAQ, privacy
 
 ## Requirements
 
@@ -78,15 +97,20 @@ This is a monorepo. Each product is an independent build with its own README.
 
 ## Status
 
-The latest releases are **VANTA Client 1.3.0** and **VANTA Launcher 1.3.0**, released on 2026-10-07 as the GitHub
-Releases [`client-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.3.0) and
-[`launcher-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.3.0). A graphics
-choice now stays as you left it: VANTA shows the game's *Custom* preset instead of *Fancy*, built-in profiles change
-only what they are about, and with the Performance pack Escape keeps your changes in Sodium's video settings.
-Singleplayer lists the worlds of your Minecraft folder again. Short freezes are gone: VANTA's screens no longer
-rewrite files on every close, and the Minecraft Launcher profile gets the same tuned JVM arguments as *PLAY*. New is
-*Smart Boost*, a local, rule-based tuner (no AI, no network): while you play it measures your frame rate and picks the
-best preset your PC holds, and it never overrides graphics settings you chose yourself. Before them:
+The latest releases are **VANTA Client 1.4.0** and **VANTA Launcher 1.4.0**, released on 2026-10-08 as the GitHub
+Releases [`client-v1.4.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.4.0) and
+[`launcher-v1.4.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.4.0). They bring
+**Vanta Nexus**, one screen with an assistant, the HUD Designer, profiles, live performance values, waypoints and Vanta
+Lab, and the **Local AI** that runs the assistant strictly on the player's PC (`llama-server` from llama.cpp with the
+Qwen3-1.7B model, downloaded once after a click, verified by SHA-256, offline afterwards; no cloud AI, no API key, no
+account, no telemetry). The launcher offers the Local AI once at its first start and manages it under *Settings →
+Local AI*; the Windows installer is the `.msi` only from 1.4.0 on. Before them:
+[`client-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.3.0) and
+[`launcher-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.3.0) (2026-10-07: the
+graphics choice stays as you left it and VANTA shows the game's *Custom* preset, Singleplayer lists the worlds of your
+Minecraft folder, short freezes on screen close are gone, the Minecraft Launcher profile gets the tuned JVM arguments of
+*PLAY*, and *Smart Boost*, a local, rule-based tuner that measures your frame rate while you play and picks the preset
+your PC holds),
 [`client-v1.2.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.2.1) and
 [`launcher-v1.2.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.2.1) (2026-10-07: a
 mod built for an older Minecraft, such as Smart FPS Booster 1.0.0, no longer stops the game while it starts),
@@ -120,20 +144,25 @@ version contains is in [CHANGELOG.md](CHANGELOG.md).
 
 | Release | File | For |
 | --- | --- | --- |
-| `launcher-v1.3.0` | `VANTA-Launcher-1.3.0.msi` | Windows 10/11 x64, the installer: per-user, with the Java 21 runtime (recommended) |
-| `launcher-v1.3.0` | `VANTA-Launcher-1.3.0-windows-portable.zip` | Windows 10/11 x64, no installation: run `VANTA Launcher/VANTA Launcher.exe` |
-| `launcher-v1.3.0` | `vanta-launcher-1.3.0-windows-all.jar` | Windows x64 with Java 21 installed |
-| `launcher-v1.3.0` | `VANTA-Launcher-1.3.0-linux-x64.tar.gz` | Linux x64, app image with the Java 21 runtime: run `VANTA Launcher/bin/VANTA Launcher` |
-| `launcher-v1.3.0` | `vanta-launcher-1.3.0-linux-all.jar` | Linux x64 with Java 21 installed |
-| `launcher-v1.3.0` | `vanta-launcher-1.3.0-macos-aarch64-all.jar` | Apple Silicon macOS with Java 21 installed |
-| `client-v1.3.0` | `vanta-client-1.3.0.jar` | the Fabric mod (the launcher installs it for you) |
-| `client-v1.3.0` | `vanta-client-1.3.0-mods.zip` | manual installation: `mods/` with the VANTA jar, Fabric API and the redistributable Performance pack mods (Sodium, Lithium, FerriteCore, ImmediatelyFast, Iris; not EntityCulling), plus `INSTALL.txt`, `PERFORMANCE-PACK.txt`, `THIRD-PARTY-LICENSES.txt`, `performance-pack.json` and `SHA256SUMS` |
-| `client-v1.3.0` | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0), required by VANTA |
-| `v1.3.0` | `VantaClient-1.3.0-Release.zip` | everything of both releases in one archive (the files above plus the docs, the changelog and checksums); see its `README.txt` |
+| `launcher-v1.4.0` | `VANTA-Launcher-1.4.0.msi` | Windows 10/11 x64, the installer: per-user, with the Java 21 runtime (recommended). From 1.4.0 on the only Windows installer; releases before 1.4.0 also shipped it as an `.exe` |
+| `launcher-v1.4.0` | `VANTA-Launcher-1.4.0-windows-portable.zip` | Windows 10/11 x64, no installation: run `VANTA Launcher/VANTA Launcher.exe` |
+| `launcher-v1.4.0` | `vanta-launcher-1.4.0-windows-all.jar` | Windows x64 with Java 21 installed |
+| `launcher-v1.4.0` | `VANTA-Launcher-1.4.0-linux-x64.tar.gz` | Linux x64, app image with the Java 21 runtime: run `VANTA Launcher/bin/VANTA Launcher` |
+| `launcher-v1.4.0` | `vanta-launcher-1.4.0-linux-all.jar` | Linux x64 with Java 21 installed |
+| `launcher-v1.4.0` | `vanta-launcher-1.4.0-macos-aarch64-all.jar` | Apple Silicon macOS with Java 21 installed |
+| `client-v1.4.0` | `vanta-client-1.4.0.jar` | the Fabric mod (the launcher installs it for you) |
+| `client-v1.4.0` | `vanta-client-1.4.0-mods.zip` | manual installation: `mods/` with the VANTA jar, Fabric API and the redistributable Performance pack mods (Sodium, Lithium, FerriteCore, ImmediatelyFast, Iris; not EntityCulling), plus `INSTALL.txt`, `PERFORMANCE-PACK.txt`, `THIRD-PARTY-LICENSES.txt`, `performance-pack.json` and `SHA256SUMS` |
+| `client-v1.4.0` | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0), required by VANTA |
+| `v1.4.0` | `VantaClient-1.4.0-Release.zip` | everything of both releases in one archive (the files above plus the docs, the changelog, checksums and, from 1.4.0 on, `LOCAL-AI.txt` and `local-ai/local-ai.json`, the Local AI manifest); see its `README.txt` |
 
-Each release also has `SHA256SUMS.txt` and its manifest (`client-1.3.0.json`, `launcher-1.3.0.json`); the full release
-zip has its own `SHA256SUMS.txt` inside, and the release [`v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.3.0) carries the zip's checksum and its manifest
-(`vanta-1.3.0.json`). The bundle workflow packs that zip from the files `client-v1.3.0` and `launcher-v1.3.0` have
+The Local AI (the `llama-server` archive and the Qwen3 model) is **not** a VANTA release file and is in none of these
+downloads: the game or the launcher downloads it from the llama.cpp release page on `github.com` and from
+`huggingface.co` only after a click, with the sizes and SHA-256 values of [`shared/local-ai/local-ai.json`](shared/local-ai/local-ai.json)
+([docs/local-ai.md](docs/local-ai.md)).
+
+Each release also has `SHA256SUMS.txt` and its manifest (`client-1.4.0.json`, `launcher-1.4.0.json`); the full release
+zip has its own `SHA256SUMS.txt` inside, and the release [`v1.4.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.4.0) carries the zip's checksum and its manifest
+(`vanta-1.4.0.json`). The bundle workflow packs that zip from the files `client-v1.4.0` and `launcher-v1.4.0` have
 published, downloaded again and checked against their manifests, never from a new build, and you still take only one
 launcher file from it ([docs/installation.md](docs/installation.md#the-full-release-zip)). Every launcher
 jar contains JavaFX for one system only, so take the jar with your system in its name; started on another system it
@@ -141,12 +170,12 @@ says which file to download and exits with code 1. From 1.0.1 on, the launcher u
 matches how it was installed: the `.msi` for a launcher installed with the `.msi` or `.exe`, the portable `.zip` for
 the portable folder, the `.tar.gz` for the Linux app image and the jar for your system when it was started with
 `java -jar` ([docs/launcher.md](docs/launcher.md#updates-and-rollback)). Launcher 1.0.0 still picks the update by
-system only, also for the update to 1.3.0: on Windows it offers the `.msi` (also in the portable folder and for the
+system only, also for the update to 1.4.0: on Windows it offers the `.msi` (also in the portable folder and for the
 jar), on Linux x64 the `.tar.gz` (also for the jar). To keep a portable or jar setup, choose *Not now*, close the
-1.0.0 launcher and download `VANTA-Launcher-1.3.0-windows-portable.zip` or the jar for your system from the
-`launcher-v1.3.0` release instead ([docs/installation.md](docs/installation.md#updating)). Launchers 1.0.0 and 1.0.1
+1.0.0 launcher and download `VANTA-Launcher-1.4.0-windows-portable.zip` or the jar for your system from the
+`launcher-v1.4.0` release instead ([docs/installation.md](docs/installation.md#updating)). Launchers 1.0.0 and 1.0.1
 save a downloaded update as `cache/updates/<version>-<file name>` (for example
-`1.3.0-vanta-launcher-1.3.0-linux-all.jar`), the verified release file under another name; from 1.0.2 on it keeps
+`1.4.0-vanta-launcher-1.4.0-linux-all.jar`), the verified release file under another name; from 1.0.2 on it keeps
 its release name. The launcher downloads the Performance pack from Modrinth when it installs it; the client's mods
 bundle carries the pack mods whose licences allow redistribution, resolved on Modrinth when the release is built (the
 versions are listed in the release notes and in `PERFORMANCE-PACK.txt` inside the zip).
@@ -170,7 +199,7 @@ versions are listed in the release notes and in `PERFORMANCE-PACK.txt` inside th
    Microsoft client id (see below).
 3. **Manual**: start the official Minecraft Launcher once, install Fabric Loader 0.19.5 for 1.21.11 with the Fabric
    installer (keep *Create profile* checked) and copy **all** jars from the `mods/` folder of
-   `vanta-client-1.3.0-mods.zip` into `.minecraft/mods` (delete older copies of Sodium, Iris, Lithium, FerriteCore
+   `vanta-client-1.4.0-mods.zip` into `.minecraft/mods` (delete older copies of Sodium, Iris, Lithium, FerriteCore
    or ImmediatelyFast first; Fabric refuses to start with two copies of one mod). On Windows use the Fabric installer `.exe`, which needs no separate Java. On macOS and Linux use
    the universal `.jar`, which needs Java installed: install Java 21 first and run
    `java -jar fabric-installer-<version>.jar` (on macOS, if Gatekeeper blocks it, choose *Open Anyway* under
@@ -217,6 +246,15 @@ On every push ([`ci.yml`](.github/workflows/ci.yml)):
   `.msi` with `msiexec /qn`, unpacks the portable zip and runs the Windows jar, and fails unless each of them shows the
   launcher window and exits with code 0; its screenshots and logs are published to the `ci-artifacts` branch. These
   are CI builds of the same sources, not the release files.
+- **Local AI** (from 1.4.0 on): the release scripts job validates [`shared/local-ai/local-ai.json`](shared/local-ai/local-ai.json)
+  against its schema and runs `node scripts/release/local-ai.mjs verify --skip-model-download` (the archives are
+  re-hashed, the model is checked through the Hugging Face API). While the manifest is resolved, the two game test jobs
+  and the launcher integration job prepare the real Local AI once (`local-ai.mjs prepare`, cached by the manifest's
+  hash) and export `VANTA_LOCAL_AI_DIR`: the game test then starts the real `llama-server`, asks "Only show FPS and
+  coordinates" and requires exactly those widgets, and installs from a loopback mirror of the same files; the
+  launcher job runs `--install-local-ai` against that mirror and checks the status line, `installed.json`, the note
+  and `--remove-local-ai`. The manifest itself is filled by the workflow
+  [`local-ai-resolve.yml`](.github/workflows/local-ai-resolve.yml), never by hand.
 - **website**: lint, unit tests, production build with a bundle budget, Playwright end-to-end and accessibility checks.
 
 On every release ([`release.yml`](.github/workflows/release.yml)):
@@ -230,7 +268,8 @@ On every release ([`release.yml`](.github/workflows/release.yml)):
   the bundled runtime of the Windows portable app image runs its jar with `--version`, the Linux app image runs
   `bin/VANTA Launcher --version`, and both archives are checked for their expected contents (the portable zip also
   for `VANTA Launcher/app/vanta-portable.marker`, which tells the launcher to update itself with the portable zip);
-  the `.msi` installer is built from a fresh app image without that marker.
+  the `.msi` installer is built from a fresh app image without that marker. From 1.4.0 on the Windows job produces
+  exactly three files (`.msi`, portable zip, jar); the `.exe` variant is no longer built.
 - **publish**: the manifest is built from the real files and checked (names, order, sizes, SHA-256), the GitHub
   Release is created, then every public download URL is downloaded again and re-hashed; the run fails on a single
   mismatch.
@@ -255,6 +294,11 @@ On every release ([`release.yml`](.github/workflows/release.yml)):
 - **macOS**: the Apple Silicon jar is built and tested from the command line on a macOS runner; its window has not
   been tested. There is no build for Intel Macs, no `.dmg` and no notarization.
 - **Linux**: the app image is built for x64 only.
+- **Local AI**: a 1.7-billion-parameter model on the CPU. It applies only the actions VANTA validates and shows
+  exactly what it applied, but it misreads requests at times, and how fast it answers depends on the CPU; VANTA
+  promises no answer time. It needs about 1.85 GB of download, 2200 MB of disk and 3072 MB of free RAM while it runs.
+  Nothing is downloaded without a click, and it can be removed with one button. The CI game test runs the real server
+  end to end on a software renderer; that checks the mechanism, not every answer.
 - **Windows on ARM**: there is no arm64 build. Windows 11 on ARM runs x64 programs under emulation, so the x64
   installer, the portable app or an x64 Java 21 with the Windows jar are the way there; this has not been tested on a
   Windows on ARM device ([Troubleshooting](docs/troubleshooting.md#windows-on-arm-which-launcher-file)).

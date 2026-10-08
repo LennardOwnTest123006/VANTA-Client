@@ -325,8 +325,10 @@ manifest (CI, tests). A build without a complete manifest reports the Local AI a
   and checks the server executable by presence and size (the manifest names the archive's digest, not the extracted
   file's). The release tooling (`node scripts/release/local-ai.mjs prepare`) writes the same file, so a directory it
   prepared, one the launcher installed and one the client installed all read alike.
-- With consent given and `installLocalAi` on, PLAY, "Use with Minecraft Launcher" and `--install` include the step
-  "Installing the Local AI" after the performance pack; like the pack it never fails the install.
+- With consent given and `installLocalAi` on, PLAY and `--install` (the `Installer` pipeline) include the step
+  "Installing the Local AI" after the performance pack; like the pack it never fails the install. "Use with Minecraft
+  Launcher" / `--install-official-profile` (`OfficialProfileService`) write only the note below; a start with consent
+  recorded and files missing or outdated installs them directly (`LocalAiViewModel.checkOffer`).
 - Every game folder the launcher sets up gets the note `config/vanta/local-ai.json` (`{"localAiDir": "<absolute
   path>"}`) next to `minecraft-folder.json`: the VANTA Client starts llama-server from there and uses the folder
   read-only. The launcher itself never runs anything it downloaded.

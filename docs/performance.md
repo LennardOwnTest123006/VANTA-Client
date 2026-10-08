@@ -13,7 +13,8 @@ game runs depends on your hardware and on Minecraft. For more than vanilla optio
 ([Mods & Shaders](mods-and-shaders.md#the-pack-in-the-mods-bundle)).
 
 Open it from *Settings → Performance → Open Performance Center*, the performance key (unbound by default), the
-main menu, or `/vanta perf`.
+main menu, `/vanta perf` or, from client 1.4.0 on, *Open Performance Center* in the
+[Performance section of Vanta Nexus](#the-performance-section-of-vanta-nexus).
 
 ## What it measures
 
@@ -197,6 +198,25 @@ quiet, so only one of them changes the distance.
 `config/vanta/smart-boost.json` in the game folder holds the client version it last ran for, the result, each option it
 wrote with the value it wrote and the value before, the options you took over, and the highest render distance for
 the switch above. The game log (`latest.log`) lists every measured step and the GPU name.
+
+## The Performance section of Vanta Nexus
+
+From client 1.4.0 on, [Vanta Nexus → Performance](nexus.md#4-performance) shows a compact set of the same numbers,
+**live values only**, refreshed every tick while the section is open. Nothing there is estimated: a value the game
+cannot provide reads **n/a**.
+
+| Card | Values | Source |
+| --- | --- | --- |
+| Frame rate | *FPS now*; *Frame time p50* and *Frame time p99* of the recent frame window; *Hitches over 50 ms* as "n of m frames" | the game's frame counter and the same frame time window the Performance Center uses |
+| Game | *Ping* to the server (*Singleplayer* in a singleplayer world, n/a outside a world); *Render distance*; *GPU* (the OpenGL renderer string) | the server list latency, the vanilla option, the graphics driver |
+| Memory | used (with the percentage of the maximum), allocated, maximum Java heap | the Java runtime |
+| Smart Boost | *Not tuned yet*, the measurement in progress, or the last result with preset, measured FPS, target and date | the [Smart Boost](#smart-boost) record |
+
+Below the cards: the five preset buttons, **Boost FPS** and **Open Performance Center**; they run exactly the code the
+buttons here run. The [assistant](nexus.md#what-the-assistant-can-do) can apply a preset (`perf.preset`: `boost`,
+`low`, `balanced`, `high`, `ultra`; "Apply the Low preset") and start a Smart Boost re-tune (`perf.smartBoost`; "Tune
+my performance"), both undoable from the chat; it cannot change the frame-rate limit chooser or install the
+Performance pack. Smart Boost itself stays a rule-based tuner without a model: the Local AI is not involved in it.
 
 ## Frame-rate limit chooser
 

@@ -17,6 +17,9 @@ This page describes what actually happens; it is kept in sync with the code and 
 - **Modrinth** is contacted only for mods, shader packs and resource packs: by the client while you use *Mods &
   Shaders*, by the launcher for the Performance pack and the Mods page. No account data is sent
   ([details](#modrinth-mods-shaders-and-the-performance-pack)).
+- **The Local AI of Vanta Nexus is strictly local** (from 1.4.0 on). The only network use is the one-time download of
+  its runtime from `github.com` and its model from `huggingface.co`, and only after you click Install. The assistant's
+  prompts go to `127.0.0.1` only: no cloud AI, no API key, no account, no telemetry ([details](#the-local-ai)).
 - **The website has no analytics, no cookies and no third-party scripts.**
 
 ## VANTA Client (the Fabric mod)
@@ -28,11 +31,50 @@ only**, never about other players. Each category can be switched off in *Setting
 exported or deleted, and the file never leaves your computer
 ([Statistics and privacy](statistics-and-privacy.md)).
 
-The client opens **no network connections of its own**, with one exception: Modrinth, while you use the *Mods &
-Shaders* screen (from client 1.1.0 on) and, from client 1.2.0 on, after you press *Boost FPS* or *Install* in the
-*Boost your FPS?* offer, see [Modrinth](#modrinth-mods-shaders-and-the-performance-pack) below. The client does not
-phone home, check for updates, fetch cosmetics or load remote content. Minecraft's own connections (Mojang
-authentication, the servers you join, resource packs a server sends) are not changed by VANTA.
+**The hosts the client contacts.** From client 1.4.0 on the client contacts exactly these hosts and nothing else,
+ever:
+
+- **Modrinth** (`api.modrinth.com`, `cdn.modrinth.com`) while you use the *Mods & Shaders* screen (from client 1.1.0 on)
+  and, from client 1.2.0 on, after you press *Boost FPS* or *Install* in the *Boost your FPS?* offer, see
+  [Modrinth](#modrinth-mods-shaders-and-the-performance-pack) below;
+- only when you install the [Local AI](local-ai.md) from the game: **`github.com`** for the llama.cpp runtime archive
+  and **`huggingface.co`** for the model, once, after your click on *Install Local AI*, see [The Local AI](#the-local-ai)
+  below.
+
+The client does not phone home, check for updates, fetch cosmetics or load remote content. Minecraft's own connections
+(Mojang authentication, the servers you join, resource packs a server sends) are not changed by VANTA.
+
+Two more local files exist from client 1.4.0 on, both in `config/vanta/`: `waypoints.json`, the places you saved per
+world ([Waypoints](waypoints.md)), and `nexus-chat.json`, your conversation with the Vanta Nexus assistant
+([Vanta Nexus → The transcript file](nexus.md#the-transcript-file)). Neither leaves your computer; nothing reads them
+but VANTA, and you can delete them at any time.
+
+### The Local AI
+
+**Vanta Nexus** (from client 1.4.0 on) runs its assistant on a small language model **on your own PC**: `llama-server`
+from llama.cpp and the Qwen3-1.7B model, started by the game as a child process on `127.0.0.1` and a free port
+([Local AI](local-ai.md)). What that means for your data:
+
+- **The assistant's prompts go to `127.0.0.1` only.** Your questions, the state of your HUD and settings that the
+  prompt describes, and the answers never leave your computer. There is **no cloud AI, no API key, no account and no
+  telemetry**; VANTA has no server to send anything to.
+- **Two downloads, once, after your click.** The runtime archive comes from `github.com` (the llama.cpp release
+  `b11429`) and the model from `huggingface.co` (the repository `Qwen/Qwen3-1.7B-GGUF`), each verified by size and
+  SHA-256 from the manifest VANTA ships. They are started only by *Install Local AI* in the game or *Download and
+  install* / *Install* in the VANTA Launcher; the dialog and the card say beforehand what is downloaded, from where and
+  how big. The requests carry the user agent `VANTA-Client/<version>` (or `VANTA-Launcher/<version>`) and nothing
+  about you; like any web server, GitHub and Hugging Face see your IP address under their own privacy policies.
+- **Offline afterwards.** Once installed, the Local AI contacts no host at all: not for updates, not for licences,
+  not for anything. A newer VANTA release can name newer files, and again nothing is downloaded before you click.
+- **What is stored**: the runtime, the model and `installed.json` in the Local AI folder, the server's log
+  `logs/llama-server.log` there (the server's own technical output, no prompts), the conversation in
+  `config/vanta/nexus-chat.json` (the last 50 exchanges, cleared with *Clear chat*), and the note
+  `config/vanta/nexus-first-start.json` that records that you saw the one-time install dialog. *Remove Local AI* deletes
+  the Local AI folder and nothing else.
+- **What the assistant can touch**: only your own client (HUD layout, settings of the categories Video, HUD,
+  Performance and Accessibility, profiles, performance presets, waypoints, Vanta Lab features), validated against
+  real lists before anything is applied, and undoable. It cannot read or change anything about other players, the
+  game world, key bindings or the network ([Vanta Nexus → What the assistant can do](nexus.md#what-the-assistant-can-do)).
 
 HUD widgets show information the game already exposes about your own session (position, biome, effects, ping,
 server name). The *Server* widget has a "hide address" option for streaming.
@@ -58,6 +100,7 @@ To install and start the game the launcher connects to:
 | `login.microsoftonline.com`, `user.auth.xboxlive.com`, `xsts.auth.xboxlive.com`, `api.minecraftservices.com` | Microsoft sign-in (device code flow), Xbox Live and Minecraft tokens, ownership and profile — only when a Microsoft client id is configured |
 | GitHub: `raw.githubusercontent.com` (the built-in releases URL), `github.com` and its release asset hosts | release manifests (`client-latest.json`, `launcher-latest.json`) and VANTA downloads; a releases URL you configure instead is contacted in place of the built-in one |
 | `api.modrinth.com`, `cdn.modrinth.com` | from launcher 1.1.0 on: the Performance pack (when *Install the performance pack* is on) and the Mods page, see [below](#modrinth-mods-shaders-and-the-performance-pack) |
+| `github.com` (the llama.cpp release `b11429`), `huggingface.co` (the repository `Qwen/Qwen3-1.7B-GGUF`) | from launcher 1.4.0 on, only when you agreed to install the [Local AI](local-ai.md): the one-time download of the `llama-server` archive for your system and the model, SHA-256 verified. The launcher never starts them; the game does, on `127.0.0.1` ([The Local AI](#the-local-ai)) |
 
 Requests identify the launcher with the user agent `VANTA-Launcher/<version>`; requests to Modrinth use the
 descriptive user agent Modrinth asks for (below). The launcher sends nothing else and receives nothing it does not
@@ -85,8 +128,10 @@ you configured them.
 VANTA Client and, when it is switched on, the Performance pack into the VANTA game folder, the Fabric Loader version
 files into the official Minecraft folder and the profile *VANTA 1.21.11* into
 each profiles file of the official Minecraft Launcher that exists there, `launcher_profiles.json` and/or
-`launcher_profiles_microsoft_store.json` (each with a one-time backup), and from launcher 1.3.0 on the note
-`config/vanta/minecraft-folder.json` with the path of that Minecraft folder into the VANTA game folder.
+`launcher_profiles_microsoft_store.json` (each with a one-time backup), from launcher 1.3.0 on the note
+`config/vanta/minecraft-folder.json` with the path of that Minecraft folder into the VANTA game folder, and from
+launcher 1.4.0 on the note `config/vanta/local-ai.json` with the path of the launcher's Local AI folder (the game then
+uses that folder read-only; the note is written whether or not the Local AI is installed).
 VANTA reads these files only to keep your other profiles unchanged and sends nothing from them anywhere. Before it
 writes them, it checks whether the Minecraft Launcher is running by looking at the list of running processes on your
 computer; nothing about them leaves your computer. Sign-in, downloads and play are then handled by the official

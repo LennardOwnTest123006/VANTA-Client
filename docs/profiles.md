@@ -17,16 +17,26 @@ the Minecraft Launcher use the same VANTA profiles.
 
 ## Built-in profiles
 
-Five profiles are created on first run. They are ordinary profiles afterwards: rename, change, duplicate or delete
-them (except the last remaining one).
+Seven profiles are created on first run (five before client 1.4.0). They are ordinary profiles afterwards: rename,
+change, duplicate or delete them (except the last remaining one). From client 1.4.0 on, the HUD of *PvP*, *Survival*,
+*Building*, *Recording* and *Minimal* is the matching [Nexus preset](hud.md#nexus-presets) applied to the *Default*
+layout, so the profile and the assistant's `hud.preset` action give the same HUD.
 
-| Profile | HUD preset | Performance preset | Crosshair | Other differences from defaults |
+| Profile | HUD layout | Performance preset | Crosshair | Other differences from defaults |
 | --- | --- | --- | --- | --- |
-| **Default** | Default | BALANCED | Default | — |
-| **PvP** | PvP | HIGH | Bold | frame rate unlimited, menu particles off, HUD text shadow on |
-| **Building** | Minimal | ULTRA | Thin | FOV 85, HUD opacity 80 % |
-| **Performance** | Performance | MAX FPS | Default | solid menu background, particles off, no text shadow, frame rate unlimited |
-| **Recording** | Streamer | HIGH | Dot | HUD opacity 85 %, shorter notifications (2.5 s), servers not recorded in statistics, version label hidden |
+| **Default** | Default | BALANCED | Default | none |
+| **PvP** | Nexus preset *PvP*: FPS, ping, CPS, keystrokes, armor, item durability, potion effects | HIGH | Bold | frame rate unlimited, menu particles off, HUD text shadow on |
+| **Survival** (new in 1.4.0) | Nexus preset *Survival*: FPS, coordinates, direction, biome, clock, armor, item durability, potion effects | BALANCED | Default | HUD text shadow on, FOV 75 |
+| **Building** | Nexus preset *Building*: coordinates, direction, biome, clock at 90 % | ULTRA | Thin | FOV 85, HUD opacity 80 % |
+| **Recording** | Nexus preset *Recording*: FPS, clock, coordinates, direction, keystrokes, Minecraft version at 90 %, no server widget | HIGH | Dot | HUD opacity 85 %, shorter notifications (2.5 s), servers not recorded in statistics, version label hidden |
+| **Performance** | the HUD editor's *Performance* preset | MAX FPS | Default | solid menu background, particles off, no text shadow, frame rate unlimited |
+| **Minimal** (new in 1.4.0) | Nexus preset *Minimal*: FPS and coordinates | BALANCED | Thin | HUD opacity 90 %, menu particles off, shorter notifications (2.5 s) |
+
+Before 1.4.0, *PvP* carried the editor's *PvP* preset, *Building* the editor's *Minimal* preset and *Recording* the
+*Streamer* preset. On the first start of 1.4.0 the built-in profiles you never changed are refreshed once more (the
+marker `builtInContent` in `profiles/state.json` goes to 3), and *Survival* and *Minimal* are added once to an existing
+installation; if you delete them later they are not added again. Renamed or edited built-ins and your own profiles
+keep their content, and the profile files keep schema version 2.
 
 The performance preset inside a profile is applied through the vanilla options when the profile is activated, like
 pressing *Apply* in the [Performance Center](performance.md). Presets never set the frame-rate limit or VSync; a
@@ -54,9 +64,10 @@ from the profile's *Frame rate limit* choice. A 1.1.0 client cannot read schema-
 
 ## The Profiles screen
 
-Open it from the main menu's Profiles button. In a world, `/vanta profiles` lists the profiles in the chat and
-`/vanta profiles <name>` activates one. Each card shows the icon, name, an **Active** badge, a summary (HUD preset,
-performance preset, crosshair, last change) and these actions:
+Open it from the main menu's Profiles button or, from client 1.4.0 on, the **Profiles** section of
+[Vanta Nexus](nexus.md#3-profiles), which shows the same cards and actions. In a world, `/vanta profiles` lists the
+profiles in the chat and `/vanta profiles <name>` activates one. Each card shows the icon, name, an **Active** badge, a
+summary (HUD preset, performance preset, crosshair, last change) and these actions:
 
 | Action | Effect |
 | --- | --- |
@@ -70,6 +81,11 @@ performance preset, crosshair, last change) and these actions:
 
 When you change settings while a profile is active, a banner offers **Save current to active profile**; until you do,
 the profile keeps its stored values and the live settings differ from it.
+
+The [Vanta Nexus assistant](nexus.md#what-the-assistant-can-do) (from client 1.4.0 on) can activate a profile by name
+(`profile.switch`, "Switch to the Building profile") and create one from the current settings (`profile.create`,
+"Create a recording profile"); it cannot rename, delete, export or import profiles. **Undo** in Nexus switches back to
+the previous profile or removes the created one.
 
 ## What a profile contains
 
@@ -92,7 +108,8 @@ Profiles are JSON files in `config/vanta/profiles/<id>.json` (`state.json` next 
 ```
 
 - `settings` is a snapshot of VANTA setting ids to values, including the vanilla-bound ones (so a profile can carry
-  a render distance or FOV).
+  a render distance or FOV). From client 1.4.0 on that includes the Vanta Nexus, Waypoints and Vanta Lab settings;
+  the waypoints themselves and the Nexus conversation are not part of a profile.
 - `keybinds` only contains **VANTA's own** key mappings (`key.vanta.*`); vanilla key bindings are never stored in or
   changed by a profile.
 - The full structure is documented by `shared/schemas/profile.schema.json` in the repository.
