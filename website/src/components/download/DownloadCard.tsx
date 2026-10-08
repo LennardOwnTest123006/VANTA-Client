@@ -10,6 +10,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { CopyButton } from '../ui/CopyButton';
 import { Tag } from '../ui/Pill';
+import { Fact } from './Fact';
 import { ReleaseFileList } from './ReleaseFileList';
 
 export interface DownloadCardProps {
@@ -34,17 +35,6 @@ export interface DownloadCardProps {
   readonly upcoming?: ReleaseManifest | undefined;
   /** Extra content between the actions and the file list, e.g. the ways to install. */
   readonly children?: ReactNode;
-}
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-[11px] font-semibold tracking-label text-text-muted uppercase">
-        {label}
-      </dt>
-      <dd className="text-sm text-text-primary">{children}</dd>
-    </div>
-  );
 }
 
 /** Bullets of the "In this release" excerpt; each is clamped to three lines. */

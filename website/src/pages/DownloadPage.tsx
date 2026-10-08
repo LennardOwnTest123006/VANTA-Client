@@ -10,8 +10,11 @@ import {
   Coffee,
   Wrench,
 } from 'lucide-react';
+import { BundleCard } from '../components/download/BundleCard';
 import { DownloadCard } from '../components/download/DownloadCard';
 import { InstallOptions } from '../components/download/InstallOptions';
+import { LatestVersion } from '../components/download/LatestVersion';
+import { WhatsNew } from '../components/download/WhatsNew';
 import { PageMeta } from '../components/layout/PageMeta';
 import { PageHero } from '../components/page/PageHero';
 import { Button } from '../components/ui/Button';
@@ -21,6 +24,7 @@ import { RouteLink } from '../components/ui/RouteLink';
 import { Section } from '../components/ui/Section';
 import { Stat, StatGroup } from '../components/ui/Stat';
 import { githubLinks, officialLauncherProfileName, site, specFacts } from '../config/site';
+import { bundles, latestBundle } from '../lib/bundles';
 import { modsBundleFile, resolveDownload } from '../lib/downloads';
 import { env } from '../lib/env';
 import { latestRelease, releases, upcomingRelease } from '../lib/releases';
@@ -70,9 +74,11 @@ const verification = [
 ] as const;
 
 /**
- * Download center: launcher and client cards from the release manifests, requirements, verification.
- * Each card offers the newest published release; a newer version that is committed but not
- * published yet is mentioned on the card instead of replacing the working downloads.
+ * Download center: the latest versions, the launcher and client cards from the release manifests,
+ * the full release zip from the bundle manifest when one is published, what is new in the offered
+ * versions, requirements and verification. Each card offers the newest published release; a newer
+ * version that is committed but not published yet is mentioned on the card instead of replacing the
+ * working downloads, and without a published bundle there is no zip card at all.
  */
 export default function DownloadPage() {
   const launcher = latestRelease(releases, 'launcher');
@@ -80,12 +86,13 @@ export default function DownloadPage() {
   const launcherDownload = resolveDownload(launcher, env.downloadLauncherUrl);
   const clientDownload = resolveDownload(client, env.downloadClientUrl);
   const modsBundle = modsBundleFile(client);
+  const bundle = latestBundle(bundles);
 
   return (
     <>
       <PageMeta
         title="Download"
-        description={`Download VANTA Launcher and VANTA Client for Minecraft ${site.minecraft} (Fabric Loader ${site.fabricLoader}, Java ${site.java}, ${site.platform}). Every file comes with a SHA-256 checksum.`}
+        description={`Download VANTA Launcher and VANTA Client for Minecraft ${site.minecraft} (Fabric Loader ${site.fabricLoader}, Java ${site.java}, ${site.platform})${bundle ? ', or both in one full release zip' : ''}. Every file comes with a SHA-256 checksum.`}
       />
       <PageHero
         eyebrow="Download"
@@ -96,6 +103,7 @@ export default function DownloadPage() {
         }
         lead="Install the launcher for the full experience, or add the client jar to a Fabric profile you already have. Every file is listed with its size and SHA-256 checksum from the release manifest."
       >
+        <LatestVersion client={client} launcher={launcher} />
         <StatGroup
           className="grid-cols-2 gap-x-6 sm:grid-cols-4"
           aria-label="Technical specifications"
@@ -134,6 +142,13 @@ export default function DownloadPage() {
           >
             <InstallOptions idPrefix="download-client" />
           </DownloadCard>
+          {bundle ? (
+            <BundleCard
+              bundle={bundle}
+              clientVersion={client?.version}
+              launcherVersion={launcher?.version}
+            />
+          ) : null}
         </div>
         {site.releasesBaseUrl || githubLinks ? (
           <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-text-secondary">
@@ -151,6 +166,8 @@ export default function DownloadPage() {
           </div>
         ) : null}
       </Section>
+
+      <WhatsNew client={client} launcher={launcher} />
 
       <Section
         id="what-you-need"

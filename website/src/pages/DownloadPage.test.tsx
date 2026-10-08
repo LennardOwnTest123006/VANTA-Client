@@ -1,12 +1,18 @@
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type * as BundlesModule from '../lib/bundles';
+import type { BundleManifest } from '../lib/bundles';
+import { findChangelog, releaseHighlights } from '../lib/content';
 import type * as EnvModule from '../lib/env';
 import type * as ReleasesModule from '../lib/releases';
 import type { ReleaseManifest } from '../lib/releases';
+import { bundleFixture } from '../test/fixtures/bundles';
 import {
   CLIENT_FILE_NAMES,
   LAUNCHER_FILE_NAMES,
   clientFixture,
+  fakeSha,
   launcherFixture,
 } from '../test/fixtures/releases';
 import { renderWithRouter } from '../test/render';
@@ -19,17 +25,27 @@ const RELEASE_ASSET =
 const ANY_RELEASE_ASSET =
   /^https:\/\/github\.com\/LennardOwnTest123006\/VANTA-Client\/releases\/download\/(client|launcher)-v[^/]+\/[^/]+$/;
 
+/** The full release zip of version 1.0.0: the only asset of the GitHub Release `v1.0.0`. */
+const BUNDLE_ASSET =
+  'https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/v1.0.0/VantaClient-1.0.0-Release.zip';
+
 /**
- * Renders the page against the given manifests instead of `shared/releases/`, so the tests do not
- * depend on whether the repository manifests have been filled by the release workflow yet.
+ * Renders the page against the given manifests instead of `shared/releases/` (and the given bundle
+ * manifests instead of `shared/releases/bundles/`, none by default), so the tests do not depend on
+ * whether the repository manifests have been filled by the release workflow yet or a bundle exists.
  */
 async function renderPage(
   manifests: readonly ReleaseManifest[],
   envOverrides: Partial<EnvModule.SiteEnv> = {},
+  bundleManifests: readonly BundleManifest[] = [],
 ) {
   vi.doMock('../lib/releases', async (importOriginal) => {
     const original = await importOriginal<typeof ReleasesModule>();
     return { ...original, releases: manifests };
+  });
+  vi.doMock('../lib/bundles', async (importOriginal) => {
+    const original = await importOriginal<typeof BundlesModule>();
+    return { ...original, bundles: bundleManifests };
   });
   vi.doMock('../lib/env', async (importOriginal) => {
     const original = await importOriginal<typeof EnvModule>();
@@ -43,24 +59,42 @@ async function renderPage(
       },
     };
   });
+  // The news link of "What's new" reads the lazily loaded news chunk through `use()`; load it first
+  // so the page renders synchronously inside Testing Library's act scope (see DocumentationPage.test).
+  const news = await import('../lib/news');
+  const posts = await news.loadNews();
   const module = await import('./DownloadPage');
   const DownloadPage = module.default;
   renderWithRouter(<DownloadPage />, '/download');
   return {
     launcher: screen.getByRole('article', { name: 'VANTA Launcher' }),
     client: screen.getByRole('article', { name: 'VANTA Client (jar)' }),
+    bundle: screen.queryByRole('article', { name: 'Full release (zip)' }),
+    posts,
   };
+}
+
+/** Undoes `renderPage` so the next render in the same test starts from fresh modules. */
+function resetPage() {
+  vi.doUnmock('../lib/releases');
+  vi.doUnmock('../lib/bundles');
+  vi.doUnmock('../lib/env');
+  vi.resetModules();
+  document.body.innerHTML = '';
+}
+
+function mockClipboard() {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+  Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+  return writeText;
 }
 
 const unpublished = [clientFixture({ published: false }), launcherFixture({ published: false })];
 const published = [clientFixture({ published: true }), launcherFixture({ published: true })];
 
 describe('DownloadPage', () => {
-  afterEach(() => {
-    vi.doUnmock('../lib/releases');
-    vi.doUnmock('../lib/env');
-    vi.resetModules();
-  });
+  afterEach(resetPage);
 
   it('renders both products in the honest "not published" state', async () => {
     const { launcher, client } = await renderPage(unpublished);
@@ -278,7 +312,23 @@ describe('DownloadPage', () => {
 
   it('keeps working with the repository manifests, whatever their state', async () => {
     const actual = await vi.importActual<typeof ReleasesModule>('../lib/releases');
-    const { launcher, client } = await renderPage(actual.releases);
+    const actualBundles = await vi.importActual<typeof BundlesModule>('../lib/bundles');
+    const { launcher, client, bundle } = await renderPage(
+      actual.releases,
+      {},
+      actualBundles.bundles,
+    );
+    expect(screen.getByRole('group', { name: 'Latest version' })).toBeInTheDocument();
+    // A bundle card exactly when shared/releases/bundles has a published stable manifest.
+    const offeredBundle = actualBundles.latestBundle(actualBundles.bundles);
+    expect(bundle !== null).toBe(offeredBundle !== undefined);
+    if (bundle && offeredBundle) {
+      expect(
+        within(bundle).getByRole('link', { name: 'Download full release (.zip)' }),
+      ).toHaveAttribute('href', offeredBundle.file.downloadUrl);
+    } else {
+      expect(screen.queryByRole('link', { name: 'Download full release (.zip)' })).toBeNull();
+    }
     for (const [card, product] of [
       [launcher, 'launcher'],
       [client, 'client'],
@@ -298,5 +348,256 @@ describe('DownloadPage', () => {
         for (const href of links) expect(href).toMatch(ANY_RELEASE_ASSET);
       }
     }
+  });
+
+  it('shows the latest versions in the hero with their release date', async () => {
+    await renderPage(published);
+    const latest = screen.getByRole('group', { name: 'Latest version' });
+    expect(latest).toHaveTextContent('Latest version');
+    expect(latest).toHaveTextContent('VANTA Client 1.0.0 and VANTA Launcher 1.0.0');
+    expect(latest).toHaveTextContent('Released October 4, 2026');
+    expect(latest).not.toHaveTextContent('not published yet');
+  });
+
+  it('marks an unpublished offered version in the hero and lists different release dates', async () => {
+    await renderPage([
+      clientFixture({ published: false }),
+      launcherFixture({ published: true, version: '1.0.1', releaseDate: '2026-10-05' }),
+    ]);
+    const latest = screen.getByRole('group', { name: 'Latest version' });
+    expect(latest).toHaveTextContent(
+      'VANTA Client 1.0.0 (not published yet) and VANTA Launcher 1.0.1',
+    );
+    expect(latest).toHaveTextContent(
+      'VANTA Client released October 4, 2026, VANTA Launcher released October 5, 2026',
+    );
+  });
+});
+
+describe('DownloadPage full release zip', () => {
+  afterEach(resetPage);
+
+  it('offers a published bundle as the third card with its facts, checksum and contents', async () => {
+    const writeText = mockClipboard();
+    const fixture = bundleFixture({ published: true });
+    const { launcher, client, bundle } = await renderPage(published, {}, [fixture]);
+    expect(bundle).not.toBeNull();
+    if (!bundle) return;
+
+    // Third card, after the launcher and the client.
+    const cards = screen.getAllByRole('article');
+    expect(cards.indexOf(bundle)).toBeGreaterThan(cards.indexOf(launcher));
+    expect(cards.indexOf(bundle)).toBeGreaterThan(cards.indexOf(client));
+    const link = within(bundle).getByRole('link', { name: 'Download full release (.zip)' });
+    expect(link).toHaveAttribute('href', BUNDLE_ASSET);
+    expect(link).not.toHaveAttribute('target');
+    expect(link).toHaveAttribute('rel', 'noopener');
+    expect(link).toHaveAttribute('download');
+    expect(within(bundle).getByRole('link', { name: 'Release page on GitHub' })).toHaveAttribute(
+      'href',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.0.0',
+    );
+    expect(within(bundle).getByText('Published')).toBeInTheDocument();
+    expect(within(bundle).getByText('VantaClient-1.0.0-Release.zip')).toBeInTheDocument();
+    expect(within(bundle).getByText('240.0 MB')).toBeInTheDocument();
+    expect(within(bundle).getByText('Client version').nextElementSibling).toHaveTextContent(
+      '1.0.0',
+    );
+    expect(within(bundle).getByText('Launcher version').nextElementSibling).toHaveTextContent(
+      '1.0.0',
+    );
+    expect(within(bundle).getByText('October 4, 2026')).toBeInTheDocument();
+    expect(bundle).toHaveTextContent(/README\.txt/);
+    expect(bundle).toHaveTextContent(/SHA256SUMS\.txt/);
+    // Same versions as the other cards: no note about different ones.
+    expect(within(bundle).queryByRole('note', { name: 'Versions in this zip' })).toBeNull();
+    expect(bundle).toHaveTextContent('The files are the ones the two cards above offer');
+
+    // The zip's checksum, grouped, with a copy button.
+    const zipSha = fixture.file.sha256;
+    expect(
+      within(bundle).getByText(new RegExp(`${zipSha.slice(0, 8)} ${zipSha.slice(8, 16)}`)),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      within(bundle).getByRole('button', {
+        name: 'Copy SHA-256 checksum of VantaClient-1.0.0-Release.zip',
+      }),
+    );
+    expect(writeText).toHaveBeenCalledWith(zipSha);
+
+    // Every file inside the zip, in manifest order, with size and checksum.
+    const contents = within(bundle).getByRole('list', {
+      name: `Files in the zip (${fixture.contents.length})`,
+    });
+    const items = within(contents).getAllByRole('listitem');
+    expect(items).toHaveLength(fixture.contents.length);
+    items.forEach((item, index) => {
+      const entry = fixture.contents[index]!;
+      expect(item).toHaveTextContent(entry.path);
+      expect(
+        within(item).getByRole('button', { name: `Copy SHA-256 checksum of ${entry.path}` }),
+      ).toBeInTheDocument();
+    });
+    expect(items[0]).toHaveTextContent('README.txt');
+    expect(items[0]).toHaveTextContent('1.2 MB');
+    await userEvent.click(within(items[0]!).getByRole('button', { name: /Copy SHA-256/ }));
+    expect(writeText).toHaveBeenLastCalledWith(fakeSha(0));
+    // No link inside the list: the files are inside the archive, not separate downloads.
+    expect(within(contents).queryByRole('link')).toBeNull();
+
+    // The other two cards are untouched.
+    expect(within(launcher).getByRole('link', { name: 'Download launcher' })).toBeInTheDocument();
+    expect(within(client).getByRole('link', { name: 'Download client jar' })).toBeInTheDocument();
+    // Every release download on the page is an asset of this repository, for one of the three tags.
+    const hrefs = screen
+      .getAllByRole('link')
+      .map((a) => a.getAttribute('href') ?? '')
+      .filter((href) => href.includes('/releases/download/'));
+    expect(hrefs).toContain(BUNDLE_ASSET);
+    for (const href of hrefs) {
+      expect(href).toMatch(
+        /^https:\/\/github\.com\/LennardOwnTest123006\/VANTA-Client\/releases\/download\/(client-v1\.0\.0|launcher-v1\.0\.0|v1\.0\.0)\/[^/]+$/,
+      );
+    }
+    expect(document.title).toBe('Download — VANTA Client');
+  });
+
+  it('says so when the zip holds other versions than the cards offer', async () => {
+    const { bundle } = await renderPage(
+      [
+        clientFixture({ published: true, version: '1.0.1' }),
+        clientFixture({ published: true }),
+        launcherFixture({ published: true }),
+      ],
+      {},
+      [bundleFixture({ published: true })],
+    );
+    expect(bundle).not.toBeNull();
+    if (!bundle) return;
+    const note = within(bundle).getByRole('note', { name: 'Versions in this zip' });
+    expect(note).toHaveTextContent('This zip holds client 1.0.0 and launcher 1.0.0');
+    expect(note).toHaveTextContent('the cards above offer client 1.0.1 and launcher 1.0.0');
+    expect(bundle).not.toHaveTextContent('The files are the ones the two cards above offer');
+  });
+
+  it('renders no bundle card and no dead link without a published stable bundle', async () => {
+    for (const bundleManifests of [
+      [],
+      [bundleFixture({ published: false })],
+      [bundleFixture({ published: true, channel: 'beta' })],
+    ]) {
+      const { bundle } = await renderPage(published, {}, bundleManifests);
+      expect(bundle).toBeNull();
+      expect(screen.queryByRole('link', { name: 'Download full release (.zip)' })).toBeNull();
+      expect(screen.queryByText('Full release (zip)')).toBeNull();
+      expect(
+        screen
+          .queryAllByRole('link')
+          .filter((link) => /\/releases\/download\/v\d/.test(link.getAttribute('href') ?? '')),
+      ).toHaveLength(0);
+      // The grid keeps its two cards.
+      expect(within(document.getElementById('downloads')!).getAllByRole('article')).toHaveLength(2);
+      resetPage();
+    }
+  });
+
+  it('prefers the newest published stable bundle', async () => {
+    const { bundle } = await renderPage(published, {}, [
+      bundleFixture({ published: true }),
+      bundleFixture({ published: true, version: '1.1.0', clientVersion: '1.0.0' }),
+      bundleFixture({ published: false, version: '1.2.0' }),
+    ]);
+    expect(bundle).not.toBeNull();
+    if (!bundle) return;
+    expect(
+      within(bundle).getByRole('link', { name: 'Download full release (.zip)' }),
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/v1.1.0/VantaClient-1.1.0-Release.zip',
+    );
+    expect(within(bundle).getByText('Version').nextElementSibling).toHaveTextContent('1.1.0');
+    // The zip holds launcher 1.1.0 while the card offers 1.0.0: said on the card.
+    expect(within(bundle).getByRole('note', { name: 'Versions in this zip' })).toHaveTextContent(
+      'This zip holds client 1.0.0 and launcher 1.1.0',
+    );
+  });
+});
+
+describe("DownloadPage What's new", () => {
+  afterEach(resetPage);
+
+  it('quotes up to five highlights per product from the release notes and links the full notes', async () => {
+    const { posts } = await renderPage(published);
+    const section = document.getElementById('whats-new');
+    expect(section).not.toBeNull();
+    if (!section) return;
+    expect(within(section).getByText("What's new")).toBeInTheDocument();
+    expect(within(section).getByRole('heading', { level: 2 })).toHaveTextContent(
+      "What's new in 1.0.0",
+    );
+    for (const [product, label] of [
+      ['client', 'VANTA Client'],
+      ['launcher', 'VANTA Launcher'],
+    ] as const) {
+      const notes = findChangelog(product, '1.0.0');
+      expect(notes).toBeDefined();
+      const column = within(section).getByRole('article', { name: notes!.title });
+      const expected = releaseHighlights(notes!, 5);
+      expect(expected.length).toBeGreaterThan(0);
+      expect(expected.length).toBeLessThanOrEqual(5);
+      expect(
+        within(column)
+          .getAllByRole('listitem')
+          .map((item) => item.textContent),
+      ).toEqual(expected);
+      expect(column).toHaveTextContent('Released October 4, 2026');
+      expect(
+        within(column).getByRole('link', { name: `Full release notes for ${label} 1.0.0` }),
+      ).toHaveAttribute('href', `/changelog#${product}-1.0.0`);
+    }
+    // The cards' own "Full release notes" links are unchanged and come first in the document.
+    expect(screen.getAllByRole('link', { name: 'Full release notes' })).toHaveLength(2);
+    // The newest news post is linked.
+    const newest = posts[0];
+    expect(newest).toBeDefined();
+    const newsLink = await within(section).findByRole('link', { name: newest!.title });
+    expect(newsLink).toHaveAttribute('href', `/news/${newest!.slug}`);
+    expect(section).toHaveTextContent('Latest news post:');
+  });
+
+  it('leaves out a product without release notes, and the whole section without any', async () => {
+    await renderPage([
+      clientFixture({ published: true, version: '9.9.9' }),
+      launcherFixture({ published: true }),
+    ]);
+    const section = document.getElementById('whats-new');
+    expect(section).not.toBeNull();
+    if (!section) return;
+    expect(within(section).getByRole('heading', { level: 2 })).toHaveTextContent(
+      "What's new in 1.0.0",
+    );
+    expect(within(section).getAllByRole('article')).toHaveLength(1);
+    expect(
+      within(section).getByRole('article', { name: 'VANTA Launcher 1.0.0' }),
+    ).toBeInTheDocument();
+    expect(within(section).queryByText(/9\.9\.9/)).toBeNull();
+
+    resetPage();
+    await renderPage([
+      clientFixture({ published: true, version: '9.9.9' }),
+      launcherFixture({ published: true, version: '9.9.8' }),
+    ]);
+    expect(document.getElementById('whats-new')).toBeNull();
+    expect(screen.queryByText("What's new")).toBeNull();
+  });
+
+  it('names both versions when the client and the launcher differ', async () => {
+    await renderPage([
+      clientFixture({ published: true, version: '1.0.1' }),
+      launcherFixture({ published: true }),
+    ]);
+    expect(
+      within(document.getElementById('whats-new')!).getByRole('heading', { level: 2 }),
+    ).toHaveTextContent("What's new in client 1.0.1 and launcher 1.0.0");
   });
 });
