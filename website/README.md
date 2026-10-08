@@ -79,6 +79,13 @@ published files of both products) has its own manifests in `shared/releases/bund
 and the "What's new" section come from the newest published release manifests and their changelog
 entries. Fixtures: `src/test/fixtures/bundles.ts`.
 
+The "Older versions" section at the end of the page (`src/components/download/OlderVersions.tsx`)
+lists every published release older than the one the cards offer (`olderReleases` in
+`src/lib/releases.ts`; for the full release zip `olderBundles` in `src/lib/bundles.ts`), newest first,
+with release date, primary file, size, SHA-256, a direct download, the GitHub release page and the
+release notes. An unpublished manifest is never listed, a product without older published releases
+gets no list, and without any older version the section and the in-page link to it are left out.
+
 ## Project layout
 
 ```
@@ -97,7 +104,8 @@ website/
     │   ├── layout/          Header (sticky, mobile sheet with focus trap), Footer, Layout, PageMeta, Reveal
     │   ├── page/            PageHero, PresetTable, TocNav, PrevNext, IsoCube
     │   ├── home/            Hero, TrustSection, FeatureGrid, InterfacePreview, HowItWorks, FinalCta
-    │   ├── download/        DownloadCard, ReleaseFileList, InstallOptions
+    │   ├── download/        DownloadCard, ReleaseFileList, InstallOptions, LatestVersion, BundleCard,
+    │   │                    WhatsNew, OlderVersions
     │   ├── docs/            DocsSidebar, DocsSearch (MiniSearch combobox), DocToc (scroll spy)
     │   ├── changelog/       ChangelogEntryCard
     │   ├── news/            NewsCard
