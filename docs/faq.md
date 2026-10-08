@@ -54,10 +54,12 @@ subscription, no paid tier and nothing to unlock. Badges and themes are visual l
 No. The client keeps optional **local** statistics in a JSON file on your computer and sends them nowhere. From client
 1.4.0 on the client contacts exactly these hosts and nothing else, ever: Modrinth, only while you use Mods & Shaders
 (search text, project ids, no account data), and, only when you install the Local AI, `github.com` (the llama.cpp
-runtime archive) and `huggingface.co` (the model). The Vanta Nexus assistant's prompts go to `127.0.0.1` only: no cloud
-AI, no API key, no account, no telemetry. The launcher talks only to Mojang, Microsoft/Xbox, Fabric, Adoptium (Java),
-GitHub (releases, and the Local AI runtime when you agreed to it), Hugging Face (the Local AI model, same condition) and
-Modrinth (Performance pack, Mods page) to do its job. The website has no analytics, cookies or third-party scripts.
+runtime archive) and `huggingface.co` (the model) together with the file hosts those two sites redirect the downloads
+to (GitHub's release asset host `objects.githubusercontent.com`, Hugging Face's CDN hosts). The Vanta Nexus assistant's
+prompts go to `127.0.0.1` only: no cloud AI, no API key, no account, no telemetry. The launcher talks only to Mojang,
+Microsoft/Xbox, Fabric, Adoptium (Java), GitHub (releases, and the Local AI runtime when you agreed to it), Hugging Face
+(the Local AI model, same condition), the file hosts those two redirect to, and Modrinth (Performance pack, Mods page)
+to do its job. The website has no analytics, cookies or third-party scripts.
 Details: [Statistics and privacy](statistics-and-privacy.md), [Privacy](privacy.md).
 
 ## What is Vanta Nexus?

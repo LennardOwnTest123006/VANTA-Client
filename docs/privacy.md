@@ -18,8 +18,9 @@ This page describes what actually happens; it is kept in sync with the code and 
   Shaders*, by the launcher for the Performance pack and the Mods page. No account data is sent
   ([details](#modrinth-mods-shaders-and-the-performance-pack)).
 - **The Local AI of Vanta Nexus is strictly local** (from 1.4.0 on). The only network use is the one-time download of
-  its runtime from `github.com` and its model from `huggingface.co`, and only after you click Install. The assistant's
-  prompts go to `127.0.0.1` only: no cloud AI, no API key, no account, no telemetry ([details](#the-local-ai)).
+  its runtime from `github.com` and its model from `huggingface.co` (each redirected by that site to its own file
+  host), and only after you click Install. The assistant's prompts go to `127.0.0.1` only: no cloud AI, no API key, no
+  account, no telemetry ([details](#the-local-ai)).
 - **The website has no analytics, no cookies and no third-party scripts.**
 
 ## VANTA Client (the Fabric mod)
@@ -38,8 +39,10 @@ ever:
   and, from client 1.2.0 on, after you press *Boost FPS* or *Install* in the *Boost your FPS?* offer, see
   [Modrinth](#modrinth-mods-shaders-and-the-performance-pack) below;
 - only when you install the [Local AI](local-ai.md) from the game: **`github.com`** for the llama.cpp runtime archive
-  and **`huggingface.co`** for the model, once, after your click on *Install Local AI*, see [The Local AI](#the-local-ai)
-  below.
+  and **`huggingface.co`** for the model, once, after your click on *Install Local AI*. Both sites answer the download
+  with a redirect to their own file host, which the client follows: GitHub's release asset host
+  `objects.githubusercontent.com` and Hugging Face's CDN hosts. The two files are transferred from there; no other
+  service is contacted. See [The Local AI](#the-local-ai) below.
 
 The client does not phone home, check for updates, fetch cosmetics or load remote content. Minecraft's own connections
 (Mojang authentication, the servers you join, resource packs a server sends) are not changed by VANTA.
@@ -62,8 +65,11 @@ from llama.cpp and the Qwen3-1.7B model, started by the game as a child process 
   `b11429`) and the model from `huggingface.co` (the repository `Qwen/Qwen3-1.7B-GGUF`), each verified by size and
   SHA-256 from the manifest VANTA ships. They are started only by *Install Local AI* in the game or *Download and
   install* / *Install* in the VANTA Launcher; the dialog and the card say beforehand what is downloaded, from where and
-  how big. The requests carry the user agent `VANTA-Client/<version>` (or `VANTA-Launcher/<version>`) and nothing
-  about you; like any web server, GitHub and Hugging Face see your IP address under their own privacy policies.
+  how big. Each site answers the request with a redirect to its own file host, which the download follows: GitHub's
+  release asset host `objects.githubusercontent.com` for the archive, Hugging Face's CDN hosts for the model. A
+  firewall that allows the Local AI download therefore has to allow those file hosts too. The requests carry the user
+  agent `VANTA-Client/<version>` (or `VANTA-Launcher/<version>`) and nothing about you; like any web server, GitHub
+  and Hugging Face see your IP address under their own privacy policies.
 - **Offline afterwards.** Once installed, the Local AI contacts no host at all: not for updates, not for licences,
   not for anything. A newer VANTA release can name newer files, and again nothing is downloaded before you click.
 - **What is stored**: the runtime, the model and `installed.json` in the Local AI folder, the server's log
@@ -100,7 +106,7 @@ To install and start the game the launcher connects to:
 | `login.microsoftonline.com`, `user.auth.xboxlive.com`, `xsts.auth.xboxlive.com`, `api.minecraftservices.com` | Microsoft sign-in (device code flow), Xbox Live and Minecraft tokens, ownership and profile — only when a Microsoft client id is configured |
 | GitHub: `raw.githubusercontent.com` (the built-in releases URL), `github.com` and its release asset hosts | release manifests (`client-latest.json`, `launcher-latest.json`) and VANTA downloads; a releases URL you configure instead is contacted in place of the built-in one |
 | `api.modrinth.com`, `cdn.modrinth.com` | from launcher 1.1.0 on: the Performance pack (when *Install the performance pack* is on) and the Mods page, see [below](#modrinth-mods-shaders-and-the-performance-pack) |
-| `github.com` (the llama.cpp release `b11429`), `huggingface.co` (the repository `Qwen/Qwen3-1.7B-GGUF`) | from launcher 1.4.0 on, only when you agreed to install the [Local AI](local-ai.md): the one-time download of the `llama-server` archive for your system and the model, SHA-256 verified. The launcher never starts them; the game does, on `127.0.0.1` ([The Local AI](#the-local-ai)) |
+| `github.com` (the llama.cpp release `b11429`) and its release asset host `objects.githubusercontent.com`, `huggingface.co` (the repository `Qwen/Qwen3-1.7B-GGUF`) and its CDN hosts, which the two sites redirect the downloads to | from launcher 1.4.0 on, only when you agreed to install the [Local AI](local-ai.md): the one-time download of the `llama-server` archive for your system and the model, SHA-256 verified. The launcher never starts them; the game does, on `127.0.0.1` ([The Local AI](#the-local-ai)) |
 
 Requests identify the launcher with the user agent `VANTA-Launcher/<version>`; requests to Modrinth use the
 descriptive user agent Modrinth asks for (below). The launcher sends nothing else and receives nothing it does not

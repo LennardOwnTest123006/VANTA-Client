@@ -241,7 +241,8 @@ function hostOf(url: string): string {
 /**
  * The hosts the client or the launcher contacts for the Local AI download, in manifest order and
  * without duplicates: the runtime archives first, then the model. For the committed manifest that is
- * `github.com` and `huggingface.co`, the only hosts the client ever contacts besides Modrinth.
+ * `github.com` and `huggingface.co`, the two sites the client contacts besides Modrinth; each of them
+ * redirects the download to its own file host, see `localAiRedirectTargets`.
  */
 export function localAiDownloadHosts(manifest: LocalAiManifest): string[] {
   const hosts: string[] = [];
@@ -250,6 +251,30 @@ export function localAiDownloadHosts(manifest: LocalAiManifest): string[] {
     if (!hosts.includes(host)) hosts.push(host);
   }
   return hosts;
+}
+
+/**
+ * Where the two download sites send the request: GitHub answers a release asset URL with a redirect
+ * to its release asset host `objects.githubusercontent.com` (documented by GitHub), Hugging Face
+ * answers a resolve URL with a redirect to its CDN hosts, and the client and the launcher follow
+ * those redirects. A statement that names the two sites as the only hosts has to name these targets
+ * too. Only hosts the committed manifest can use are listed; an unknown host gets no entry, so the
+ * site never invents a CDN name.
+ */
+const REDIRECT_TARGETS: ReadonlyMap<string, string> = new Map([
+  ['github.com', "GitHub's release asset host objects.githubusercontent.com"],
+  ['huggingface.co', "Hugging Face's CDN hosts"],
+]);
+
+/**
+ * The file hosts the download hosts of the manifest redirect to, one phrase per known host in
+ * `localAiDownloadHosts` order; a host this module does not know contributes nothing.
+ */
+export function localAiRedirectTargets(manifest: LocalAiManifest): string[] {
+  return localAiDownloadHosts(manifest).flatMap((host) => {
+    const target = REDIRECT_TARGETS.get(host);
+    return target === undefined ? [] : [target];
+  });
 }
 
 /**

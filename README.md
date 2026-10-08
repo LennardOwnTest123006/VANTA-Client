@@ -34,9 +34,10 @@ manipulation or anything that gives an unfair advantage on multiplayer servers.
 - **Local AI** (client and launcher 1.4.0, [docs/local-ai.md](docs/local-ai.md)): the assistant runs on `llama-server` from llama.cpp (release b11429, MIT)
   with the Qwen3-1.7B Q8_0 model (Apache-2.0) **on the player's PC**, started by the game on `127.0.0.1`. Downloaded
   once, only after a click on *Install Local AI* (game) or *Download and install* (launcher): the runtime archive for the
-  system from `github.com` (11.5 to 19.4 MB) and the model from `huggingface.co` (1.83 GB), every file verified by
-  SHA-256 from the committed manifest `shared/local-ai/local-ai.json`; offline afterwards. No cloud AI, no API key, no
-  account, no telemetry. Optional: everything else works without it.
+  system from `github.com` (11.5 to 19.4 MB) and the model from `huggingface.co` (1.83 GB), each redirected by that
+  site to its own file host (GitHub's `objects.githubusercontent.com`, Hugging Face's CDN hosts) and nothing else
+  contacted, every file verified by SHA-256 from the committed manifest `shared/local-ai/local-ai.json`; offline
+  afterwards. No cloud AI, no API key, no account, no telemetry. Optional: everything else works without it.
 - **Waypoints** (client 1.4.0, [docs/waypoints.md](docs/waypoints.md)): saved places per world with screen markers (name, distance, colour), categories, a
   marker distance, the Waypoints section of Nexus and, in Vanta Lab, beams in the world.
 - **Vanta Lab** (client 1.4.0): optional features, all off by default: Dynamic HUD, Animated crosshair, Waypoint beams,

@@ -32,13 +32,13 @@ carries it as `local-ai/local-ai.json` next to a readable `LOCAL-AI.txt`.
 
 | File | From | Size | Licence |
 | --- | --- | --- | --- |
-| `llama-b11429-bin-win-cpu-x64.zip` (Windows x64) | `github.com`, the llama.cpp release `b11429` | 19.4 MB | MIT |
+| `llama-b11429-bin-win-cpu-x64.zip` (Windows x64) | `github.com`, the llama.cpp release `b11429` (redirected to GitHub's release asset host `objects.githubusercontent.com`) | 19.4 MB | MIT |
 | `llama-b11429-bin-win-cpu-arm64.zip` (Windows on ARM) | `github.com` | 12.2 MB | MIT |
 | `llama-b11429-bin-ubuntu-x64.tar.gz` (Linux x64) | `github.com` | 17.7 MB | MIT |
 | `llama-b11429-bin-ubuntu-arm64.tar.gz` (Linux on ARM) | `github.com` | 13.7 MB | MIT |
 | `llama-b11429-bin-macos-arm64.tar.gz` (Apple Silicon) | `github.com` | 12.0 MB | MIT |
 | `llama-b11429-bin-macos-x64.tar.gz` (Intel Mac) | `github.com` | 11.5 MB | MIT |
-| `Qwen3-1.7B-Q8_0.gguf` (every system) | `huggingface.co`, the repository `Qwen/Qwen3-1.7B-GGUF` | 1.83 GB (1,834,426,016 bytes) | Apache-2.0 |
+| `Qwen3-1.7B-Q8_0.gguf` (every system) | `huggingface.co`, the repository `Qwen/Qwen3-1.7B-GGUF` (redirected to Hugging Face's CDN hosts) | 1.83 GB (1,834,426,016 bytes) | Apache-2.0 |
 
 Only **one** runtime archive is downloaded, the one for your system, plus the model: about **1.85 GB** on Windows x64,
 a little less on the other systems. Sizes here are decimal (1 MB = 1,000,000 bytes), as on the Download page and in the
@@ -46,10 +46,13 @@ launcher and the card in the game round the same way. The manifest
 asks for **2200 MB of free disk space** and **3072 MB of free RAM** while the server runs
 ([Minecraft requirements → Local AI](minecraft-requirements.md#local-ai)).
 
-The downloads are plain HTTPS requests to those two sites (following the redirects they send to their file hosts),
-with a User-Agent that names the client (`VANTA-Client/<version> (https://github.com/LennardOwnTest123006/VANTA-Client)`)
-or the launcher (`VANTA-Launcher/<version>`). Nothing about you goes along: no account, no name, no settings, no
-statistics. Like any web server, GitHub and Hugging Face see your IP address; their privacy policies apply to that.
+The downloads are plain HTTPS requests to those two sites. Each answers with a redirect to its own file host, which
+the client and the launcher follow: GitHub's release asset host `objects.githubusercontent.com` for the archive and
+Hugging Face's CDN hosts for the model, so a firewall has to allow those too. The requests carry a User-Agent that
+names the client (`VANTA-Client/<version> (https://github.com/LennardOwnTest123006/VANTA-Client)`) or the launcher
+(`VANTA-Launcher/<version>`). Nothing about you goes along: no account, no name, no settings, no statistics, and no
+other service is contacted. Like any web server, GitHub and Hugging Face see your IP address; their privacy policies
+apply to that.
 
 ## Verification
 

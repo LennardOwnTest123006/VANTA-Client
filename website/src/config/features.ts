@@ -30,6 +30,7 @@ import {
   localAiDownloadHosts,
   localAiModelLabel,
   localAiPlatformLabel,
+  localAiRedirectTargets,
   localAiRuntimeLabel,
   localAiRuntimeSizeRange,
 } from '../lib/localAi';
@@ -255,6 +256,11 @@ function localAiBullets(manifest: LocalAiManifest | undefined): string[] {
     ];
   }
   const hosts = localAiDownloadHosts(manifest);
+  const redirects = localAiRedirectTargets(manifest);
+  const redirectNote =
+    redirects.length > 0
+      ? ` (each redirects it to its own file host, which the client follows: ${redirects.join(', ')})`
+      : '';
   const modelSize = isLocalAiResolved(manifest)
     ? (formatBytes(manifest.model.size) ?? 'size not resolved yet')
     : 'size recorded in the manifest once resolved';
@@ -267,7 +273,7 @@ function localAiBullets(manifest: LocalAiManifest | undefined): string[] {
     'Every file is checked against the size and SHA-256 of the committed Local AI manifest; a quick check runs at every start, Verify files re-hashes on demand, Reinstall repairs, and Remove Local AI deletes only that folder',
     `Offline afterwards: the client starts ${manifest.runtime.component} on 127.0.0.1 on a free port with a ${manifest.model.contextSize}-token context on the CPU (no GPU offload); it stops after 10 minutes without a question (a setting, or keep it running) and starts again on demand; CPU threads automatic (at least 2, at most 8, two fewer than your cores) or a fixed number`,
     `Needs about ${manifest.requirements.diskMb} MB of disk space and ${manifest.requirements.ramMb} MB of RAM while it runs. Available for ${manifest.runtime.platforms.map((p) => localAiPlatformLabel(p.key)).join(', ')}; any other system gets an honest "Local AI is not available on this system" state and everything else keeps working`,
-    `The client contacts Modrinth (Mods & Shaders) and, only when you install the Local AI, ${hosts.join(' and ')} for this download. Nothing else, ever. The assistant's prompts go to 127.0.0.1 only: no cloud AI, no API key, no account, no telemetry`,
+    `The client contacts Modrinth (Mods & Shaders) and, only when you install the Local AI, ${hosts.join(' and ')} for this download${redirectNote}. Nothing else, ever. The assistant's prompts go to 127.0.0.1 only: no cloud AI, no API key, no account, no telemetry`,
     'A small model answering on your CPU can misread a request. Nexus therefore validates every action against what really exists, lists what it did not apply and why, and keeps Undo one click away',
   ];
 }
