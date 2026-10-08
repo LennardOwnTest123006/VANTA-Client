@@ -9,9 +9,9 @@ Data-driven content rendered by the website. Everything here is loaded at build 
 | `changelog/` | `<product>-<version>.md` | `product` (client, launcher, website), `version`, `date`, `title`, `minecraftVersion` (required for client and launcher, must be `1.21.11`) | `changelog-entry.schema.json` | `/changelog`, Download page excerpts, GitHub Release notes (the release workflow strips the front matter and appends the checksums) |
 | `news/` | `<yyyy-mm-dd>-<slug>.md` | `title`, `date`, `summary`, `author`, optional `tags`, `draft` | `news-post.schema.json` | `/news`, `/news/<slug>` — see [`news/README.md`](news/README.md) |
 
-Changelog bodies use the headings `## Added`, `## Improved`, `## Fixed` (any subset, in that order) and optionally
-`## Notes`. Keep the entries in sync with the root `CHANGELOG.md`; the release manifest in `shared/releases/` points
-at the changelog file through its `changelog` field.
+Changelog bodies use the headings `## Added`, `## Improved`, `## Fixed`, `## Removed` (any subset, in that order) and
+optionally `## Notes`. Keep the entries in sync with the root `CHANGELOG.md`; the release manifest in `shared/releases/`
+points at the changelog file through its `changelog` field.
 
 The Download page card quotes at most three bullets of the release it offers, each cut to three lines: the bullets of
 `## Fixed` first, then `## Added` and `## Improved` (`releaseHighlights` in `src/lib/content.ts`). Only when these

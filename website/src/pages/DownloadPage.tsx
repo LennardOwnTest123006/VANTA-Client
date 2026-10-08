@@ -2,7 +2,9 @@ import {
   ArrowDown,
   BookOpen,
   ExternalLink,
+  FileArchive,
   History,
+  Layers,
   Monitor,
   Package,
   ShieldCheck,
@@ -15,10 +17,13 @@ import { BundleCard } from '../components/download/BundleCard';
 import { DownloadCard } from '../components/download/DownloadCard';
 import { InstallOptions } from '../components/download/InstallOptions';
 import { LatestVersion } from '../components/download/LatestVersion';
+import { LocalAiNote } from '../components/download/LocalAiNote';
 import { OlderVersions } from '../components/download/OlderVersions';
+import { ReleaseFilesCard } from '../components/download/ReleaseFilesCard';
 import { WhatsNew } from '../components/download/WhatsNew';
 import { PageMeta } from '../components/layout/PageMeta';
 import { PageHero } from '../components/page/PageHero';
+import { TocNav } from '../components/page/TocNav';
 import { Button } from '../components/ui/Button';
 import { Callout } from '../components/ui/Callout';
 import { Card } from '../components/ui/Card';
@@ -27,11 +32,18 @@ import { Section } from '../components/ui/Section';
 import { Stat, StatGroup } from '../components/ui/Stat';
 import { githubLinks, officialLauncherProfileName, site, specFacts } from '../config/site';
 import { bundles, latestBundle, olderBundles } from '../lib/bundles';
-import { modsBundleFile, resolveDownload } from '../lib/downloads';
+import {
+  launcherCrossPlatformFiles,
+  launcherSetupFiles,
+  modsBundleFile,
+  resolveDownload,
+} from '../lib/downloads';
 import { env } from '../lib/env';
+import { localAi } from '../lib/localAi';
 import { latestRelease, olderReleases, releases, upcomingRelease } from '../lib/releases';
 
-const requirements = [
+/** System requirements of the game; the Local AI row is added from the manifest when it exists. */
+const baseRequirements = [
   {
     label: 'Operating system',
     value: 'Windows 10 or 11 (64-bit)',
@@ -40,7 +52,7 @@ const requirements = [
   {
     label: 'Java',
     value: `Java ${site.java}`,
-    note: `Included in the launcher installers and portable apps. For the game the launcher finds Java ${site.java} or installs Eclipse Temurin ${site.java}.`,
+    note: `Included in the launcher installer and portable apps. For the game the launcher finds Java ${site.java} or installs Eclipse Temurin ${site.java}.`,
   },
   {
     label: 'Memory',
@@ -64,6 +76,17 @@ const requirements = [
   },
 ] as const;
 
+const requirements = localAi
+  ? [
+      ...baseRequirements,
+      {
+        label: 'Local AI (optional)',
+        value: `${localAi.requirements.diskMb} MB disk, ${localAi.requirements.ramMb} MB RAM`,
+        note: 'Only when you install the Local AI of Vanta Nexus (client and launcher 1.4.0 on): the runtime and the model on disk, and the RAM while the assistant runs. Values from the Local AI manifest.',
+      },
+    ]
+  : [...baseRequirements];
+
 const verification = [
   {
     os: 'Windows (PowerShell or Command Prompt)',
@@ -76,12 +99,14 @@ const verification = [
 ] as const;
 
 /**
- * Download center: the latest versions, the launcher and client cards from the release manifests,
- * the full release zip from the bundle manifest when one is published, what is new in the offered
- * versions, requirements, verification and, at the end, every older published version. Each card
- * offers the newest published release; a newer version that is committed but not published yet is
- * mentioned on the card instead of replacing the working downloads, and without a published bundle
- * there is no zip card at all.
+ * Download center in three clearly labelled sections: WINDOWS (the launcher setup, with the `.msi`
+ * from the newest published launcher manifest), CROSS-PLATFORM (the client jar for Windows, Linux
+ * and macOS plus the launcher jars and the Linux app) and COMPLETE RELEASE (the full release zip
+ * from the newest published bundle manifest; no card at all while none is published). Then the
+ * Local AI note, what is new in the offered versions, requirements, verification and, at the end,
+ * every older published version. Each card offers the newest published release of its product; a
+ * newer version that is committed but not published yet is mentioned on the card instead of
+ * replacing the working downloads.
  */
 export default function DownloadPage() {
   const launcher = latestRelease(releases, 'launcher');
@@ -95,12 +120,24 @@ export default function DownloadPage() {
   const olderZips = olderBundles(bundles);
   const hasOlderVersions =
     olderLaunchers.length > 0 || olderClients.length > 0 || olderZips.length > 0;
+  const setupFiles = launcher ? launcherSetupFiles(launcher) : [];
+  const crossPlatformFiles = launcher ? launcherCrossPlatformFiles(launcher) : [];
+  const hasExe = setupFiles.some((file) => file.name.toLowerCase().endsWith('.exe'));
+  const toc = [
+    { id: 'windows', label: 'Windows' },
+    { id: 'cross-platform', label: 'Cross-platform' },
+    { id: 'complete-release', label: 'Complete release' },
+    ...(localAi ? [{ id: 'local-ai', label: 'Local AI' }] : []),
+    { id: 'requirements', label: 'Requirements' },
+    { id: 'verify', label: 'Verify' },
+    ...(hasOlderVersions ? [{ id: 'older-versions', label: 'Older versions' }] : []),
+  ];
 
   return (
     <>
       <PageMeta
         title="Download"
-        description={`Download VANTA Launcher and VANTA Client for Minecraft ${site.minecraft} (Fabric Loader ${site.fabricLoader}, Java ${site.java}, ${site.platform})${bundle ? ', or both in one full release zip' : ''}. Every file comes with a SHA-256 checksum.`}
+        description={`Download VANTA Launcher and VANTA Client for Minecraft ${site.minecraft} (Fabric Loader ${site.fabricLoader}, Java ${site.java}): the Windows installer, the client jar and launcher jars for Windows, Linux and macOS${bundle ? ', or everything in one full release zip' : ''}. Every file comes with a SHA-256 checksum.`}
       />
       <PageHero
         eyebrow="Download"
@@ -109,7 +146,7 @@ export default function DownloadPage() {
             {site.name} for Minecraft <span className="text-gradient">{site.minecraft}</span>
           </>
         }
-        lead="Install the launcher for the full experience, or add the client jar to a Fabric profile you already have. Every file is listed with its size and SHA-256 checksum from the release manifest."
+        lead="Install the launcher on Windows for the full experience, add the client jar to a Fabric profile on any system, or take the complete release in one zip. Every file is listed with its size and SHA-256 checksum from the release manifest."
       >
         <LatestVersion client={client} launcher={launcher} />
         <StatGroup
@@ -120,70 +157,127 @@ export default function DownloadPage() {
             <Stat key={fact.label} label={fact.label} value={fact.value} size="sm" />
           ))}
         </StatGroup>
+        <TocNav items={toc} className="mt-8" />
       </PageHero>
 
-      <Section id="downloads" spacing="sm" aria-label="Downloads">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div id="downloads">
+        <Section
+          id="windows"
+          eyebrow="Windows"
+          title="Launcher Setup for Windows."
+          lead={`The VANTA Launcher installer for 64-bit Windows 10 and 11, with Java ${site.java} included. It installs Minecraft ${site.minecraft}, Fabric and the VANTA Client for you and keeps them up to date.`}
+          className="scroll-mt-24"
+          spacing="sm"
+        >
           <DownloadCard
             manifest={launcher}
             resolution={launcherDownload}
             icon={Monitor}
             eyebrow="Launcher"
             title="VANTA Launcher"
-            description={`Installs Minecraft ${site.minecraft}, Fabric Loader ${site.fabricLoader}, Fabric API and the VANTA Client with checksum verification. Until Microsoft sign-in is available inside VANTA, it adds the profile “${officialLauncherProfileName}” to the official Minecraft Launcher, which signs you in and starts the game. From launcher 1.1.0 on it also installs the Performance pack from Modrinth by default and has a Mods page. Windows installer (.msi) with Java ${site.java} included.`}
+            description={`Installs Minecraft ${site.minecraft}, Fabric Loader ${site.fabricLoader}, Fabric API and the VANTA Client with checksum verification. Until Microsoft sign-in is available inside VANTA, it adds the profile “${officialLauncherProfileName}” to the official Minecraft Launcher, which signs you in and starts the game. From launcher 1.1.0 on it also installs the Performance pack from Modrinth by default and has a Mods page; from launcher 1.4.0 on it offers the optional Local AI for Vanta Nexus once and downloads it only after you agree (see the Local AI note below). Windows installer (.msi) with Java ${site.java} included.`}
             cta="Download launcher"
             upcoming={upcomingRelease(releases, 'launcher')}
             primary
-            footnote={`Also published: the same installer as .exe, portable apps for Windows x64 and Linux x64 that include Java ${site.java}, and launcher jars for Windows x64, Linux x64 and Apple Silicon macOS that need Java ${site.java} installed. Each jar runs only on the system it was built for. Nothing is code-signed yet, so check the SHA-256 first.`}
+            files={setupFiles}
+            filesHeading="Windows files in this release"
+            footnote={`${hasExe ? 'Also published: the same installer as .exe (releases before 1.4.0 only) and a' : 'Also published: a'} portable Windows app that includes Java ${site.java}. The launcher jars for Windows x64, Linux x64 and Apple Silicon macOS and the Linux app are listed under Cross-platform below. Nothing is code-signed yet, so check the SHA-256 first.`}
           />
-          <DownloadCard
-            manifest={client}
-            resolution={clientDownload}
-            icon={Package}
-            eyebrow="Client"
-            title="VANTA Client (jar)"
-            description={`The Fabric mod for Minecraft ${site.minecraft} with Fabric Loader ${site.fabricLoader}. It needs Fabric API ${site.fabricApi}, which is included in the mods bundle and also published as its own file. From client 1.2.0 on the mods bundle also holds the Performance pack mods that may be redistributed (all but EntityCulling, which the game offers in one click).`}
-            cta="Download client jar"
-            upcoming={upcomingRelease(releases, 'client')}
-            secondaryDownload={{ file: modsBundle, label: 'Download mods bundle' }}
-            footnote={`Requires Fabric API ${site.fabricApi}. Other mods such as rendering optimisers can be installed alongside.`}
-          >
-            <InstallOptions idPrefix="download-client" />
-          </DownloadCard>
+        </Section>
+
+        <Section
+          id="cross-platform"
+          eyebrow="Cross-platform"
+          title="The client jar for Windows, Linux and macOS, and the launcher jars."
+          lead={`The VANTA Client is a Fabric mod: the same jar on every system, for Minecraft ${site.minecraft} with Fabric Loader ${site.fabricLoader} and Fabric API ${site.fabricApi}. The VANTA Launcher comes as one jar per system (each needs Java ${site.java} installed) and as a Linux app with Java included.`}
+          className="scroll-mt-24 border-t border-border-subtle"
+          spacing="sm"
+        >
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <DownloadCard
+              manifest={client}
+              resolution={clientDownload}
+              icon={Package}
+              eyebrow="Client"
+              title="VANTA Client (jar)"
+              description={`The Fabric mod for Minecraft ${site.minecraft} with Fabric Loader ${site.fabricLoader}, for Windows, Linux and macOS alike. It needs Fabric API ${site.fabricApi}, which is included in the mods bundle and also published as its own file. From client 1.2.0 on the mods bundle also holds the Performance pack mods that may be redistributed (all but EntityCulling, which the game offers in one click).`}
+              cta="Download client jar"
+              upcoming={upcomingRelease(releases, 'client')}
+              secondaryDownload={{ file: modsBundle, label: 'Download mods bundle' }}
+              footnote={`Requires Fabric API ${site.fabricApi}. Other mods such as rendering optimisers can be installed alongside.`}
+            >
+              <InstallOptions idPrefix="download-client" />
+            </DownloadCard>
+            <ReleaseFilesCard
+              manifest={launcher}
+              files={crossPlatformFiles}
+              icon={Layers}
+              eyebrow="Launcher"
+              title="VANTA Launcher jars and Linux app"
+              idPrefix="download-launcher-jars"
+              description={`The same launcher as above for Linux x64, Apple Silicon macOS and Windows x64 without the installer: one jar per system, started with java -jar and an installed Java ${site.java}, plus the Linux app that brings Java ${site.java} along. Pick the file with your system in its name.`}
+              filesHeading="Launcher files for Linux, macOS and Java in this release"
+              footnote="Each jar runs only on the system it was built for: it contains the JavaFX libraries of that one system. The macOS jar is unsigned and its window is not tested yet. No support guarantees outside Windows."
+            />
+          </div>
+        </Section>
+
+        <Section
+          id="complete-release"
+          eyebrow="Complete release"
+          title="Everything in one zip."
+          lead="One archive with every published file of a client release and a launcher release, the documentation, the release notes and the checksums. Built by the bundle workflow from the files already published, never rebuilt."
+          className="scroll-mt-24 border-t border-border-subtle"
+          spacing="sm"
+        >
           {bundle ? (
             <BundleCard
               bundle={bundle}
               clientVersion={client?.version}
               launcherVersion={launcher?.version}
             />
+          ) : (
+            <p
+              role="status"
+              className="surface-card flex items-start gap-3 p-6 text-sm leading-relaxed text-text-secondary sm:p-7"
+            >
+              <FileArchive className="mt-0.5 size-4 shrink-0 text-text-muted" aria-hidden="true" />
+              <span>
+                No full release zip is published at the moment. The card appears here as soon as the
+                bundle workflow has published one and recorded its size and SHA-256 in a bundle
+                manifest; until then the single files above are the downloads.
+              </span>
+            </p>
+          )}
+          {hasOlderVersions || site.releasesBaseUrl || githubLinks ? (
+            <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-text-secondary">
+              <span>Looking for older versions or checksum files?</span>
+              {hasOlderVersions ? (
+                <Button
+                  href="#older-versions"
+                  variant="link"
+                  trailingIcon={<ArrowDown />}
+                  className="text-sm"
+                >
+                  Older versions on this page
+                </Button>
+              ) : null}
+              {githubLinks ? (
+                <Button href={githubLinks.releases} variant="link" trailingIcon={<ExternalLink />}>
+                  All releases on GitHub
+                </Button>
+              ) : null}
+              {site.releasesBaseUrl ? (
+                <Button href={site.releasesBaseUrl} variant="link" trailingIcon={<ExternalLink />}>
+                  Release manifests
+                </Button>
+              ) : null}
+            </div>
           ) : null}
-        </div>
-        {hasOlderVersions || site.releasesBaseUrl || githubLinks ? (
-          <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-text-secondary">
-            <span>Looking for older versions or checksum files?</span>
-            {hasOlderVersions ? (
-              <Button
-                href="#older-versions"
-                variant="link"
-                trailingIcon={<ArrowDown />}
-                className="text-sm"
-              >
-                Older versions on this page
-              </Button>
-            ) : null}
-            {githubLinks ? (
-              <Button href={githubLinks.releases} variant="link" trailingIcon={<ExternalLink />}>
-                All releases on GitHub
-              </Button>
-            ) : null}
-            {site.releasesBaseUrl ? (
-              <Button href={site.releasesBaseUrl} variant="link" trailingIcon={<ExternalLink />}>
-                Release manifests
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-      </Section>
+        </Section>
+      </div>
+
+      <LocalAiNote manifest={localAi} />
 
       <WhatsNew client={client} launcher={launcher} />
 
@@ -210,7 +304,7 @@ export default function DownloadPage() {
           </Card>
           <Card icon={<Coffee />} title={`Java ${site.java}`} padding="sm">
             <p>
-              Minecraft {site.minecraft} requires Java {site.java}. The launcher installers and
+              Minecraft {site.minecraft} requires Java {site.java}. The launcher installer and the
               portable apps bring their own. For the game the launcher detects an existing
               installation or downloads Eclipse Temurin {site.java} from Adoptium, verifies the
               SHA-256 and installs it only for VANTA; the Minecraft Launcher uses its own runtime.
@@ -218,7 +312,7 @@ export default function DownloadPage() {
           </Card>
           <Card icon={<Monitor />} title={site.platform} padding="sm">
             <p>
-              The installers target 64-bit Windows 10 and 11. Linux x64 gets an app with Java
+              The installer targets 64-bit Windows 10 and 11. Linux x64 gets an app with Java
               included, Apple Silicon Macs a launcher jar; a launcher jar contains JavaFX for one
               system only, so pick the file for yours. No support guarantees outside Windows. The
               client jar is the same on every system.
@@ -231,7 +325,8 @@ export default function DownloadPage() {
         id="requirements"
         eyebrow="System requirements"
         title="If it runs vanilla 1.21.11, it runs VANTA."
-        lead="VANTA adds a UI layer on top of the game. It does not raise the hardware requirements of Minecraft itself."
+        lead="VANTA adds a UI layer on top of the game. It does not raise the hardware requirements of Minecraft itself; only the optional Local AI needs disk space and RAM of its own."
+        className="scroll-mt-24"
         spacing="md"
       >
         <dl className="surface-card grid gap-px overflow-hidden bg-border-subtle sm:grid-cols-2 lg:grid-cols-3">
@@ -253,8 +348,8 @@ export default function DownloadPage() {
         id="verify"
         eyebrow="Verify your download"
         title="Check the SHA-256 before you install."
-        lead="Compare the output of one command with the checksum shown on the card above. If they differ, delete the file and download it again — do not run it."
-        className="border-t border-border-subtle bg-bg-void/40"
+        lead="Compare the output of one command with the checksum shown on the card above. If they differ, delete the file and download it again; do not run it."
+        className="scroll-mt-24 border-t border-border-subtle bg-bg-void/40"
         spacing="md"
       >
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -284,11 +379,12 @@ export default function DownloadPage() {
           className="mt-6"
         >
           <p>
-            Every file the launcher downloads — Minecraft, libraries, Fabric, Fabric API, the VANTA
-            jar and the Java runtime — is checked against the SHA-1 or SHA-256 published by its
+            Every file the launcher downloads, from Minecraft, libraries, Fabric, Fabric API and the
+            VANTA jar to the Java runtime, is checked against the SHA-1 or SHA-256 published by its
             source before it is used; from launcher 1.1.0 on, the Performance pack mods from
-            Modrinth are checked against Modrinth’s SHA-512. Files that fail verification are
-            deleted, never executed.
+            Modrinth are checked against Modrinth’s SHA-512, and from 1.4.0 on the Local AI files
+            against the SHA-256 of the Local AI manifest. Files that fail verification are deleted,
+            never executed.
           </p>
         </Callout>
         <div className="mt-10 grid gap-4 lg:grid-cols-3" aria-label="After downloading">
@@ -300,7 +396,7 @@ export default function DownloadPage() {
           >
             <p>
               Verify the checksum, install the launcher and play through VANTA or the Minecraft
-              Launcher — step by step, with the folders where everything ends up.
+              Launcher, step by step, with the folders where everything ends up.
             </p>
           </Card>
           <Card icon={<History />} title="Release notes" to="/changelog" padding="sm">

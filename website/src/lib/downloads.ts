@@ -52,6 +52,35 @@ export function modsBundleFile(manifest: ReleaseManifest | undefined): ReleaseFi
   return manifest?.files.find((file) => lower(file.name).endsWith('-mods.zip'));
 }
 
+/**
+ * True for the launcher files that set up Windows without a Java of their own: the `.msi` installer
+ * (from 1.4.0 on the only installer), the `.exe` wrapper releases before 1.4.0 shipped, and the
+ * portable Windows app. The download page lists them under WINDOWS; everything else of a launcher
+ * release (the jars for Windows, Linux and macOS and the Linux app) is cross-platform in the sense
+ * that there is one such file per system, listed under CROSS-PLATFORM.
+ */
+export function isWindowsSetupFile(name: string): boolean {
+  const normalized = lower(name.trim());
+  return (
+    normalized.endsWith('.msi') ||
+    normalized.endsWith('.exe') ||
+    normalized.endsWith('-windows-portable.zip')
+  );
+}
+
+/** The Windows setup files of a launcher release, in manifest order (see {@link isWindowsSetupFile}). */
+export function launcherSetupFiles(manifest: ReleaseManifest): ReleaseFile[] {
+  return manifest.files.filter((file) => isWindowsSetupFile(file.name));
+}
+
+/**
+ * The remaining files of a launcher release, in manifest order: the launcher jars for Windows x64,
+ * Linux x64 and Apple Silicon macOS and the Linux app with Java.
+ */
+export function launcherCrossPlatformFiles(manifest: ReleaseManifest): ReleaseFile[] {
+  return manifest.files.filter((file) => !isWindowsSetupFile(file.name));
+}
+
 /** Short, human description of one release file, derived from its name only. */
 export interface ReleaseFileInfo {
   /** Platform and kind, e.g. "Windows installer" or "Fabric API (required dependency)". */

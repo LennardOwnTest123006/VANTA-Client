@@ -1,4 +1,5 @@
 import {
+  Bot,
   Coffee,
   Download,
   Gauge,
@@ -10,9 +11,10 @@ import {
 } from 'lucide-react';
 
 /**
- * Support page categories. Every link points at a documentation route or a troubleshooting anchor;
- * `support.test.ts` checks each anchor against the real headings in `docs/*.md` so the page can
- * never link to a section that does not exist.
+ * Support page categories. Every link points at a documentation route, a troubleshooting anchor, a
+ * FAQ question or a section of the Features or Download page; `support.test.ts` checks each anchor
+ * against the real headings in `docs/*.md` and the real section ids so the page can never link to a
+ * section that does not exist.
  */
 
 export interface SupportLink {
@@ -226,6 +228,52 @@ export const supportCategories: readonly SupportCategory[] = [
         label: 'Mods & Shaders problems',
         to: '/documentation/troubleshooting#mods--shaders-problems',
         note: 'Modrinth unreachable, a mod that breaks the game, shaders that do nothing.',
+      },
+    ],
+  },
+  {
+    id: 'nexus',
+    title: 'Vanta Nexus and Local AI',
+    icon: Bot,
+    summary:
+      'The assistant of client 1.4.0, the optional Local AI it runs on, what is downloaded and what never leaves your PC.',
+    guides: [
+      {
+        label: 'What Vanta Nexus is',
+        to: '/features#nexus',
+        note: 'The seven sections, what the assistant may change, Undo, and what it never does.',
+      },
+      {
+        label: 'The Local AI, strictly local',
+        to: '/features#local-ai',
+        note: 'llama-server and the model on your PC; the two hosts contacted for the one-time download; no cloud, no account.',
+      },
+      {
+        label: 'What the first start downloads',
+        to: '/download#local-ai',
+        note: 'Sizes per system, hosts, licences and requirements from the Local AI manifest; optional, and it asks first.',
+      },
+      {
+        label: 'Privacy',
+        to: '/privacy',
+        note: 'Which hosts the client contacts, and that prompts go to 127.0.0.1 only.',
+      },
+    ],
+    troubleshooting: [
+      {
+        label: 'A Local AI file does not match its checksum',
+        to: '/documentation/troubleshooting#checksum-mismatch',
+        note: 'The installer deletes a runtime or model file whose size or SHA-256 differs from the manifest and stops; Retry downloads it again.',
+      },
+      {
+        label: 'Where the logs are',
+        to: '/documentation/troubleshooting#where-the-logs-are',
+        note: 'Launcher log, game output and crash reports. The Local AI writes its own log to logs/llama-server.log inside its folder.',
+      },
+      {
+        label: 'How to report a problem',
+        to: '/documentation/troubleshooting#how-to-report-a-problem',
+        note: 'What to include so a report about the assistant or the Local AI can be acted on.',
       },
     ],
   },

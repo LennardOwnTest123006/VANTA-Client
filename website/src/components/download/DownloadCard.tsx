@@ -35,6 +35,14 @@ export interface DownloadCardProps {
   readonly upcoming?: ReleaseManifest | undefined;
   /** Extra content between the actions and the file list, e.g. the ways to install. */
   readonly children?: ReactNode;
+  /**
+   * The files to list once the release is published; defaults to every file of the manifest. The
+   * download page lists only the Windows setup files on the launcher card and the launcher jars on
+   * a card of their own.
+   */
+  readonly files?: readonly ReleaseFile[] | undefined;
+  /** Heading of the file list; defaults to "All files in this release". */
+  readonly filesHeading?: string | undefined;
 }
 
 /** Bullets of the "In this release" excerpt; each is clamped to three lines. */
@@ -63,6 +71,8 @@ export function DownloadCard({
   secondaryDownload,
   upcoming,
   children,
+  files,
+  filesHeading,
 }: DownloadCardProps) {
   const idPrefix = `download-${eyebrow.toLowerCase()}`;
   const file = resolution.state === 'missing' ? undefined : resolution.file;
@@ -278,7 +288,13 @@ export function DownloadCard({
       {children}
 
       {showFileList ? (
-        <ReleaseFileList manifest={manifest} idPrefix={idPrefix} primaryName={file?.name} />
+        <ReleaseFileList
+          manifest={manifest}
+          idPrefix={idPrefix}
+          primaryName={file?.name}
+          files={files}
+          heading={filesHeading}
+        />
       ) : null}
     </article>
   );

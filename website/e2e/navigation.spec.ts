@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 import { trackConsoleErrors, waitForApp } from './helpers';
 import {
   changelogIds,
+  launcherCrossPlatformFileNames,
+  launcherSetupFileNames,
+  localAiManifest,
   offeredBundle,
   offeredRelease,
   olderBundles,
@@ -90,11 +93,54 @@ test.describe('navigation', () => {
     const errors = trackConsoleErrors(page);
     await page.goto('/download');
     await waitForApp(page);
+
+    // The three labelled sections, in this order: WINDOWS, CROSS-PLATFORM, COMPLETE RELEASE.
+    const sections = page.locator('#downloads > section');
+    await expect(sections).toHaveCount(3);
+    await expect(sections.nth(0)).toHaveAttribute('id', 'windows');
+    await expect(sections.nth(1)).toHaveAttribute('id', 'cross-platform');
+    await expect(sections.nth(2)).toHaveAttribute('id', 'complete-release');
+    await expect(sections.nth(0).getByText('Windows', { exact: true }).first()).toBeVisible();
+    await expect(
+      sections.nth(1).getByText('Cross-platform', { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      sections.nth(2).getByText('Complete release', { exact: true }).first(),
+    ).toBeVisible();
+    // The launcher setup is the only card under WINDOWS; the client and the launcher jars are
+    // under CROSS-PLATFORM.
+    await expect(sections.nth(0).getByRole('article')).toHaveCount(1);
+    await expect(
+      sections.nth(0).getByRole('article', { name: 'VANTA Launcher', exact: true }),
+    ).toBeVisible();
+    await expect(sections.nth(1).getByRole('article')).toHaveCount(2);
+    await expect(
+      sections.nth(1).getByRole('article', { name: 'VANTA Client (jar)', exact: true }),
+    ).toBeVisible();
+    await expect(
+      sections
+        .nth(1)
+        .getByRole('article', { name: 'VANTA Launcher jars and Linux app', exact: true }),
+    ).toBeVisible();
+
     const cards = [
-      { name: 'VANTA Launcher', cta: 'Download launcher', product: 'launcher' },
-      { name: 'VANTA Client (jar)', cta: 'Download client jar', product: 'client' },
+      {
+        name: 'VANTA Launcher',
+        cta: 'Download launcher',
+        product: 'launcher',
+        listName: 'Windows files in this release',
+        listed: (offered: { fileNames: readonly string[] }) =>
+          launcherSetupFileNames(offered as Parameters<typeof launcherSetupFileNames>[0]),
+      },
+      {
+        name: 'VANTA Client (jar)',
+        cta: 'Download client jar',
+        product: 'client',
+        listName: 'All files in this release',
+        listed: (offered: { fileNames: readonly string[] }) => [...offered.fileNames],
+      },
     ] as const;
-    for (const { name, cta, product } of cards) {
+    for (const { name, cta, product, listName, listed } of cards) {
       const card = page.getByRole('article', { name, exact: true });
       await expect(card).toBeVisible();
       // Expectations come from shared/releases: a committed but unpublished newer version (e.g.
@@ -104,7 +150,7 @@ test.describe('navigation', () => {
       expect(offered, `a ${product} manifest in shared/releases`).toBeDefined();
       if (!offered) continue;
       await expect(card.getByText(offered.version, { exact: true }).first()).toBeVisible();
-      const files = card.getByRole('list', { name: 'All files in this release' });
+      const files = card.getByRole('list', { name: listName });
       if (!offered.published) {
         // Not published: a disabled button, the notice, and no download link anywhere on the card.
         await expect(files).toHaveCount(0);
@@ -124,7 +170,12 @@ test.describe('navigation', () => {
         )) {
           expect(href).toMatch(asset);
         }
-        await expect(files.getByRole('listitem')).toHaveCount(offered.fileNames.length);
+        const names = listed(offered);
+        await expect(files.getByRole('listitem')).toHaveCount(names.length);
+        for (const fileName of names) {
+          // The name appears twice per row (the visible line and the link's hidden suffix).
+          await expect(files.getByText(fileName, { exact: true }).first()).toBeVisible();
+        }
         await expect(card.getByRole('link', { name: 'Release page on GitHub' })).toHaveAttribute(
           'href',
           new RegExp(`/releases/tag/${product}-v${escapeVersion(offered.version)}$`),
@@ -138,6 +189,66 @@ test.describe('navigation', () => {
       } else {
         await expect(note).toHaveCount(0);
       }
+    }
+
+    // The launcher jars and the Linux app: the rest of the offered launcher release, under
+    // CROSS-PLATFORM, each file linked to an asset of that release; the pending state otherwise.
+    const launcher = offeredRelease('launcher');
+    const jars = page.getByRole('article', {
+      name: 'VANTA Launcher jars and Linux app',
+      exact: true,
+    });
+    if (launcher) {
+      await expect(jars.getByText(launcher.version, { exact: true }).first()).toBeVisible();
+      const jarList = jars.getByRole('list', {
+        name: 'Launcher files for Linux, macOS and Java in this release',
+      });
+      const expected = launcherCrossPlatformFileNames(launcher);
+      if (launcher.published) {
+        await expect(jarList.getByRole('listitem')).toHaveCount(expected.length);
+        for (const fileName of expected) {
+          await expect(jarList.getByText(fileName, { exact: true }).first()).toBeVisible();
+        }
+        const asset = releaseAsset(`launcher-v${launcher.version}`);
+        for (const href of await jarList
+          .getByRole('link')
+          .evaluateAll((anchors) => anchors.map((a) => a.getAttribute('href') ?? ''))) {
+          expect(href).toMatch(asset);
+        }
+        expect(await jarList.locator('a[href$=".msi"], a[href$=".exe"]').count()).toBe(0);
+      } else {
+        await expect(jarList).toHaveCount(0);
+        await expect(jars.getByText(/Not published yet/)).toBeVisible();
+        expect(await jars.locator('a[href*="/releases/download/"]').count()).toBe(0);
+      }
+      // Every launcher file is listed exactly once across the two cards.
+      expect(launcherSetupFileNames(launcher).length + expected.length).toBe(
+        launcher.fileNames.length,
+      );
+    }
+
+    // The Local AI note: built from shared/local-ai/local-ai.json, present exactly when that file is.
+    const localAi = localAiManifest();
+    const note = page.locator('#local-ai');
+    if (localAi) {
+      await expect(note).toBeVisible();
+      await expect(note.getByRole('heading', { level: 2 })).toHaveText(
+        'Optional, and it asks first.',
+      );
+      await expect(note.getByText(localAi.runtimeTag, { exact: false }).first()).toBeVisible();
+      await expect(note.getByText(localAi.modelFile, { exact: false }).first()).toBeVisible();
+      for (const host of localAi.hosts) {
+        await expect(note.getByText(host, { exact: false }).first()).toBeVisible();
+      }
+      await expect(note.getByText(`${localAi.diskMb} MB`, { exact: false })).toBeVisible();
+      await expect(note.getByText(`${localAi.ramMb} MB`, { exact: false })).toBeVisible();
+      const archives = note.getByRole('list', { name: 'Runtime archive per system' });
+      await expect(archives.getByRole('listitem')).toHaveCount(localAi.archiveFiles.length);
+      await expect(note.getByText('127.0.0.1', { exact: false }).first()).toBeVisible();
+      // The note never links a download: the Local AI is not a release file.
+      expect(await note.locator('a[href*="/releases/download/"]').count()).toBe(0);
+    } else {
+      await expect(note).toHaveCount(0);
     }
 
     // The hero names the offered versions literally as the latest ones.

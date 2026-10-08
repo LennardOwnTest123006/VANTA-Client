@@ -24,6 +24,7 @@ const sectionStyles: Record<SectionKind, { label: string; className: string }> =
     className: 'border-accent-blue/40 bg-accent-blue/10 text-accent-blue',
   },
   fixed: { label: 'Fixed', className: 'border-warning/40 bg-warning/10 text-warning' },
+  removed: { label: 'Removed', className: 'border-danger/40 bg-danger/10 text-danger' },
   notes: { label: 'Notes', className: 'border-border-strong bg-surface-2 text-text-secondary' },
   other: { label: 'Other', className: 'border-border-strong bg-surface-2 text-text-secondary' },
 };

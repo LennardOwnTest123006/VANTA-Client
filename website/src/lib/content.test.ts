@@ -167,6 +167,27 @@ describe('parseChangelogSections', () => {
     const { sections } = parseChangelogSections('```\n## not a section\n```\n## Added\n- x');
     expect(sections.map((s) => s.heading)).toEqual(['Added']);
   });
+  it('knows the Removed section of launcher 1.4.0 and never quotes it as a highlight', () => {
+    const body = [
+      '## Improved',
+      '- better',
+      '## Removed',
+      '- the .exe installer',
+      '## Notes',
+      '- n',
+    ].join('\n');
+    const parsed = parseChangelogSections(body);
+    expect(parsed.sections.map((s) => s.kind)).toEqual(['improved', 'removed', 'notes']);
+    expect(releaseHighlights(parsed)).toEqual(['better']);
+    const launcher = findChangelog('launcher', '1.4.0');
+    expect(launcher?.sections.map((s) => s.kind)).toEqual([
+      'added',
+      'improved',
+      'removed',
+      'notes',
+    ]);
+    expect(launcher?.sections.find((s) => s.kind === 'removed')?.body).toMatch(/\.exe/);
+  });
 });
 
 describe('parseChangelogEntry / loadChangelog', () => {

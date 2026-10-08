@@ -5,7 +5,15 @@ import {
   clientFixture,
   launcherFixture,
 } from '../test/fixtures/releases';
-import { describeReleaseFile, modsBundleFile, primaryFile, resolveDownload } from './downloads';
+import {
+  describeReleaseFile,
+  isWindowsSetupFile,
+  launcherCrossPlatformFiles,
+  launcherSetupFiles,
+  modsBundleFile,
+  primaryFile,
+  resolveDownload,
+} from './downloads';
 import { parseReleaseManifest, releases } from './releases';
 
 const base = {
@@ -139,6 +147,55 @@ describe('modsBundleFile', () => {
     );
     expect(modsBundleFile(launcherFixture({ published: false }))).toBeUndefined();
     expect(modsBundleFile(undefined)).toBeUndefined();
+  });
+});
+
+describe('launcher file groups', () => {
+  it('splits a launcher release into Windows setup files and the cross-platform files', () => {
+    const manifest = launcherFixture({ published: true });
+    expect(launcherSetupFiles(manifest).map((file) => file.name)).toEqual([
+      'VANTA-Launcher-1.0.0.msi',
+      'VANTA-Launcher-1.0.0.exe',
+      'VANTA-Launcher-1.0.0-windows-portable.zip',
+    ]);
+    expect(launcherCrossPlatformFiles(manifest).map((file) => file.name)).toEqual([
+      'vanta-launcher-1.0.0-windows-all.jar',
+      'VANTA-Launcher-1.0.0-linux-x64.tar.gz',
+      'vanta-launcher-1.0.0-linux-all.jar',
+      'vanta-launcher-1.0.0-macos-aarch64-all.jar',
+    ]);
+    // Every file lands in exactly one group.
+    expect(launcherSetupFiles(manifest).length + launcherCrossPlatformFiles(manifest).length).toBe(
+      manifest.files.length,
+    );
+  });
+
+  it('works without the .exe, as launcher releases from 1.4.0 on are published', () => {
+    const files = LAUNCHER_FILE_NAMES.filter((name) => !name.endsWith('.exe'));
+    const manifest = parseReleaseManifest({
+      ...base,
+      files: files.map((name) => ({ name, downloadUrl: '', size: 0, sha256: '' })),
+    });
+    expect(launcherSetupFiles(manifest).map((file) => file.name)).toEqual([
+      'VANTA-Launcher-1.0.0.msi',
+      'VANTA-Launcher-1.0.0-windows-portable.zip',
+    ]);
+    expect(launcherCrossPlatformFiles(manifest)).toHaveLength(4);
+    expect(isWindowsSetupFile('VANTA-Launcher-1.4.0.MSI')).toBe(true);
+    expect(isWindowsSetupFile('vanta-launcher-1.4.0-windows-all.jar')).toBe(false);
+    expect(isWindowsSetupFile('VANTA-Launcher-1.4.0-linux-x64.tar.gz')).toBe(false);
+  });
+
+  it('classifies every launcher file of the repository manifests', () => {
+    for (const manifest of releases.filter((m) => m.product === 'launcher')) {
+      const setup = launcherSetupFiles(manifest);
+      expect(setup.length, manifest.version).toBeGreaterThan(0);
+      expect(setup[0]?.name.endsWith('.msi'), manifest.version).toBe(true);
+      expect(launcherCrossPlatformFiles(manifest).length, manifest.version).toBeGreaterThan(0);
+      for (const file of launcherCrossPlatformFiles(manifest)) {
+        expect(file.name, manifest.version).toMatch(/\.jar$|\.tar\.gz$/);
+      }
+    }
   });
 });
 
