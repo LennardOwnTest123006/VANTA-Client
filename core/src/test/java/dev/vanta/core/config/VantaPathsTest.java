@@ -29,11 +29,15 @@ class VantaPathsTest {
         assertEquals("local-ai.json", paths.localAiNoteFile().getFileName().toString());
         assertEquals("nexus-chat.json", paths.nexusChatFile().getFileName().toString());
         assertTrue(paths.directories().contains(paths.localAiDir()));
+        assertEquals(paths.root().resolve("waypoints.json"), paths.waypointsFile());
         paths.createDirectories();
         for (Path p : paths.directories()) {
             assertTrue(Files.isDirectory(p), p.toString());
         }
+        assertTrue(paths.directories().contains(paths.waypointsFile().getParent()),
+                "the waypoints file lives in a directory createDirectories() creates");
         assertTrue(paths.contains(paths.settingsFile()));
+        assertTrue(paths.contains(paths.waypointsFile()));
         assertFalse(paths.contains(dir.resolve("other")));
     }
 

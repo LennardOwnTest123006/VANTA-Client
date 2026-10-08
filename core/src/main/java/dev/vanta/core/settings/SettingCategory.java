@@ -12,12 +12,16 @@ public enum SettingCategory implements LangKeyed {
     AUDIO("sliders"),
     CONTROLS("keyboard"),
     HUD("grid"),
+    /** Waypoint markers (the waypoints themselves live in Vanta Nexus). */
+    WAYPOINTS("world"),
     PERFORMANCE("chart"),
     ACCESSIBILITY("accessibility"),
     LANGUAGE("list"),
     COSMETICS("palette"),
     NEXUS("star"),
-    PRIVACY("lock");
+    PRIVACY("lock"),
+        /** Vanta Lab: optional features, all off by default (see {@code dev.vanta.core.lab.LabFeature}). */
+    LAB("star");
 
     private final String iconId;
 

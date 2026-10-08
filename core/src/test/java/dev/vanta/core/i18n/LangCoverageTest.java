@@ -27,6 +27,7 @@ import dev.vanta.core.hud.HudPresets;
 import dev.vanta.core.hud.HudProp;
 import dev.vanta.core.hud.HudWidgetType;
 import dev.vanta.core.keybinds.VantaKeys;
+import dev.vanta.core.lab.LabFeature;
 import dev.vanta.core.notifications.NotificationKind;
 import dev.vanta.core.notifications.NotificationPosition;
 import dev.vanta.core.perf.FpsLimitPreset;
@@ -39,6 +40,7 @@ import dev.vanta.core.settings.Setting;
 import dev.vanta.core.settings.SettingCategory;
 import dev.vanta.core.settings.SettingKind;
 import dev.vanta.core.settings.VantaSettings;
+import dev.vanta.core.waypoints.WaypointSort;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -114,10 +116,13 @@ class LangCoverageTest {
         for (PerformancePreset preset : PerformancePreset.values()) {
             check(missing, preset.langKey(), preset.descriptionKey());
         }
+        for (LabFeature feature : LabFeature.values()) {
+            check(missing, feature.langKey(), feature.descriptionKey());
+        }
         for (LangKeyed keyed : all(FpsLimitPreset.values(), NotificationPosition.values(), NotificationKind.values(),
                 Badge.values(), HudTheme.values(), MenuBackground.values(), MenuParticles.values(),
                 ColorBlindPalette.values(), ProfileImportException.Reason.values(), LocalAiStatus.values(),
-                InstallStep.values(), LocalAiException.Kind.values(), RejectedAction.Reason.values())) {
+                InstallStep.values(), LocalAiException.Kind.values(), RejectedAction.Reason.values(), WaypointSort.values())) {
             check(missing, keyed.langKey());
         }
         for (NexusHudPreset preset : NexusHudPreset.values()) {
