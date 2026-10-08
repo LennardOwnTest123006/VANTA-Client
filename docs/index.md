@@ -20,7 +20,7 @@ use Mods & Shaders ([Privacy](privacy.md)).
 | VANTA Client | 1.3.0 |
 | VANTA Launcher | 1.3.0 |
 | Launcher platforms | Windows 10/11 x64 (installers, portable app, jar); Linux x64 (app image, jar); Apple Silicon macOS (jar) |
-| Downloads | GitHub Releases `client-v1.3.0` and `launcher-v1.3.0` (released 2026-10-07; the earlier releases stay available), the full release zip `VantaClient-1.3.0-Release.zip` on the release `v1.3.0` (both releases plus the documentation in one archive, see [the full release zip](installation.md#the-full-release-zip)), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
+| Downloads | GitHub Releases `client-v1.3.0` and `launcher-v1.3.0` (released 2026-10-07; the earlier releases stay available), the full release zip `VantaClient-1.3.0-Release.zip` on the release [`v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.3.0) (both releases plus the documentation in one archive, see [the full release zip](installation.md#the-full-release-zip)), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
 
 ## Quick start
 

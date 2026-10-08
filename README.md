@@ -133,7 +133,7 @@ version contains is in [CHANGELOG.md](CHANGELOG.md).
 | `v1.3.0` | `VantaClient-1.3.0-Release.zip` | everything of both releases in one archive (the files above plus the docs, the changelog and checksums); see its `README.txt` |
 
 Each release also has `SHA256SUMS.txt` and its manifest (`client-1.3.0.json`, `launcher-1.3.0.json`); the full release
-zip has its own `SHA256SUMS.txt` inside, and the release `v1.3.0` carries the zip's checksum and its manifest
+zip has its own `SHA256SUMS.txt` inside, and the release [`v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.3.0) carries the zip's checksum and its manifest
 (`vanta-1.3.0.json`). The bundle workflow packs that zip from the files `client-v1.3.0` and `launcher-v1.3.0` have
 published, downloaded again and checked against their manifests, never from a new build, and you still take only one
 launcher file from it ([docs/installation.md](docs/installation.md#the-full-release-zip)). Every launcher

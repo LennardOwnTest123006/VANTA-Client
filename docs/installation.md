@@ -56,7 +56,7 @@ SHA-256:
 - VANTA Launcher 1.3.0: release [`launcher-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.3.0)
 - VANTA Client 1.3.0: release [`client-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.3.0)
 - the full release zip `VantaClient-1.3.0-Release.zip`, both releases plus the documentation in one archive: release
-  `v1.3.0` (see [The full release zip](#the-full-release-zip))
+  [`v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.3.0) (see [The full release zip](#the-full-release-zip))
 - the previous releases [`launcher-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.1.0),
   [`client-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.1.0),
   [`launcher-v1.0.2`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.2),
@@ -117,7 +117,7 @@ the newest published release; see
 ### The full release zip
 
 `VantaClient-1.3.0-Release.zip` is one archive with every file of the two releases above plus the documentation, for
-anyone who wants everything in one download or a complete copy of one version. It is published as the release `v1.3.0`
+anyone who wants everything in one download or a complete copy of one version. It is published as the release [`v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.3.0)
 (*VANTA 1.3.0 full release*); once it is published, the Download page offers it as a third card next to the launcher
 and client downloads. The project's
 bundle workflow builds it from the files that `client-v1.3.0` and `launcher-v1.3.0` have already published: it
