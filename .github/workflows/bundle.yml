@@ -1,0 +1,253 @@
+# Bundle workflow: builds the full release zip VantaClient-<version>-Release.zip from the ALREADY PUBLISHED files of
+# one client release and one launcher release, publishes it as the GitHub Release v<version> and hands the bundle
+# manifest back. Nothing is compiled here: scripts/release/build-bundle.mjs downloads every file the two committed
+# manifests name, verifies size and sha256 against the manifests, zips them with the repository documentation and
+# re-reads the finished zip before anything is uploaded. Documented in RELEASE.md ("Full release zip").
+#
+# Triggers   "Run workflow" only, with version and optionally client_version / launcher_version (default: version).
+# Secrets    none beyond the automatic GITHUB_TOKEN. The zip is not code-signed (RELEASE.md, "Signing (future)").
+# Inputs     shared/releases/client-<cv>.json and shared/releases/launcher-<lv>.json must be committed and published
+#            (every file with downloadUrl, size and sha256, as release.yml leaves them); the tag v<version> must not
+#            exist at another commit.
+# Outputs    1. GitHub Release v<version> ("VANTA <version> full release"): VantaClient-<version>-Release.zip,
+#               SHA256SUMS.txt (the zip's digest) and vanta-<version>.json (the bundle manifest). After the upload the
+#               runner downloads the public zip and re-hashes it. The release is never marked "latest": the stable
+#               launcher release keeps GitHub's latest badge (release.yml, "Latest").
+#            2. Branch ci-artifacts, folder bundle-v<version>/: vanta-<version>.json, SHA256SUMS.txt and
+#               BUNDLE-INFO.txt (tag, commit, release, run, apply hint). Copy the JSON file to
+#               shared/releases/bundles/ on the default branch; the website's Download page reads that folder at build
+#               time (and only that folder: the readers of shared/releases/*.json never see a bundle manifest).
+name: Bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version of the full release zip (SemVer; the release tag is v<version>)
+        type: string
+        required: true
+      client_version:
+        description: Client version to bundle (defaults to version)
+        type: string
+        required: false
+        default: ''
+      launcher_version:
+        description: Launcher version to bundle (defaults to version)
+        type: string
+        required: false
+        default: ''
+      draft:
+        description: Create the GitHub Release as a draft (its link is not public, so URL verification is skipped)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # One bundle per version at a time; two versions may run side by side (the hand-back script handles the race).
+  group: bundle-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Resolve versions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      client_version: ${{ steps.resolve.outputs.client_version }}
+      launcher_version: ${{ steps.resolve.outputs.launcher_version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      draft: ${{ steps.resolve.outputs.draft }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve and validate
+        id: resolve
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CLIENT_VERSION: ${{ inputs.client_version }}
+          INPUT_LAUNCHER_VERSION: ${{ inputs.launcher_version }}
+          INPUT_DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+          VERSION="$INPUT_VERSION"
+          CLIENT_VERSION="${INPUT_CLIENT_VERSION:-$VERSION}"
+          LAUNCHER_VERSION="${INPUT_LAUNCHER_VERSION:-$VERSION}"
+          DRAFT="${INPUT_DRAFT:-false}"
+          [ "$DRAFT" = true ] || DRAFT=false
+          SEMVER='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$'
+          for v in "$VERSION" "$CLIENT_VERSION" "$LAUNCHER_VERSION"; do
+            if ! [[ "$v" =~ $SEMVER ]]; then
+              echo "::error::'$v' is not a SemVer version"; exit 1
+            fi
+          done
+          # Both component manifests must be committed and published: every file with a downloadUrl at this
+          # repository's release, a size and a sha256 (release.yml fills them in; RELEASE.md step 7 commits them).
+          for pair in "client:$CLIENT_VERSION" "launcher:$LAUNCHER_VERSION"; do
+            PRODUCT="${pair%%:*}"
+            PRODUCT_VERSION="${pair#*:}"
+            MANIFEST="shared/releases/${PRODUCT}-${PRODUCT_VERSION}.json"
+            if [ ! -f "$MANIFEST" ]; then
+              echo "::error::$MANIFEST is missing. Release $PRODUCT $PRODUCT_VERSION first (release.yml) and commit its completed manifest."
+              exit 1
+            fi
+            node scripts/release/validate-json.mjs shared/schemas/release-manifest.schema.json "$MANIFEST"
+            node scripts/release/release-assets.mjs check-manifest "$MANIFEST" --published --repo "$GITHUB_REPOSITORY" --tag "${PRODUCT}-v${PRODUCT_VERSION}"
+          done
+          # The release tag must name this commit (the zip carries this commit's docs and CHANGELOG.md). "Run workflow"
+          # creates the tag here; a tag that already exists elsewhere would leave the release pointing at other text.
+          TAG="v${VERSION}"
+          REMOTE_TAG="$(git ls-remote --tags origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | awk '{print $1}' | tail -n 1)"
+          if [ -n "$REMOTE_TAG" ] && [ "$REMOTE_TAG" != "$GITHUB_SHA" ]; then
+            echo "::error::Tag $TAG already exists at $REMOTE_TAG but this run builds $GITHUB_SHA. Delete the old release and tag first (gh release delete $TAG --cleanup-tag --yes) or bundle a new version."
+            exit 1
+          fi
+          {
+            echo "version=$VERSION"
+            echo "client_version=$CLIENT_VERSION"
+            echo "launcher_version=$LAUNCHER_VERSION"
+            echo "tag=$TAG"
+            echo "draft=$DRAFT"
+          } >> "$GITHUB_OUTPUT"
+          echo "Bundling client $CLIENT_VERSION and launcher $LAUNCHER_VERSION as VANTA $VERSION ($TAG) from $GITHUB_SHA"
+
+  publish:
+    name: Build the zip and publish GitHub Release
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      CLIENT_VERSION: ${{ needs.prepare.outputs.client_version }}
+      LAUNCHER_VERSION: ${{ needs.prepare.outputs.launcher_version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      # The commit the prepare job validated: its manifests, docs and CHANGELOG.md go into the zip.
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download the published release files (every file verified against its manifest)
+        run: |
+          set -euo pipefail
+          node scripts/release/build-bundle.mjs download --client-version "$CLIENT_VERSION" --launcher-version "$LAUNCHER_VERSION" \
+            --out "$RUNNER_TEMP/bundle-in"
+          find "$RUNNER_TEMP/bundle-in" -type f | sort
+      - name: Assemble the zip (README.txt and SHA256SUMS.txt generated, finished zip re-read and checked)
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          mkdir -p dist
+          node scripts/release/build-bundle.mjs assemble --version "$VERSION" --client-version "$CLIENT_VERSION" \
+            --launcher-version "$LAUNCHER_VERSION" --from "$RUNNER_TEMP/bundle-in" --out dist
+          ls -la dist
+      - name: Build the bundle manifest from the real zip and verify it
+        run: |
+          set -euo pipefail
+          ZIP="dist/VantaClient-${VERSION}-Release.zip"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/VantaClient-${VERSION}-Release.zip"
+          MANIFEST="shared/releases/bundles/vanta-${VERSION}.json"
+          node scripts/release/build-bundle.mjs manifest --version "$VERSION" --client-version "$CLIENT_VERSION" \
+            --launcher-version "$LAUNCHER_VERSION" --zip "$ZIP" --url "$URL" --date "$(date -u +%Y-%m-%d)" \
+            --out shared/releases/bundles
+          node scripts/release/validate-json.mjs shared/schemas/bundle-manifest.schema.json "$MANIFEST"
+          node scripts/release/build-bundle.mjs verify "$MANIFEST" --local "$ZIP"
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+          cp "$MANIFEST" "dist/vanta-${VERSION}.json"
+          echo "SHA256SUMS.txt:"
+          cat dist/SHA256SUMS.txt
+          echo "$MANIFEST:"
+          cat "$MANIFEST"
+      - name: Compose release notes
+        run: |
+          set -euo pipefail
+          node scripts/release/build-bundle.mjs notes --version "$VERSION" --client-version "$CLIENT_VERSION" \
+            --launcher-version "$LAUNCHER_VERSION" --manifest "shared/releases/bundles/vanta-${VERSION}.json" > release-notes.md
+          cat release-notes.md
+      - name: Create the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: VANTA ${{ needs.prepare.outputs.version }} full release
+          body_path: release-notes.md
+          draft: ${{ needs.prepare.outputs.draft == 'true' }}
+          prerelease: false
+          # The stable launcher release stays the repository's "latest release" (release.yml, "Latest").
+          make_latest: 'false'
+          files: |
+            dist/VantaClient-${{ needs.prepare.outputs.version }}-Release.zip
+            dist/SHA256SUMS.txt
+            dist/vanta-${{ needs.prepare.outputs.version }}.json
+          preserve_order: true
+          overwrite_files: true
+          fail_on_unmatched_files: true
+      - name: Verify the public download link (downloads the zip and re-hashes it)
+        id: verify
+        if: needs.prepare.outputs.draft != 'true'
+        run: |
+          set -euo pipefail
+          MANIFEST="shared/releases/bundles/vanta-${VERSION}.json"
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            if node scripts/release/build-bundle.mjs verify "$MANIFEST"; then ok=1; break; fi
+            echo "Attempt $attempt failed; retrying in $((attempt * 15)) s (release files can take a moment to become public)."
+            sleep $((attempt * 15))
+          done
+          [ "$ok" -eq 1 ] || { echo "::error::the public zip does not match $MANIFEST"; exit 1; }
+          BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+          curl -fsSL --retry 5 --retry-delay 10 -o "$RUNNER_TEMP/SHA256SUMS.txt" "$BASE/SHA256SUMS.txt"
+          cmp "$RUNNER_TEMP/SHA256SUMS.txt" dist/SHA256SUMS.txt || { echo "::error::the published SHA256SUMS.txt differs"; exit 1; }
+          curl -fsSL --retry 5 --retry-delay 10 -o "$RUNNER_TEMP/manifest.json" "$BASE/vanta-${VERSION}.json"
+          cmp "$RUNNER_TEMP/manifest.json" "$MANIFEST" || { echo "::error::the published vanta-${VERSION}.json differs"; exit 1; }
+          echo "verified=true" >> "$GITHUB_OUTPUT"
+      - name: Draft release (link is not public yet)
+        if: needs.prepare.outputs.draft == 'true'
+        run: |
+          echo "::warning::Draft release: its zip is not public, so the download link was not verified. After publishing the draft run: node scripts/release/build-bundle.mjs verify shared/releases/bundles/vanta-${VERSION}.json"
+      - name: Hand the manifest back through the ci-artifacts branch (folder bundle-<tag>)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERIFIED: ${{ steps.verify.outputs.verified || 'false' }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/bundle-out"
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          cp "shared/releases/bundles/vanta-${VERSION}.json" "$OUT/"
+          cp dist/SHA256SUMS.txt "$OUT/"
+          {
+            echo "tag=${TAG}"
+            echo "client_version=${CLIENT_VERSION}"
+            echo "launcher_version=${LAUNCHER_VERSION}"
+            echo "commit=${GITHUB_SHA}"
+            echo "release=https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+            echo "run=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "public_url_verified=${VERIFIED}"
+            echo "apply=cp vanta-${VERSION}.json <repo>/shared/releases/bundles/"
+          } > "$OUT/BUNDLE-INFO.txt"
+          (cd "$OUT" && find . -type f | sort)
+          bash scripts/ci/publish-screenshots.sh "$OUT" "bundle-${TAG}"
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## VANTA ${VERSION} full release (${TAG}: client ${CLIENT_VERSION}, launcher ${LAUNCHER_VERSION})"
+            echo
+            echo "- Release: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+            echo "- Manifest hand-back: branch \`ci-artifacts\`, folder \`bundle-${TAG}/\`"
+            echo "- Apply: copy \`vanta-${VERSION}.json\` to \`shared/releases/bundles/\` on the default branch (the website's Download page reads it at build time)"
+            echo
+            if [ -f dist/SHA256SUMS.txt ]; then
+              echo '```'
+              cat dist/SHA256SUMS.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

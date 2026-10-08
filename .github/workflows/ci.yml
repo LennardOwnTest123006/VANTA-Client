@@ -89,6 +89,15 @@ jobs:
           node-version: '22'
       - name: Release script tests (node --test)
         run: node --test scripts/release/
+      - name: Validate the bundle manifests (shared/releases/bundles/*.json, once there are any)
+        run: |
+          set -euo pipefail
+          # nullglob: the folder is empty until the first full release zip (bundle.yml) is applied.
+          shopt -s nullglob
+          BUNDLES=(shared/releases/bundles/*.json)
+          shopt -u nullglob
+          if [ "${#BUNDLES[@]}" -eq 0 ]; then echo "no bundle manifests committed yet"; exit 0; fi
+          node scripts/release/validate-json.mjs shared/schemas/bundle-manifest.schema.json "${BUNDLES[@]}"
       - name: Resolve and download the Performance pack for real (what the release does for the mods bundle)
         run: |
           set -euo pipefail
