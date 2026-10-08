@@ -296,7 +296,11 @@ final class LocalAiStep {
             check(quick == LocalAiStatus.INSTALLED, "the quick check of the local install says " + quick);
             step("local ai: installed.json, executable bit, model and quick check INSTALLED verified");
 
-            installer.remove();
+            try {
+                installer.remove();
+            } catch (LocalAiException e) {
+                throw new IllegalStateException("remove() of the local install failed (" + e.kind() + "): " + e.getMessage(), e);
+            }
             check(!Files.exists(target.root()), "the install directory still exists after remove(): " + target.root());
             step("local ai: install removed, " + target.root() + " is gone");
         } finally {
