@@ -57,7 +57,7 @@ describe('parseBundleManifest', () => {
     );
   });
 
-  it('accepts the unpublished convention: empty URL, size 0, empty checksum, no contents', () => {
+  it('tolerates an unpublished file (empty URL, size 0, empty checksum) and an empty contents list', () => {
     const bundle = parseBundleManifest(unpublished);
     expect(isBundlePublished(bundle)).toBe(false);
     expect(bundle.contents).toEqual([]);

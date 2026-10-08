@@ -31,7 +31,7 @@ export interface BundleEntry {
   readonly path: string;
   /** Size in bytes. */
   readonly size: number;
-  /** Lowercase hex SHA-256; empty only while the bundle is unpublished. */
+  /** Lowercase hex SHA-256. */
   readonly sha256: string;
 }
 
@@ -48,7 +48,11 @@ export interface BundleManifest {
   readonly releaseDate: string;
   readonly channel: BundleChannel;
   readonly file: BundleFile;
-  /** Every file inside the zip except its SHA256SUMS.txt, in zip order; empty while unpublished. */
+  /**
+   * Every file inside the zip except its SHA256SUMS.txt, in zip order. The bundle workflow writes the
+   * manifest from the real zip, so a committed manifest always lists them (the schema requires at least
+   * one entry); the parser tolerates an empty list.
+   */
   readonly contents: readonly BundleEntry[];
 }
 
@@ -124,8 +128,9 @@ function parseEntry(value: unknown, index: number, source: string): BundleEntry 
 }
 
 /**
- * Validates an untyped JSON value against the bundle manifest schema
- * (`shared/schemas/bundle-manifest.schema.json`).
+ * Validates an untyped JSON value along the lines of the bundle manifest schema
+ * (`shared/schemas/bundle-manifest.schema.json`; the schema is stricter: it requires a non-empty
+ * `contents` list and an entry size of at least 1).
  * @throws BundleManifestError when a required field is missing or malformed.
  */
 export function parseBundleManifest(input: unknown, source = '<inline>'): BundleManifest {

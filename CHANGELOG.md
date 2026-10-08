@@ -8,7 +8,24 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 ## [Unreleased]
 
-No changes yet.
+### Release tooling
+- **Full release zip.** The new bundle workflow (`.github/workflows/bundle.yml`, `scripts/release/build-bundle.mjs`)
+  downloads the already published files of one client and one launcher release, checks every file against its
+  manifest, packs them with the documentation, `CHANGELOG.md`, the release notes, `LICENSE` and a `SHA256SUMS.txt`
+  into `VantaClient-<version>-Release.zip`, publishes the zip as the GitHub Release `v<version>` (never marked
+  "latest"), downloads it again to re-hash it and hands the bundle manifest
+  `shared/releases/bundles/vanta-<version>.json` back through the `ci-artifacts` branch. New schema
+  `shared/schemas/bundle-manifest.schema.json`; CI validates committed bundle manifests.
+
+### Website
+- **Download page.** A "Latest version" block names the newest published client and launcher versions with their
+  release dates. A third card offers the full release zip from the newest published bundle manifest (no card while
+  none is published). A "What's new" section shows the highlights of both products' release notes with links to the
+  full notes and the newest news post.
+- Release-note excerpts on the download page no longer show single-asterisk italics markers.
+
+### Documentation
+- README, installation guide, FAQ and docs index describe the full release zip and how to verify it.
 
 ## [1.3.0] - 2026-10-07
 

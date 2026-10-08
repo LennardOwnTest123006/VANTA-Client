@@ -35,6 +35,12 @@ describe('markdownExcerpt', () => {
       'Shows Custom; choose Fast, Fancy or Fabulous',
     ]);
     expect(markdownExcerpt('- 2 * 3 stays')).toEqual(['2 * 3 stays']);
+    // A `*` inside a code span never pairs with emphasis outside it (launcher 1.2.1 notes).
+    expect(
+      markdownExcerpt(
+        '- delete `smart-fps-booster-*.jar` from the mods folder (*Home → Open game folder*)',
+      ),
+    ).toEqual(['delete smart-fps-booster-*.jar from the mods folder (Home → Open game folder)']);
   });
   it('returns an empty list when there are no bullets', () => {
     expect(markdownExcerpt('No bullets here')).toEqual([]);

@@ -225,10 +225,10 @@ zip before it uploads anything. The website's Download page offers the zip as a 
 **Bundle manifest.** The zip is described by `shared/releases/bundles/vanta-<version>.json`, validated by
 `shared/schemas/bundle-manifest.schema.json`: `schemaVersion` 1, `kind` `"bundle"`, `version`, `clientVersion`,
 `launcherVersion`, `minecraftVersion` (from the client manifest), `releaseDate`, `channel` (`stable` when both
-components are stable), `file` (`name`, `downloadUrl`, `size`, `sha256` of the zip; the same unpublished convention as
-the release manifests, an https `downloadUrl` means published) and `contents` (every file inside the zip except
-`SHA256SUMS.txt`, in zip order, with `path`, `size` and `sha256`). The workflow writes it from the real zip; nobody
-types a value by hand. CI validates every committed bundle manifest against the schema.
+components are stable), `file` (`name`, the https `downloadUrl`, `size` and `sha256` of the zip) and `contents` (every file inside the
+zip except `SHA256SUMS.txt`, in zip order, with `path`, `size` and `sha256`; at least one entry). Unlike the release
+manifests, a bundle manifest is never committed unpublished: the workflow writes it from the real zip after the
+upload, and nobody types a value by hand. CI validates every committed bundle manifest against the schema.
 
 **Prerequisites.** `shared/releases/client-<cv>.json` and `shared/releases/launcher-<lv>.json` are committed with
 every file published (step 7 above), and the tag `v<version>` does not exist yet.

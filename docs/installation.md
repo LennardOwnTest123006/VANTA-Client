@@ -117,8 +117,9 @@ the newest published release; see
 ### The full release zip
 
 `VantaClient-1.3.0-Release.zip` is one archive with every file of the two releases above plus the documentation, for
-anyone who wants everything in one download or a complete copy of one version. It is the asset of the release `v1.3.0`
-(*VANTA 1.3.0 full release*), and the Download page lists it next to the launcher and client downloads. The project's
+anyone who wants everything in one download or a complete copy of one version. It is published as the release `v1.3.0`
+(*VANTA 1.3.0 full release*); once it is published, the Download page offers it as a third card next to the launcher
+and client downloads. The project's
 bundle workflow builds it from the files that `client-v1.3.0` and `launcher-v1.3.0` have already published: it
 downloads each file from the address in its release manifest, checks size and SHA-256 against the manifest and packs
 it unchanged. Nothing in the zip is built again, so every file inside is byte for byte the published file, with the
