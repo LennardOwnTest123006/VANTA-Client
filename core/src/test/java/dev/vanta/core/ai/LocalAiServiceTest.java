@@ -281,9 +281,10 @@ class LocalAiServiceTest {
     void formatsBytes() {
         assertEquals("0 B", LocalAiService.formatBytes(0));
         assertEquals("512 B", LocalAiService.formatBytes(512));
-        assertEquals("12 KB", LocalAiService.formatBytes(12 * 1024));
-        assertEquals("1.5 MB", LocalAiService.formatBytes(1536 * 1024));
-        assertEquals("345 MB", LocalAiService.formatBytes(345L * 1024 * 1024));
-        assertEquals("1.80 GB", LocalAiService.formatBytes((long) (1.8 * 1024 * 1024 * 1024)));
+        assertEquals("12 KB", LocalAiService.formatBytes(12_000));
+        assertEquals("1.5 MB", LocalAiService.formatBytes(1_500_000));
+        assertEquals("345 MB", LocalAiService.formatBytes(345_000_000L));
+        assertEquals("1.8 GB", LocalAiService.formatBytes(1_834_426_016L));
+        assertEquals("1.9 GB", LocalAiService.formatBytes(1_852_119_478L));
     }
 }

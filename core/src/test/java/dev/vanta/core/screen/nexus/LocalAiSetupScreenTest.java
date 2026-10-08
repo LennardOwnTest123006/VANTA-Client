@@ -178,7 +178,7 @@ class LocalAiSetupScreenTest {
     void progressRowsShowBytesAndSpeedWhileInstalling() throws Exception {
         services(goodManifest());
         LocalAiSetupScreen screen = show(ScreenId.LOCAL_AI_SETUP, 854, 480);
-        screen.showProgress(InstallStep.DOWNLOADING_MODEL, 500L << 20, 1800L << 20, 8.5 * (1 << 20));
+        screen.showProgress(InstallStep.DOWNLOADING_MODEL, 500_000_000L, 1_800_000_000L, 8_500_000.0);
         settle(screen);
         assertEquals(LocalAiSetupScreen.Phase.INSTALLING, screen.phase());
         assertTrue(screen.step(InstallStep.CHECKING).isDone());
@@ -189,7 +189,7 @@ class LocalAiSetupScreenTest {
         assertEquals(500f / 1800f, screen.step(InstallStep.DOWNLOADING_MODEL).progressBar().fraction(), 1e-4f);
         String detail = screen.step(InstallStep.DOWNLOADING_MODEL).detail();
         assertTrue(detail.contains("500 MB"), detail);
-        assertTrue(detail.contains("1.76 GB"), detail);
+        assertTrue(detail.contains("1.8 GB"), detail);
         assertTrue(detail.contains("8.5 MB/s"), detail);
         TestCanvas canvas = new TestCanvas(854, 480);
         screen.render(canvas, -1000, -1000, 0f);

@@ -581,19 +581,22 @@ public final class LocalAiService implements ChatBackend, AutoCloseable {
         }
     }
 
-    /** "1.8 GB", "345 MB", "12 KB", "0 B". */
+    /**
+     * "1.8 GB", "345 MB", "12 KB", "0 B": decimal units (1000), the same the release tooling, LOCAL-AI.txt, the
+     * launcher and the website use for the same files.
+     */
     public static String formatBytes(long bytes) {
-        if (bytes < 1024) {
+        if (bytes < 1000) {
             return bytes + " B";
         }
-        double kb = bytes / 1024.0;
-        if (kb < 1024) {
+        double kb = bytes / 1000.0;
+        if (kb < 1000) {
             return String.format(Locale.ROOT, "%.0f KB", kb);
         }
-        double mb = kb / 1024.0;
-        if (mb < 1024) {
+        double mb = kb / 1000.0;
+        if (mb < 1000) {
             return String.format(Locale.ROOT, mb < 10 ? "%.1f MB" : "%.0f MB", mb);
         }
-        return String.format(Locale.ROOT, "%.2f GB", mb / 1024.0);
+        return String.format(Locale.ROOT, "%.1f GB", mb / 1000.0);
     }
 }
