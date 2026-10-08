@@ -174,7 +174,10 @@ not take VANTA files from anywhere else.
 
 Verify the file with `SHA256SUMS.txt` from the same release before you run it
 ([Installation → Verify the checksum](installation.md#2-verify-the-checksum)). Older versions stay available on
-GitHub Releases.
+GitHub Releases. The release `v1.3.0` adds `VantaClient-1.3.0-Release.zip`, both releases plus the documentation in
+one archive for anyone who wants everything at once, packed from the published files with the same checksums; you
+still take only one launcher file from it
+([Installation → The full release zip](installation.md#the-full-release-zip)).
 
 **"Not published yet"** marks a version whose files the release workflow has not published yet. A new version's
 release manifest is committed to the repository before the workflow runs; until the workflow has published its files,
