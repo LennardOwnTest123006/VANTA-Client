@@ -1,97 +1,104 @@
 package dev.vanta.launcher.core.ai;
 
-import java.util.List;
-import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
- * {@code installed.json} in the Local AI folder: the manifest section that was installed plus when, for which platform
- * and the verified sizes and digests of the files the install produced. The quick check at start compares sizes and
- * modification times with this record; "Verify files" re-hashes everything.
+ * {@code installed.json} in the Local AI folder, in exactly the shape the VANTA Client reads
+ * ({@code dev.vanta.core.ai.LocalAiInstalled}; the committed example is {@code shared/local-ai/fixtures/installed.example.json}):
+ * the manifest sections that were installed (the runtime with only this platform's archive, the model) plus when, for
+ * which platform, and the sizes and modification times of the two files the install produced. The quick check at start
+ * compares sizes and modification times with this record; "Verify files" hashes the model again. The recorded digests
+ * are the manifest's (the archive's and the model's); the extracted server executable has no digest of its own.
+ *
+ * <pre>
+ * { schemaVersion, platform, installedAt, verifiedAt,
+ *   runtime: { name, component, tag, license, sourceUrl, releaseUrl, platforms: { &lt;platform&gt;: { file, url, size, sha256, serverPath } } },
+ *   model: { name, quantization, file, url, size, sha256, license, licenseUrl, sourceUrl, contextSize },
+ *   files: { serverSize, serverMtime, modelSize, modelMtime } }
+ * </pre>
  *
  * @param schemaVersion record schema version (1)
  * @param platform      platform key the runtime archive was chosen for
- * @param installedAt   when the install finished (ISO-8601)
- * @param verifiedAt    when the files were last fully verified (ISO-8601)
- * @param runtime       the installed llama.cpp release and its archive
+ * @param installedAt   when the install finished (ISO-8601 UTC instant)
+ * @param verifiedAt    when the files were last fully verified (ISO-8601 UTC instant)
+ * @param runtime       the installed llama.cpp release with only this platform's archive
  * @param model         the installed model (manifest section)
- * @param files         the verified files
+ * @param files         sizes and modification times (epoch milliseconds) of the server executable and the model file
  */
-public record LocalAiInstalled(int schemaVersion, String platform, String installedAt, String verifiedAt, InstalledRuntime runtime,
-                               LocalAiManifest.Model model, List<InstalledFile> files) {
+public record LocalAiInstalled(int schemaVersion, String platform, String installedAt, String verifiedAt, LocalAiManifest.Runtime runtime,
+                               LocalAiManifest.Model model, Files files) {
 
     /** Current schema version. */
     public static final int SCHEMA_VERSION = 1;
-    /** Role of the server executable in {@link #files()}. */
-    public static final String ROLE_SERVER = "server";
-    /** Role of the model file in {@link #files()}. */
-    public static final String ROLE_MODEL = "model";
+    /** Folder of extracted runtimes below the Local AI folder. */
+    public static final String RUNTIME_DIR = "runtime";
+    /** Folder of model files below the Local AI folder. */
+    public static final String MODELS_DIR = "models";
+
+    /**
+     * Sizes and modification times recorded at verification.
+     *
+     * @param serverSize  bytes of the server executable
+     * @param serverMtime its modification time in epoch milliseconds
+     * @param modelSize   bytes of the model file
+     * @param modelMtime  its modification time in epoch milliseconds
+     */
+    public record Files(long serverSize, long serverMtime, long modelSize, long modelMtime) {
+    }
 
     public LocalAiInstalled {
         platform = platform == null ? "" : platform;
         installedAt = installedAt == null ? "" : installedAt;
         verifiedAt = verifiedAt == null ? "" : verifiedAt;
-        files = files == null ? List.of() : List.copyOf(files);
+        files = files == null ? new Files(0, 0, 0, 0) : files;
     }
 
     /**
-     * The installed release.
+     * The record of an install of {@code manifest} on {@code platform}.
      *
-     * @param name       project name
-     * @param component  binary name
-     * @param tag        release tag
-     * @param license    licence id
-     * @param sourceUrl  project page
-     * @param releaseUrl release page
-     * @param file       the archive that was installed (with its digest)
+     * @param manifest    the manifest that was installed
+     * @param platform    platform key (must be listed by the manifest)
+     * @param installedAt install instant (ISO-8601)
+     * @param verifiedAt  verification instant (ISO-8601)
+     * @param files       sizes and times of the server executable and the model file
+     * @return record with only that platform's archive in its runtime section
      */
-    public record InstalledRuntime(String name, String component, String tag, String license, String sourceUrl, String releaseUrl,
-                                   LocalAiManifest.PlatformFile file) {
+    public static LocalAiInstalled of(final LocalAiManifest manifest, final String platform, final String installedAt, final String verifiedAt,
+                                      final Files files) {
+        Objects.requireNonNull(manifest, "manifest");
+        return new LocalAiInstalled(SCHEMA_VERSION, platform, installedAt, verifiedAt, manifest.runtime().only(platform), manifest.model(), files);
+    }
 
-        /**
-         * @param runtime manifest runtime
-         * @param file    the platform archive
-         * @return record of what was installed
-         */
-        public static InstalledRuntime of(final LocalAiManifest.Runtime runtime, final LocalAiManifest.PlatformFile file) {
-            return new InstalledRuntime(runtime.name(), runtime.component(), runtime.tag(), runtime.license(), runtime.sourceUrl(),
-                runtime.releaseUrl(), file);
-        }
+    /** @return whether the record names a runtime, its archive for {@link #platform()} and a model */
+    public boolean isComplete() {
+        return runtime != null && model != null && !platform.isEmpty() && runtimePlatform().isPresent() && !runtime.tag().isEmpty()
+            && !model.file().isEmpty();
+    }
+
+    /** @return the installed archive entry (the one for {@link #platform()}) */
+    public Optional<LocalAiManifest.PlatformFile> runtimePlatform() {
+        return runtime == null ? Optional.empty() : Optional.ofNullable(runtime.platforms().get(platform));
+    }
+
+    /** @return {@code runtime/<tag>/<platform>/<serverPath>} with forward slashes, relative to the Local AI folder */
+    public String serverRelativePath() {
+        final String serverPath = runtimePlatform().map(LocalAiManifest.PlatformFile::serverPath).orElse("");
+        return RUNTIME_DIR + "/" + (runtime == null ? "" : runtime.tag()) + "/" + platform + "/" + serverPath;
+    }
+
+    /** @return {@code models/<file>}, relative to the Local AI folder */
+    public String modelRelativePath() {
+        return MODELS_DIR + "/" + (model == null ? "" : model.file());
     }
 
     /**
-     * A verified file inside the Local AI folder.
-     *
-     * @param role           {@link #ROLE_SERVER} or {@link #ROLE_MODEL}
-     * @param path           path relative to the Local AI folder (forward slashes)
-     * @param size           size in bytes
-     * @param sha256         lower-case hex SHA-256
-     * @param modifiedMillis last modification time when verified (epoch millis)
-     */
-    public record InstalledFile(String role, String path, long size, String sha256, long modifiedMillis) {
-
-        public InstalledFile {
-            role = role == null ? "" : role;
-            path = path == null ? "" : path.replace('\\', '/');
-            sha256 = sha256 == null ? "" : sha256.toLowerCase(Locale.ROOT);
-        }
-    }
-
-    /**
-     * @param role file role
-     * @return the file with that role
-     */
-    public Optional<InstalledFile> file(final String role) {
-        return files.stream().filter(f -> f.role().equals(role)).findFirst();
-    }
-
-    /**
-     * @param at verification time (ISO-8601)
-     * @param verified files with refreshed modification times
+     * @param at    verification time (ISO-8601)
+     * @param facts refreshed sizes and modification times
      * @return copy
      */
-    public LocalAiInstalled withVerified(final String at, final List<InstalledFile> verified) {
-        return new LocalAiInstalled(schemaVersion, platform, installedAt, at, runtime, model, verified);
+    public LocalAiInstalled withVerified(final String at, final Files facts) {
+        return new LocalAiInstalled(schemaVersion, platform, installedAt, at, runtime, model, facts);
     }
 
     /** @return e.g. {@code llama.cpp b11429, Qwen3-1.7B Q8_0} */

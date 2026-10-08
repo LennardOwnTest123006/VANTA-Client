@@ -8,7 +8,7 @@ import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { REPO_ROOT } from './lib/repo.mjs';
@@ -19,12 +19,13 @@ import { FIXTURE_HOST, FIXTURE_TAG, fixtureArchives, fixtureManifest, fixtureMod
 import { validateWithSchemaFile } from './validate-json.mjs';
 import {
   CheckError, Client, MANIFEST_PATH, PLATFORM_KEYS, SCHEMA_PATH, UsageError, archiveKind, extractArchive, findServerPath, githubReleaseApiUrl,
-  hfTreeApiUrl, installedMatches, isoInstant, loadLocalAiManifest, localAiNote, main, platformKey, prepareInstall, resolveManifest, statusReport,
-  templateValues, validateManifest, verifyManifest,
+  hfTreeApiUrl, installedMatches, installedRecord, isoInstant, loadLocalAiManifest, localAiNote, main, mirrorBase, mirrorFiles, mirrorManifest,
+  platformKey, prepareInstall, resolveManifest, servedName, startFileServer, statusReport, templateValues, validateManifest, verifyManifest,
 } from './local-ai.mjs';
 
 const SCHEMA = join(REPO_ROOT, SCHEMA_PATH);
 const TEMPLATE = join(REPO_ROOT, MANIFEST_PATH);
+const SHARED_FIXTURES = join(REPO_ROOT, 'shared', 'local-ai', 'fixtures');
 const RELEASE_API = `https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/${FIXTURE_TAG}`;
 const TREE_API = 'https://huggingface.co/api/models/Qwen/Qwen3-1.7B-GGUF/tree/main';
 const MODEL_URL = 'https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf';
@@ -705,6 +706,256 @@ describe('resolve, verify, prepare and status against a local GitHub and Hugging
   });
 });
 
+describe('installed.json shared with the client and the launcher (shared/local-ai/fixtures)', () => {
+  /** The fixture model bytes: byte i is (i * 7 + 3) & 0xff, the first four bytes spell GGUF (see the fixtures README). */
+  const fixtureModelBytes = () => {
+    const bytes = Buffer.alloc(4096);
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = (i * 7 + 3) & 0xff;
+    bytes.write('GGUF', 0, 'latin1');
+    return bytes;
+  };
+  const fixtureServerBytes = () => Buffer.from('#!/bin/sh\necho fixture llama-server b11429\n', 'ascii');
+  const sharedManifest = () => JSON.parse(readFileSync(join(SHARED_FIXTURES, 'manifest.example.json'), 'utf8'));
+  const sharedInstalled = () => JSON.parse(readFileSync(join(SHARED_FIXTURES, 'installed.example.json'), 'utf8'));
+
+  test('manifest.example.json is a complete manifest whose sizes and digests are the documented bytes', () => {
+    const manifest = sharedManifest();
+    assert.deepEqual(validateWithSchemaFile(SCHEMA, manifest).errors, []);
+    assert.deepEqual(templateValues(manifest), []);
+    assert.equal(manifest.model.size, 4096);
+    assert.equal(manifest.model.sha256, sha256(fixtureModelBytes()));
+    for (const [key, entry] of Object.entries(manifest.runtime.platforms)) {
+      const bytes = Buffer.from(`VANTA Local AI fixture archive ${entry.file}\n`, 'ascii');
+      assert.equal(entry.size, bytes.length, key);
+      assert.equal(entry.sha256, sha256(bytes), key);
+    }
+    assert.equal(sharedInstalled().files.serverSize, fixtureServerBytes().length);
+  });
+
+  test('installedRecord writes exactly installed.example.json from the fixed inputs (same keys, nesting and values)', () => {
+    const manifest = sharedManifest();
+    const expected = sharedInstalled();
+    const dir = scratch();
+    const server = join(dir, 'runtime', 'b11429', 'linux-x64', 'llama-b11429', 'llama-server');
+    const model = join(dir, 'models', 'Qwen3-1.7B-Q8_0.gguf');
+    mkdirSync(join(dir, 'runtime', 'b11429', 'linux-x64', 'llama-b11429'), { recursive: true });
+    mkdirSync(join(dir, 'models'), { recursive: true });
+    writeFileSync(server, fixtureServerBytes());
+    writeFileSync(model, fixtureModelBytes());
+    utimesSync(server, new Date(1791460800000), new Date(1791460800000));
+    utimesSync(model, new Date(1791460860000), new Date(1791460860000));
+    const record = installedRecord(manifest, 'linux-x64', { installedAt: '2026-10-08T12:00:00Z', verifiedAt: '2026-10-08T12:05:00Z', server, model });
+    assert.deepEqual(record, expected);
+    assert.deepEqual(Object.keys(record), Object.keys(expected), 'key order as core writes it');
+    assert.deepEqual(Object.keys(record.runtime), Object.keys(expected.runtime));
+    assert.deepEqual(Object.keys(record.runtime.platforms['linux-x64']), Object.keys(expected.runtime.platforms['linux-x64']));
+    assert.deepEqual(Object.keys(record.model), Object.keys(expected.model));
+    assert.deepEqual(Object.keys(record.files), ['serverSize', 'serverMtime', 'modelSize', 'modelMtime']);
+    assert.equal(JSON.stringify(record, null, 2), JSON.stringify(expected, null, 2), 'byte for byte as JSON text');
+    assert.equal(installedMatches(expected, manifest, 'linux-x64'), true);
+    assert.equal(installedMatches(expected, manifest, 'windows-x64'), false);
+    // The fixture directory is a complete install for status as well.
+    writeFileSync(join(dir, 'installed.json'), json(expected));
+    const report = statusReport({ manifest, manifestPath: 'm.json', dir, platform: 'linux-x64', root: makeRoot() });
+    assert.equal(report.ok, true, report.lines.join('\n'));
+  });
+});
+
+describe('prepare --keep-downloads, mirror and serve (the CI launcher integration against a local mirror)', () => {
+  const net = fakeInternet();
+  before(net.start);
+  after(net.stop);
+
+  test('prepare --keep-downloads keeps the verified archive and a link to the model under downloads/, and restores a missing archive', async () => {
+    net.reset();
+    const root = makeRoot();
+    const manifest = fixtureManifest();
+    const dir = join(scratch(), 'local-ai');
+    const linux = fixtureArchives()[2];
+    const first = await prepareInstall({ manifest, dir, platform: 'linux-x64', client: net.client(), root, now: NOW, keepDownloads: true });
+    assert.deepEqual(first.downloaded, ['models/Qwen3-1.7B-Q8_0.gguf', 'runtime/b11429/linux-x64']);
+    assert.deepEqual(first.kept, [`downloads/${linux.file}`, 'downloads/Qwen3-1.7B-Q8_0.gguf']);
+    assert.deepEqual(readdirSync(join(dir, 'downloads')).sort(), ['Qwen3-1.7B-Q8_0.gguf', linux.file].sort());
+    assert.deepEqual(readFileSync(join(dir, 'downloads', linux.file)), linux.bytes);
+    assert.deepEqual(readFileSync(join(dir, 'downloads', 'Qwen3-1.7B-Q8_0.gguf')), fixtureModel().bytes);
+    if (process.platform !== 'win32') {
+      assert.equal(statSync(join(dir, 'downloads', 'Qwen3-1.7B-Q8_0.gguf')).ino, statSync(join(dir, 'models', 'Qwen3-1.7B-Q8_0.gguf')).ino, 'a hard link, no second copy');
+    }
+    assert.equal(net.hitsOf(archiveUrl(linux.file)), 1);
+    assert.equal(net.hitsOf(MODEL_URL), 1);
+
+    // A second run verifies and keeps everything without a download.
+    const second = await prepareInstall({ manifest, dir, platform: 'linux-x64', client: net.client(), root, now: NOW, keepDownloads: true });
+    assert.deepEqual(second.downloaded, []);
+    assert.deepEqual(second.kept, first.kept);
+    assert.equal(net.hitsOf(archiveUrl(linux.file)), 1);
+    assert.equal(net.hitsOf(MODEL_URL), 1);
+
+    // The archive was removed (an earlier run without the flag, or an older cache): only the archive is fetched again,
+    // the runtime is not extracted again.
+    rmSync(join(dir, 'downloads', linux.file));
+    const serverBefore = statSync(join(dir, 'runtime', 'b11429', 'linux-x64', ...linux.serverPath.split('/'))).mtimeMs;
+    const third = await prepareInstall({ manifest, dir, platform: 'linux-x64', client: net.client(), root, now: NOW, keepDownloads: true });
+    assert.deepEqual(third.downloaded, []);
+    assert.deepEqual(third.skipped, ['models/Qwen3-1.7B-Q8_0.gguf', 'runtime/b11429/linux-x64']);
+    assert.deepEqual(third.kept, first.kept);
+    assert.equal(net.hitsOf(archiveUrl(linux.file)), 2, 'the archive alone is downloaded again');
+    assert.equal(net.hitsOf(MODEL_URL), 1);
+    assert.equal(statSync(join(dir, 'runtime', 'b11429', 'linux-x64', ...linux.serverPath.split('/'))).mtimeMs, serverBefore, 'runtime untouched');
+    assert.deepEqual(readFileSync(join(dir, 'downloads', linux.file)), linux.bytes);
+
+    // A wrong file under downloads/ is replaced (the link is removed first: writing through it would change models/ too).
+    rmSync(join(dir, 'downloads', 'Qwen3-1.7B-Q8_0.gguf'));
+    writeFileSync(join(dir, 'downloads', 'Qwen3-1.7B-Q8_0.gguf'), 'tampered');
+    writeFileSync(join(dir, 'downloads', linux.file), 'tampered');
+    await prepareInstall({ manifest, dir, platform: 'linux-x64', client: net.client(), root, now: NOW, keepDownloads: true });
+    assert.deepEqual(readFileSync(join(dir, 'downloads', 'Qwen3-1.7B-Q8_0.gguf')), fixtureModel().bytes);
+    assert.deepEqual(readFileSync(join(dir, 'downloads', linux.file)), linux.bytes);
+    assert.equal(net.hitsOf(archiveUrl(linux.file)), 3);
+    assert.equal(net.hitsOf(MODEL_URL), 1, 'the model is relinked from models/, not downloaded');
+
+    // Without the flag nothing extra is kept on a fresh directory.
+    const plain = await prepareInstall({ manifest, dir: join(scratch(), 'plain'), platform: 'linux-x64', client: net.client(), root, now: NOW });
+    assert.deepEqual(plain.kept, []);
+    assert.deepEqual(readdirSync(plain.paths.downloadsDir), []);
+  });
+
+  test('mirrorManifest replaces only the prepared platform and model URLs; the base must be https or loopback http', () => {
+    const manifest = fixtureManifest();
+    const mirrored = mirrorManifest(manifest, 'linux-x64', 'http://127.0.0.1:8765');
+    const linux = fixtureArchives()[2];
+    assert.equal(mirrored.runtime.platforms['linux-x64'].url, `http://127.0.0.1:8765/${linux.file}`);
+    assert.equal(mirrored.model.url, 'http://127.0.0.1:8765/Qwen3-1.7B-Q8_0.gguf');
+    assert.equal(mirrored.resolvedAt, manifest.resolvedAt);
+    assert.deepEqual(mirrored.runtime.platforms['windows-x64'], manifest.runtime.platforms['windows-x64'], 'other platforms unchanged');
+    assert.deepEqual({ ...mirrored.runtime.platforms['linux-x64'], url: manifest.runtime.platforms['linux-x64'].url }, manifest.runtime.platforms['linux-x64']);
+    assert.deepEqual({ ...mirrored.model, url: manifest.model.url }, manifest.model);
+    assert.deepEqual(manifest, fixtureManifest(), 'the input is not modified');
+    assert.equal(mirrorBase('http://localhost:9/'), 'http://localhost:9/');
+    assert.equal(mirrorBase('https://mirror.example/files'), 'https://mirror.example/files/');
+    assert.throws(() => mirrorBase('http://example.com/'), (e) => e instanceof UsageError && /must be https, or http on 127\.0\.0\.1/.test(e.message));
+    assert.throws(() => mirrorBase('ftp://127.0.0.1/'), UsageError);
+    assert.throws(() => mirrorBase('not a url'), UsageError);
+    assert.throws(() => mirrorBase('http://127.0.0.1/?x=1'), UsageError);
+    assert.throws(() => mirrorManifest(manifest, 'freebsd-x64', 'http://127.0.0.1/'), UsageError);
+    // The mirror is not a committable manifest: the schema insists on https.
+    assert.equal(validateWithSchemaFile(SCHEMA, mirrored).valid, false);
+  });
+
+  test('serve answers GET and HEAD for bare file names with Content-Length and nothing else', async () => {
+    const dir = scratch();
+    mkdirSync(join(dir, 'sub'));
+    writeFileSync(join(dir, 'a.bin'), Buffer.from([1, 2, 3, 4, 5]));
+    writeFileSync(join(dir, 'sub', 'b.bin'), 'nested');
+    writeFileSync(join(dir, 'with space.gguf'), 'spaced');
+    const logged = [];
+    const served = await startFileServer({ dir, port: 0, log: (m) => logged.push(m) });
+    try {
+      assert.match(served.url, /^http:\/\/127\.0\.0\.1:\d+\/$/);
+      const got = await fetch(`${served.url}a.bin`);
+      assert.equal(got.status, 200);
+      assert.equal(got.headers.get('content-length'), '5');
+      assert.equal(got.headers.get('content-type'), 'application/octet-stream');
+      assert.deepEqual(Buffer.from(await got.arrayBuffer()), Buffer.from([1, 2, 3, 4, 5]));
+      const head = await fetch(`${served.url}a.bin`, { method: 'HEAD' });
+      assert.equal(head.status, 200);
+      assert.equal(head.headers.get('content-length'), '5');
+      assert.equal((await head.arrayBuffer()).byteLength, 0);
+      const spaced = await fetch(`${served.url}with%20space.gguf`);
+      assert.equal(spaced.status, 200);
+      assert.equal(await spaced.text(), 'spaced');
+      for (const path of ['', 'missing.bin', 'sub', 'sub/b.bin', '..%2Fa.bin', '.', '%2e%2e']) {
+        const r = await fetch(`${served.url}${path}`);
+        assert.equal(r.status, 404, path);
+      }
+      const post = await fetch(`${served.url}a.bin`, { method: 'POST', body: 'x' });
+      assert.equal(post.status, 405);
+      assert.equal(post.headers.get('allow'), 'GET, HEAD');
+      assert.ok(logged.some((line) => /^GET \/a\.bin 200 5$/.test(line)), logged.join('\n'));
+    } finally {
+      await served.close();
+    }
+    assert.equal(servedName('/a.bin'), 'a.bin');
+    assert.equal(servedName('/'), null);
+    assert.equal(servedName('/x/y'), null);
+    assert.equal(servedName('/..'), null);
+    assert.equal(servedName('a.bin'), null);
+    assert.equal(servedName('/%ZZ'), null);
+    await assert.rejects(startFileServer({ dir: join(dir, 'nope'), port: 0 }), UsageError);
+  });
+
+  test('end to end: prepare --keep-downloads, serve downloads/, mirror, and a second prepare from the mirror alone', async () => {
+    net.reset();
+    const root = makeRoot(fixtureManifest());
+    const prepared = join(scratch(), 'prepared');
+    const out = [];
+    const err = [];
+    const deps = { fetch: net.fetchImpl, log: (m) => out.push(m), logError: (m) => err.push(m), env: {}, now: NOW, delayMs: 0, signals: false };
+    assert.equal(await main(['prepare', '--dir', prepared, '--platform', 'linux-x64', '--root', root, '--keep-downloads'], deps), 0, err.join('\n'));
+    assert.match(out.at(-1), /\(2 downloaded, 0 already present, 2 kept under downloads\/\)$/);
+
+    // mirror refuses a directory without kept downloads and a template manifest.
+    const bare = join(scratch(), 'bare');
+    const mirrorPath = join(scratch(), 'mirror.json');
+    assert.equal(await main(['mirror', '--dir', bare, '--base', 'http://127.0.0.1:1/', '--out', mirrorPath, '--platform', 'linux-x64', '--root', root], deps), 1);
+    assert.match(err.at(-1), /downloads\/llama-b11429-bin-ubuntu-x64\.tar\.gz is missing under .*run `prepare --dir .* --keep-downloads` first/);
+    const templateFile = join(root, 'template.json');
+    writeFileSync(templateFile, json(fixtureManifest({ template: true })));
+    assert.equal(await main(['mirror', '--dir', prepared, '--base', 'http://127.0.0.1:1/', '--out', mirrorPath, '--platform', 'linux-x64', '--manifest', templateFile, '--root', root], deps), 2);
+    assert.match(err.at(-1), /is not a resolved manifest/);
+    assert.equal(existsSync(mirrorPath), false);
+
+    // serve through the CLI; the test gets the server through onServe and stops it when done.
+    let running;
+    const serving = main(['serve', '--dir', join(prepared, 'downloads'), '--port', '0'], { ...deps, onServe: (s) => { running = s; } });
+    for (let i = 0; i < 200 && !running; i += 1) await new Promise((tick) => setTimeout(tick, 10));
+    assert.ok(running, 'the server started');
+    try {
+      assert.ok(out.some((line) => line === `serving ${join(prepared, 'downloads')} on ${running.url}`), out.join('\n'));
+      const head = await fetch(`${running.url}Qwen3-1.7B-Q8_0.gguf`, { method: 'HEAD' });
+      assert.equal(head.status, 200);
+      assert.equal(head.headers.get('content-length'), String(fixtureModel().size));
+
+      assert.equal(await main(['mirror', '--dir', prepared, '--base', running.url, '--out', mirrorPath, '--platform', 'linux-x64', '--root', root], deps), 0, err.join('\n'));
+      const mirror = JSON.parse(readFileSync(mirrorPath, 'utf8'));
+      assert.deepEqual(mirror, mirrorManifest(fixtureManifest(), 'linux-x64', running.url));
+      assert.match(out.at(-1), /^wrote .*mirror\.json \(mirror of .* for linux-x64; local use only, never commit it\)$/);
+      assert.equal(readFileSync(mirrorPath, 'utf8'), json(mirror));
+
+      // What the launcher does in CI, done here with the script's own downloader against the real global fetch:
+      // everything comes from 127.0.0.1, nothing from the fake GitHub or Hugging Face, and every SHA-256 still matches.
+      // (prepare itself insists on the schema, so a mirror manifest with http URLs is for the launcher only.)
+      const fromMirror = join(scratch(), 'from-mirror');
+      const hitsBefore = { archive: net.hitsOf(archiveUrl(fixtureArchives()[2].file)), model: net.hitsOf(MODEL_URL) };
+      const direct = new Client({ fetch, userAgent: 'VANTA tests', delayMs: 0 });
+      const linux = fixtureArchives()[2];
+      const archiveResult = await direct.download(mirror.runtime.platforms['linux-x64'].url, join(fromMirror, linux.file), { expectedSize: linux.size, expectedSha256: linux.sha256 });
+      const modelResult = await direct.download(mirror.model.url, join(fromMirror, 'Qwen3-1.7B-Q8_0.gguf'), { expectedSize: fixtureModel().size, expectedSha256: fixtureModel().sha256 });
+      assert.deepEqual(archiveResult, { size: linux.size, sha256: linux.sha256 });
+      assert.deepEqual(modelResult, { size: fixtureModel().size, sha256: fixtureModel().sha256 });
+      assert.equal(findServerPath(join(fromMirror, linux.file), 'llama-server'), linux.serverPath, 'the served archive is the real one');
+      assert.equal(net.hitsOf(archiveUrl(linux.file)), hitsBefore.archive, 'nothing fetched from the fake GitHub');
+      assert.equal(net.hitsOf(MODEL_URL), hitsBefore.model, 'nothing fetched from the fake Hugging Face');
+      await assert.rejects(direct.download(`${running.url}missing.gguf`, join(fromMirror, 'missing.gguf')), /HTTP 404/);
+      await assert.rejects(prepareInstall({ manifest: mirror, dir: join(fromMirror, 'x'), platform: 'linux-x64', client: direct, root, now: NOW }),
+        (e) => e instanceof UsageError && /does not match shared\/schemas\/local-ai\.schema\.json/.test(e.message), 'prepare refuses a mirror manifest');
+    } finally {
+      await running.close();
+    }
+    assert.equal(await serving, 0);
+
+    for (const argv of [
+      ['mirror', '--dir', prepared, '--out', mirrorPath], ['mirror', '--dir', prepared, '--base', 'http://127.0.0.1/'], ['mirror', '--base', 'x', '--out', 'y'],
+      ['serve', '--dir', prepared], ['serve', '--dir', prepared, '--port', '70000'], ['serve', '--dir', prepared, '--port', '8', '--manifest', 'm.json'],
+      ['prepare', '--dir', 'x', '--base', 'http://127.0.0.1/'], ['status', '--port', '1'], ['resolve', '--keep-downloads'], ['status', '--keep-downloads'],
+    ]) {
+      assert.equal(await main(argv, deps), 2, JSON.stringify(argv));
+    }
+    assert.equal(await main(['serve', '--dir', join(prepared, 'nope'), '--port', '0'], deps), 2);
+    assert.match(err.at(-1), /is not a directory/);
+  });
+});
+
 describe('LOCAL-AI.txt', () => {
   test('is plain ASCII, wraps at 100 columns and names sizes, hosts, digests and licences from the manifest', () => {
     const manifest = fixtureManifest();
@@ -769,15 +1020,79 @@ describe('workflows and build files that use local-ai.mjs', () => {
       assert.match(text, /Local AI manifest not resolved yet/, `${id}: the guard message`);
       assert.match(text, /uses: actions\/cache\/restore@v4/, `${id}: cache restore`);
       assert.match(text, /uses: actions\/cache\/save@v4/, `${id}: cache save right after prepare`);
-      assert.match(text, /key: local-ai-linux-x64-\$\{\{ hashFiles\('shared\/local-ai\/local-ai\.json'\) \}\}/, `${id}: cache key on the manifest hash`);
-      assert.match(text, /node scripts\/release\/local-ai\.mjs prepare --dir "\$RUNNER_TEMP\/local-ai" --platform linux-x64/, `${id}: prepare`);
+      assert.equal((text.match(/key: local-ai-linux-x64-v2-\$\{\{ hashFiles\('shared\/local-ai\/local-ai\.json'\) \}\}/g) ?? []).length, 2, `${id}: restore and save share the cache key on the manifest hash`);
+      assert.match(text, /node scripts\/release\/local-ai\.mjs prepare --dir "\$RUNNER_TEMP\/local-ai" --platform linux-x64 --keep-downloads/, `${id}: prepare keeps the downloads for the mirror`);
       assert.match(text, /echo "VANTA_LOCAL_AI_DIR=\$RUNNER_TEMP\/local-ai" >> "\$GITHUB_ENV"/, `${id}: exported to the test`);
+      // prepare runs on a cache hit as well (it re-records the restored files' modification times); only the save is
+      // limited to a miss.
+      const prepareStep = step(text, 'Prepare the Local AI install');
+      assert.match(prepareStep, /\n {8}if: steps\.local-ai-manifest\.outputs\.ready == 'true'\n/, `${id}: prepare is guarded by the manifest only`);
+      assert.doesNotMatch(prepareStep, /cache-hit/, `${id}: prepare is not skipped on a cache hit`);
+      assert.match(prepareStep, /after the cache restore on purpose/, `${id}: says why`);
+      const saveStep = text.slice(text.indexOf('actions/cache/save@v4'));
+      assert.match(saveStep.slice(0, 400), /steps\.local-ai-cache\.outputs\.cache-hit != 'true'/, `${id}: the save runs on a miss only`);
       const guard = text.indexOf('if node scripts/release/local-ai.mjs status; then');
       const restore = text.indexOf('actions/cache/restore@v4');
       const prepare = text.indexOf('local-ai.mjs prepare');
       const save = text.indexOf('actions/cache/save@v4');
       const run = text.indexOf(id === 'launcher-integration' ? 'java -jar launcher/build/libs/vanta-launcher-*-all.jar --install' : 'runProductionClientGametest');
       assert.ok(guard < restore && restore < prepare && prepare < save && save < run, `${id}: guard, restore, prepare, save, then the test`);
+    }
+  });
+
+  /** The text of one step of a job, from its `- name:` line to the next step. */
+  function step(jobText, namePrefix) {
+    const start = jobText.indexOf(`      - name: ${namePrefix}`);
+    assert.ok(start >= 0, `step '${namePrefix}' exists`);
+    const next = jobText.slice(start + 1).search(/\n {6}- /);
+    return next < 0 ? jobText.slice(start) : jobText.slice(start, start + 1 + next);
+  }
+
+  test('ci.yml installs the Local AI through the launcher from a local mirror of the prepared files and checks installed.json against the fixture', () => {
+    const text = job(CI, 'launcher-integration');
+    const install = step(text, 'Install the Local AI through the launcher from a local mirror');
+    assert.match(install, /\n {8}if: steps\.local-ai-manifest\.outputs\.ready == 'true'\n/, 'skipped while the manifest is the template');
+    assert.match(install, /node scripts\/release\/local-ai\.mjs serve --dir "\$RUNNER_TEMP\/local-ai\/downloads" --port "\$MIRROR_PORT" > "\$RUNNER_TEMP\/local-ai-serve\.log" 2>&1 &/);
+    assert.match(install, /trap 'kill "\$SERVE_PID" 2>\/dev\/null \|\| true' EXIT/, 'the server is stopped when the step ends');
+    assert.match(install, /curl -sfI "http:\/\/127\.0\.0\.1:\$MIRROR_PORT\/\$ARCHIVE"/, 'waits for the server');
+    assert.match(install, /node scripts\/release\/local-ai\.mjs mirror --dir "\$RUNNER_TEMP\/local-ai" --base "http:\/\/127\.0\.0\.1:\$MIRROR_PORT\/" --out "\$RUNNER_TEMP\/local-ai-mirror\.json" --platform linux-x64/);
+    assert.match(install, /VANTA_LOCAL_AI_MANIFEST="\$RUNNER_TEMP\/local-ai-mirror\.json" java -jar launcher\/build\/libs\/vanta-launcher-\*-all\.jar --install-local-ai --data-dir "\$RUNNER_TEMP\/vanta"/);
+    assert.match(install, /grep -F "Downloaded Local AI runtime \$ARCHIVE"/);
+    assert.match(install, /grep -F "Downloaded Local AI model \$MODEL"/);
+    assert.match(install, /grep -F "Note: \$RUNNER_TEMP\/vanta\/instances\/vanta-1\.21\.11\/config\/vanta\/local-ai\.json"/);
+    assert.match(install, /grep -E "\^GET \/\$ARCHIVE 200 "/, 'the archive came from the mirror');
+    assert.match(install, /grep -E "\^GET \/\$MODEL 200 "/, 'the model came from the mirror');
+
+    const check = step(text, 'Local AI status line, installed.json in the client');
+    assert.match(check, /\n {8}if: steps\.local-ai-manifest\.outputs\.ready == 'true'\n/);
+    assert.match(check, /EXPECTED="Local AI: installed \(\$\(jq -r '\.runtime\.name \+ " " \+ \.runtime\.tag \+ ", " \+ \.model\.name \+ " " \+ \.model\.quantization' "\$MANIFEST"\)\)"/,
+      'the exact status line, "Local AI: installed (llama.cpp b11429, Qwen3-1.7B Q8_0)" for the b11429 manifest');
+    assert.match(check, /--local-ai-status --data-dir "\$DATA"/);
+    assert.match(check, /grep -Fx "\$EXPECTED" "\$RUNNER_TEMP\/local-ai-status\.out"/, 'whole-line match');
+    assert.match(check, /grep -Fx "Server: \$DATA\/local-ai\/runtime\/\$TAG\/linux-x64\/\$SERVER_PATH"/);
+    assert.match(check, /grep -Fx "Model: \$DATA\/local-ai\/models\/\$MODEL"/);
+    assert.match(check, /node "\$RUNNER_TEMP\/check-installed\.mjs" "\$DATA\/local-ai\/installed\.json" shared\/local-ai\/fixtures\/installed\.example\.json "\$MANIFEST"/, 'the key set is compared with the shared fixture');
+    assert.match(check, /prefix === 'runtime\.platforms' \? '<platform>' : k/, 'the platform key is normalised before the comparison');
+    assert.match(check, /test "\$\(realpath -m "\$\(jq -r \.localAiDir "\$NOTE"\)"\)" = "\$\(realpath -m "\$DATA\/local-ai"\)"/, 'the note points at the launcher folder');
+    assert.match(check, /--remove-local-ai --data-dir "\$DATA"/);
+    assert.match(check, /grep -F "Removed the Local AI from \$DATA\/local-ai \("/);
+    assert.match(check, /test ! -e "\$DATA\/local-ai"/, 'the folder is gone');
+    assert.match(check, /grep -Fx "Local AI: not installed \(install it with --install-local-ai\)"/);
+    // The embedded node check is the one this repository tests in its own right: same key-path logic as the fixture tests.
+    const js = check.slice(check.indexOf("<<'JS'") + 6, check.indexOf('\n          JS\n'));
+    assert.match(js, /actual\.platform !== 'linux-x64'/);
+    assert.match(js, /actual\.model\?\.sha256 !== manifest\.model\.sha256/);
+
+    // Order inside the job: the launcher's --install (which creates the instance) comes first, then the mirror install,
+    // the checks and the removal, and only then the official-profile and the headless launch steps.
+    const installIndex = text.indexOf('java -jar launcher/build/libs/vanta-launcher-*-all.jar --install --client-jar');
+    const mirrorIndex = text.indexOf('--install-local-ai --data-dir');
+    const removeIndex = text.indexOf('--remove-local-ai --data-dir');
+    const officialIndex = text.indexOf('--install-official-profile --client-jar');
+    const launchIndex = text.indexOf('--launch --dev-offline');
+    assert.ok(installIndex < mirrorIndex && mirrorIndex < removeIndex && removeIndex < officialIndex && officialIndex < launchIndex, 'install, mirror install, remove, official profile, launch');
+    for (const log of ['local-ai-serve.log', 'local-ai-install.out', 'local-ai-status.out', 'local-ai-remove.out']) {
+      assert.ok(text.includes(`\${{ runner.temp }}/${log}`), `${log} is uploaded with the job's logs`);
     }
   });
 

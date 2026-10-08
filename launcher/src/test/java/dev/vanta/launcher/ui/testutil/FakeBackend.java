@@ -948,16 +948,14 @@ public final class FakeBackend implements LauncherBackend {
         final Path dir = paths.localAiDir();
         return switch (localAiState) {
             case INSTALLED -> {
-                final LocalAiManifest.PlatformFile platform = manifest.platform("linux-x64").orElseThrow();
-                final LocalAiInstalled installed = new LocalAiInstalled(1, "linux-x64", "2026-10-04T12:00:00Z", "2026-10-04T12:00:00Z",
-                    new LocalAiInstalled.InstalledRuntime(manifest.runtime().name(), manifest.runtime().component(),
-                        localAiOutdated ? "b11400" : manifest.runtime().tag(), manifest.runtime().license(), manifest.runtime().sourceUrl(),
-                        manifest.runtime().releaseUrl(), platform),
-                    manifest.model(), List.of(
-                        new LocalAiInstalled.InstalledFile(LocalAiInstalled.ROLE_SERVER, "runtime/b11429/linux-x64/build/bin/llama-server",
-                            4_200_000L, sha256, CLOCK.millis()),
-                        new LocalAiInstalled.InstalledFile(LocalAiInstalled.ROLE_MODEL, "models/Qwen3-1.7B-Q8_0.gguf", manifest.model().size(),
-                            manifest.model().sha256(), CLOCK.millis())));
+                final LocalAiManifest.Runtime runtime = manifest.runtime().only("linux-x64");
+                final LocalAiManifest.Runtime recorded = localAiOutdated
+                    ? new LocalAiManifest.Runtime(runtime.name(), runtime.component(), "b11400", runtime.license(), runtime.sourceUrl(),
+                        runtime.releaseUrl(), runtime.platforms())
+                    : runtime;
+                final LocalAiInstalled installed = new LocalAiInstalled(LocalAiInstalled.SCHEMA_VERSION, "linux-x64", "2026-10-04T12:00:00Z",
+                    "2026-10-04T12:00:00Z", recorded, manifest.model(),
+                    new LocalAiInstalled.Files(4_200_000L, CLOCK.millis(), manifest.model().size(), CLOCK.millis()));
                 yield new LocalAiReport(LocalAiState.INSTALLED, "linux-x64", dir, Optional.of(manifest), Optional.of(installed),
                     manifest.downloadBytes("linux-x64"), List.of(), localAiOutdated);
             }

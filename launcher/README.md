@@ -316,9 +316,15 @@ manifest (CI, tests). A build without a complete manifest reports the Local AI a
 - Every download goes through `Downloader` with its SHA-256 from the manifest (the model with a 6 hour exchange
   timeout, the stall watchdog unchanged); the archive is extracted with `ArchiveExtractor` into
   `local-ai/runtime/<tag>/<platform>/` (staging folder first, moved only when the server executable is really inside,
-  executable bit set on Linux and macOS), the model lands in `local-ai/models/`, `installed.json` records platform,
-  times and the verified sizes and digests. The quick check at start compares sizes and modification times, "Verify
-  files" and `--local-ai-status` after an install hash everything again.
+  executable bit set on Linux and macOS), the model lands in `local-ai/models/`, and `installed.json` records what was
+  installed in exactly the shape the VANTA Client reads (`dev.vanta.core.ai.LocalAiInstalled`; the committed example
+  is `shared/local-ai/fixtures/installed.example.json`): `schemaVersion`, `platform`, `installedAt`, `verifiedAt`, the
+  manifest's `runtime` section with only this platform's archive, the manifest's `model` section and `files`
+  (`serverSize`, `serverMtime`, `modelSize`, `modelMtime`; times in epoch milliseconds). The recorded digests are the
+  manifest's. The quick check at start compares sizes and modification times; "Verify files" hashes the model again
+  and checks the server executable by presence and size (the manifest names the archive's digest, not the extracted
+  file's). The release tooling (`node scripts/release/local-ai.mjs prepare`) writes the same file, so a directory it
+  prepared, one the launcher installed and one the client installed all read alike.
 - With consent given and `installLocalAi` on, PLAY, "Use with Minecraft Launcher" and `--install` include the step
   "Installing the Local AI" after the performance pack; like the pack it never fails the install.
 - Every game folder the launcher sets up gets the note `config/vanta/local-ai.json` (`{"localAiDir": "<absolute
@@ -440,7 +446,8 @@ Commands
                      verified) into local-ai/; prints "Local AI: installed (<runtime>, <model>)", "Folder: <dir>",
                      "Size on disk: <n>" and "Note: <game folder>/config/vanta/local-ai.json"; counts as the consent
   --local-ai-status  print "Local AI: installed (...)" | "not installed (...)" | "partially installed (...)" |
-                     "not available for <os>/<arch>" | "not available in this build (...)", then Folder and Size on disk
+                     "not available for <os>/<arch>" | "not available in this build (...)", then Folder, Size on disk
+                     and, when installed, Server and Model (quick check: installed.json, sizes, modification times)
   --remove-local-ai  delete the Local AI folder (nothing else) and switch its automatic installation off
   --print-command    print the game command line (secrets redacted) without launching
   --version          print the launcher version
@@ -487,6 +494,16 @@ java -jar build/libs/vanta-launcher-<version>-all.jar --install-official-profile
   --minecraft-dir /tmp/dotminecraft --data-dir /tmp/vanta   # CI checks the result with jq
 ```
 
+The same job installs the Local AI through the launcher without touching GitHub or Hugging Face: `node
+scripts/release/local-ai.mjs serve` serves the runtime archive and the model that CI prepared (and cached) from the
+committed manifest on `127.0.0.1`, `local-ai.mjs mirror` writes a copy of the manifest whose `linux-x64` and model URLs
+point at that server, and `VANTA_LOCAL_AI_MANIFEST=<mirror manifest> java -jar ... --install-local-ai --data-dir /tmp/vanta`
+downloads from it with the real SHA-256 checks. The job then asserts the `--local-ai-status` line
+`Local AI: installed (llama.cpp <tag>, Qwen3-1.7B Q8_0)` (versions from the manifest), that `local-ai/installed.json`
+has exactly the key set of `shared/local-ai/fixtures/installed.example.json`, that the note
+`instances/vanta-1.21.11/config/vanta/local-ai.json` points at `local-ai/`, and that `--remove-local-ai` deletes the
+folder. The steps are skipped with a notice while the manifest is still the unresolved template.
+
 Once a client release is published, CI also runs `--install` without `--client-jar` to prove the launcher finds the
 published jar through the built-in releases URL. The integration job installs the performance pack from the live
 Modrinth API and checks every jar against `modrinth.json` (`sha512sum`) and against Modrinth itself
@@ -518,7 +535,8 @@ dev.vanta.launcher.core.modrinth        ModrinthApi (v2 client, User-Agent, 429)
                                         ContentType, ModrinthModels
 dev.vanta.launcher.core.java            JavaDetector, ProcessJavaProbe, AdoptiumService, ArchiveExtractor
 dev.vanta.launcher.core.ai              LocalAiManifest (embedded local-ai.json), LocalAiService (download, verify, extract,
-                                        installed.json, remove), LocalAiNote (config/vanta/local-ai.json), LocalAiReport
+                                        installed.json, remove), LocalAiInstalled (installed.json, the client's shape),
+                                        LocalAiNote (config/vanta/local-ai.json), LocalAiReport
 dev.vanta.launcher.core.auth            MicrosoftAuthService, AccountStore (DPAPI / AES-GCM), OfflineAccountPolicy
 dev.vanta.launcher.core.settings        LauncherSettings, SettingsStore, ReleasesBaseUrl (URL in effect + source)
 dev.vanta.launcher.core.update          UpdateService (+ClientCheck), UpdateInfo, SemVer

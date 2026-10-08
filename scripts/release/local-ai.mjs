@@ -20,12 +20,29 @@
  *        every runtime archive downloaded and re-hashed with its serverPath present, the model checked through the
  *        Hugging Face API only (size and lfs.oid) unless --full downloads and hashes it as well.
  *        --skip-model-download names that default explicitly (it cannot be combined with --full).
- *   node scripts/release/local-ai.mjs prepare --dir <dir> [--platform <key>] [--manifest <path>]
+ *   node scripts/release/local-ai.mjs prepare --dir <dir> [--platform <key>] [--manifest <path>] [--keep-downloads]
  *        downloads, verifies and extracts the runtime for the given (default: the current) platform and the model
- *        into <dir> with the layout the client and the launcher use: installed.json, runtime/<tag>/<platform>/...
- *        (serverPath relative to it, executable bit set), models/<file>, downloads/<name>.part while downloading.
- *        Files already present and verified are not downloaded again. CI uses it to build the cached install the
- *        game test and the launcher integration job start llama-server from (VANTA_LOCAL_AI_DIR).
+ *        into <dir> with the layout the client and the launcher use: installed.json (the shape of
+ *        dev.vanta.core.ai.LocalAiInstalled, see shared/local-ai/fixtures/), runtime/<tag>/<platform>/... (serverPath
+ *        relative to it, executable bit set), models/<file>, downloads/<name>.part while downloading. Files already
+ *        present and verified are not downloaded again; installed.json is rewritten on every run with the current
+ *        modification times (so a run after a cache restore records the restored files). With --keep-downloads the
+ *        verified runtime archive stays under downloads/ and the model is hard-linked (copied where links fail)
+ *        there as well, so `serve` can offer both under their bare file names. CI uses it to build the cached install
+ *        the game test and the launcher integration job start llama-server from (VANTA_LOCAL_AI_DIR).
+ *   node scripts/release/local-ai.mjs mirror --dir <prepared dir> --base <http://127.0.0.1:PORT/> --out <path>
+ *        [--platform <key>] [--manifest <path>]
+ *        writes a copy of the manifest that is identical to the resolved one except that the archive URL of the
+ *        prepared platform and the model URL point at <base><file> (other platforms unchanged, resolvedAt kept).
+ *        Requires `prepare --keep-downloads` first: both files must be present under <dir>/downloads/ with the
+ *        manifest sizes. The base may be https anywhere or plain http on the loopback address only. The launcher
+ *        reads it through VANTA_LOCAL_AI_MANIFEST and still verifies every SHA-256; it is not schema-valid (http) and
+ *        must never be committed.
+ *   node scripts/release/local-ai.mjs serve --dir <dir> --port <n>
+ *        a tiny static file server for one flat directory on 127.0.0.1: GET and HEAD of /<file name> with
+ *        Content-Length, no directory listing, no subdirectories, no ranges; 404 for everything else, 405 for other
+ *        methods. --port 0 picks a free port; the listening URL is printed as "serving <dir> on <url>". Runs until
+ *        SIGINT or SIGTERM. Only ever meant for CI and local runs against the files `prepare --keep-downloads` kept.
  *   node scripts/release/local-ai.mjs status [--manifest <path>] [--dir <dir>] [--platform <key>]
  *        says whether the manifest is resolved (schema-valid) and, with --dir, whether that directory holds a
  *        complete install of it. Exit 0 when resolved (and complete), 1 otherwise; prints no error annotations, so
@@ -43,8 +60,10 @@
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import {
-  chmodSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync, statSync, writeFileSync,
+  chmodSync, copyFileSync, createReadStream, createWriteStream, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync,
+  statSync, writeFileSync,
 } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,7 +80,9 @@ import { validate } from './validate-json.mjs';
 const USAGE = `Usage: node scripts/release/local-ai.mjs <command> [options]
   resolve  [--manifest <template>] [--out <path>] [--work <dir>] [--skip-model-download]
   verify   <manifest> [--full | --skip-model-download] [--work <dir>]
-  prepare  --dir <dir> [--platform <key>] [--manifest <path>]
+  prepare  --dir <dir> [--platform <key>] [--manifest <path>] [--keep-downloads]
+  mirror   --dir <prepared dir> --base <http://127.0.0.1:PORT/> --out <path> [--platform <key>] [--manifest <path>]
+  serve    --dir <dir> --port <n>
   status   [--manifest <path>] [--dir <dir>] [--platform <key>]
   options: --root <repository root> --timeout <ms per request> --attempts <tries per request> --quiet
   platform keys: ${'windows-x64 windows-arm64 linux-x64 linux-arm64 macos-arm64 macos-x64'}`;
@@ -621,10 +642,37 @@ export function installedMatches(installed, manifest, platform) {
 }
 
 /**
- * The `prepare` command: a complete, verified Local AI directory for one platform.
- * @returns {Promise<{ platform: string, installed: object, downloaded: string[], skipped: string[] }>}
+ * Makes `dest` a verified copy of `source` for `serve`: an existing file is kept when it is the same inode or hashes to
+ * `expectedSha256`, otherwise it is replaced; a hard link is tried first (no second copy of a 1.8 GB model), a plain
+ * copy when linking fails (another file system, no permission).
+ * @returns {'kept'|'linked'|'copied'}
  */
-export async function prepareInstall({ manifest, dir, platform, client, root = REPO_ROOT, now = new Date(), log = () => {} }) {
+async function keepCopy(source, dest, expectedSize, expectedSha256) {
+  if (existsSync(dest) && statSync(dest).isFile()) {
+    const a = statSync(source);
+    const b = statSync(dest);
+    if (a.ino === b.ino && a.dev === b.dev && a.ino !== 0) return 'kept';
+    const actual = await hashFile(dest);
+    if (actual.size === expectedSize && actual.sha256 === expectedSha256) return 'kept';
+    rmSync(dest, { force: true });
+  }
+  mkdirSync(dirname(dest), { recursive: true });
+  try {
+    linkSync(source, dest);
+    return 'linked';
+  } catch {
+    copyFileSync(source, dest);
+    return 'copied';
+  }
+}
+
+/**
+ * The `prepare` command: a complete, verified Local AI directory for one platform. With `keepDownloads` the verified
+ * runtime archive stays under downloads/ (downloaded again, verified, when it is missing) and the model is linked
+ * there too, so `serve --dir <dir>/downloads` can offer both to the launcher's `--install-local-ai` in CI.
+ * @returns {Promise<{ platform: string, installed: object, downloaded: string[], skipped: string[], kept: string[], paths: object }>}
+ */
+export async function prepareInstall({ manifest, dir, platform, client, root = REPO_ROOT, now = new Date(), keepDownloads = false, log = () => {} }) {
   const schema = validateManifest(manifest, root);
   if (!schema.valid) {
     const open = templateValues(manifest);
@@ -640,6 +688,7 @@ export async function prepareInstall({ manifest, dir, platform, client, root = R
   mkdirSync(paths.downloadsDir, { recursive: true });
   const downloaded = [];
   const skipped = [];
+  const kept = [];
   const existing = readInstalled(paths.installedJson);
 
   // Model: keep a file whose size and SHA-256 match the manifest; anything else is replaced.
@@ -667,12 +716,12 @@ export async function prepareInstall({ manifest, dir, platform, client, root = R
   // Runtime: keep the extracted archive when installed.json records exactly this archive and the server is there.
   const runtimeOk = installedMatches(existing, manifest, platform) && existsSync(paths.server) && statSync(paths.server).isFile();
   const runtimeRel = posix.join('runtime', manifest.runtime.tag, platform);
+  const archive = join(paths.downloadsDir, entry.file);
   if (runtimeOk) {
     skipped.push(runtimeRel);
     log(`  ok  ${runtimeRel}/ already installed (${entry.file}, sha256 ${entry.sha256})`);
   } else {
     log(`  downloading ${entry.url} (${formatSize(entry.size)})`);
-    const archive = join(paths.downloadsDir, entry.file);
     await client.download(entry.url, archive, { expectedSize: entry.size, expectedSha256: entry.sha256, label: `${platform} ${entry.file}` });
     const serverPath = findServerPath(archive, manifest.runtime.component);
     if (serverPath !== entry.serverPath) {
@@ -687,12 +736,30 @@ export async function prepareInstall({ manifest, dir, platform, client, root = R
     rmSync(paths.runtimeDir, { recursive: true, force: true });
     mkdirSync(dirname(paths.runtimeDir), { recursive: true });
     renameSync(extracting, paths.runtimeDir);
-    rmSync(archive, { force: true });
+    if (!keepDownloads) rmSync(archive, { force: true });
     downloaded.push(runtimeRel);
     log(`  ok  ${runtimeRel}/  ${files.length} files from ${entry.file}  sha256 ${entry.sha256}`);
   }
   if (!platform.startsWith('windows') && process.platform !== 'win32') chmodSync(paths.server, 0o755);
   if (!existsSync(paths.server) || !statSync(paths.server).isFile()) throw new CheckError(`${platform}: ${entry.serverPath} is missing under ${paths.runtimeDir}`);
+
+  // Kept downloads for `serve`: the verified archive (fetched again when an earlier run removed it) and the model.
+  if (keepDownloads) {
+    let archiveOk = false;
+    if (existsSync(archive) && statSync(archive).isFile()) {
+      const actual = await hashFile(archive);
+      archiveOk = actual.size === entry.size && actual.sha256 === entry.sha256;
+      if (!archiveOk) rmSync(archive, { force: true });
+    }
+    if (!archiveOk) {
+      log(`  downloading ${entry.url} (${formatSize(entry.size)}) to keep under downloads/`);
+      await client.download(entry.url, archive, { expectedSize: entry.size, expectedSha256: entry.sha256, label: `${platform} ${entry.file}` });
+    }
+    kept.push(`downloads/${entry.file}`);
+    const how = await keepCopy(paths.model, join(paths.downloadsDir, manifest.model.file), manifest.model.size, manifest.model.sha256);
+    kept.push(`downloads/${manifest.model.file}`);
+    log(`  ok  downloads/${entry.file} and downloads/${manifest.model.file} kept for serve (model ${how})`);
+  }
 
   for (const name of readdirSync(paths.downloadsDir)) {
     if (name.endsWith(PART_SUFFIX)) rmSync(join(paths.downloadsDir, name), { force: true });
@@ -706,7 +773,131 @@ export async function prepareInstall({ manifest, dir, platform, client, root = R
   });
   writeJsonAtomic(paths.installedJson, installed);
   log(`  wrote ${paths.installedJson}`);
-  return { platform, installed, downloaded, skipped, paths };
+  return { platform, installed, downloaded, skipped, kept, paths };
+}
+
+// ---- mirror ---------------------------------------------------------------------------------------------------------
+
+/**
+ * Normalises the base URL of a mirror: a URL ending in '/', https anywhere or plain http on the loopback address only
+ * (the launcher downloads from it without TLS, which is acceptable on the same machine and nowhere else).
+ */
+export function mirrorBase(base) {
+  let url;
+  try {
+    url = new URL(base);
+  } catch {
+    throw new UsageError(`--base '${base}' is not a URL`);
+  }
+  const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    throw new UsageError(`--base '${base}' must be https, or http on 127.0.0.1 / localhost only`);
+  }
+  if (url.search || url.hash) throw new UsageError(`--base '${base}' must not carry a query or a fragment`);
+  return url.href.endsWith('/') ? url.href : `${url.href}/`;
+}
+
+/**
+ * The `mirror` command as data: a deep copy of `manifest` whose URL of `platform`'s archive and of the model point at
+ * `<base><file>`; every other value, including resolvedAt and the other platforms, stays as it is.
+ */
+export function mirrorManifest(manifest, platform, base) {
+  if (!PLATFORM_KEYS.includes(platform)) throw new UsageError(`Local AI is not available for platform '${platform}' (one of ${PLATFORM_KEYS.join(', ')})`);
+  const prefix = mirrorBase(base);
+  const mirrored = structuredClone(manifest);
+  const entry = mirrored?.runtime?.platforms?.[platform];
+  if (!entry || typeof entry.file !== 'string') throw new UsageError(`the manifest lists no archive for ${platform}`);
+  if (!mirrored.model || typeof mirrored.model.file !== 'string') throw new UsageError('the manifest has no model.file');
+  entry.url = `${prefix}${entry.file}`;
+  mirrored.model.url = `${prefix}${mirrored.model.file}`;
+  return mirrored;
+}
+
+/**
+ * Checks that `prepare --keep-downloads` left the archive of `platform` and the model under `<dir>/downloads/` with the
+ * manifest sizes (the SHA-256 is checked by whoever downloads them). Returns the two paths.
+ */
+export function mirrorFiles(dir, manifest, platform) {
+  const paths = installPaths(dir, manifest, platform);
+  const entry = manifest.runtime.platforms[platform];
+  const files = [[join(paths.downloadsDir, entry.file), entry.size, `downloads/${entry.file}`],
+    [join(paths.downloadsDir, manifest.model.file), manifest.model.size, `downloads/${manifest.model.file}`]];
+  for (const [path, size, label] of files) {
+    if (!existsSync(path) || !statSync(path).isFile()) throw new CheckError(`${label} is missing under ${paths.root}; run \`prepare --dir ${dir} --platform ${platform} --keep-downloads\` first`);
+    const actual = statSync(path).size;
+    if (actual !== size) throw new CheckError(`${label} has ${actual} bytes, the manifest says ${size}; run \`prepare --keep-downloads\` again`);
+  }
+  return { archive: files[0][0], model: files[1][0], downloadsDir: paths.downloadsDir };
+}
+
+// ---- serve ----------------------------------------------------------------------------------------------------------
+
+/** The bare file name a request path asks for, or null when it is not one (directory, subdirectory, dot names). */
+export function servedName(pathname) {
+  let name;
+  try {
+    name = decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+  if (!name.startsWith('/')) return null;
+  name = name.slice(1);
+  if (name === '' || name === '.' || name === '..' || name.includes('/') || name.includes('\\') || name.includes('\0')) return null;
+  return name;
+}
+
+/**
+ * Starts the `serve` file server: one flat directory on the loopback address, GET and HEAD with Content-Length, no
+ * listing, no subdirectories, no ranges. Resolves once it listens.
+ * @returns {Promise<{ server: import('node:http').Server, url: string, port: number, close: () => Promise<void> }>}
+ */
+export async function startFileServer({ dir, port = 0, host = '127.0.0.1', log = () => {} }) {
+  const root = resolve(dir);
+  if (!existsSync(root) || !statSync(root).isDirectory()) throw new UsageError(`--dir ${dir} is not a directory`);
+  const server = createServer((req, res) => {
+    const method = req.method ?? '';
+    const name = servedName(new URL(req.url ?? '/', 'http://localhost').pathname);
+    const answer = (status, headers, body) => {
+      res.writeHead(status, headers);
+      res.end(body);
+      log(`${method} ${req.url} ${status}`);
+    };
+    if (method !== 'GET' && method !== 'HEAD') return answer(405, { Allow: 'GET, HEAD', 'Content-Length': 0 });
+    const file = name === null ? null : join(root, name);
+    let stat = null;
+    try {
+      stat = file && statSync(file);
+    } catch {
+      stat = null;
+    }
+    if (!stat || !stat.isFile()) return answer(404, { 'Content-Type': 'text/plain', 'Content-Length': 9 }, 'not found');
+    res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': stat.size, 'Accept-Ranges': 'none' });
+    if (method === 'HEAD') {
+      res.end();
+      log(`HEAD ${req.url} 200 ${stat.size}`);
+      return undefined;
+    }
+    const stream = createReadStream(file);
+    stream.on('error', () => res.destroy());
+    stream.pipe(res);
+    log(`GET ${req.url} 200 ${stat.size}`);
+    return undefined;
+  });
+  await new Promise((listening, failed) => {
+    server.once('error', failed);
+    server.listen(port, host, listening);
+  });
+  const actualPort = server.address().port;
+  const url = `http://${host}:${actualPort}/`;
+  return {
+    server,
+    url,
+    port: actualPort,
+    close: () => new Promise((closed) => {
+      server.closeAllConnections?.();
+      server.close(() => closed());
+    }),
+  };
 }
 
 // ---- status ---------------------------------------------------------------------------------------------------------
@@ -802,15 +993,17 @@ export function localAiNote(manifest) {
 /**
  * CLI entry point.
  * @param {string[]} argv
- * @param {{ fetch?: Function, log?: Function, logError?: Function, env?: object, now?: Date, platform?: string, arch?: string, delayMs?: number }} deps
+ * @param {{ fetch?: Function, log?: Function, logError?: Function, env?: object, now?: Date, platform?: string, arch?: string, delayMs?: number,
+ *           onServe?: (server: { url: string, port: number, close: () => Promise<void> }) => void, signals?: boolean }} deps
+ *        `onServe` (tests) receives the running `serve` server; `signals` (default true) installs the SIGINT/SIGTERM handlers that stop it
  */
 export async function main(argv, deps = {}) {
   const log = deps.log ?? console.log;
   const logError = deps.logError ?? console.error;
   const env = deps.env ?? process.env;
   const parsed = parseArgs(argv, {
-    values: ['manifest', 'out', 'work', 'dir', 'platform', 'root', 'timeout', 'attempts'],
-    flags: ['skip-model-download', 'full', 'quiet', 'help'],
+    values: ['manifest', 'out', 'work', 'dir', 'platform', 'root', 'timeout', 'attempts', 'base', 'port'],
+    flags: ['skip-model-download', 'full', 'keep-downloads', 'quiet', 'help'],
     aliases: { h: 'help', q: 'quiet' },
   });
   if (parsed.flags.has('help')) {
@@ -819,17 +1012,25 @@ export async function main(argv, deps = {}) {
   }
   const [command, ...rest] = parsed.positional;
   const o = parsed.options;
-  const commands = ['resolve', 'verify', 'prepare', 'status'];
+  const commands = ['resolve', 'verify', 'prepare', 'mirror', 'serve', 'status'];
   if (!command) parsed.errors.push('a command is required');
   else if (!commands.includes(command)) parsed.errors.push(`unknown command '${command}'`);
   const wantedPositionals = command === 'verify' ? 1 : 0;
   if (command && rest.length !== wantedPositionals) parsed.errors.push(`${command} takes ${wantedPositionals === 1 ? 'exactly one manifest path' : 'no positional arguments'}`);
-  if (command === 'prepare' && !o.dir) parsed.errors.push('--dir <dir> is required for prepare');
+  if (['prepare', 'mirror', 'serve'].includes(command) && !o.dir) parsed.errors.push(`--dir <dir> is required for ${command}`);
+  if (command === 'mirror' && !o.base) parsed.errors.push('--base <url> is required for mirror');
+  if (command === 'mirror' && !o.out) parsed.errors.push('--out <path> is required for mirror');
+  if (command === 'serve' && o.port === undefined) parsed.errors.push('--port <n> is required for serve (0 picks a free port)');
   if (parsed.flags.has('full') && command !== 'verify') parsed.errors.push('--full only applies to verify');
   if (parsed.flags.has('full') && parsed.flags.has('skip-model-download')) parsed.errors.push('--full and --skip-model-download exclude each other');
   if (parsed.flags.has('skip-model-download') && !['resolve', 'verify'].includes(command)) parsed.errors.push('--skip-model-download only applies to resolve and verify');
-  if (o.out !== undefined && command !== 'resolve') parsed.errors.push('--out only applies to resolve');
-  if (o.dir !== undefined && !['prepare', 'status'].includes(command)) parsed.errors.push('--dir only applies to prepare and status');
+  if (parsed.flags.has('keep-downloads') && command !== 'prepare') parsed.errors.push('--keep-downloads only applies to prepare');
+  if (o.out !== undefined && !['resolve', 'mirror'].includes(command)) parsed.errors.push('--out only applies to resolve and mirror');
+  if (o.dir !== undefined && !['prepare', 'mirror', 'serve', 'status'].includes(command)) parsed.errors.push('--dir only applies to prepare, mirror, serve and status');
+  if (o.base !== undefined && command !== 'mirror') parsed.errors.push('--base only applies to mirror');
+  if (o.port !== undefined && command !== 'serve') parsed.errors.push('--port only applies to serve');
+  if (o.port !== undefined && !(/^(0|[1-9]\d*)$/.test(o.port) && Number(o.port) <= 65535)) parsed.errors.push('--port must be a port number (0 to 65535)');
+  if (o.manifest !== undefined && command === 'serve') parsed.errors.push('--manifest does not apply to serve');
   if (o.platform !== undefined && !PLATFORM_KEYS.includes(o.platform)) parsed.errors.push(`--platform must be one of ${PLATFORM_KEYS.join(', ')}`);
   for (const name of ['timeout', 'attempts']) {
     if (o[name] !== undefined && !/^[1-9]\d*$/.test(o[name])) parsed.errors.push(`--${name} must be a positive integer`);
@@ -847,6 +1048,26 @@ export async function main(argv, deps = {}) {
   let workDir = o.work ? resolve(o.work) : null;
   const ownWork = workDir === null && ['resolve', 'verify'].includes(command);
   try {
+    if (command === 'serve') {
+      const served = await startFileServer({ dir: resolve(o.dir), port: Number(o.port), log: say });
+      log(`serving ${resolve(o.dir)} on ${served.url}`);
+      const closed = new Promise((done) => served.server.once('close', done));
+      const stop = () => {
+        say('stopping');
+        served.close();
+      };
+      if (deps.signals !== false) {
+        process.once('SIGINT', stop);
+        process.once('SIGTERM', stop);
+      }
+      deps.onServe?.(served);
+      await closed;
+      if (deps.signals !== false) {
+        process.off('SIGINT', stop);
+        process.off('SIGTERM', stop);
+      }
+      return 0;
+    }
     const manifest = loadManifest(manifestPath);
     if (command === 'status') {
       if (o.dir !== undefined && platform === null) {
@@ -856,6 +1077,19 @@ export async function main(argv, deps = {}) {
       const report = statusReport({ manifest, manifestPath, dir: o.dir, platform, root });
       for (const line of report.lines) say(line);
       return report.ok ? 0 : 1;
+    }
+    if (command === 'mirror') {
+      if (platform === null) throw new UsageError(`Local AI is not available for ${deps.platform ?? process.platform}/${deps.arch ?? process.arch}; pass --platform <key>`);
+      const schema = validateManifest(manifest, root);
+      if (!schema.valid) throw new UsageError(`${manifestPath} is not a resolved manifest: ${schema.errors.map((e) => `${e.path}: ${e.message}`).join('; ')}`);
+      const mirrored = mirrorManifest(manifest, platform, o.base);
+      const files = mirrorFiles(resolve(o.dir), manifest, platform);
+      const out = resolve(o.out);
+      writeJsonAtomic(out, mirrored);
+      say(`  ${platform}: ${mirrored.runtime.platforms[platform].url} -> ${files.archive}`);
+      say(`  model: ${mirrored.model.url} -> ${files.model}`);
+      log(`wrote ${out} (mirror of ${manifestPath} for ${platform}; local use only, never commit it)`);
+      return 0;
     }
     const client = new Client({
       fetch: deps.fetch ?? fetch,
@@ -889,8 +1123,10 @@ export async function main(argv, deps = {}) {
     // prepare
     if (platform === null) throw new UsageError(`Local AI is not available for ${deps.platform ?? process.platform}/${deps.arch ?? process.arch}; pass --platform <key> to prepare another platform`);
     say(`Preparing the Local AI for ${platform} in ${resolve(o.dir)}`);
-    const result = await prepareInstall({ manifest, dir: resolve(o.dir), platform, client, root, now: deps.now ?? new Date(), log: say });
-    log(`${result.paths.root}: Local AI ${manifest.runtime.tag} + ${manifest.model.file} ready for ${platform} (${result.downloaded.length} downloaded, ${result.skipped.length} already present)`);
+    const result = await prepareInstall({
+      manifest, dir: resolve(o.dir), platform, client, root, now: deps.now ?? new Date(), keepDownloads: parsed.flags.has('keep-downloads'), log: say,
+    });
+    log(`${result.paths.root}: Local AI ${manifest.runtime.tag} + ${manifest.model.file} ready for ${platform} (${result.downloaded.length} downloaded, ${result.skipped.length} already present${result.kept.length > 0 ? `, ${result.kept.length} kept under downloads/` : ''})`);
     return 0;
   } catch (error) {
     if (error instanceof UsageError) {

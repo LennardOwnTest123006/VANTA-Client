@@ -4,9 +4,7 @@ import dev.vanta.launcher.core.install.InstallListener;
 import dev.vanta.launcher.core.install.InstallProgress;
 import dev.vanta.launcher.core.install.InstallStep;
 import dev.vanta.launcher.core.net.CancellationToken;
-import dev.vanta.launcher.core.net.Checksums;
 import dev.vanta.launcher.core.net.Downloader;
-import dev.vanta.launcher.core.net.HashAlgorithm;
 import dev.vanta.launcher.core.net.IntegrityException;
 import dev.vanta.launcher.core.net.JdkHttpTransport;
 import dev.vanta.launcher.core.paths.LauncherPaths;
@@ -130,21 +128,27 @@ class LocalAiServiceTest {
             assertEquals(0, leftovers.count());
         }
         assertTrue(Files.isDirectory(service.logsDir()));
-        // installed.json: the installed manifest section, platform, times and the verified files
+        // installed.json: the installed manifest sections (runtime with only this platform's archive, model), platform,
+        // times and the sizes and modification times of the two files, in the shape the client reads.
         final LocalAiInstalled installed = Json.read(service.installedFile(), LocalAiInstalled.class);
         assertEquals(LocalAiInstalled.SCHEMA_VERSION, installed.schemaVersion());
         assertEquals("linux-x64", installed.platform());
         assertEquals("2026-10-08T12:00:00Z", installed.installedAt());
         assertEquals("2026-10-08T12:00:00Z", installed.verifiedAt());
         assertEquals("b11429", installed.runtime().tag());
-        assertEquals(ai.manifest().platform("linux-x64").orElseThrow(), installed.runtime().file());
+        assertEquals(Set.of("linux-x64"), installed.runtime().platforms().keySet(), "only the installed platform is recorded");
+        assertEquals(ai.manifest().platform("linux-x64").orElseThrow(), installed.runtimePlatform().orElseThrow());
         assertEquals(ai.manifest().model(), installed.model());
-        assertEquals("runtime/b11429/linux-x64/build/bin/llama-server", installed.file(LocalAiInstalled.ROLE_SERVER).orElseThrow().path());
-        assertEquals(Checksums.hex(FakeLocalAi.SERVER_BYTES, HashAlgorithm.SHA256), installed.file(LocalAiInstalled.ROLE_SERVER).orElseThrow().sha256());
-        assertEquals("models/" + FakeLocalAi.MODEL_FILE, installed.file(LocalAiInstalled.ROLE_MODEL).orElseThrow().path());
-        assertEquals(ai.manifest().model().sha256(), installed.file(LocalAiInstalled.ROLE_MODEL).orElseThrow().sha256());
-        assertEquals(ai.model().length, installed.file(LocalAiInstalled.ROLE_MODEL).orElseThrow().size());
+        assertEquals("runtime/b11429/linux-x64/build/bin/llama-server", installed.serverRelativePath());
+        assertEquals("models/" + FakeLocalAi.MODEL_FILE, installed.modelRelativePath());
+        assertEquals(FakeLocalAi.SERVER_BYTES.length, installed.files().serverSize());
+        assertEquals(Files.getLastModifiedTime(server).toMillis(), installed.files().serverMtime());
+        assertEquals(ai.model().length, installed.files().modelSize());
+        assertEquals(Files.getLastModifiedTime(model).toMillis(), installed.files().modelMtime());
         assertEquals("llama.cpp b11429, Qwen3-1.7B Q8_0", installed.describe());
+        assertEquals(LocalAiInstalledTest.keyPaths(LocalAiInstalledTest.fixtureJson("installed.example.json")),
+            LocalAiInstalledTest.keyPaths(Json.tree(Files.readString(service.installedFile(), StandardCharsets.UTF_8))),
+            "the written file has exactly the key set and nesting of shared/local-ai/fixtures/installed.example.json");
         // the note in the game folder
         assertEquals(Optional.of(service.dir().toAbsolutePath().normalize()), LocalAiNote.read(paths.instanceDir()));
         assertTrue(after.bytesOnDisk() >= ai.model().length + FakeLocalAi.SERVER_BYTES.length);
@@ -183,8 +187,8 @@ class LocalAiServiceTest {
         final Path server = service.runtimeDir("b11429").resolve(FakeLocalAi.WINDOWS_SERVER);
         assertTrue(Files.isRegularFile(server));
         assertTrue(Files.isRegularFile(service.runtimeDir("b11429").resolve("ggml.dll")));
-        assertEquals("runtime/b11429/windows-x64/llama-server.exe",
-            after.installed().orElseThrow().file(LocalAiInstalled.ROLE_SERVER).orElseThrow().path());
+        assertEquals("runtime/b11429/windows-x64/llama-server.exe", after.installed().orElseThrow().serverRelativePath());
+        assertEquals(Optional.of(server), after.serverExecutable());
     }
 
     @Test
