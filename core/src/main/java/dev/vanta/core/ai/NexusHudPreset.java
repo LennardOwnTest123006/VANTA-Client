@@ -43,6 +43,8 @@ public enum NexusHudPreset implements LangKeyed {
         EnumSet<HudWidgetType> set = EnumSet.noneOf(HudWidgetType.class);
         set.addAll(List.of(types));
         set.remove(HudWidgetType.CROSSHAIR);
+        // Vanta Lab widgets are opt-in: the frame time graph is added by the player (or lab.set), never by a preset.
+        set.remove(HudWidgetType.FRAMETIME_GRAPH);
         this.widgets = Collections.unmodifiableSet(set);
     }
 

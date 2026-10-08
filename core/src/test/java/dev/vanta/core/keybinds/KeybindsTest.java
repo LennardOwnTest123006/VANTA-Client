@@ -102,6 +102,7 @@ class KeybindsTest {
         assertTrue(VantaKeys.find(VantaKeys.TOGGLE_HUD).orElseThrow().defaultKey().isUnbound());
         assertTrue(VantaKeys.isVantaKey("key.vanta.zoom"));
         assertFalse(VantaKeys.isVantaKey("key.forward"));
-        assertEquals(6, VantaKeys.all().size());
+        assertEquals(7, VantaKeys.all().size());
+        assertEquals(KeyRef.keyboard(78, "key.keyboard.n"), VantaKeys.find(VantaKeys.OPEN_NEXUS).orElseThrow().defaultKey());
     }
 }

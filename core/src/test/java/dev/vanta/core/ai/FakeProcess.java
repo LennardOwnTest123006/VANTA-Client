@@ -12,14 +12,14 @@ import java.util.concurrent.TimeUnit;
  * A {@link Process} stub standing in for llama-server: alive until destroyed (or told to exit), records destroy
  * calls. {@link Factory} records every command the runtime built.
  */
-final class FakeProcess extends Process {
-    volatile boolean alive = true;
+public final class FakeProcess extends Process {
+    public volatile boolean alive = true;
     volatile int exitCode;
     int destroyCalls;
     int forcibleDestroyCalls;
 
     /** Factory that hands out fake processes and records the commands. */
-    static final class Factory implements LocalAiRuntime.ProcessFactory {
+    public static final class Factory implements LocalAiRuntime.ProcessFactory {
         final List<List<String>> commands = new ArrayList<>();
         final List<Path> logFiles = new ArrayList<>();
         final List<FakeProcess> processes = new ArrayList<>();
@@ -44,7 +44,7 @@ final class FakeProcess extends Process {
             return process;
         }
 
-        FakeProcess last() {
+        public FakeProcess last() {
             return processes.get(processes.size() - 1);
         }
     }

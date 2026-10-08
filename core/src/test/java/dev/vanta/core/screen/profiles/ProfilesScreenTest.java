@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.notifications.Notification;
+import dev.vanta.core.profiles.BuiltInProfiles;
 import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.cosmetics.ServicesFixture;
@@ -46,7 +47,7 @@ class ProfilesScreenTest {
 
     @Test
     void showsEveryProfileWithTheActiveOneMarked() {
-        assertEquals(5, screen.cards().size());
+        assertEquals(7, screen.cards().size());
         assertTrue(card("default").isActiveProfile());
         assertFalse(card("default").activateButton().isVisible());
         assertTrue(card("pvp").activateButton().isVisible());
@@ -122,9 +123,9 @@ class ProfilesScreenTest {
         dialog.field().setText("Arena");
         dialog.confirmButton().click(screen.context());
         fx.frame(screen);
-        assertEquals(6, fx.services.profiles().size());
+        assertEquals(8, fx.services.profiles().size());
         assertTrue(fx.services.profiles().list().stream().anyMatch(p -> p.name().equals("Arena")));
-        assertEquals(6, screen.cards().size());
+        assertEquals(8, screen.cards().size());
         assertFalse(screen.context().popups().isOpen());
     }
 
@@ -133,11 +134,11 @@ class ProfilesScreenTest {
         fx.click(screen, card("recording").deleteButton());
         assertNotNull(fx.topDialog(screen));
         fx.cancelDialog(screen);
-        assertEquals(5, fx.services.profiles().size());
+        assertEquals(7, fx.services.profiles().size());
         fx.click(screen, card("recording").deleteButton());
         fx.clock.advance(2000);
         fx.confirmDialog(screen);
-        assertEquals(4, fx.services.profiles().size());
+        assertEquals(6, fx.services.profiles().size());
         assertTrue(screen.card("recording").isEmpty());
         assertEquals(Lang.tr("vanta.profiles.notification.deleted.title"), lastToast().title());
 
@@ -147,7 +148,7 @@ class ProfilesScreenTest {
         fx.confirmDialog(screen);
         assertEquals("pvp", fx.services.profiles().activeId().orElseThrow());
 
-        for (String id : List.of("pvp", "building")) {
+        for (String id : List.of("pvp", "survival", "building", "minimal")) {
             fx.click(screen, card(id).deleteButton());
             fx.confirmDialog(screen);
         }
@@ -175,8 +176,8 @@ class ProfilesScreenTest {
         dialog.clipboardButton().click(screen.context());
         assertFalse(dialog.isStatusError(), dialog.status());
         assertTrue(dialog.status().contains("PvP (2)"));
-        assertEquals(6, fx.services.profiles().size());
-        assertEquals(6, screen.cards().size());
+        assertEquals(8, fx.services.profiles().size());
+        assertEquals(8, screen.cards().size());
 
         fx.clipboard.set("not json");
         dialog.importClipboard();
@@ -194,7 +195,7 @@ class ProfilesScreenTest {
         dialog.fileList().select(screen.context(), 0);
         dialog.importFile(dialog.fileList().items().get(0));
         assertFalse(dialog.isStatusError());
-        assertEquals(7, fx.services.profiles().size());
+        assertEquals(BuiltInProfiles.IDS.size() + 2, fx.services.profiles().size());
         dialog.close(screen.context());
         assertFalse(screen.context().popups().isOpen());
     }
@@ -236,7 +237,7 @@ class ProfilesScreenTest {
         fx.type(screen, "Weekend");
         fx.key(screen, Keys.ENTER);
         fx.frame(screen);
-        assertEquals(6, fx.services.profiles().size());
+        assertEquals(8, fx.services.profiles().size());
         assertTrue(screen.cards().stream().anyMatch(c -> c.profile().name().equals("Weekend")));
         assertFalse(create.isShowing() && screen.context().popups().isOpen(create));
 
@@ -255,7 +256,7 @@ class ProfilesScreenTest {
     @Test
     void compactLayoutUsesASingleColumn() {
         ProfilesScreen small = fx.open(ScreenId.PROFILES, 427, 240);
-        assertEquals(5, small.cards().size());
+        assertEquals(7, small.cards().size());
         int x = small.cards().get(0).bounds().x();
         assertTrue(small.cards().stream().allMatch(c -> c.bounds().x() == x));
     }

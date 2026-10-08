@@ -18,7 +18,7 @@ import java.util.function.Function;
  * POSTs, records every request and can be told to fail a path with a status code or to answer /health with 503 a
  * number of times first.
  */
-final class LocalFileServer implements AutoCloseable {
+public final class LocalFileServer implements AutoCloseable {
     private final HttpServer server;
     private final Map<String, byte[]> files = new ConcurrentHashMap<>();
     private final Map<String, Integer> failures = new ConcurrentHashMap<>();
@@ -28,38 +28,38 @@ final class LocalFileServer implements AutoCloseable {
     volatile int healthFailuresLeft;
     volatile boolean omitContentLength;
 
-    LocalFileServer() throws IOException {
+    public LocalFileServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/", this::handle);
         server.start();
     }
 
-    int port() {
+    public int port() {
         return server.getAddress().getPort();
     }
 
-    String baseUrl() {
+    public String baseUrl() {
         return "http://127.0.0.1:" + port();
     }
 
-    String url(String path) {
+    public String url(String path) {
         return baseUrl() + path;
     }
 
-    void file(String path, byte[] content) {
+    public void file(String path, byte[] content) {
         files.put(path, content);
     }
 
-    void fail(String path, int status) {
+    public void fail(String path, int status) {
         failures.put(path, status);
     }
 
     /** Answers POSTs to {@code path} with the JSON the handler returns for the request body. */
-    void json(String path, Function<String, String> handler) {
+    public void json(String path, Function<String, String> handler) {
         jsonHandlers.put(path, handler);
     }
 
-    long requestCount(String path) {
+    public long requestCount(String path) {
         return requests.stream().filter(path::equals).count();
     }
 

@@ -154,6 +154,19 @@ public final class ProfileManager {
             CoreLog.info("Re-seeded the untouched built-in profile {} (content {})", profile.id(),
                     BuiltInProfiles.CONTENT_VERSION);
         }
+        // Built-ins that are new since the recorded content version are added once; a built-in the player deleted
+        // in an earlier release (content version at or above the one it shipped with) is never brought back.
+        for (String id : BuiltInProfiles.IDS) {
+            if (profiles.containsKey(id) || BuiltInProfiles.addedInVersion(id) <= builtInContent) {
+                continue;
+            }
+            Optional<Profile> shipped = BuiltInProfiles.shipped(settings.registry(), clock.millis(), id);
+            if (shipped.isPresent()) {
+                profiles.put(id, shipped.get());
+                write(shipped.get());
+                CoreLog.info("Added the new built-in profile {} (content {})", id, BuiltInProfiles.CONTENT_VERSION);
+            }
+        }
         return true;
     }
 

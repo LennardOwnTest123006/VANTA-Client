@@ -28,6 +28,8 @@ public abstract class UiScreen {
     /** Minimum logical height every screen is laid out for (Minecraft's smallest GUI size). */
     public static final int MIN_LOGICAL_HEIGHT = 240;
     private static final float TRANSITION_SCALE = 0.96f;
+    /** Logical pixels the Vanta Lab slide transition moves the screen by. */
+    public static final int SLIDE_PX = 14;
     /** Most layout passes one {@link #doLayout()} runs when nodes keep requesting another one. */
     static final int MAX_LAYOUT_PASSES = 4;
 
@@ -228,9 +230,23 @@ public abstract class UiScreen {
         }
         ctx.popups().closeAll(ctx);
         closeStartedAt = ctx.now();
+        onCloseStarted(closeStartedAt);
         if (theme().reducedMotion()) {
             deliverClose();
         }
+    }
+
+    /** Hook when {@link #close()} started the close transition (screens forward it to the Vanta Lab effects). */
+    protected void onCloseStarted(long now) {
+    }
+
+    /**
+     * Progress of the Vanta Lab slide transition on top of the built-in fade: 0..1 while opening, 1..0 while
+     * closing, 1 when the feature is off (the default). Screens that know the services override it with
+     * {@code LabEffects.transitionProgress}. Input is never blocked by it: hit testing ignores the slide.
+     */
+    protected float slideProgress(long now) {
+        return 1f;
     }
 
     /** Whether the close transition is running or finished. */
@@ -287,12 +303,17 @@ public abstract class UiScreen {
 
         boolean scaled = s != 1f;
         boolean zoomed = zoom < 0.999f;
+        float slide = theme().reducedMotion() ? 1f : slideProgress(ctx.now());
+        boolean slid = slide < 0.999f;
         if (zoomed) {
             float cx = hostWidth / 2f;
             float cy = hostHeight / 2f;
             canvas.pushTranslate(cx, cy);
             canvas.pushScale(zoom, zoom);
             canvas.pushTranslate(-cx, -cy);
+        }
+        if (slid) {
+            canvas.pushTranslate(0f, (1f - Math.max(0f, slide)) * SLIDE_PX * s);
         }
         if (scaled) {
             canvas.pushScale(s, s);
@@ -302,6 +323,9 @@ public abstract class UiScreen {
         renderOverlay(canvas, ctx);
         renderTooltip(canvas);
         if (scaled) {
+            canvas.pop();
+        }
+        if (slid) {
             canvas.pop();
         }
         if (zoomed) {

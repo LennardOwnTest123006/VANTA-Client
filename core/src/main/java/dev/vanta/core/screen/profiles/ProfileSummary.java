@@ -8,6 +8,7 @@ import dev.vanta.core.hud.HudPreset;
 import dev.vanta.core.hud.HudPresets;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.perf.PerformancePreset;
+import dev.vanta.core.ai.NexusHudPreset;
 import dev.vanta.core.profiles.BuiltInProfiles;
 import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.screen.VantaServices;
@@ -74,6 +75,11 @@ public record ProfileSummary(Profile profile, boolean builtIn, Icons icon, Strin
         }
         for (HudPreset preset : HudPresets.builtIns()) {
             if (preset.layout().equals(profile.hud())) {
+                return Lang.tr(preset.langKey());
+            }
+        }
+        for (NexusHudPreset preset : NexusHudPreset.values()) {
+            if (BuiltInProfiles.nexusHud(preset).equals(profile.hud())) {
                 return Lang.tr(preset.langKey());
             }
         }

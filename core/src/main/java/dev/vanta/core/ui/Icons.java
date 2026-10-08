@@ -8,7 +8,7 @@ public enum Icons {
     CLOSE, CHEVRON_LEFT, CHEVRON_RIGHT, CHEVRON_UP, CHEVRON_DOWN, CHECK, PLUS, MINUS, SEARCH, GEAR, DRAG, RESET,
     INFO, WARNING, ERROR, SUCCESS, EYE, EYE_OFF, LOCK, PLAY, FOLDER, DOWNLOAD, UPLOAD, TRASH, COPY, EDIT, STAR,
     GRID, LIST, ARROW_UP, ARROW_DOWN, EXTERNAL_LINK, SLIDERS, PALETTE, KEYBOARD, CHART, CROSSHAIR, PROFILE,
-    PACKAGE, ACCESSIBILITY;
+    PACKAGE, ACCESSIBILITY, NEXUS, PIN, FLASK;
 
     /**
      * Draws the icon into the square {@code (x, y, size, size)}. The pixels come from {@link IconRaster}, which
@@ -256,7 +256,36 @@ public enum Icons {
                 p.line(8f, 9.5f, 5f, 14f);
                 p.line(8f, 9.5f, 11f, 14f);
             }
+            case NEXUS -> spark(p);
+            case PIN -> {
+                p.ring(8f, 6f, 3.8f);
+                p.line(4.6f, 8.2f, 8f, 14.5f);
+                p.line(11.4f, 8.2f, 8f, 14.5f);
+            }
+            case FLASK -> {
+                p.hline(5f, 11f, 1.5f);
+                p.vline(6.2f, 1.5f, 6f);
+                p.vline(9.8f, 1.5f, 6f);
+                p.line(6.2f, 6f, 2.5f, 13.5f);
+                p.line(9.8f, 6f, 13.5f, 13.5f);
+                p.hline(2.5f, 13.5f, 13.5f);
+                p.rect(5.5f, 10.5f, 5f, 2.5f);
+            }
         }
+    }
+
+    /** Vanta Nexus: a four-point spark with a small companion spark in the top-right corner. */
+    private static void spark(IconPen p) {
+        float cx = 7f;
+        float cy = 9f;
+        float arm = 6.5f;
+        float waist = 1.6f;
+        p.triangle(cx, cy - arm, cx - waist, cy - waist, cx + waist, cy - waist);
+        p.triangle(cx, cy + arm, cx - waist, cy + waist, cx + waist, cy + waist);
+        p.triangle(cx - arm, cy, cx - waist, cy - waist, cx - waist, cy + waist);
+        p.triangle(cx + arm, cy, cx + waist, cy - waist, cx + waist, cy + waist);
+        p.rect(cx - waist, cy - waist, waist * 2f, waist * 2f);
+        p.disc(13f, 3f, 1.4f);
     }
 
     private static void eyeOutline(IconPen p) {

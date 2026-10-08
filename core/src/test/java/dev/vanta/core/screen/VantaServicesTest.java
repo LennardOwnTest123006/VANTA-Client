@@ -18,6 +18,7 @@ import dev.vanta.core.config.MutableClock;
 import dev.vanta.core.config.VantaPaths;
 import dev.vanta.core.perf.FpsLimitPreset;
 import dev.vanta.core.perf.PerformancePreset;
+import dev.vanta.core.profiles.BuiltInProfiles;
 import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.search.ActionEntry;
 import dev.vanta.core.settings.VantaSettings;
@@ -45,7 +46,7 @@ class VantaServicesTest {
         services.load();
         assertTrue(services.isLoaded());
         assertTrue(Files.isDirectory(paths.profilesDir()));
-        assertEquals(5, services.profiles().size());
+        assertEquals(BuiltInProfiles.IDS.size(), services.profiles().size());
         assertTrue(services.settingsRegistry().size() > 50);
         assertTrue(services.search().size() > 100);
         assertTrue(services.stats().current().isPresent());

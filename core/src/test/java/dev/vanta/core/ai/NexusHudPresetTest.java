@@ -32,7 +32,9 @@ class NexusHudPresetTest {
             }
             assertFalse(preset.widgets().contains(HudWidgetType.CROSSHAIR));
         }
-        assertEquals(HudWidgetType.values().length - 1, NexusHudPreset.FULL.widgets().size());
+        // Every widget except the crosshair and the Vanta Lab frame time graph, which no preset adds.
+        assertEquals(HudWidgetType.values().length - 2, NexusHudPreset.FULL.widgets().size());
+        assertFalse(NexusHudPreset.FULL.widgets().contains(HudWidgetType.FRAMETIME_GRAPH));
     }
 
     @Test

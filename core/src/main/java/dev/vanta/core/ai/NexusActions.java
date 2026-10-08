@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import dev.vanta.core.bridge.Vec3d;
 import dev.vanta.core.hud.HudAnchor;
 import dev.vanta.core.hud.HudLayout;
 import dev.vanta.core.hud.HudPreset;
@@ -12,6 +13,7 @@ import dev.vanta.core.hud.HudStore;
 import dev.vanta.core.hud.HudWidgetState;
 import dev.vanta.core.hud.HudWidgetType;
 import dev.vanta.core.i18n.Lang;
+import dev.vanta.core.lab.LabFeature;
 import dev.vanta.core.perf.PerformanceCenter;
 import dev.vanta.core.perf.PerformancePreset;
 import dev.vanta.core.profiles.Profile;
@@ -31,6 +33,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * The only things the assistant can do. Every action the model returns is validated against the live registries (HUD
@@ -85,6 +88,7 @@ public final class NexusActions {
     private final Runnable smartBoostRun;
     private volatile WaypointLookup waypoints = WaypointLookup.none();
     private volatile NexusWaypointActions waypointActions = NexusWaypointActions.none();
+    private volatile Supplier<Optional<Vec3d>> playerPosition = Optional::empty;
     private volatile LabToggle lab = LabToggle.none();
 
     /**
@@ -112,6 +116,14 @@ public final class NexusActions {
         this.lab = Objects.requireNonNull(toggle, "toggle");
     }
 
+    /**
+     * Where the player stands (the game bridge): fills in coordinates the model left out of {@code waypoint.add}
+     * ("add a waypoint here"). Empty outside a world.
+     */
+    public void setPlayerPosition(Supplier<Optional<Vec3d>> position) {
+        this.playerPosition = Objects.requireNonNull(position, "position");
+    }
+
     public WaypointLookup waypoints() {
         return waypoints;
     }
@@ -130,11 +142,19 @@ public final class NexusActions {
             ids.add(widget.id());
         }
         for (HudWidgetType type : HudWidgetType.values()) {
-            if (type != HudWidgetType.CROSSHAIR && layout.byType(type).isEmpty()) {
+            if (type != HudWidgetType.CROSSHAIR && layout.byType(type).isEmpty() && isOffered(type)) {
                 ids.add(type.id());
             }
         }
         return List.copyOf(ids);
+    }
+
+    /**
+     * True when a widget type may be added right now: the frame time graph belongs to the Vanta Lab feature
+     * {@code frametime_graph} and is only offered (and drawn) while that feature is on.
+     */
+    public boolean isOffered(HudWidgetType type) {
+        return type != HudWidgetType.FRAMETIME_GRAPH || lab.isEnabled(LabFeature.FRAMETIME_GRAPH.id());
     }
 
     /** Widget types not on the HUD yet. */
@@ -142,7 +162,7 @@ public final class NexusActions {
         List<String> out = new ArrayList<>();
         HudLayout layout = hud.layout();
         for (HudWidgetType type : HudWidgetType.values()) {
-            if (type != HudWidgetType.CROSSHAIR && layout.byType(type).isEmpty()) {
+            if (type != HudWidgetType.CROSSHAIR && layout.byType(type).isEmpty() && isOffered(type)) {
                 out.add(type.id());
             }
         }
@@ -256,7 +276,7 @@ public final class NexusActions {
         value.add("anyOf", anyOf);
         variants.add(action("setting.set", List.of("id", "value"), prop("id", enumOf(settingIds)),
                 prop("value", value)));
-        variants.add(action("waypoint.add", List.of("name", "x", "y", "z"), prop("name", type("string")),
+        variants.add(action("waypoint.add", List.of("name"), prop("name", type("string")),
                 prop("x", type("number")), prop("y", type("number")), prop("z", type("number")),
                 prop("category", type("string"))));
         List<String> waypointNames = waypointNames();
@@ -690,9 +710,18 @@ public final class NexusActions {
     private AppliedAction waypointAdd(JsonObject a, NexusUndo.Turn turn) throws Rejection {
         String type = "waypoint.add";
         String name = require(a, "name", type);
-        double x = number(a, "x", type).orElseThrow(() -> new Rejection(type, RejectedAction.Reason.MISSING_FIELD, "x"));
-        double y = number(a, "y", type).orElseThrow(() -> new Rejection(type, RejectedAction.Reason.MISSING_FIELD, "y"));
-        double z = number(a, "z", type).orElseThrow(() -> new Rejection(type, RejectedAction.Reason.MISSING_FIELD, "z"));
+        OptionalDouble xGiven = number(a, "x", type);
+        OptionalDouble yGiven = number(a, "y", type);
+        OptionalDouble zGiven = number(a, "z", type);
+        // Coordinates the model left out default to where the player stands ("add a waypoint here").
+        Optional<Vec3d> here = xGiven.isPresent() && yGiven.isPresent() && zGiven.isPresent() ? Optional.empty()
+                : playerPosition.get();
+        double x = xGiven.isPresent() ? xGiven.getAsDouble() : here.map(Vec3d::x).orElseThrow(
+                () -> new Rejection(type, RejectedAction.Reason.MISSING_FIELD, "x"));
+        double y = yGiven.isPresent() ? yGiven.getAsDouble() : here.map(Vec3d::y).orElseThrow(
+                () -> new Rejection(type, RejectedAction.Reason.MISSING_FIELD, "y"));
+        double z = zGiven.isPresent() ? zGiven.getAsDouble() : here.map(Vec3d::z).orElseThrow(
+                () -> new Rejection(type, RejectedAction.Reason.MISSING_FIELD, "z"));
         Optional<String> category = str(a, "category").filter(s -> !s.isBlank());
         NexusWaypointActions actions = waypointActions;
         if (!actions.add(name, x, y, z, category)) {

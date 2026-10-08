@@ -89,6 +89,7 @@ public abstract class ThemedScreen extends UiScreen {
             }
         });
         liveTheme = true;
+        services.labEffects().onScreenOpened(context().now());
         // Width-dependent nodes (wrapped text, responsive grids) measure against the bounds of the previous pass;
         // a second pass before the first frame lets them settle.
         invalidateLayout();
@@ -102,6 +103,16 @@ public abstract class ThemedScreen extends UiScreen {
 
     /** Hook after the first layout. */
     protected void onScreenInit() {
+    }
+
+    @Override
+    protected final void onCloseStarted(long now) {
+        services.labEffects().onScreenClosed(now);
+    }
+
+    @Override
+    protected final float slideProgress(long now) {
+        return services.labEffects().transitionProgress(now);
     }
 
     @Override

@@ -76,7 +76,8 @@ class NexusAssistantTest {
                 prompt);
         assertFalse(prompt.contains("controls.autoJump"), "forbidden categories are not offered");
         assertFalse(prompt.contains("privacy."), "forbidden categories are not offered");
-        assertTrue(prompt.contains("Profiles: Default (active), PvP, Building, Performance, Recording"), prompt);
+        assertTrue(prompt.contains("Profiles: Default (active), PvP, Survival, Building, Recording, Performance, Minimal"),
+                prompt);
         assertTrue(prompt.contains("Performance presets: boost, low, balanced, high, ultra"), prompt);
         assertTrue(prompt.contains("Waypoints in this world: Home, Nether hub"), prompt);
         assertTrue(prompt.contains("Lab features (id: state): dynamic_hud: off, animated_crosshair: off"), prompt);

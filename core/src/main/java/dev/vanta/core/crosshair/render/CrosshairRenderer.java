@@ -38,6 +38,11 @@ public final class CrosshairRenderer {
     public static final long SMOOTHING_MS = 90L;
     /** Largest expansion a dynamic style reaches (moving and acting at once). */
     public static final int MAX_EXPANSION = MOVE_EXPANSION + ACTION_EXPANSION;
+    /**
+     * Extra gap in pixels at full Vanta Lab "Animated crosshair" spread ({@code LabEffects.crosshairSpread} 1.0,
+     * sprinting or attacking); applies to every style, static ones included.
+     */
+    public static final int LAB_SPREAD_PX = 4;
 
     private final VantaServices services;
     private float expansion;
@@ -51,7 +56,7 @@ public final class CrosshairRenderer {
     private int cachedCx;
     private int cachedCy;
     private final List<List<CrosshairGeometry.Primitive>> cachedPrimitives =
-            new ArrayList<>(Collections.nCopies(MAX_EXPANSION + 1, null));
+            new ArrayList<>(Collections.nCopies(MAX_EXPANSION + LAB_SPREAD_PX + 1, null));
 
     public CrosshairRenderer(VantaServices services) {
         this.services = Objects.requireNonNull(services, "services");
@@ -131,8 +136,8 @@ public final class CrosshairRenderer {
     }
 
     private void updateExpansion(CrosshairStyle style) {
-        int target = targetExpansion(style, keys);
         long now = services.clock().millis();
+        int target = targetExpansion(style, keys) + labSpread(now);
         if (lastFrameMillis < 0L || now < lastFrameMillis) {
             expansion = target;
         } else {
@@ -143,6 +148,11 @@ public final class CrosshairRenderer {
             }
         }
         lastFrameMillis = now;
+    }
+
+    /** Extra pixels of gap from the Vanta Lab "Animated crosshair" feature (0 while it is off). */
+    public int labSpread(long nowMillis) {
+        return Math.round(services.labEffects().crosshairSpread(nowMillis) * LAB_SPREAD_PX);
     }
 
     /**
@@ -156,7 +166,7 @@ public final class CrosshairRenderer {
             cachedCy = cy;
             Collections.fill(cachedPrimitives, null);
         }
-        if (expansion < 0 || expansion > MAX_EXPANSION) {
+        if (expansion < 0 || expansion >= cachedPrimitives.size()) {
             return CrosshairGeometry.build(style, cx, cy, expansion);
         }
         List<CrosshairGeometry.Primitive> primitives = cachedPrimitives.get(expansion);

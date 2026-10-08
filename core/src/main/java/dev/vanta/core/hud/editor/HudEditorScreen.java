@@ -169,6 +169,7 @@ public final class HudEditorScreen extends UiScreen {
 
     @Override
     protected void onInit() {
+        services.labEffects().onScreenOpened(context().now());
         session.tick();
         if (initialAction != null) {
             Consumer<HudEditorScreen> action = initialAction;
@@ -180,6 +181,16 @@ public final class HudEditorScreen extends UiScreen {
     @Override
     protected void onResize() {
         session.resize(hostWidth(), hostHeight());
+    }
+
+    @Override
+    protected void onCloseStarted(long now) {
+        services.labEffects().onScreenClosed(now);
+    }
+
+    @Override
+    protected float slideProgress(long now) {
+        return services.labEffects().transitionProgress(now);
     }
 
     @Override

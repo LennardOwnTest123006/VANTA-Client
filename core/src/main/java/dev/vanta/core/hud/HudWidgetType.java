@@ -46,8 +46,18 @@ public enum HudWidgetType implements LangKeyed {
             List.of(HudProp.bool("showLabel", true))),
     MINECRAFT_VERSION(96, 14, HudAnchor.BOTTOM_LEFT, true, true, true, false,
             List.of(HudProp.bool("showFabric", false))),
+    /**
+     * Vanta Lab: the last {@value #FRAMETIME_GRAPH_SAMPLES} frame times as a sparkline with p50 and p99 labels.
+     * Drawn, listed in the editor and offered to the assistant only while {@code LabFeature.FRAMETIME_GRAPH} is on;
+     * a layout keeps the widget while the feature is off, so switching it back on restores the player's placement.
+     */
+    FRAMETIME_GRAPH(120, 40, HudAnchor.TOP_RIGHT, true, true, true, false,
+            List.of(HudProp.bool("showLabels", true))),
     /** The crosshair is always centred; its look comes from {@code CrosshairStyle}. */
     CROSSHAIR(16, 16, HudAnchor.CENTER, false, false, false, true, List.of());
+
+    /** Frame times the graph widget shows. */
+    public static final int FRAMETIME_GRAPH_SAMPLES = 120;
 
     private final int defaultWidth;
     private final int defaultHeight;

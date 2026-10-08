@@ -107,6 +107,9 @@ public final class WidgetListPanel extends UiNode {
     }
 
     private boolean matches(HudWidgetType type) {
+        if (!session.isOffered(type)) {
+            return false;
+        }
         if (filter.isEmpty()) {
             return true;
         }
