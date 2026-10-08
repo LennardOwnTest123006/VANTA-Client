@@ -20,6 +20,7 @@ import dev.vanta.core.ui.FontKind;
 import dev.vanta.core.ui.Icons;
 import dev.vanta.core.ui.Rect;
 import dev.vanta.core.ui.Size;
+import dev.vanta.core.ui.Insets;
 import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiContext;
 import dev.vanta.core.ui.UiNode;
@@ -56,7 +57,7 @@ public final class AssistantPanel extends NexusPanel {
     private final Badge statusPill = new Badge("", Badge.Tone.NEUTRAL);
     private final Label statusReason = new Label("", Label.Variant.MUTED);
     private final Button clear;
-    private final Column chat = new Column(Theme.SPACE_3);
+    private final Column chat = new Column(Theme.SPACE_3).padding(Insets.of(0, Theme.SPACE_2, 0, 0));
     private final ScrollPanel chatScroll = new ScrollPanel(chat);
     private final TextField input;
     private final Button send;

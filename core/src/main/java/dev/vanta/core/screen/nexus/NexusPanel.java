@@ -9,6 +9,7 @@ import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiContext;
 import dev.vanta.core.ui.UiNode;
 import dev.vanta.core.ui.layout.Column;
+import dev.vanta.core.ui.Insets;
 import dev.vanta.core.ui.layout.ScrollPanel;
 import java.util.Objects;
 
@@ -21,7 +22,11 @@ public abstract class NexusPanel extends UiNode {
     private final VantaServices services;
     private final ScreenNavigator navigator;
     private final NexusSection section;
-    private final Column content = new Column(Theme.SPACE_4);
+    /**
+     * The cards live in a column with a small top inset: in the game the font draws a few pixels above a label's top
+     * edge, and the scroll panel's clip would cut the first line otherwise (the preview renderer does not show it).
+     */
+    private final Column content = new Column(Theme.SPACE_4).padding(Insets.of(0, Theme.SPACE_2, 0, 0));
     private final ScrollPanel scroll;
 
     protected NexusPanel(VantaServices services, ScreenNavigator navigator, NexusSection section) {
