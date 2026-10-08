@@ -2,7 +2,10 @@ package dev.vanta.core.screen;
 
 import dev.vanta.core.VantaVersion;
 import dev.vanta.core.accessibility.AccessibilityService;
+import dev.vanta.core.ai.ChatBackend;
 import dev.vanta.core.ai.LabToggle;
+import dev.vanta.core.ai.LocalAiClient;
+import dev.vanta.core.ai.LocalAiException;
 import dev.vanta.core.ai.LocalAiService;
 import dev.vanta.core.ai.NexusActions;
 import dev.vanta.core.ai.NexusAssistant;
@@ -28,6 +31,7 @@ import dev.vanta.core.crosshair.CrosshairStore;
 import dev.vanta.core.hud.HudStore;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.keybinds.KeybindModel;
+import dev.vanta.core.lab.LabEffects;
 import dev.vanta.core.lab.LabSettings;
 import dev.vanta.core.modrinth.LocalItem;
 import dev.vanta.core.modrinth.ModrinthService;
@@ -48,6 +52,7 @@ import dev.vanta.core.settings.SettingsStore;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.stats.StatsStore;
 import dev.vanta.core.stats.StatsTracker;
+import dev.vanta.core.waypoints.NexusWaypointBridge;
 import dev.vanta.core.waypoints.WaypointStore;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -60,6 +65,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * Composition root of the domain layer. The client creates one instance at start-up with its bridge implementations,
@@ -94,12 +100,15 @@ public final class VantaServices {
     private final TickQueue mainThreadQueue = new TickQueue();
     private volatile Executor mainThread;
     private final LocalAiService localAi;
+    private final SwitchableBackend nexusBackend = new SwitchableBackend();
     private final NexusActions nexusActions;
     private final NexusUndo nexusUndo;
     private final NexusTranscript nexusTranscript;
     private final NexusAssistant nexus;
     private final WaypointStore waypoints;
+    private final NexusWaypointBridge waypointBridge;
     private final LabSettings lab;
+    private final LabEffects labEffects;
     private final ScreenRegistry screens = new ScreenRegistry();
     private Optional<String> websiteUrl = Optional.empty();
     private ModrinthService modrinth;
@@ -108,7 +117,8 @@ public final class VantaServices {
 
     private VantaServices(VantaPaths paths, GameBridge game, OptionsBridge options, KeybindBridge keybindBridge,
                           ResourcePackBridge resourcePacks, Optional<ScreenshotBridge> screenshots,
-                          Optional<ClipboardBridge> clipboard, Clock clock) {
+                          Optional<ClipboardBridge> clipboard, Clock clock,
+                          Optional<LocalAiService.Dependencies> localAiDeps) {
         this.clock = Objects.requireNonNull(clock, "clock");
         this.paths = Objects.requireNonNull(paths, "paths");
         this.game = Objects.requireNonNull(game, "game");
@@ -143,16 +153,38 @@ public final class VantaServices {
         // mainThread() (the client installs its scheduler; until then the queue drained in tick()).
         this.mainThread = mainThreadQueue;
         this.localAi = new LocalAiService(paths, settings, notifications, this::runOnMainThread, clock,
-                LocalAiService.Dependencies.system(VantaVersion.CLIENT,
-                        java.lang.Runtime.getRuntime().availableProcessors()));
+                localAiDeps.orElseGet(() -> LocalAiService.Dependencies.system(VantaVersion.CLIENT,
+                        java.lang.Runtime.getRuntime().availableProcessors())));
+        this.nexusBackend.delegate = localAi;
         this.nexusActions = new NexusActions(hud, settings, profiles, this::activateProfile, performance,
                 smartBoost::retune);
         this.nexusUndo = new NexusUndo(hud, settings, profiles, this::activateProfile);
         this.nexusTranscript = new NexusTranscript(jsonStore, paths.nexusChatFile());
-        this.nexus = new NexusAssistant(nexusActions, nexusUndo, nexusTranscript, localAi, hud, profiles, performance,
-                clock);
+        this.nexus = new NexusAssistant(nexusActions, nexusUndo, nexusTranscript, nexusBackend, hud, profiles,
+                performance, clock);
         this.waypoints = new WaypointStore(jsonStore, paths, clock);
         this.lab = new LabSettings(settings);
+        this.labEffects = new LabEffects(lab);
+        // The assistant's waypoint.* and lab.set actions work on the real stores from the start; the player
+        // position of the bridge fills in coordinates the model left out of waypoint.add.
+        this.waypointBridge = new NexusWaypointBridge(waypoints, game);
+        nexusActions.setWaypoints(waypointBridge, waypointBridge);
+        nexusActions.setLab(lab.asToggle());
+        nexusActions.setPlayerPosition(game::playerPosition);
+    }
+
+    /**
+     * The assistant's chat backend: the Local AI by default, replaceable through {@link #setNexusBackend} so tests,
+     * previews and the game test can answer with canned replies.
+     */
+    private static final class SwitchableBackend implements ChatBackend {
+        private volatile ChatBackend delegate;
+
+        @Override
+        public void chat(LocalAiClient.ChatRequest request, Consumer<LocalAiClient.ChatResponse> onReply,
+                         Consumer<LocalAiException> onError) {
+            delegate.chat(request, onReply, onError);
+        }
     }
 
     /** Runs {@code task} on the render thread: through the host's executor, or the queue drained by {@link #tick()}. */
@@ -186,7 +218,7 @@ public final class VantaServices {
     public static VantaServices create(VantaPaths paths, GameBridge game, OptionsBridge options, KeybindBridge keybinds,
                                        ResourcePackBridge resourcePacks, Clock clock) {
         return new VantaServices(paths, game, options, keybinds, resourcePacks, Optional.empty(), Optional.empty(),
-                clock);
+                clock, Optional.empty());
     }
 
     /** Creates the services with every bridge. */
@@ -194,7 +226,19 @@ public final class VantaServices {
                                        ResourcePackBridge resourcePacks, ScreenshotBridge screenshots,
                                        ClipboardBridge clipboard, Clock clock) {
         return new VantaServices(paths, game, options, keybinds, resourcePacks, Optional.of(screenshots),
-                Optional.of(clipboard), clock);
+                Optional.of(clipboard), clock, Optional.empty());
+    }
+
+    /**
+     * Creates the services with every bridge and explicit Local AI dependencies (a manifest served from a loopback
+     * server, a fake process factory, a direct executor): tests and previews of the Nexus screens use it; the client
+     * uses the system dependencies through the other factories.
+     */
+    public static VantaServices create(VantaPaths paths, GameBridge game, OptionsBridge options, KeybindBridge keybinds,
+                                       ResourcePackBridge resourcePacks, ScreenshotBridge screenshots,
+                                       ClipboardBridge clipboard, Clock clock, LocalAiService.Dependencies localAi) {
+        return new VantaServices(paths, game, options, keybinds, resourcePacks, Optional.of(screenshots),
+                Optional.of(clipboard), clock, Optional.of(Objects.requireNonNull(localAi, "localAi")));
     }
 
     // ---- lifecycle -----------------------------------------------------------------------------------------------
@@ -460,14 +504,30 @@ public final class VantaServices {
         return this::runOnMainThread;
     }
 
-    /** Wires the waypoints store into the assistant (until then waypoint actions are refused). */
+    /**
+     * Replaces the assistant's view of the waypoints (the default is the {@link NexusWaypointBridge} over
+     * {@link #waypoints()} and the game bridge; tests install in-memory fakes).
+     */
     public void setWaypoints(WaypointLookup lookup, NexusWaypointActions actions) {
         nexusActions.setWaypoints(lookup, actions);
     }
 
-    /** Wires the Vanta Lab features into the assistant (until then lab actions are refused). */
+    /** Replaces the assistant's view of the Vanta Lab features (the default is {@link LabSettings#asToggle()}). */
     public void setLabToggle(LabToggle toggle) {
         nexusActions.setLab(toggle);
+    }
+
+    /**
+     * Replaces the assistant's chat backend (the Local AI by default). Tests, previews and the game test hand in a
+     * backend with canned replies; the assistant, its undo and transcript stay the same objects.
+     */
+    public void setNexusBackend(ChatBackend backend) {
+        nexusBackend.delegate = Objects.requireNonNull(backend, "backend");
+    }
+
+    /** The assistant's current chat backend. */
+    public ChatBackend nexusBackend() {
+        return nexusBackend.delegate;
     }
 
     /** The one-time Performance pack offer of this session (created on first use). */
@@ -616,6 +676,16 @@ public final class VantaServices {
     /** Vanta Lab feature toggles (backed by settings). */
     public LabSettings lab() {
         return lab;
+    }
+
+    /** The Vanta Lab time curves (Dynamic HUD alpha, crosshair spread, screen transitions). */
+    public LabEffects labEffects() {
+        return labEffects;
+    }
+
+    /** The assistant's view of the waypoints of the current world. */
+    public NexusWaypointBridge waypointBridge() {
+        return waypointBridge;
     }
 
     public ScreenRegistry screens() {

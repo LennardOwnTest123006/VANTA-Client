@@ -78,7 +78,8 @@ class ProfileManagerTest {
         }
         Profile pvp = manager.find("pvp").orElseThrow();
         assertEquals("PvP", pvp.name());
-        assertEquals(HudPresets.find("pvp").orElseThrow().layout(), pvp.hud());
+        assertEquals(BuiltInProfiles.nexusHud(dev.vanta.core.ai.NexusHudPreset.PVP), pvp.hud(),
+                "the PvP profile carries the Nexus PvP preset applied to the Default layout");
         assertEquals(CrosshairPresets.find("bold").orElseThrow().style(), pvp.crosshair());
         assertEquals("high", pvp.settings().get("performance.perfPreset").getAsString());
         assertEquals(16, pvp.settings().get("video.renderDistance").getAsInt());
@@ -145,7 +146,7 @@ class ProfileManagerTest {
         assertEquals(0.6, created.settings().get("hud.globalOpacity").getAsDouble());
         assertEquals(Badge.CONTRIBUTOR, created.cosmetics().badge());
         assertEquals(KeyRef.keyboard(88, "key.keyboard.x"), created.keybinds().get(VantaKeys.ZOOM));
-        assertEquals(6, manager.size());
+        assertEquals(BuiltInProfiles.IDS.size() + 1, manager.size());
 
         Profile copy = manager.duplicate("my-setup", "My Setup").orElseThrow();
         assertEquals("my-setup-2", copy.id());
@@ -170,7 +171,7 @@ class ProfileManagerTest {
         assertTrue(manager.delete("my-setup"));
         assertEquals(Optional.of("default"), manager.activeId(), "deleting the active profile activates another");
         assertFalse(Files.exists(paths.profilesDir().resolve("my-setup.json")));
-        for (String id : List.of("my-setup-2", "pvp", "building", "performance", "recording")) {
+        for (String id : List.of("my-setup-2", "pvp", "building", "performance", "recording", "survival", "minimal")) {
             assertTrue(manager.delete(id));
         }
         assertFalse(manager.delete("default"), "the last profile cannot be deleted");

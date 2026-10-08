@@ -7,6 +7,8 @@ import dev.vanta.core.cosmetics.MenuBackground;
 import dev.vanta.core.cosmetics.MenuParticles;
 import dev.vanta.core.crosshair.CrosshairPresets;
 import dev.vanta.core.crosshair.CrosshairStyle;
+import dev.vanta.core.ai.NexusHudPreset;
+import dev.vanta.core.hud.HudLayout;
 import dev.vanta.core.hud.HudPresets;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.perf.FpsLimitPreset;
@@ -22,8 +24,11 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The five profiles created on first run. They are ordinary profiles afterwards (renamable, deletable except the last
- * one), built from the VANTA setting defaults plus a HUD preset, a performance preset and a crosshair preset each.
+ * The seven profiles created on first run. They are ordinary profiles afterwards (renamable, deletable except the last
+ * one), built from the VANTA setting defaults plus a HUD layout, a performance preset and a crosshair preset each.
+ * From 1.4.0 on the HUD layouts of PvP, Survival, Building, Recording and Minimal are the matching
+ * {@link NexusHudPreset} applied to the Default layout, so a profile and the assistant's {@code hud.preset} action
+ * produce the same HUD.
  * <p>
  * Of the vanilla options a built-in profile only carries what it is about: the options of its performance preset, the
  * frame-rate limit and VSync of its frame-rate choice and its explicit overrides (Building's FOV). Volumes, mouse
@@ -36,16 +41,27 @@ public final class BuiltInProfiles {
     public static final String BUILDING = "building";
     public static final String PERFORMANCE = "performance";
     public static final String RECORDING = "recording";
+    public static final String SURVIVAL = "survival";
+    public static final String MINIMAL = "minimal";
 
     /** Ids in creation order. */
-    public static final List<String> IDS = List.of(DEFAULT, PVP, BUILDING, PERFORMANCE, RECORDING);
+    public static final List<String> IDS = List.of(DEFAULT, PVP, SURVIVAL, BUILDING, RECORDING, PERFORMANCE, MINIMAL);
 
     /**
      * Version of the built-in profile content. {@code ProfileManager} re-seeds built-ins the player never touched
      * once when the version recorded in {@code profiles/state.json} is older (2: client 1.3.0, vanilla options limited
-     * to the ones each profile is about).
+     * to the ones each profile is about; 3: client 1.4.0, HUD layouts from the Nexus presets plus the new Survival and
+     * Minimal profiles, which are added to existing installs once).
      */
-    public static final int CONTENT_VERSION = 2;
+    public static final int CONTENT_VERSION = 3;
+
+    /** The content version a built-in profile first shipped with (new ones are added to older installs once). */
+    public static int addedInVersion(String id) {
+        return switch (id) {
+            case SURVIVAL, MINIMAL -> 3;
+            default -> 1;
+        };
+    }
 
     private BuiltInProfiles() {
     }
@@ -63,30 +79,45 @@ public final class BuiltInProfiles {
     /** Creates all built-in profiles with {@code now} as timestamp. */
     public static List<Profile> create(SettingsRegistry registry, long now) {
         return List.of(
-                build(registry, now, DEFAULT, "profile", HudPresets.DEFAULT, PerformancePreset.BALANCED,
+                build(registry, now, DEFAULT, "profile", HudPresets.defaultPreset().layout(), PerformancePreset.BALANCED,
                         CrosshairPresets.DEFAULT, Map.of()),
-                build(registry, now, PVP, "crosshair", HudPresets.PVP, PerformancePreset.HIGH, CrosshairPresets.BOLD,
+                build(registry, now, PVP, "crosshair", nexusHud(NexusHudPreset.PVP), PerformancePreset.HIGH,
+                        CrosshairPresets.BOLD,
                         Map.of(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.UNLIMITED,
                                 VantaSettings.MENU_PARTICLES, MenuParticles.NONE,
                                 VantaSettings.HUD_TEXT_SHADOW, Boolean.TRUE)),
-                build(registry, now, BUILDING, "grid", HudPresets.MINIMAL, PerformancePreset.ULTRA,
+                build(registry, now, SURVIVAL, "world", nexusHud(NexusHudPreset.SURVIVAL), PerformancePreset.BALANCED,
+                        CrosshairPresets.DEFAULT,
+                        Map.of(VantaSettings.HUD_TEXT_SHADOW, Boolean.TRUE,
+                                VantaSettings.VIDEO_FOV, 75)),
+                build(registry, now, BUILDING, "grid", nexusHud(NexusHudPreset.BUILDING), PerformancePreset.ULTRA,
                         CrosshairPresets.THIN,
                         Map.of(VantaSettings.VIDEO_FOV, 85, VantaSettings.HUD_GLOBAL_OPACITY, 0.8)),
-                build(registry, now, PERFORMANCE, "chart", HudPresets.PERFORMANCE, PerformancePreset.BOOST,
-                        CrosshairPresets.DEFAULT,
-                        Map.of(VantaSettings.MENU_BACKGROUND, MenuBackground.SOLID,
-                                VantaSettings.MENU_PARTICLES, MenuParticles.NONE,
-                                VantaSettings.HUD_TEXT_SHADOW, Boolean.FALSE,
-                                VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.UNLIMITED)),
-                build(registry, now, RECORDING, "play", HudPresets.STREAMER, PerformancePreset.HIGH,
+                build(registry, now, RECORDING, "play", nexusHud(NexusHudPreset.RECORDING), PerformancePreset.HIGH,
                         CrosshairPresets.DOT,
                         Map.of(VantaSettings.HUD_GLOBAL_OPACITY, 0.85,
                                 VantaSettings.GENERAL_NOTIFICATION_DURATION, 2500,
                                 VantaSettings.PRIVACY_STATS_TRACK_SERVERS, Boolean.FALSE,
-                                VantaSettings.MENU_SHOW_VERSION_LABEL, Boolean.FALSE)));
+                                VantaSettings.MENU_SHOW_VERSION_LABEL, Boolean.FALSE)),
+                build(registry, now, PERFORMANCE, "chart", HudPresets.find(HudPresets.PERFORMANCE).orElseThrow().layout(),
+                        PerformancePreset.BOOST, CrosshairPresets.DEFAULT,
+                        Map.of(VantaSettings.MENU_BACKGROUND, MenuBackground.SOLID,
+                                VantaSettings.MENU_PARTICLES, MenuParticles.NONE,
+                                VantaSettings.HUD_TEXT_SHADOW, Boolean.FALSE,
+                                VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, FpsLimitPreset.UNLIMITED)),
+                build(registry, now, MINIMAL, "eye", nexusHud(NexusHudPreset.MINIMAL), PerformancePreset.BALANCED,
+                        CrosshairPresets.THIN,
+                        Map.of(VantaSettings.HUD_GLOBAL_OPACITY, 0.9,
+                                VantaSettings.MENU_PARTICLES, MenuParticles.NONE,
+                                VantaSettings.GENERAL_NOTIFICATION_DURATION, 2500)));
     }
 
-    private static Profile build(SettingsRegistry registry, long now, String id, String icon, String hudPresetId,
+    /** The Default HUD layout with a Nexus preset applied: the layout the assistant's {@code hud.preset} produces. */
+    public static HudLayout nexusHud(NexusHudPreset preset) {
+        return preset.apply(HudPresets.defaultPreset().layout());
+    }
+
+    private static Profile build(SettingsRegistry registry, long now, String id, String icon, HudLayout hud,
                                  PerformancePreset perf, String crosshairPresetId, Map<Setting<?>, Object> overrides) {
         Map<String, JsonElement> settings = defaults(registry);
         for (Map.Entry<VanillaOption, Object> entry : perf.optionValues().entrySet()) {
@@ -111,8 +142,8 @@ public final class BuiltInProfiles {
                 enumOf(complete, VantaSettings.COSMETICS_HUD_THEME),
                 enumOf(complete, VantaSettings.COSMETICS_BADGE),
                 crosshairPresetId);
-        return new Profile(Profile.SCHEMA_VERSION, id, Lang.tr(nameKey(id)), icon, now, now, complete,
-                HudPresets.find(hudPresetId).orElseThrow().layout(), Map.of(), crosshair, cosmetics);
+        return new Profile(Profile.SCHEMA_VERSION, id, Lang.tr(nameKey(id)), icon, now, now, complete, hud, Map.of(),
+                crosshair, cosmetics);
     }
 
     /**

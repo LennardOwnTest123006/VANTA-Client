@@ -68,6 +68,8 @@ public record ActionEntry(String id, List<String> keywords, Optional<ScreenId> s
     public static final String CLEAR_STATISTICS = "clear_statistics";
     /** Id of the "open website" command. */
     public static final String OPEN_WEBSITE = "open_website";
+    /** Id of the navigation action that opens Vanta Nexus ({@code open_} + {@link ScreenId#NEXUS}). */
+    public static final String OPEN_NEXUS = "open_nexus";
 
     /** Every built-in action. */
     public static List<ActionEntry> builtIns() {
@@ -85,6 +87,7 @@ public record ActionEntry(String id, List<String> keywords, Optional<ScreenId> s
                         "performance pack", "download", "install"),
                 open(ScreenId.ACCESSIBILITY, "contrast", "motion", "large text", "scale"),
                 open(ScreenId.ABOUT, "version", "credits", "license", "website"),
+                open(ScreenId.NEXUS, "nexus", "ai", "assistant", "local ai", "hud designer", "waypoints", "lab"),
                 command(RESET_SETTINGS, "defaults", "restore", "factory"),
                 command(OPEN_CONFIG_FOLDER, "files", "directory", "settings.json"),
                 command(EXPORT_PROFILE, "backup", "share", "json"),

@@ -59,7 +59,7 @@ public final class MainMenuScreen extends VantaUiScreen {
     /** Smallest margin the stack is pushed up to when nothing fits. */
     private static final int MIN_MARGIN = Theme.SPACE_2;
     /** Number of buttons in the middle of the stack (between PLAY and Quit). */
-    private static final int STACK_SIZE = 7;
+    static final int STACK_SIZE = 8;
 
     /**
      * One way of arranging the stack: the wide single column, the compact two-column layout, and two tighter
@@ -218,6 +218,10 @@ public final class MainMenuScreen extends VantaUiScreen {
                 () -> navigator().openVanilla(VanillaScreen.SINGLEPLAYER)));
         stack.add(menuButton("menu.multiplayer", "vanta.menu.multiplayer",
                 () -> navigator().openVanilla(VanillaScreen.MULTIPLAYER)));
+        MenuButton nexus = menuButton("menu.nexus", "vanta.menu.nexus", () -> open(ScreenId.NEXUS));
+        nexus.icon(Icons.NEXUS);
+        nexus.setTooltip(Lang.tr("vanta.screen.nexus.description"));
+        stack.add(nexus);
         stack.add(menuButton("menu.options", "vanta.menu.options", () -> open(ScreenId.SETTINGS)));
         stack.add(menuButton("menu.language", "vanta.menu.language",
                 () -> navigator().openVanilla(VanillaScreen.LANGUAGE)));

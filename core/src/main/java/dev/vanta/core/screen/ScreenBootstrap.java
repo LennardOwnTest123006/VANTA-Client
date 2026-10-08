@@ -19,5 +19,6 @@ public final class ScreenBootstrap {
         dev.vanta.core.screen.Screens1.register(services);         // main menu, settings, search, performance, accessibility, packs, mods, about
         dev.vanta.core.screen.Screens2.register(services);         // profiles, keybinds, cosmetics, statistics
         dev.vanta.core.hud.editor.HudScreens.register(services);   // HUD editor, crosshair editor
+        dev.vanta.core.screen.nexus.NexusScreens.register(services); // Vanta Nexus, Local AI setup
     }
 }

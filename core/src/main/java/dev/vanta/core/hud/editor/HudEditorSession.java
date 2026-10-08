@@ -245,6 +245,14 @@ public final class HudEditorSession {
         return model.addWidget(type);
     }
 
+    /**
+     * True when the editor lists a widget type: every type except the Vanta Lab ones whose feature is off (see
+     * {@link HudRenderer#isDrawable}); a widget that cannot be drawn is not offered.
+     */
+    public boolean isOffered(HudWidgetType type) {
+        return renderer.isDrawable(type);
+    }
+
     /** Arrow-key nudge; Shift moves ten pixels. */
     public boolean nudge(int dx, int dy, boolean large) {
         int step = large ? 10 : 1;

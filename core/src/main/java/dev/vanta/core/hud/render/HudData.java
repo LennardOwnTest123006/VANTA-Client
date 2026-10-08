@@ -34,10 +34,12 @@ import java.util.Set;
 public final class HudData {
 
     /** Snapshot used before the first tick: not in a world, every value empty. */
+    private static final double[] NO_SAMPLES = new double[0];
+
     public static final HudData EMPTY = new HudData(false, true, 0, 0.0, 0.0, OptionalInt.empty(), Optional.empty(),
             0f, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 0, 0, 0L, 0L, ZoneOffset.UTC,
             0, List.of(), List.of(), List.of(), KeyStates.NONE, 0L, 0L, 0L, OptionalDouble.empty(), 0, "", "", "",
-            false);
+            false, NO_SAMPLES);
 
     private final boolean inWorld;
     private final boolean singleplayer;
@@ -70,6 +72,10 @@ public final class HudData {
     private final String fabricLoaderVersion;
     private final String clientVersion;
     private final boolean sample;
+    /** The last frame times (ms, oldest first) for the frame time graph; empty unless that widget is enabled. */
+    private final double[] frameTimeSamples;
+    private double frameTimeP50 = -1;
+    private double frameTimeP99 = -1;
 
     // Memoised per-tick strings (lazily built, never observable from outside except through the accessors).
     private final String[] coordinateCache = new String[3 * 3];
@@ -87,7 +93,7 @@ public final class HudData {
             int cpsRight, long epochMillis, long gameTicks, ZoneId zone, int armorValue, List<ItemInfo> armorPieces,
             List<ItemInfo> heldItems, List<EffectInfo> effects, KeyStates keys, long memoryUsed, long memoryAllocated,
             long memoryMax, OptionalDouble cpuLoad, int entityCount, String minecraftVersion,
-            String fabricLoaderVersion, String clientVersion, boolean sample) {
+            String fabricLoaderVersion, String clientVersion, boolean sample, double[] frameTimeSamples) {
         this.inWorld = inWorld;
         this.singleplayer = singleplayer;
         this.fps = Math.max(0, fps);
@@ -119,6 +125,7 @@ public final class HudData {
         this.fabricLoaderVersion = Objects.requireNonNull(fabricLoaderVersion, "fabricLoaderVersion");
         this.clientVersion = Objects.requireNonNull(clientVersion, "clientVersion");
         this.sample = sample;
+        this.frameTimeSamples = Objects.requireNonNull(frameTimeSamples, "frameTimeSamples");
     }
 
     /**
@@ -162,6 +169,7 @@ public final class HudData {
         boolean cpu = enabled.contains(HudWidgetType.CPU);
         boolean entities = enabled.contains(HudWidgetType.ENTITY_COUNT);
         boolean versions = enabled.contains(HudWidgetType.MINECRAFT_VERSION);
+        boolean graph = enabled.contains(HudWidgetType.FRAMETIME_GRAPH);
         return new HudData(inWorld,
                 ping || server ? game.isSingleplayer() : true,
                 fps ? game.fps() : 0,
@@ -191,7 +199,20 @@ public final class HudData {
                 versions ? game.minecraftVersion() : "",
                 versions ? game.fabricLoaderVersion() : "",
                 versions ? game.clientVersion() : "",
-                game instanceof SampleGameData);
+                game instanceof SampleGameData,
+                graph && frameTimes != null ? lastSamples(frameTimes) : NO_SAMPLES);
+    }
+
+    /** The newest {@link HudWidgetType#FRAMETIME_GRAPH_SAMPLES} frame times of the tracker, oldest first. */
+    static double[] lastSamples(FrameTimeTracker frameTimes) {
+        double[] all = frameTimes.samplesOldestFirst();
+        int keep = Math.min(all.length, HudWidgetType.FRAMETIME_GRAPH_SAMPLES);
+        if (keep == all.length) {
+            return all;
+        }
+        double[] out = new double[keep];
+        System.arraycopy(all, all.length - keep, out, 0, keep);
+        return out;
     }
 
     /**
@@ -207,10 +228,73 @@ public final class HudData {
                 ZoneOffset.UTC, game.armorValue(), game.armorPieces(), game.heldItems(), game.activeEffects(),
                 game.keyStates(), game.memoryUsedBytes(), game.memoryAllocatedBytes(), game.memoryMaxBytes(),
                 game.cpuLoad(), game.entityCount(), game.minecraftVersion(), game.fabricLoaderVersion(),
-                game.clientVersion(), true);
+                game.clientVersion(), true, SampleGameData.frameTimeSamples());
     }
 
     // ---- raw values ------------------------------------------------------------------------------------------------
+
+    /**
+     * The last frame times in milliseconds, oldest first (at most {@link HudWidgetType#FRAMETIME_GRAPH_SAMPLES});
+     * empty unless the frame time graph was enabled when the snapshot was taken.
+     */
+    public double[] frameTimeSamples() {
+        return frameTimeSamples.clone();
+    }
+
+    /** Number of frame time samples captured. */
+    public int frameTimeSampleCount() {
+        return frameTimeSamples.length;
+    }
+
+    /** One captured frame time (ms), oldest first. */
+    public double frameTimeSample(int index) {
+        return frameTimeSamples[index];
+    }
+
+    /** Median of the captured frame times (0 without samples), computed once per snapshot. */
+    public double frameTimeP50() {
+        if (frameTimeP50 < 0) {
+            computeFramePercentiles();
+        }
+        return frameTimeP50;
+    }
+
+    /** 99th percentile (nearest rank) of the captured frame times (0 without samples). */
+    public double frameTimeP99() {
+        if (frameTimeP99 < 0) {
+            computeFramePercentiles();
+        }
+        return frameTimeP99;
+    }
+
+    /** Captured frames slower than {@code thresholdMs}. */
+    public int frameTimeHitches(double thresholdMs) {
+        int n = 0;
+        for (double sample : frameTimeSamples) {
+            if (sample > thresholdMs) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    private void computeFramePercentiles() {
+        if (frameTimeSamples.length == 0) {
+            frameTimeP50 = 0;
+            frameTimeP99 = 0;
+            return;
+        }
+        double[] sorted = frameTimeSamples.clone();
+        java.util.Arrays.sort(sorted);
+        frameTimeP50 = sorted[rank(sorted.length, 50)];
+        frameTimeP99 = sorted[rank(sorted.length, 99)];
+    }
+
+    /** Nearest-rank index of percentile {@code p} in a sorted array of {@code size} values. */
+    public static int rank(int size, double p) {
+        int rank = (int) Math.ceil(p / 100.0 * size);
+        return Math.max(0, Math.min(size - 1, rank - 1));
+    }
 
     /** True while the snapshot was taken inside a world. */
     public boolean inWorld() {

@@ -20,11 +20,15 @@ public final class VantaKeys {
     public static final String PERFORMANCE = "key.vanta.performance";
     public static final String ZOOM = "key.vanta.zoom";
     public static final String SCREENSHOT_HUD_FREE = "key.vanta.screenshot_hud_free";
+    /** Opens Vanta Nexus (default N). */
+    public static final String OPEN_NEXUS = "key.vanta.open_nexus";
 
     /** GLFW key code of Right Shift. */
     public static final int GLFW_RIGHT_SHIFT = 344;
     /** GLFW key code of C. */
     public static final int GLFW_C = 67;
+    /** GLFW key code of N. */
+    public static final int GLFW_N = 78;
 
     /**
      * One VANTA key mapping.
@@ -55,7 +59,8 @@ public final class VantaKeys {
             new Definition(HUD_EDITOR, KeyRef.UNBOUND),
             new Definition(PERFORMANCE, KeyRef.UNBOUND),
             new Definition(ZOOM, KeyRef.keyboard(GLFW_C, "key.keyboard.c")),
-            new Definition(SCREENSHOT_HUD_FREE, KeyRef.UNBOUND));
+            new Definition(SCREENSHOT_HUD_FREE, KeyRef.UNBOUND),
+            new Definition(OPEN_NEXUS, KeyRef.keyboard(GLFW_N, "key.keyboard.n")));
 
     private VantaKeys() {
     }

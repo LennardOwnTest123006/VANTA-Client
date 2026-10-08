@@ -37,6 +37,7 @@ public final class FakeKeybindBridge implements KeybindBridge {
         mod("key.vanta.performance", "Open Performance Center", "key.categories.vanta", "VANTA", KeyRef.UNBOUND);
         mod("key.vanta.zoom", "Zoom", "key.categories.vanta", "VANTA", KeyRef.keyboard(67, "key.keyboard.c"));
         mod("key.vanta.screenshot_hud_free", "HUD-free Screenshot", "key.categories.vanta", "VANTA", KeyRef.UNBOUND);
+        mod("key.vanta.open_nexus", "Open Vanta Nexus", "key.categories.vanta", "VANTA", KeyRef.keyboard(78, "key.keyboard.n"));
     }
 
     private void vanilla(String id, String name, String catId, String catName, KeyRef key) {

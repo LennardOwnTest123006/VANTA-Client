@@ -30,6 +30,10 @@ public final class IconIds {
             Map.entry("link", Icons.EXTERNAL_LINK),
             Map.entry("external", Icons.EXTERNAL_LINK),
             Map.entry("world", Icons.PLAY),
+            Map.entry("nexus", Icons.NEXUS),
+            Map.entry("ai", Icons.NEXUS),
+            Map.entry("lab", Icons.FLASK),
+            Map.entry("waypoints", Icons.PIN),
             Map.entry("sword", Icons.CROSSHAIR),
             Map.entry("camera", Icons.EYE),
             Map.entry("bolt", Icons.CHART));

@@ -1,9 +1,11 @@
 package dev.vanta.core.lab;
 
+import dev.vanta.core.ai.LabToggle;
 import dev.vanta.core.config.CoreLog;
 import dev.vanta.core.settings.Setting;
 import dev.vanta.core.settings.SettingsStore;
 import dev.vanta.core.settings.VantaSettings;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -127,6 +129,38 @@ public final class LabSettings {
     public Runnable onAnyChange(BiConsumer<LabFeature, Boolean> listener) {
         listeners.add(Objects.requireNonNull(listener, "listener"));
         return () -> listeners.remove(listener);
+    }
+
+    /**
+     * These toggles as the assistant's {@link LabToggle}: feature ids in enum order, {@code set} succeeds for every
+     * known id (also when the value did not change), unknown ids are refused.
+     */
+    public LabToggle asToggle() {
+        return new LabToggle() {
+            @Override
+            public List<String> features() {
+                List<String> ids = new ArrayList<>();
+                for (LabFeature feature : LabFeature.values()) {
+                    ids.add(feature.id());
+                }
+                return ids;
+            }
+
+            @Override
+            public boolean isEnabled(String feature) {
+                return LabFeature.fromId(feature).map(LabSettings.this::isEnabled).orElse(false);
+            }
+
+            @Override
+            public boolean set(String feature, boolean enabled) {
+                Optional<LabFeature> known = LabFeature.fromId(feature);
+                if (known.isEmpty()) {
+                    return false;
+                }
+                LabSettings.this.set(known.get(), enabled);
+                return true;
+            }
+        };
     }
 
     private void fire(LabFeature feature, boolean enabled) {

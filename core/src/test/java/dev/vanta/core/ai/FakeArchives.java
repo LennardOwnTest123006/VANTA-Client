@@ -15,7 +15,7 @@ import java.util.zip.ZipOutputStream;
  * Builds small zip and tar.gz archives in memory for the extractor and installer tests. The tar writer produces
  * plain ustar headers plus, on request, GNU long-name ({@code L}) and pax ({@code x}) entries.
  */
-final class FakeArchives {
+public final class FakeArchives {
     /** One tar entry. */
     record TarEntry(String name, byte[] data, int mode, char type, String linkName) {
         static TarEntry file(String name, byte[] data, int mode) {
@@ -39,7 +39,7 @@ final class FakeArchives {
     }
 
     /** Deterministic pseudo-random bytes. */
-    static byte[] randomBytes(int size, long seed) {
+    public static byte[] randomBytes(int size, long seed) {
         byte[] data = new byte[size];
         new Random(seed).nextBytes(data);
         return data;
@@ -65,14 +65,14 @@ final class FakeArchives {
     }
 
     /** The fake Windows runtime archive: llama-server.exe plus a dll and a readme at the root. */
-    static byte[] windowsRuntimeZip() {
+    public static byte[] windowsRuntimeZip() {
         return zip(List.of("llama-server.exe", "ggml.dll", "README.md"),
                 List.of("MZ fake llama-server".getBytes(StandardCharsets.UTF_8),
                         randomBytes(3000, 7), "fake readme".getBytes(StandardCharsets.UTF_8)));
     }
 
     /** The fake Linux runtime archive: build/bin/llama-server (0755) and a shared library. */
-    static byte[] linuxRuntimeTarGz() {
+    public static byte[] linuxRuntimeTarGz() {
         return tarGz(List.of(TarEntry.dir("build"), TarEntry.dir("build/bin"),
                 TarEntry.file("build/bin/llama-server", "#!/bin/sh\necho fake llama-server\n", 0755),
                 TarEntry.file("build/bin/libggml.so", randomBytes(2048, 11), 0644),

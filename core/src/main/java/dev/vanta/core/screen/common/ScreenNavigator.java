@@ -27,6 +27,7 @@ public final class ScreenNavigator {
     private String pendingSettingId;
     private SettingCategory pendingCategory;
     private String pendingKeybindId;
+    private String pendingNexusSection;
 
     public ScreenNavigator(VantaServices services) {
         this.services = Objects.requireNonNull(services, "services");
@@ -103,6 +104,27 @@ public final class ScreenNavigator {
         SettingCategory category = pendingCategory;
         pendingCategory = null;
         return Optional.ofNullable(category);
+    }
+
+    /**
+     * Opens Vanta Nexus on a section ({@code NexusSection} id such as {@code waypoints}); the Nexus screen takes
+     * the id in its constructor.
+     */
+    public void openNexus(UiContext ctx, String sectionId) {
+        pendingNexusSection = Objects.requireNonNull(sectionId, "sectionId");
+        openScreen(ctx, ScreenId.NEXUS);
+    }
+
+    /** Stores the Nexus section the next Nexus screen opens on without opening it (hosts, previews, tests). */
+    public void stageNexusSection(String sectionId) {
+        pendingNexusSection = Objects.requireNonNull(sectionId, "sectionId");
+    }
+
+    /** Takes (and clears) the Nexus section id the Nexus screen should open on. */
+    public Optional<String> takePendingNexusSection() {
+        String id = pendingNexusSection;
+        pendingNexusSection = null;
+        return Optional.ofNullable(id);
     }
 
     /** Takes (and clears) the key mapping id the keybinds screen should reveal. */

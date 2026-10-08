@@ -7,18 +7,18 @@ import java.nio.charset.StandardCharsets;
  * Complete manifests whose URLs point at a {@link LocalFileServer} and whose sizes and hashes match the fake
  * archives it serves.
  */
-final class ManifestFixtures {
+public final class ManifestFixtures {
     static final String TAG = "b11429";
     static final String ZIP_PATH = "/releases/llama-" + TAG + "-bin-win-cpu-x64.zip";
     static final String TGZ_PATH = "/releases/llama-" + TAG + "-bin-ubuntu-x64.tar.gz";
-    static final String MODEL_PATH = "/models/Qwen3-1.7B-Q8_0.gguf";
-    static final String MODEL_FILE = "Qwen3-1.7B-Q8_0.gguf";
+    public static final String MODEL_PATH = "/models/Qwen3-1.7B-Q8_0.gguf";
+    public static final String MODEL_FILE = "Qwen3-1.7B-Q8_0.gguf";
 
     private ManifestFixtures() {
     }
 
     /** Serves the fake archives and model and returns a complete manifest naming them. */
-    static LocalAiManifest serve(LocalFileServer server, byte[] zip, byte[] tgz, byte[] model) throws LocalAiException {
+    public static LocalAiManifest serve(LocalFileServer server, byte[] zip, byte[] tgz, byte[] model) throws LocalAiException {
         server.file(ZIP_PATH, zip);
         server.file(TGZ_PATH, tgz);
         server.file(MODEL_PATH, model);
@@ -26,7 +26,7 @@ final class ManifestFixtures {
     }
 
     /** Same, but with a wrong model hash. */
-    static LocalAiManifest serveWithBadModelHash(LocalFileServer server, byte[] zip, byte[] tgz, byte[] model)
+    public static LocalAiManifest serveWithBadModelHash(LocalFileServer server, byte[] zip, byte[] tgz, byte[] model)
             throws LocalAiException {
         server.file(ZIP_PATH, zip);
         server.file(TGZ_PATH, tgz);

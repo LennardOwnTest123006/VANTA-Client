@@ -20,6 +20,20 @@ import java.util.OptionalInt;
  * {@code .invalid} domain so it can never be mistaken for a real one. Actions are no-ops.
  */
 public final class SampleGameData implements GameBridge {
+    /**
+     * A believable frame time history for the frame time graph widget (about 144 fps with a few hitches), the same
+     * values every time.
+     */
+    public static double[] frameTimeSamples() {
+        double[] out = new double[dev.vanta.core.hud.HudWidgetType.FRAMETIME_GRAPH_SAMPLES];
+        for (int i = 0; i < out.length; i++) {
+            double base = 6.9 + Math.sin(i / 5.0) * 1.1;
+            double hitch = i % 41 == 7 ? 24.0 : 0.0;
+            out[i] = base + hitch;
+        }
+        return out;
+    }
+
 
     /** Left-button clicks per second shown by the sample CPS widget. */
     public static final int CPS_LEFT = 6;

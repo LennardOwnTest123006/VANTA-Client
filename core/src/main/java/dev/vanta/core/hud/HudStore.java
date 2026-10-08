@@ -163,6 +163,23 @@ public final class HudStore {
         return preset;
     }
 
+    /**
+     * Saves {@code layout} as a new user preset named {@code name} (the Nexus HUD Designer's "Duplicate" of a
+     * named layout); the live layout is left alone.
+     *
+     * @throws IllegalArgumentException when the name is blank
+     */
+    public HudPreset saveUserPreset(String name, HudLayout layout) {
+        Objects.requireNonNull(layout, "layout");
+        HudLayout live = this.layout;
+        this.layout = layout;
+        try {
+            return saveUserPreset(name);
+        } finally {
+            this.layout = live;
+        }
+    }
+
     /** Overwrites an existing user preset with the live layout. */
     public boolean updateUserPreset(String id) {
         for (int i = 0; i < userPresets.size(); i++) {

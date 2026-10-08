@@ -33,7 +33,8 @@ public final class HudWidgetRenderers {
                 new FpsWidget(), new PingWidget(), new CoordinatesWidget(), new DirectionWidget(), new BiomeWidget(),
                 new ServerWidget(), new CpsWidget(), new ClockWidget(), new ArmorWidget(),
                 new ItemDurabilityWidget(), new PotionEffectsWidget(), new KeystrokesWidget(), new MemoryWidget(),
-                new CpuWidget(), new EntityCountWidget(), new MinecraftVersionWidget(), new CrosshairWidget()));
+                new CpuWidget(), new EntityCountWidget(), new MinecraftVersionWidget(), new FrametimeGraphWidget(),
+                new CrosshairWidget()));
     }
 
     /**

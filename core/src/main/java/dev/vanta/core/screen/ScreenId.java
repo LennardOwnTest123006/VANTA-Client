@@ -22,7 +22,11 @@ public enum ScreenId implements LangKeyed {
     MODS,
     ACCESSIBILITY,
     SEARCH,
-    ABOUT;
+    ABOUT,
+    /** Vanta Nexus: the assistant, HUD Designer, profiles, performance, waypoints, Vanta Lab and its settings. */
+    NEXUS,
+    /** The Local AI download and setup steps (opened from Nexus; nothing downloads before Install is clicked). */
+    LOCAL_AI_SETUP;
 
     /** Lower-case id used in JSON and lang keys. */
     public String id() {

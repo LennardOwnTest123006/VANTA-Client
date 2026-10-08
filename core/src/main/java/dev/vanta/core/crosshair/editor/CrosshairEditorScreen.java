@@ -266,6 +266,21 @@ public final class CrosshairEditorScreen extends UiScreen {
     }
 
     @Override
+    protected void onInit() {
+        services.labEffects().onScreenOpened(context().now());
+    }
+
+    @Override
+    protected void onCloseStarted(long now) {
+        services.labEffects().onScreenClosed(now);
+    }
+
+    @Override
+    protected float slideProgress(long now) {
+        return services.labEffects().transitionProgress(now);
+    }
+
+    @Override
     public void onClose() {
         if (unsubscribe != null) {
             unsubscribe.run();

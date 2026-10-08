@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
 import dev.vanta.core.crosshair.CrosshairPresets;
+import dev.vanta.core.profiles.BuiltInProfiles;
 import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.profiles.ProfileImportException;
 import dev.vanta.core.profiles.ProfileManager;
@@ -53,7 +54,7 @@ class ProfileActionsTest {
         String json = actions.export("building").orElseThrow().json();
         Profile imported = actions.importFromText(json);
         assertEquals("Building (2)", imported.name());
-        assertEquals(6, fx.services.profiles().size());
+        assertEquals(BuiltInProfiles.IDS.size() + 1, fx.services.profiles().size());
         assertTrue(Files.exists(fx.services.paths().profilesDir().resolve(imported.id() + ".json")));
 
         ProfileImportException empty = assertThrows(ProfileImportException.class, () -> actions.importFromText("  "));
@@ -70,7 +71,7 @@ class ProfileActionsTest {
         String huge = "{\"name\":\"" + "x".repeat((int) ProfileManager.MAX_IMPORT_BYTES) + "\"}";
         ProfileImportException tooLarge = assertThrows(ProfileImportException.class, () -> actions.importFromText(huge));
         assertEquals(ProfileImportException.Reason.TOO_LARGE, tooLarge.reason());
-        assertEquals(6, fx.services.profiles().size(), "failed imports add nothing");
+        assertEquals(BuiltInProfiles.IDS.size() + 1, fx.services.profiles().size(), "failed imports add nothing");
     }
 
     @Test

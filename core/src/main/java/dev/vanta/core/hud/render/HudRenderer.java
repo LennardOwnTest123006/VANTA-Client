@@ -7,6 +7,7 @@ import dev.vanta.core.hud.HudRect;
 import dev.vanta.core.hud.HudWidgetState;
 import dev.vanta.core.hud.HudWidgetType;
 import dev.vanta.core.hud.widgets.HudWidgetRenderers;
+import dev.vanta.core.lab.LabFeature;
 import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.ui.Canvas;
@@ -130,7 +131,22 @@ public final class HudRenderer {
         if (!captured) {
             tick();
         }
-        renderLayout(canvas, services.hud().layout(), screenWidth, screenHeight, data, false);
+        // Vanta Lab "Dynamic HUD": the whole HUD fades out after 10 s without input and comes back on any input.
+        float alpha = (float) globalOpacity() * services.labEffects().hudAlpha(services.clock().millis());
+        if (alpha <= 0f) {
+            return;
+        }
+        renderLayout(canvas, services.hud().layout(), screenWidth, screenHeight, data, false, globalScale(), alpha);
+    }
+
+    /**
+     * True when a widget type may be drawn right now. The frame time graph belongs to the Vanta Lab feature
+     * {@link LabFeature#FRAMETIME_GRAPH}: while the feature is off the widget stays in the layout but is neither
+     * drawn (in-game or in the editor preview) nor listed in the editor, so the layout keeps the player's placement
+     * for the next time the feature is switched on.
+     */
+    public boolean isDrawable(HudWidgetType type) {
+        return type != HudWidgetType.FRAMETIME_GRAPH || services.lab().isEnabled(LabFeature.FRAMETIME_GRAPH);
     }
 
     /**
@@ -153,7 +169,8 @@ public final class HudRenderer {
         List<HudWidgetState> widgets = layout.widgets();
         for (int i = 0; i < widgets.size(); i++) {
             HudWidgetState widget = widgets.get(i);
-            if (!widget.enabled() || (!includeCrosshair && widget.type() == HudWidgetType.CROSSHAIR)) {
+            if (!widget.enabled() || (!includeCrosshair && widget.type() == HudWidgetType.CROSSHAIR)
+                    || !isDrawable(widget.type())) {
                 continue;
             }
             HudRect rect = layout.resolveRect(widget, screenWidth, screenHeight, scale);
