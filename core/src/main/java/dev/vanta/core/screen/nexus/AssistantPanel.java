@@ -120,6 +120,7 @@ public final class AssistantPanel extends NexusPanel {
         }));
         unsubscribe.add(transcript.onChanged(entries -> rebuildChat()));
         unsubscribe.add(services.settings().onChange(VantaSettings.NEXUS_ENABLED, (before, after) -> refresh()));
+        unsubscribe.add(services.settings().onChange(VantaSettings.NEXUS_AUTO_INSTALL, (before, after) -> refresh()));
         refresh();
     }
 
@@ -240,7 +241,18 @@ public final class AssistantPanel extends NexusPanel {
     }
 
     private boolean showsInstallCard(LocalAiStatus status) {
-        return !status.isInstalled() && !status.isRunning();
+        if (status.isInstalled() || status.isRunning()) {
+            return false;
+        }
+        // nexus.autoInstall off: an installable state shows a one-line pointer to Settings instead of the card;
+        // problems (unsupported system, unresolved manifest) are always shown.
+        boolean installable = status == LocalAiStatus.NOT_INSTALLED || status == LocalAiStatus.PARTIAL;
+        return !installable || services().settings().get(VantaSettings.NEXUS_AUTO_INSTALL);
+    }
+
+    private boolean showsInstallHint(LocalAiStatus status) {
+        return (status == LocalAiStatus.NOT_INSTALLED || status == LocalAiStatus.PARTIAL)
+                && !services().settings().get(VantaSettings.NEXUS_AUTO_INSTALL);
     }
 
     private void rebuildChat() {
@@ -260,6 +272,10 @@ public final class AssistantPanel extends NexusPanel {
         LocalAiStatus status = localAi.status();
         if (showsInstallCard(status)) {
             chat.add(installCard(status));
+        } else if (showsInstallHint(status)) {
+            Label hint = new Label(Lang.tr("vanta.nexus.assistant.install_hint"), Label.Variant.MUTED).wrap(true);
+            hint.setId("nexus.assistant.install_hint");
+            chat.add(hint);
         }
         List<NexusTranscript.Entry> entries = transcript.entries();
         if (entries.isEmpty() && !pending) {

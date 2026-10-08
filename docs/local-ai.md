@@ -42,7 +42,7 @@ carries it as `local-ai/local-ai.json` next to a readable `LOCAL-AI.txt`.
 
 Only **one** runtime archive is downloaded, the one for your system, plus the model: about **1.85 GB** on Windows x64,
 a little less on the other systems. Sizes here are decimal (1 MB = 1,000,000 bytes), as on the Download page and in the
-launcher; the card in the game rounds in 1024-byte units, so it shows the same model as about 1.71 GB. The manifest
+launcher and the card in the game round the same way. The manifest
 asks for **2200 MB of free disk space** and **3072 MB of free RAM** while the server runs
 ([Minecraft requirements → Local AI](minecraft-requirements.md#local-ai)).
 
@@ -114,9 +114,9 @@ Which one you use follows from how you installed VANTA
 Without the launcher's note, the game manages the Local AI itself:
 
 1. Open **Vanta Nexus** (main menu, **N**, `/vanta nexus`). While the Local AI is not installed, the assistant section
-   shows the Local AI card with the facts above (in client 1.4.0 always; the switch *Settings → Vanta Nexus → Offer the
-   Local AI install when Nexus opens* is stored but not read yet). The first time the main menu is shown in a game
-   session, a dialog also points you to Nexus
+   shows the Local AI card with the facts above (with *Settings → Vanta Nexus → Offer the Local AI install when Nexus
+   opens* switched off, only a one-line pointer to Nexus → Settings, where the Install button stays). The first time
+   the main menu is shown in a game session, a dialog also points you to Nexus (not with that switch off)
    ([Vanta Nexus → When the Local AI is not installed](nexus.md#when-the-local-ai-is-not-installed)).
 2. Click **Install Local AI**. The **Local AI setup** screen opens with the same facts, the hosts and the sentence
    *Nothing is downloaded until you click Install Local AI*. Click **Install Local AI** there: that click is the only
@@ -173,7 +173,7 @@ game. The settings in *Settings → Vanta Nexus* (also in Nexus → Settings):
 | Setting | Default | Effect |
 | --- | --- | --- |
 | Vanta Nexus assistant | on | off: the assistant section shows a banner with *Turn on*; the server is not started |
-| Offer the Local AI install when Nexus opens | on | meant to show the install card with sizes and licences while nothing is installed; in client 1.4.0 the switch is stored but not read, and the card is shown whenever nothing is installed. Nothing downloads before you click Install either way |
+| Offer the Local AI install when Nexus opens | on | on: while nothing is installed, the assistant section shows the install card with sizes and licences, and the main menu shows its one-time notice. Off: the assistant shows a one-line pointer and the install stays in Nexus → Settings. Nothing downloads before you click Install either way |
 | Stop the Local AI after idle minutes | 10 (1 to 120) | the server process is stopped after this many minutes without a question and started again on the next one, which frees its RAM while you play |
 | Local AI CPU threads | 0 = automatic (0 to 32) | threads for `-t`; automatic is at least 2, at most 8, two fewer than your CPU's cores. A change applies at the next start of the server |
 | Keep the Local AI running | off | never stop the server for idleness while the game runs; answers come without the start-up wait, the model stays in RAM |

@@ -83,7 +83,7 @@ hosts and nothing else, ever: Modrinth (Mods & Shaders) and, only when the playe
   **Open Nexus** and **Not now**; the choice is recorded in `config/vanta/nexus-first-start.json`. It downloads
   nothing.
 - **Settings → Vanta Nexus** (new category): *Vanta Nexus assistant* (on), *Offer the Local AI install when Nexus
-  opens* (on; stored but not read in 1.4.0, the install card is shown whenever the Local AI is not installed), *Stop
+  opens* (on; off hides the install card and the main-menu notice, the install stays in Nexus → Settings), *Stop
   the Local AI after idle minutes* (10, 1 to 120), *Local AI CPU threads* (0 = automatic, 0 to 32), *Keep the Local AI
   running* (off), *Show the model's reasoning* (off; stays empty with the bundled model).
 - **HUD Designer** section: the six Nexus presets as chips (each the `hud.preset` action and one undoable change),

@@ -28,6 +28,7 @@ import dev.vanta.core.screen.ReachabilityWalker;
 import dev.vanta.core.screen.ScreenBootstrap;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaServices;
+import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.screen.common.ScreenTestSupport;
 import dev.vanta.core.screen.common.ThemeFactory;
 import dev.vanta.core.ui.ManualClock;
@@ -220,6 +221,25 @@ class LocalAiSetupScreenTest {
         assertTrue(server.requestCount(ManifestFixtures.MODEL_PATH) > downloads, "Retry downloads again");
         assertEquals(LocalAiSetupScreen.Phase.FAILED, screen.phase(), "the same bad manifest fails the same way");
         assertEquals(LocalAiStatus.PARTIAL, services.localAi().status());
+    }
+
+    @Test
+    void autoInstallOffShowsAPointerInsteadOfTheInstallCard() throws Exception {
+        VantaServices services = services(goodManifest());
+        services.settings().set(VantaSettings.NEXUS_AUTO_INSTALL, false);
+        NexusScreen nexus = show(ScreenId.NEXUS, 854, 480);
+        AssistantPanel panel = nexus.panel(NexusSection.ASSISTANT);
+        assertTrue(panel.installButton().isEmpty(), "no install card while the offer is switched off");
+        assertNotNull(nexus.root().findById("nexus.assistant.install_hint"), "a pointer to Settings instead");
+        nexus.select(NexusSection.SETTINGS);
+        settle(nexus);
+        NexusSettingsPanel settings = nexus.panel(NexusSection.SETTINGS);
+        assertTrue(settings.installButton().isVisible(), "Settings still installs");
+        services.settings().set(VantaSettings.NEXUS_AUTO_INSTALL, true);
+        settle(nexus);
+        nexus.select(NexusSection.ASSISTANT);
+        settle(nexus);
+        assertTrue(panel.installButton().isPresent(), "the card is back once the offer is on again");
     }
 
     @Test

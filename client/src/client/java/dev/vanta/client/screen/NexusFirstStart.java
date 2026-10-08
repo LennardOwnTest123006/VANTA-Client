@@ -89,6 +89,10 @@ public final class NexusFirstStart {
             return;
         }
         LocalAiService ai = services.localAi();
+        if (!services.settings().get(VantaSettings.NEXUS_AUTO_INSTALL)) {
+            // "Offer the Local AI install when Nexus opens" is off: no notice; Nexus > Settings still installs.
+            return;
+        }
         if (!decide(services.settings().get(VantaSettings.NEXUS_ENABLED), ai.status(), ai.isLauncherManaged(),
                 readDismissedVersion(services), VantaVersion.CLIENT)) {
             return;
