@@ -26,11 +26,13 @@ import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.opengl.GL11;
 
@@ -214,6 +216,33 @@ public final class MinecraftGameBridge implements GameBridge {
     public boolean isSingleplayer() {
         Minecraft minecraft = minecraft();
         return minecraft != null && level() != null && minecraft.isLocalServer();
+    }
+
+    /**
+     * Folder name of the open singleplayer level: the integrated server's world directory
+     * ({@code MinecraftServer.getWorldPath(LevelResource.ROOT)}, the folder under {@code saves/}). This is the name
+     * {@code WorldKeys.singleplayer} keys waypoints by, not the display name from {@code level.dat}.
+     */
+    @Override
+    public Optional<String> singleplayerLevelName() {
+        Minecraft minecraft = minecraft();
+        if (minecraft == null || level() == null || !minecraft.isLocalServer()) {
+            return Optional.empty();
+        }
+        IntegratedServer server = minecraft.getSingleplayerServer();
+        if (server == null) {
+            return Optional.empty();
+        }
+        try {
+            Path root = server.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
+            Path name = root.getFileName();
+            if (name == null || name.toString().isBlank()) {
+                return Optional.empty();
+            }
+            return Optional.of(name.toString());
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
     }
 
     @Override

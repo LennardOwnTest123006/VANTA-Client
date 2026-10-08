@@ -13,8 +13,13 @@ Minecraft to the interfaces `core` defines.
   by `core` through a `Canvas` implemented on `GuiGraphics`.
 - Draws the VANTA HUD (FPS, coordinates, biome, clock, memory, keystrokes, armour, effects, …) and the custom
   crosshair as Fabric HUD elements, and a notification overlay on every screen.
-- Hold-to-zoom (default `C`), a `/vanta` client command and six key mappings in the "VANTA" Controls category.
+- Hold-to-zoom (default `C`), a `/vanta` client command and seven key mappings in the "VANTA" Controls category.
 - Applies performance presets by writing the same vanilla video options the user could set in Video Settings.
+- From 1.4.0 on: Vanta Nexus (default `N`) with the strictly local AI assistant (`llama-server` on 127.0.0.1, no cloud,
+  nothing sent anywhere), waypoint markers projected onto the screen for the waypoints of the current world, the Vanta
+  Lab client sides (input, movement and attacks for the Dynamic HUD and the animated crosshair, 3D waypoint beams),
+  and a one-time main-menu notice when the Local AI is not installed. Nothing downloads without a click on
+  [Install Local AI] in Nexus.
 
 ## Architecture (thin adapters over `core`)
 
@@ -23,9 +28,10 @@ Minecraft to the interfaces `core` defines.
 | `dev.vanta.client.VantaClient` | Fabric `ClientModInitializer`: wires logging, translations, bridges, `VantaServices`, screens, keys, HUD elements, events and commands. |
 | `dev.vanta.client.VantaRuntime` | Holds the long-lived objects (services, `HudRenderer`, `CrosshairRenderer`, `NotificationOverlay`, zoom, key mappings, scheduler, theme). |
 | `dev.vanta.client.bridge` | `GameBridge`, `OptionsBridge`, `KeybindBridge`, `ResourcePackBridge`, `ScreenshotBridge`, `ClipboardBridge` implementations over the public Minecraft API. |
-| `dev.vanta.client.render` | `GuiGraphicsCanvas` (the core `Canvas` on `GuiGraphics`), text metrics and the VANTA font styles. |
-| `dev.vanta.client.screen` | `VantaScreen` (vanilla `Screen` hosting a core `UiScreen`), `VantaScreens`, the `UiHost`, theme factory, title-screen replacement policy, vanilla screen opener, notification overlay hook for vanilla screens. |
-| `dev.vanta.client.hud` | Fabric `HudElement`s for the HUD and the crosshair, click counters, frame timer. |
+| `dev.vanta.client.render` | `GuiGraphicsCanvas` (the core `Canvas` on `GuiGraphics`), text metrics and the VANTA font styles; `WorldCamera` (the camera of the current world frame: view matrix and position from Fabric's `WorldRenderEvents.END_EXTRACTION`, field of view from the `GameRendererMixin`) and `WaypointBeamRenderer` (`END_EXTRACTION` captures the camera, `BEFORE_TRANSLUCENT` draws the Lab waypoint beams through `RenderTypes.debugFilledBox()`). |
+| `dev.vanta.client.screen` | `VantaScreen` (vanilla `Screen` hosting a core `UiScreen`), `VantaScreens`, the `UiHost`, theme factory, title-screen replacement policy, vanilla screen opener, notification overlay hook for vanilla screens, `NexusFirstStart` (the one-time Local AI notice on the main menu). |
+| `dev.vanta.client.hud` | Fabric `HudElement`s for the HUD, the waypoint markers and the crosshair, click counters, frame timer. |
+| `dev.vanta.client.lab` | `LabInputs`: relays input, movement and attacks to the core `LabEffects` (Dynamic HUD, animated crosshair). |
 | `dev.vanta.client.zoom` | `ZoomController` (hold-to-zoom state machine). |
 | `dev.vanta.client.keys` | VANTA key mappings and the `zoom.key` ↔ `key.vanta.zoom` sync. |
 | `dev.vanta.client.command` | The `/vanta` command. |
@@ -51,8 +57,13 @@ cd client
 ```
 
 The game tests need a display; on Linux CI Loom runs them under `xvfb-run` automatically when `CI` is set.
-Screenshots are written to `run/<run dir>/screenshots/` as `01_main_menu.png` … `13_about.png`, `20_hud_ingame.png`
-and `21_ingame_menu.png`. JVM properties: `-Dvanta.forceVanillaMenu=true` keeps the vanilla title screen.
+Screenshots are written to `run/<run dir>/screenshots/` as `01_main_menu.png` … `17_local_ai_setup.png`,
+`20_hud_ingame.png`, `21_ingame_menu.png`, the click reproduction (`30_*`, `40_*`), the Nexus sections (`50_*`) and the
+waypoint marker and beam (`60_*`, `61_*`). JVM properties: `-Dvanta.forceVanillaMenu=true` keeps the vanilla title
+screen. Environment: `VANTA_LOCAL_AI_DIR=<absolute path of a prepared Local AI install>` makes the client write the
+launcher note `config/vanta/local-ai.json` at start-up and lets the game test run the Local AI end to end (start
+`llama-server`, ask "Only show FPS and coordinates", stop it, and install from a loopback mirror); without it that
+step logs that it is skipped.
 
 ## Mixins (`vanta.client.mixins.json`)
 
@@ -60,7 +71,7 @@ and `21_ingame_menu.png`. JVM properties: `-Dvanta.forceVanillaMenu=true` keeps 
 | --- | --- | --- |
 | `MinecraftMixin` | `Minecraft.setScreen(Screen)` (HEAD, cancellable) | Swaps an incoming vanilla `TitleScreen` for the VANTA main menu when the setting allows it. |
 | `KeyMappingMixin` | static `KeyMapping.click(InputConstants.Key)` (HEAD) | Counts attack/use presses for the clicks-per-second widget. Observes only. |
-| `GameRendererMixin` | `GameRenderer.getFov(Camera, float, boolean)` (RETURN) | Divides the world FOV by the zoom factor while the zoom key is held (spyglass-like). |
+| `GameRendererMixin` | `GameRenderer.getFov(Camera, float, boolean)` (RETURN) | Divides the world FOV by the zoom factor while the zoom key is held (spyglass-like); hands the resulting world FOV to `WorldCamera` for the waypoint marker projection. |
 | `MouseHandlerMixin` | `MouseHandler.onScroll(long, double, double)` (HEAD, cancellable) | Lets the mouse wheel adjust the zoom level while zooming; untouched otherwise. |
 
 ## Key mappings (category "VANTA")
@@ -71,19 +82,23 @@ and `21_ingame_menu.png`. JVM properties: `-Dvanta.forceVanillaMenu=true` keeps 
 | `key.vanta.toggle_hud` | unbound | Shows/hides all VANTA widgets |
 | `key.vanta.hud_editor` | unbound | Opens the HUD editor |
 | `key.vanta.performance` | unbound | Opens the Performance Center |
+| `key.vanta.open_nexus` | N | Opens Vanta Nexus |
 | `key.vanta.zoom` | C (hold) | Zoom; mouse wheel adjusts the level. C is also vanilla's *Save Hotbar Activator* (Creative mode only); rebind either one if you use saved hotbars |
 | `key.vanta.screenshot_hud_free` | unbound | Screenshot without the GUI and the VANTA HUD |
 
 ## Commands
 
-`/vanta` (client-side only): `menu`, `hud`, `perf`, `profiles` (list) / `profiles <name>` (activate), `stats`
-(current session), `reload` (re-read all VANTA configuration files).
+`/vanta` (client-side only): `menu`, `hud`, `perf`, `nexus`, `profiles` (list) / `profiles <name>` (activate),
+`stats` (current session), `reload` (re-read all VANTA configuration files).
 
 ## Configuration files
 
 `<gameDir>/config/vanta/`: `settings.json`, `hud/layout.json`, `hud/presets/*.json`, `profiles/*.json`,
 `profiles/state.json`, `crosshair.json`, `cosmetics.json`, `cosmetics/*.json`, `stats.json` (local only; never
-uploaded). Vanilla options are read and written through `Options` and saved to the game's own `options.txt`.
+uploaded), `waypoints.json`, `nexus-chat.json` (the Nexus conversation, local only), `nexus-first-start.json` (which
+client version dismissed the Local AI notice), `local-ai.json` (the launcher's note pointing at its Local AI folder,
+when the launcher set the game up) and `local-ai/` (the client-managed Local AI install: runtime, model, logs).
+Vanilla options are read and written through `Options` and saved to the game's own `options.txt`.
 
 ## No-cheat policy
 
