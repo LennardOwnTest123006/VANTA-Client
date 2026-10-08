@@ -24,10 +24,17 @@ import java.util.Optional;
  * @param installPerformancePack      install the performance pack (Sodium, Lithium, FerriteCore, ImmediatelyFast,
  *                                    Entity Culling, Iris) from Modrinth with every install; {@code null} (a
  *                                    {@code settings.json} written before launcher 1.1.0) means {@code true}
+ * @param installLocalAi              install the Local AI (llama-server runtime and model, see {@code core.ai}) with the
+ *                                    first start and keep it complete with every install; the download itself always
+ *                                    waits for the player's consent once ({@link #localAiAccepted}); {@code null} (a
+ *                                    {@code settings.json} written before launcher 1.4.0) means {@code true}
+ * @param localAiAccepted             whether the player agreed to the Local AI download (what, from where, how big,
+ *                                    licences) once; {@code null} means {@code false}: ask first
  */
 public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath, List<String> jvmArgs, Resolution resolution,
                                boolean keepLauncherOpen, String msClientId, String releasesBaseUrl, boolean autoUpdateCheck,
-                               boolean developerMode, boolean shareOfficialMinecraftFiles, String theme, Boolean installPerformancePack) {
+                               boolean developerMode, boolean shareOfficialMinecraftFiles, String theme, Boolean installPerformancePack,
+                               Boolean installLocalAi, Boolean localAiAccepted) {
 
     /** Current schema version. */
     public static final int SCHEMA_VERSION = 1;
@@ -62,10 +69,38 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
         theme = theme == null || theme.isBlank() ? DEFAULT_THEME : theme;
         // Missing in settings.json files written before 1.1.0: the performance pack is on by default.
         installPerformancePack = installPerformancePack == null ? Boolean.TRUE : installPerformancePack;
+        // Missing in settings.json files written before 1.4.0: the Local AI is offered by default, downloaded only after consent.
+        installLocalAi = installLocalAi == null ? Boolean.TRUE : installLocalAi;
+        localAiAccepted = localAiAccepted == null ? Boolean.FALSE : localAiAccepted;
     }
 
     /**
-     * Settings without the performance pack component (it is on).
+     * Settings without the Local AI components (offered, not yet accepted).
+     *
+     * @param schemaVersion               schema version
+     * @param memoryMb                    heap in MiB
+     * @param javaPath                    Java path
+     * @param jvmArgs                     extra JVM arguments
+     * @param resolution                  resolution
+     * @param keepLauncherOpen            keep the launcher open
+     * @param msClientId                  client id
+     * @param releasesBaseUrl             releases base URL
+     * @param autoUpdateCheck             check for updates
+     * @param developerMode               developer mode
+     * @param shareOfficialMinecraftFiles share official files
+     * @param theme                       theme
+     * @param installPerformancePack      install the performance pack
+     */
+    public LauncherSettings(final int schemaVersion, final int memoryMb, final String javaPath, final List<String> jvmArgs,
+                            final Resolution resolution, final boolean keepLauncherOpen, final String msClientId, final String releasesBaseUrl,
+                            final boolean autoUpdateCheck, final boolean developerMode, final boolean shareOfficialMinecraftFiles,
+                            final String theme, final Boolean installPerformancePack) {
+        this(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId, releasesBaseUrl, autoUpdateCheck,
+            developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, Boolean.TRUE, Boolean.FALSE);
+    }
+
+    /**
+     * Settings without the performance pack component (it is on) and without the Local AI components.
      *
      * @param schemaVersion               schema version
      * @param memoryMb                    heap in MiB
@@ -85,7 +120,7 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
                             final boolean autoUpdateCheck, final boolean developerMode, final boolean shareOfficialMinecraftFiles,
                             final String theme) {
         this(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId, releasesBaseUrl, autoUpdateCheck,
-            developerMode, shareOfficialMinecraftFiles, theme, Boolean.TRUE);
+            developerMode, shareOfficialMinecraftFiles, theme, Boolean.TRUE, Boolean.TRUE, Boolean.FALSE);
     }
 
     /**
@@ -96,7 +131,7 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
      */
     public static LauncherSettings defaults(final long totalRamMb) {
         return new LauncherSettings(SCHEMA_VERSION, defaultMemoryMb(totalRamMb), "", List.of(), null, false, "", "",
-            true, false, true, DEFAULT_THEME, Boolean.TRUE);
+            true, false, true, DEFAULT_THEME, Boolean.TRUE, Boolean.TRUE, Boolean.FALSE);
     }
 
     /**
@@ -132,6 +167,24 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
         return installPerformancePack;
     }
 
+    /** @return whether the Local AI is installed automatically (offered at the first start, kept complete by installs) */
+    public boolean localAiAutoInstall() {
+        return installLocalAi;
+    }
+
+    /** @return whether the player agreed to the Local AI download once */
+    public boolean localAiConsent() {
+        return localAiAccepted;
+    }
+
+    /**
+     * @return whether installs (PLAY, "Use with Minecraft Launcher", {@code --install}) include the Local AI step: automatic
+     *     installation is on and the player agreed to the download
+     */
+    public boolean localAiWithInstalls() {
+        return installLocalAi && localAiAccepted;
+    }
+
     /**
      * @return whether {@code settings.json} stores an explicit releases base URL; when it does not, the environment
      *     variable or the built-in default applies (see {@link #effectiveReleasesBaseUrl(Map)})
@@ -154,72 +207,84 @@ public record LauncherSettings(int schemaVersion, int memoryMb, String javaPath,
     /** @return copy */
     public LauncherSettings withMemoryMb(final int value) {
         return new LauncherSettings(schemaVersion, value, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withJavaPath(final String value) {
         return new LauncherSettings(schemaVersion, memoryMb, value, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withJvmArgs(final List<String> value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, value, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withResolution(final Resolution value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, value, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withKeepLauncherOpen(final boolean value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, value, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withMsClientId(final String value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, value,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withReleasesBaseUrl(final String value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            value, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
+            value, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withAutoUpdateCheck(final boolean value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, value, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack);
+            releasesBaseUrl, value, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withDeveloperMode(final boolean value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, value, shareOfficialMinecraftFiles, theme, installPerformancePack);
+            releasesBaseUrl, autoUpdateCheck, value, shareOfficialMinecraftFiles, theme, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withShareOfficialMinecraftFiles(final boolean value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, value, theme, installPerformancePack);
+            releasesBaseUrl, autoUpdateCheck, developerMode, value, theme, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withTheme(final String value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, value, installPerformancePack);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, value, installPerformancePack, installLocalAi, localAiAccepted);
     }
 
     /** @return copy */
     public LauncherSettings withInstallPerformancePack(final boolean value) {
         return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
-            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, value);
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, value, installLocalAi, localAiAccepted);
+    }
+
+    /** @return copy */
+    public LauncherSettings withInstallLocalAi(final boolean value) {
+        return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, value, localAiAccepted);
+    }
+
+    /** @return copy */
+    public LauncherSettings withLocalAiAccepted(final boolean value) {
+        return new LauncherSettings(schemaVersion, memoryMb, javaPath, jvmArgs, resolution, keepLauncherOpen, msClientId,
+            releasesBaseUrl, autoUpdateCheck, developerMode, shareOfficialMinecraftFiles, theme, installPerformancePack, installLocalAi, value);
     }
 }

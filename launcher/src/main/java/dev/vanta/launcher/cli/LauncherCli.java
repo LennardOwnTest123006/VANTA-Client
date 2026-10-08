@@ -2,6 +2,12 @@ package dev.vanta.launcher.cli;
 
 import dev.vanta.launcher.LauncherVersion;
 import dev.vanta.launcher.core.LauncherServices;
+import dev.vanta.launcher.core.ai.LocalAiManifest;
+import dev.vanta.launcher.core.ai.LocalAiNote;
+import dev.vanta.launcher.core.ai.LocalAiReport;
+import dev.vanta.launcher.core.ai.LocalAiService;
+import dev.vanta.launcher.core.ai.LocalAiState;
+import dev.vanta.launcher.core.ai.LocalAiUnavailableException;
 import dev.vanta.launcher.core.auth.Account;
 import dev.vanta.launcher.core.auth.AccountType;
 import dev.vanta.launcher.core.auth.AuthException;
@@ -173,6 +179,9 @@ public final class LauncherCli {
                 case CHECK_JAVA -> checkJava(services, args, out);
                 case INSTALL_JAVA -> installJava(services, out);
                 case CHECK_UPDATE -> checkUpdate(services, out);
+                case INSTALL_LOCAL_AI -> installLocalAi(services, out, err);
+                case LOCAL_AI_STATUS -> localAiStatus(services, out);
+                case REMOVE_LOCAL_AI -> removeLocalAi(services, out);
                 case PRINT_COMMAND -> printCommand(services, args, out);
                 default -> ExitCode.USAGE;
             };
@@ -213,6 +222,13 @@ public final class LauncherCli {
         if (args.has("without-performance-pack")) {
             s = s.withInstallPerformancePack(false);
         }
+        if (args.has("with-local-ai")) {
+            // Asking for it on the command line is the consent the launcher window asks for once.
+            s = s.withInstallLocalAi(true).withLocalAiAccepted(true);
+        }
+        if (args.has("without-local-ai")) {
+            s = s.withInstallLocalAi(false);
+        }
         services.overrideSettings(s);
     }
 
@@ -220,10 +236,11 @@ public final class LauncherCli {
         final Optional<Path> localJar = args.option("client-jar").map(Path::of).map(Path::toAbsolutePath);
         final InstallRequest request = new InstallRequest(LauncherVersion.MINECRAFT, LauncherVersion.FABRIC_LOADER,
             LauncherVersion.FABRIC_API, localJar.orElse(null), !args.has("without-client"), !args.has("no-assets"),
-            services.settings().performancePack());
+            services.settings().performancePack(), services.settings().localAiWithInstalls());
         out.println("Installing into " + services.paths().dataDir());
         out.println(LauncherVersion.statusLine() + " · Fabric API " + LauncherVersion.FABRIC_API);
         out.println(performancePackLine(request.includePerformancePack()));
+        out.println(localAiLine(services.localAi(), request.includeLocalAi()));
         if (localJar.isEmpty() && !args.has("without-client")) {
             out.println("VANTA Client release manifests: " + describe(services.releasesBaseUrl()));
         }
@@ -261,6 +278,113 @@ public final class LauncherCli {
         return on ? "Performance pack: " + String.join(", ", dev.vanta.launcher.core.modrinth.PerformancePack.SLUGS)
             + " from Modrinth (newest versions for Minecraft " + LauncherVersion.MINECRAFT + ", SHA-512 verified; --without-performance-pack skips it)"
             : "Performance pack: off";
+    }
+
+    /**
+     * @param service the Local AI service
+     * @param on      whether the install includes the Local AI step
+     * @return the line {@code --install} prints about the Local AI
+     */
+    private static String localAiLine(final LocalAiService service, final boolean on) {
+        if (!on) {
+            return "Local AI: off (--with-local-ai adds it to this install; --install-local-ai installs it alone; the launcher window offers it)";
+        }
+        String what = "";
+        try {
+            what = service.manifest().describe() + "; ";
+        } catch (IOException e) {
+            // the step itself reports why the manifest is unusable
+        }
+        return "Local AI: on (" + what + "SHA-256 verified; --without-local-ai skips it)";
+    }
+
+    private ExitCode installLocalAi(final LauncherServices services, final PrintStream out, final PrintStream err) throws Exception {
+        final LocalAiService service = services.localAi();
+        final LocalAiManifest manifest;
+        final LocalAiManifest.PlatformFile platform;
+        try {
+            platform = service.platformFile();
+            manifest = service.manifest();
+        } catch (LocalAiUnavailableException e) {
+            err.println("Local AI: " + e.getMessage());
+            return e.state() == LocalAiState.UNAVAILABLE ? ExitCode.NOT_CONFIGURED : ExitCode.FAILURE;
+        }
+        out.println("Installing the Local AI into " + service.dir());
+        out.println("Runtime: " + manifest.runtime().name() + " " + manifest.runtime().tag() + " (" + platform.file() + ", "
+            + ByteSizes.format(platform.size()) + ", " + manifest.runtime().license() + ") from " + platform.url());
+        out.println("Model: " + manifest.model().name() + " " + manifest.model().quantization() + " (" + manifest.model().file() + ", "
+            + ByteSizes.format(manifest.model().size()) + ", " + manifest.model().license() + ") from " + manifest.model().url());
+        final LocalAiReport report = service.install(progressPrinter(out), new CancellationToken());
+        printLocalAiReport(report, out);
+        out.println("Note: " + LocalAiNote.file(services.paths().instanceDir()));
+        if (!report.isInstalled()) {
+            err.println("The Local AI is " + report.state().label() + " after the install: " + String.join("; ", report.problems()));
+            return ExitCode.FAILURE;
+        }
+        // An explicit install is the consent the launcher window asks for once; remember it so PLAY keeps the files complete.
+        if (!services.settings().localAiConsent()) {
+            services.saveSettings(services.settings().withLocalAiAccepted(true));
+        }
+        return ExitCode.OK;
+    }
+
+    private ExitCode localAiStatus(final LauncherServices services, final PrintStream out) throws Exception {
+        final LocalAiReport report = services.localAi().status();
+        printLocalAiReport(report, out);
+        return ExitCode.OK;
+    }
+
+    private ExitCode removeLocalAi(final LauncherServices services, final PrintStream out) throws Exception {
+        final LocalAiService service = services.localAi();
+        final long bytes = service.sizeOnDisk();
+        if (!service.remove()) {
+            out.println("Local AI: not installed (nothing to remove in " + service.dir() + ")");
+        } else {
+            out.println("Removed the Local AI from " + service.dir() + " (" + ByteSizes.format(bytes) + " freed)");
+        }
+        if (services.settings().localAiAutoInstall()) {
+            // Otherwise the next start would download it again right away.
+            services.saveSettings(services.settings().withInstallLocalAi(false));
+            out.println("Automatic installation of the Local AI switched off (Settings > Local AI, or \"installLocalAi\" in settings.json)");
+        }
+        return ExitCode.OK;
+    }
+
+    /**
+     * Prints the state of the Local AI as the CI job greps it: {@code Local AI: installed (llama.cpp b11429, Qwen3-1.7B Q8_0)},
+     * then {@code Folder: <dir>} and {@code Size on disk: <n>}.
+     */
+    static void printLocalAiReport(final LocalAiReport report, final PrintStream out) {
+        final String problems = String.join("; ", report.problems());
+        switch (report.state()) {
+            case INSTALLED -> out.println("Local AI: installed (" + report.describeVersions() + ")"
+                + (report.outdated() && report.manifest().isPresent() ? "; update available: " + report.manifest().get().describe()
+                + " (" + CliCommand.INSTALL_LOCAL_AI.flag() + " updates it)" : ""));
+            case PARTIAL -> out.println("Local AI: partially installed (" + problems + "; " + CliCommand.INSTALL_LOCAL_AI.flag() + " completes it)");
+            case NOT_INSTALLED -> out.println("Local AI: not installed (install it with " + CliCommand.INSTALL_LOCAL_AI.flag() + ")");
+            case UNSUPPORTED_PLATFORM -> out.println("Local AI: not available for " + report.platform().replace('-', '/'));
+            case UNAVAILABLE -> out.println("Local AI: not available in this build (" + problems + ")");
+            default -> out.println("Local AI: " + report.state().label());
+        }
+        if (!report.isInstalled() && report.installable()) {
+            final LocalAiManifest m = report.manifest().orElseThrow();
+            out.println("Download: " + ByteSizes.format(report.downloadBytes()) + " (" + m.runtime().name() + " " + m.runtime().tag() + " from "
+                + hostOf(m.platform(report.platform()).map(LocalAiManifest.PlatformFile::url).orElse("")) + ", " + m.runtime().license() + "; "
+                + m.model().name() + " " + m.model().quantization() + " from " + hostOf(m.model().url()) + ", " + m.model().license() + ")");
+        }
+        out.println("Folder: " + report.dir());
+        out.println("Size on disk: " + ByteSizes.format(report.bytesOnDisk()));
+        report.serverExecutable().ifPresent(p -> out.println("Server: " + p));
+        report.modelFile().ifPresent(p -> out.println("Model: " + p));
+    }
+
+    private static String hostOf(final String url) {
+        try {
+            final String host = java.net.URI.create(url).getHost();
+            return host == null ? url : host;
+        } catch (IllegalArgumentException e) {
+            return url;
+        }
     }
 
     private ExitCode installOfficialProfile(final LauncherServices services, final CliArgs args, final PrintStream out) throws Exception {
@@ -693,6 +817,9 @@ public final class LauncherCli {
         out.printf("  %-28s %s%n", "--no-assets", "--install: skip game assets (development only; the game will lack sounds and languages)");
         out.printf("  %-28s %s%n", "--without-performance-pack", "--install / --install-official-profile: skip the performance pack (Sodium, Lithium,");
         out.printf("  %-28s %s%n", "", "FerriteCore, ImmediatelyFast, Entity Culling, Iris from Modrinth); default: Settings, on");
+        out.printf("  %-28s %s%n", "--with-local-ai", "--install: also install the Local AI (llama-server + model into local-ai/); counts as your consent");
+        out.printf("  %-28s %s%n", "", "to the download. Default: Settings (on, after the launcher window asked once)");
+        out.printf("  %-28s %s%n", "--without-local-ai", "--install: skip the Local AI for this run");
         out.printf("  %-28s %s%n", "--dev-offline", "--launch/--print-command: development offline account (requires " + OfflineAccountPolicy.DEV_OFFLINE_ENV + "=1)");
         out.printf("  %-28s %s%n", "--username <name>", "Player name for --dev-offline (default Dev)");
         out.printf("  %-28s %s%n", "--world <name>", "--launch: open this singleplayer world directly");

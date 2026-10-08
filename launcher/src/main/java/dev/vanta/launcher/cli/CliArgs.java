@@ -22,7 +22,7 @@ public record CliArgs(CliCommand command, Map<String, String> options, Set<Strin
         "world", "server", "exit-after", "resolution", "minecraft-dir");
     /** Boolean flags. */
     public static final Set<String> BOOLEAN_FLAGS = Set.of("dev-offline", "without-client", "no-assets", "verbose", "ui",
-        "without-performance-pack");
+        "without-performance-pack", "with-local-ai", "without-local-ai");
 
     public CliArgs {
         options = options == null ? Map.of() : Map.copyOf(options);

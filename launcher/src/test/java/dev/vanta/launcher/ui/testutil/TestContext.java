@@ -3,6 +3,7 @@ package dev.vanta.launcher.ui.testutil;
 import dev.vanta.launcher.ui.Messages;
 import dev.vanta.launcher.ui.model.Formats;
 import dev.vanta.launcher.ui.model.HomeViewModel;
+import dev.vanta.launcher.ui.model.LocalAiViewModel;
 import dev.vanta.launcher.ui.model.LogBuffer;
 import dev.vanta.launcher.ui.model.SessionModel;
 import dev.vanta.launcher.ui.model.ToastModel;
@@ -36,6 +37,8 @@ public final class TestContext {
     public final List<Throwable> sessionErrors = new ArrayList<>();
     /** Session. */
     public final SessionModel session;
+    /** Local AI state and actions (shared by Home and Settings, like in the app). */
+    public final LocalAiViewModel localAi;
 
     /**
      * @param dataDir temp directory
@@ -43,10 +46,11 @@ public final class TestContext {
     public TestContext(final Path dataDir) {
         backend = new FakeBackend(dataDir);
         session = new SessionModel(backend, executors, sessionErrors::add);
+        localAi = new LocalAiViewModel(session, backend, executors, messages, formats, toasts, launcherLog);
     }
 
     /** @return a home view model on this context */
     public HomeViewModel home() {
-        return new HomeViewModel(session, backend, executors, messages, formats, toasts, launcherLog, gameLog);
+        return new HomeViewModel(session, backend, executors, messages, formats, toasts, launcherLog, gameLog, localAi);
     }
 }

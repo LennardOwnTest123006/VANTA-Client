@@ -1,6 +1,11 @@
 package dev.vanta.launcher.ui.testutil;
 
 import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.core.ai.LocalAiInstalled;
+import dev.vanta.launcher.core.ai.LocalAiManifest;
+import dev.vanta.launcher.core.ai.LocalAiReport;
+import dev.vanta.launcher.core.ai.LocalAiService;
+import dev.vanta.launcher.core.ai.LocalAiState;
 import dev.vanta.launcher.core.auth.Account;
 import dev.vanta.launcher.core.auth.AccountType;
 import dev.vanta.launcher.core.auth.AuthException;
@@ -149,6 +154,8 @@ public final class FakeBackend implements LauncherBackend {
     public final Map<Path, JavaInstall> probes = new HashMap<>();
     /** Installed instance. */
     public InstanceInfo instance;
+    /** The request of the last {@link #install} call (what PLAY asked for: performance pack, Local AI). */
+    public InstallRequest lastInstallRequest;
     /** Failure thrown by {@link #install}. */
     public Exception installFailure;
     /** When set, {@link #install} blocks until released (screenshots of the installing state). */
@@ -239,6 +246,14 @@ public final class FakeBackend implements LauncherBackend {
     public int restartRequests;
     /** Memory in MiB. */
     public OptionalLong totalMemory = OptionalLong.of(16384);
+    /** State of the fake Local AI (default: a manifest exists for this platform, nothing is installed). */
+    public LocalAiState localAiState = LocalAiState.NOT_INSTALLED;
+    /** Whether the fake manifest names a newer release than the installed one. */
+    public boolean localAiOutdated;
+    /** Failure thrown by {@link #installLocalAi}, {@link #verifyLocalAi} and {@link #removeLocalAi}. */
+    public IOException localAiFailure;
+    /** Runs inside {@link #installLocalAi} after the first progress event (lets tests observe the busy state synchronously). */
+    public Runnable localAiInstallHook = () -> { };
     /** Records calls for assertions. */
     public final List<String> calls = new ArrayList<>();
     private final AtomicInteger pids = new AtomicInteger(40000);
@@ -498,6 +513,7 @@ public final class FakeBackend implements LauncherBackend {
     public InstanceInfo install(final InstallRequest request, final InstallListener listener, final CancellationToken token)
         throws InstallException, InterruptedException {
         calls.add("install");
+        lastInstallRequest = request;
         final List<InstallStep> steps = InstallPlan.stepsFor(request);
         listener.onLog("Install plan: " + steps.size() + " steps");
         installHook.run();
@@ -907,6 +923,99 @@ public final class FakeBackend implements LauncherBackend {
     @Override
     public String sha256(final Path file) {
         return sha256;
+    }
+
+    // ---------------------------------------------------------------- Local AI
+
+    /** The fake manifest: the llama.cpp release b11429 for linux-x64 and the Qwen3-1.7B Q8_0 model, with made-up digests. */
+    public static LocalAiManifest localAiManifest() {
+        final String runtimeSha = "1283323272b04cd07905816a597a0da810918102de958f4ff6f7bbaa70ed2efe";
+        final String modelSha = "43af029f14abd60e022d50e036ac7398856997f6d1e759c815c277cded0812e1";
+        final LocalAiManifest.PlatformFile linux = new LocalAiManifest.PlatformFile("llama-b11429-bin-ubuntu-x64.tar.gz",
+            "https://github.com/ggml-org/llama.cpp/releases/download/b11429/llama-b11429-bin-ubuntu-x64.tar.gz", 45_100_000L, runtimeSha,
+            "build/bin/llama-server");
+        final LocalAiManifest.Runtime runtime = new LocalAiManifest.Runtime("llama.cpp", "llama-server", "b11429", "MIT",
+            "https://github.com/ggml-org/llama.cpp", "https://github.com/ggml-org/llama.cpp/releases/tag/b11429", Map.of("linux-x64", linux));
+        final LocalAiManifest.Model model = new LocalAiManifest.Model("Qwen3-1.7B", "Q8_0", "Qwen3-1.7B-Q8_0.gguf",
+            "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf", 1_830_000_000L, modelSha, "Apache-2.0",
+            "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/blob/main/LICENSE", "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF", 4096);
+        return new LocalAiManifest(1, "2026-10-08T12:00:00Z", runtime, model, new LocalAiManifest.Requirements(2200, 3072));
+    }
+
+    /** @return the report for the current fake state */
+    public LocalAiReport localAiReport() {
+        final LocalAiManifest manifest = localAiManifest();
+        final Path dir = paths.localAiDir();
+        return switch (localAiState) {
+            case INSTALLED -> {
+                final LocalAiManifest.PlatformFile platform = manifest.platform("linux-x64").orElseThrow();
+                final LocalAiInstalled installed = new LocalAiInstalled(1, "linux-x64", "2026-10-04T12:00:00Z", "2026-10-04T12:00:00Z",
+                    new LocalAiInstalled.InstalledRuntime(manifest.runtime().name(), manifest.runtime().component(),
+                        localAiOutdated ? "b11400" : manifest.runtime().tag(), manifest.runtime().license(), manifest.runtime().sourceUrl(),
+                        manifest.runtime().releaseUrl(), platform),
+                    manifest.model(), List.of(
+                        new LocalAiInstalled.InstalledFile(LocalAiInstalled.ROLE_SERVER, "runtime/b11429/linux-x64/build/bin/llama-server",
+                            4_200_000L, sha256, CLOCK.millis()),
+                        new LocalAiInstalled.InstalledFile(LocalAiInstalled.ROLE_MODEL, "models/Qwen3-1.7B-Q8_0.gguf", manifest.model().size(),
+                            manifest.model().sha256(), CLOCK.millis())));
+                yield new LocalAiReport(LocalAiState.INSTALLED, "linux-x64", dir, Optional.of(manifest), Optional.of(installed),
+                    manifest.downloadBytes("linux-x64"), List.of(), localAiOutdated);
+            }
+            case PARTIAL -> new LocalAiReport(LocalAiState.PARTIAL, "linux-x64", dir, Optional.of(manifest), Optional.empty(), 45_100_000L,
+                List.of("the install did not finish (installed.json is missing); Install completes it"), false);
+            case UNSUPPORTED_PLATFORM -> new LocalAiReport(LocalAiState.UNSUPPORTED_PLATFORM, "linux-x86", dir, Optional.of(manifest),
+                Optional.empty(), 0L, List.of("Local AI is not available for linux/x86"), false);
+            case UNAVAILABLE -> new LocalAiReport(LocalAiState.UNAVAILABLE, "linux-x64", dir, Optional.empty(), Optional.empty(), 0L,
+                List.of("This build of the launcher contains no Local AI manifest (/local-ai.json)"), false);
+            default -> new LocalAiReport(LocalAiState.NOT_INSTALLED, "linux-x64", dir, Optional.of(manifest), Optional.empty(), 0L, List.of(), false);
+        };
+    }
+
+    @Override
+    public LocalAiReport localAiStatus() {
+        calls.add("localAiStatus");
+        return localAiReport();
+    }
+
+    @Override
+    public LocalAiReport verifyLocalAi() throws IOException {
+        calls.add("verifyLocalAi");
+        if (localAiFailure != null) {
+            throw localAiFailure;
+        }
+        return localAiReport();
+    }
+
+    @Override
+    public LocalAiReport installLocalAi(final InstallListener listener, final CancellationToken token) throws IOException {
+        calls.add("installLocalAi");
+        final LocalAiManifest manifest = localAiManifest();
+        final long total = manifest.downloadBytes("linux-x64");
+        listener.onProgress(new InstallProgress(InstallStep.LOCAL_AI, 0, 1, 0, total, 0, LocalAiService.STEP_CHECKING));
+        localAiInstallHook.run();
+        token.throwIfCancelled();
+        if (localAiFailure != null) {
+            throw localAiFailure;
+        }
+        listener.onProgress(new InstallProgress(InstallStep.LOCAL_AI, 0, 1, 45_100_000L, total, 45_100_000L,
+            LocalAiService.STEP_RUNTIME + " · 45.1 MB / 45.1 MB"));
+        listener.onLog("Downloaded Local AI runtime llama-b11429-bin-ubuntu-x64.tar.gz");
+        listener.onProgress(new InstallProgress(InstallStep.LOCAL_AI, 0, 1, total, total, total, LocalAiService.STEP_DONE));
+        localAiState = LocalAiState.INSTALLED;
+        localAiOutdated = false;
+        return localAiReport();
+    }
+
+    @Override
+    public boolean removeLocalAi() throws IOException {
+        calls.add("removeLocalAi");
+        if (localAiFailure != null) {
+            throw localAiFailure;
+        }
+        final boolean existed = localAiState == LocalAiState.INSTALLED || localAiState == LocalAiState.PARTIAL;
+        localAiState = LocalAiState.NOT_INSTALLED;
+        localAiOutdated = false;
+        return existed;
     }
 
     @Override

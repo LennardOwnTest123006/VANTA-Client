@@ -43,6 +43,7 @@ public final class HomePage extends VBox {
     private final Runnable openUpdateDialog;
     private final Runnable openOfficialProfile;
     private final Runnable playViaOfficial;
+    private final Runnable offerLocalAi;
     private final Circle statusDot = new Circle(4.5);
     private Animation pulse;
 
@@ -55,12 +56,26 @@ public final class HomePage extends VBox {
      */
     public HomePage(final AppContext ctx, final Runnable openSignIn, final Runnable openUpdateDialog, final Runnable openOfficialProfile,
                     final Runnable playViaOfficial) {
+        this(ctx, openSignIn, openUpdateDialog, openOfficialProfile, playViaOfficial, () -> ctx.navigation().navigate(NavigationModel.Page.SETTINGS));
+    }
+
+    /**
+     * @param ctx                 context
+     * @param openSignIn          opens the sign-in dialog
+     * @param openUpdateDialog    opens the client update dialog
+     * @param openOfficialProfile starts "Use with the Minecraft Launcher" (confirmation dialog first)
+     * @param playViaOfficial     "PLAY via Minecraft Launcher": set up or update the profile, then open the official launcher
+     * @param offerLocalAi        "Install Local AI" on the status line: shows what is downloaded and asks before installing
+     */
+    public HomePage(final AppContext ctx, final Runnable openSignIn, final Runnable openUpdateDialog, final Runnable openOfficialProfile,
+                    final Runnable playViaOfficial, final Runnable offerLocalAi) {
         this.ctx = ctx;
         this.vm = ctx.home();
         this.openSignIn = openSignIn;
         this.openUpdateDialog = openUpdateDialog;
         this.openOfficialProfile = openOfficialProfile;
         this.playViaOfficial = playViaOfficial;
+        this.offerLocalAi = offerLocalAi;
         getStyleClass().add("page");
         setSpacing(20);
 
@@ -135,6 +150,32 @@ public final class HomePage extends VBox {
         vm.officialPlayModeProperty().addListener((obs, old, now) -> applyState(vm.state()));
         applyState(vm.state());
 
+        // Local AI: ready / not installed, with a button that offers the install (consent first) or opens its settings.
+        final dev.vanta.launcher.ui.model.LocalAiViewModel localAi = ctx.localAi();
+        final Label localAiText = Ui.label("", "status-text", "local-ai-line");
+        localAiText.textProperty().bind(localAi.statusTextProperty());
+        localAiText.setMinWidth(0);
+        localAiText.setMaxWidth(Double.MAX_VALUE);
+        localAiText.setTextOverrun(javafx.scene.control.OverrunStyle.ELLIPSIS);
+        HBox.setHgrow(localAiText, Priority.ALWAYS);
+        final Button localAiButton = Ui.button(ctx.t("home.localAi.install"), Icons.Icon.SPARKLES, "ghost", "small");
+        localAiButton.getStyleClass().add("local-ai-button");
+        localAiButton.setMinWidth(Region.USE_PREF_SIZE);
+        localAiButton.textProperty().bind(Bindings.when(localAi.installedProperty()).then(ctx.t("home.localAi.manage"))
+            .otherwise(ctx.t("home.localAi.install")));
+        localAiButton.disableProperty().bind(localAi.busyProperty().or(localAi.installableProperty().not().and(localAi.installedProperty().not())));
+        localAiButton.setOnAction(e -> {
+            if (localAi.installedProperty().get()) {
+                ctx.navigation().navigate(NavigationModel.Page.SETTINGS);
+            } else {
+                offerLocalAi.run();
+            }
+        });
+        final HBox localAiLine = new HBox(10, localAiText, localAiButton);
+        localAiLine.getStyleClass().add("status-line");
+        localAiLine.setAlignment(Pos.CENTER_LEFT);
+        Ui.bindVisible(localAiLine, Bindings.createBooleanBinding(() -> localAi.report().isPresent(), localAi.reportProperty()));
+
         final ProgressBar bar = new ProgressBar(-1);
         bar.setMaxWidth(Double.MAX_VALUE);
         bar.progressProperty().bind(vm.progressProperty());
@@ -196,7 +237,7 @@ public final class HomePage extends VBox {
             vm.officialDoneTextProperty(), vm.stateProperty()));
 
         final VBox top = new VBox(eyebrow, Ui.vgap(6), title, Ui.vgap(8), lead);
-        final VBox middle = new VBox(playRow, Ui.vgap(8), blockReason, Ui.vgap(18), facts, Ui.vgap(10), statusLine);
+        final VBox middle = new VBox(playRow, Ui.vgap(8), blockReason, Ui.vgap(18), facts, Ui.vgap(10), statusLine, Ui.vgap(6), localAiLine);
         final VBox bottom = new VBox(progress, error, noSignIn, officialDone, Ui.vgap(14), secondary);
         final Region flexTop = Ui.spacer();
         flexTop.setMinHeight(22);

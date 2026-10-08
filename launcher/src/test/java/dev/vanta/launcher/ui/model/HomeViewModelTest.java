@@ -72,6 +72,99 @@ class HomeViewModelTest {
         assertEquals(backend.temurin21().home().toString(), backend.settings.javaPath());
     }
 
+    /**
+     * First start: automatic install on, nothing installed, no consent yet. The offer is handed to the view exactly once per
+     * session; accepting records the consent and installs; the Local AI then counts as part of PLAY's install.
+     */
+    @Test
+    void localAiIsOfferedOnceAndAcceptingInstallsAndRecordsConsent() {
+        signedInWithJava();
+        final HomeViewModel vm = ctx.home();
+        final List<LocalAiViewModel.Offer> offers = new ArrayList<>();
+
+        vm.offerLocalAi(offers::add);
+
+        assertEquals(1, offers.size(), "the player is asked");
+        assertTrue(offers.get(0).runtimeLine().contains("llama.cpp b11429"), offers.get(0).runtimeLine());
+        assertTrue(offers.get(0).modelLine().contains("Qwen3-1.7B Q8_0"), offers.get(0).modelLine());
+        assertEquals("1.9 GB", offers.get(0).totalSize());
+        assertFalse(backend.calls.contains("installLocalAi"), "nothing downloads before the player agrees");
+        assertEquals("Local AI: not installed", vm.localAi().statusTextProperty().get());
+
+        vm.offerLocalAi(offers::add);
+        assertEquals(1, offers.size(), "asked once per session");
+
+        vm.localAi().accept();
+        assertTrue(backend.settings.localAiConsent(), "accepting records the consent");
+        assertTrue(backend.settings.localAiAutoInstall());
+        assertTrue(backend.calls.contains("installLocalAi"));
+        assertEquals("Local AI: ready", vm.localAi().statusTextProperty().get());
+        assertTrue(ctx.toasts.toasts().stream().anyMatch(t -> t.title().equals(ctx.messages.get("localai.toast.installed.title"))));
+
+        // PLAY now includes the Local AI step (12 steps instead of 11) and keeps the files complete.
+        vm.play();
+        assertNotNull(backend.lastInstallRequest);
+        assertTrue(backend.lastInstallRequest.includeLocalAi());
+        assertEquals(HomeViewModel.State.RUNNING, vm.state());
+        backend.game.exit(0);
+    }
+
+    @Test
+    void decliningTheLocalAiOfferSwitchesTheAutomaticInstallOffAndPlayLeavesItOut() {
+        signedInWithJava();
+        final HomeViewModel vm = ctx.home();
+        final List<LocalAiViewModel.Offer> offers = new ArrayList<>();
+        vm.offerLocalAi(offers::add);
+        assertEquals(1, offers.size());
+
+        vm.localAi().decline();
+
+        assertFalse(backend.settings.localAiAutoInstall(), "Not now: not asked again");
+        assertFalse(backend.settings.localAiConsent());
+        assertFalse(backend.calls.contains("installLocalAi"));
+        vm.play();
+        assertFalse(backend.lastInstallRequest.includeLocalAi(), "PLAY installs without the Local AI step");
+        assertEquals(11, dev.vanta.launcher.core.install.InstallPlan.stepsFor(backend.lastInstallRequest).size());
+        backend.game.exit(0);
+    }
+
+    @Test
+    void consentGivenEarlierInstallsAMissingLocalAiWithoutAsking() {
+        backend.settings = backend.settings.withLocalAiAccepted(true);
+        final HomeViewModel vm = ctx.home();
+        final List<LocalAiViewModel.Offer> offers = new ArrayList<>();
+        vm.offerLocalAi(offers::add);
+        assertTrue(offers.isEmpty(), "no second question");
+        assertTrue(backend.calls.contains("installLocalAi"), "the files are missing and the player agreed earlier: install right away");
+        assertEquals("Local AI: ready", vm.localAi().statusTextProperty().get());
+    }
+
+    @Test
+    void noOfferWhenSwitchedOffInstalledOrNotAvailable() {
+        final List<LocalAiViewModel.Offer> offers = new ArrayList<>();
+        // Each case is a fresh session (the offer is asked at most once per session).
+        backend.settings = backend.settings.withInstallLocalAi(false);
+        freshHome().offerLocalAi(offers::add);
+        assertTrue(offers.isEmpty(), "switched off in Settings");
+
+        backend.settings = backend.settings.withInstallLocalAi(true);
+        backend.localAiState = dev.vanta.launcher.core.ai.LocalAiState.INSTALLED;
+        freshHome().offerLocalAi(offers::add);
+        assertTrue(offers.isEmpty(), "already installed");
+
+        backend.localAiState = dev.vanta.launcher.core.ai.LocalAiState.UNSUPPORTED_PLATFORM;
+        final HomeViewModel unsupported = freshHome();
+        unsupported.offerLocalAi(offers::add);
+        assertTrue(offers.isEmpty(), "nothing to offer on an unsupported system");
+        assertEquals("Local AI: not available for linux/x86", unsupported.localAi().statusTextProperty().get());
+        assertFalse(backend.calls.contains("installLocalAi"));
+    }
+
+    private HomeViewModel freshHome() {
+        final LocalAiViewModel localAi = new LocalAiViewModel(ctx.session, backend, ctx.executors, ctx.messages, ctx.formats, ctx.toasts, ctx.launcherLog);
+        return new HomeViewModel(ctx.session, backend, ctx.executors, ctx.messages, ctx.formats, ctx.toasts, ctx.launcherLog, ctx.gameLog, localAi);
+    }
+
     @Test
     void playInstallsRefreshesLaunchesAndReturnsToReadyOnExit() {
         signedInWithJava();

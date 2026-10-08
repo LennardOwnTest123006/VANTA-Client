@@ -1,5 +1,8 @@
 package dev.vanta.launcher.core.install;
 
+import dev.vanta.launcher.core.ai.LocalAiNote;
+import dev.vanta.launcher.core.ai.LocalAiReport;
+import dev.vanta.launcher.core.ai.LocalAiService;
 import dev.vanta.launcher.core.model.AssetIndexJson;
 import dev.vanta.launcher.core.model.FabricProfileJson;
 import dev.vanta.launcher.core.model.InstanceInfo;
@@ -54,6 +57,7 @@ public final class Installer {
     private final Optional<SharedFileSource> shared;
     private final Clock clock;
     private final Optional<PerformancePack> performancePack;
+    private final Optional<LocalAiService> localAi;
 
     /**
      * @param paths       paths
@@ -69,7 +73,7 @@ public final class Installer {
     public Installer(final LauncherPaths paths, final OsInfo os, final Downloader downloader, final MojangService mojang,
                      final FabricService fabric, final FabricApiService fabricApi, final VantaClientService vantaClient,
                      final Optional<SharedFileSource> shared, final Clock clock) {
-        this(paths, os, downloader, mojang, fabric, fabricApi, vantaClient, shared, clock, Optional.empty());
+        this(paths, os, downloader, mojang, fabric, fabricApi, vantaClient, shared, clock, Optional.empty(), Optional.empty());
     }
 
     /**
@@ -87,7 +91,29 @@ public final class Installer {
     public Installer(final LauncherPaths paths, final OsInfo os, final Downloader downloader, final MojangService mojang,
                      final FabricService fabric, final FabricApiService fabricApi, final VantaClientService vantaClient,
                      final Optional<SharedFileSource> shared, final Clock clock, final Optional<PerformancePack> performancePack) {
+        this(paths, os, downloader, mojang, fabric, fabricApi, vantaClient, shared, clock, performancePack, Optional.empty());
+    }
+
+    /**
+     * @param paths           paths
+     * @param os              target platform
+     * @param downloader      downloader
+     * @param mojang          Mojang service
+     * @param fabric          Fabric service
+     * @param fabricApi       Fabric API service
+     * @param vantaClient     VANTA client service
+     * @param shared          optional read-only source of already downloaded official files
+     * @param clock           clock for {@code installedAt}
+     * @param performancePack the performance pack, installed when the request asks for it
+     * @param localAi         the Local AI service, installed when the request asks for it; it also writes the
+     *                        {@code config/vanta/local-ai.json} note into the game folder with every install
+     */
+    public Installer(final LauncherPaths paths, final OsInfo os, final Downloader downloader, final MojangService mojang,
+                     final FabricService fabric, final FabricApiService fabricApi, final VantaClientService vantaClient,
+                     final Optional<SharedFileSource> shared, final Clock clock, final Optional<PerformancePack> performancePack,
+                     final Optional<LocalAiService> localAi) {
         this.performancePack = Objects.requireNonNull(performancePack, "performancePack");
+        this.localAi = Objects.requireNonNull(localAi, "localAi");
         this.paths = Objects.requireNonNull(paths, "paths");
         this.os = Objects.requireNonNull(os, "os");
         this.downloader = Objects.requireNonNull(downloader, "downloader");
@@ -268,7 +294,18 @@ public final class Installer {
                 }
             }
 
-            // 11. Finalize
+            // 11. Local AI (llama-server runtime + model into <data>/local-ai). Never fails the install either.
+            if (request.includeLocalAi()) {
+                current = InstallStep.LOCAL_AI;
+                progress.begin(InstallStep.LOCAL_AI, 0);
+                if (localAi.isEmpty()) {
+                    l.onLog("Local AI skipped: no Local AI service is configured");
+                } else {
+                    installLocalAi(localAi.get(), progress, l, t);
+                }
+            }
+
+            // 12. Finalize
             current = InstallStep.FINALIZE;
             progress.begin(InstallStep.FINALIZE, 1);
             final InstanceInfo info = new InstanceInfo(InstanceInfo.SCHEMA_VERSION, paths.instanceId(), version.id(),
@@ -276,6 +313,8 @@ public final class Installer {
                 profile.id(), profile.mainClass(), version.assetIndexId(), version.javaMajor(),
                 Instant.now(clock).toString());
             Json.write(paths.instanceFile(), info);
+            // Every game folder the launcher sets up carries the note that names the launcher's Local AI folder.
+            writeLocalAiNote(l);
             progress.advance(1, "instance.json");
             l.onLog("Installation complete: " + ByteSizes.format(progress.bytes()) + " downloaded");
             return info;
@@ -285,6 +324,41 @@ public final class Installer {
             throw e;
         } catch (IOException e) {
             throw new InstallException(current, current.label() + " failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * The Local AI step: a complete, current install is only checked; otherwise runtime and model are downloaded, verified
+     * and extracted. Problems (no manifest in this build, unsupported platform, network, integrity, disk space) are logged
+     * and never fail the install; cancellation and interruption propagate.
+     */
+    private void installLocalAi(final LocalAiService service, final Progress progress, final InstallListener l, final CancellationToken t)
+        throws InterruptedException {
+        try {
+            final LocalAiReport before = service.status();
+            if (before.isInstalled() && !before.outdated()) {
+                progress.advance(0, "Local AI already installed: " + before.describeVersions());
+                l.onLog("Local AI already installed: " + before.describeVersions() + " in " + service.dir());
+                return;
+            }
+            final LocalAiReport after = service.install(progress.nested(), t);
+            l.onLog(after.isInstalled() ? "Local AI: " + after.describeVersions() + " in place"
+                : "Local AI: " + after.state().label() + (after.problems().isEmpty() ? "" : " (" + String.join("; ", after.problems()) + ")"));
+        } catch (IOException e) {
+            l.onLog("Local AI skipped: " + e.getMessage());
+            LOG.log(Level.WARNING, "Local AI install skipped: " + e.getMessage(), e);
+        }
+    }
+
+    /** Writes {@code config/vanta/local-ai.json} into the game folder; a failure only logs. */
+    private void writeLocalAiNote(final InstallListener l) {
+        try {
+            if (LocalAiNote.write(paths.instanceDir(), paths.localAiDir())) {
+                l.onLog("Noted the Local AI folder for the VANTA Client in " + LocalAiNote.file(paths.instanceDir()));
+            }
+        } catch (IOException | RuntimeException e) {
+            l.onLog("Could not write the Local AI note: " + e.getMessage());
+            LOG.log(Level.WARNING, "Could not write the Local AI note", e);
         }
     }
 
@@ -358,6 +432,28 @@ public final class Installer {
 
         long bytes() {
             return bytes.get();
+        }
+
+        /**
+         * A listener for a nested installer (the Local AI service) that reports its own one-step progress: its units and
+         * message are published under the current step of this plan, its bytes added to this installation's total.
+         */
+        InstallListener nested() {
+            final long bytesBefore = bytes.get();
+            return new InstallListener() {
+                @Override
+                public void onProgress(final InstallProgress p) {
+                    total = p.total();
+                    done.set(p.done());
+                    bytes.set(bytesBefore + p.bytes());
+                    publish(p.message());
+                }
+
+                @Override
+                public void onLog(final String message) {
+                    listener.onLog(message);
+                }
+            };
         }
 
         DownloadProgressListener downloadListener() {

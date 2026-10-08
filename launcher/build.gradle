@@ -204,6 +204,18 @@ def generateBuildInfo = tasks.register('generateBuildInfo') {
 sourceSets.main.resources.srcDir(generatedResources)
 tasks.named('processResources') { dependsOn generateBuildInfo }
 
+// The Local AI manifest (llama-server release archives and the GGUF model with sizes and SHA-256 digests) is committed
+// once, resolved by CI, in shared/local-ai/local-ai.json and embedded into the launcher as /local-ai.json at build
+// time, so client and launcher share one copy (dev.vanta.launcher.core.ai.LocalAiManifest.RESOURCE). A checkout without
+// the shared file builds a launcher that reports the Local AI as not available in this build.
+def sharedLocalAiManifest = file('../shared/local-ai/local-ai.json')
+tasks.named('processResources', ProcessResources) {
+    inputs.property('sharedLocalAiManifestPresent', sharedLocalAiManifest.isFile())
+    if (sharedLocalAiManifest.isFile()) {
+        from(sharedLocalAiManifest)
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // fatJar: one runnable jar with every dependency INCLUDING JavaFX for the target platform. JavaFX jars carry
 // native libraries for exactly one platform, so a fat jar built for `win` shows its window with any Java 21 on

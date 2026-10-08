@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -88,11 +89,93 @@ class LauncherCliTest {
         assertEquals(ExitCode.OK, help.code());
         assertTrue(help.out().contains("--install"));
         assertTrue(help.out().contains("Exit codes:"));
+        for (String command : List.of("--install-local-ai", "--local-ai-status", "--remove-local-ai", "--with-local-ai", "--without-local-ai")) {
+            assertTrue(help.out().contains(command), "help lists " + command + ":\n" + help.out());
+        }
         assertEquals(ExitCode.OK, run().code(), "no arguments prints help");
         assertTrue(LauncherCli.wantsCli(new String[] {"--version"}));
         assertFalse(LauncherCli.wantsCli(new String[] {}));
         assertFalse(LauncherCli.wantsCli(new String[] {"--ui"}));
         assertTrue(Main.uiAvailable(), "the JavaFX UI class and runtime are on the test class path");
+    }
+
+    /**
+     * The three Local AI commands against the fake server, through the real services: the manifest comes from the file
+     * named by {@code VANTA_LOCAL_AI_MANIFEST} (CI points it at the resolved manifest), every download is SHA-256 verified,
+     * {@code installed.json} and the note appear, status reports it, remove deletes it. These are the exact lines CI greps.
+     */
+    @Test
+    void localAiCommandsInstallReportAndRemove() throws Exception {
+        final Path data = tmp.resolve("local-ai-data");
+        try (dev.vanta.launcher.testutil.FakeLocalAi ai = new dev.vanta.launcher.testutil.FakeLocalAi(world.server())) {
+            final Path manifest = ai.writeManifest(tmp.resolve("manifests").resolve("local-ai.json"));
+            final Map<String, String> aiEnv = new HashMap<>(env);
+            aiEnv.put(dev.vanta.launcher.core.ai.LocalAiManifest.MANIFEST_ENV, manifest.toString());
+            final Function<LauncherPaths, LauncherServices> factory = paths -> new LauncherServices(paths, OsInfo.detect(), aiEnv,
+                new JdkHttpTransport("VANTA-Launcher/test"), new ProcessJavaProbe(), Clock.systemUTC(), Sleeper.NONE, world.endpoints());
+            final LauncherCli aiCli = new LauncherCli(factory, OsInfo.detect(), aiEnv, tmp.resolve("home"));
+            final LauncherPaths paths = new LauncherPaths(data);
+            final String platform = dev.vanta.launcher.core.ai.LocalAiManifest.platformKey(OsInfo.detect());
+            org.junit.jupiter.api.Assumptions.assumeTrue(ai.manifest().platform(platform).isPresent(), "the fake world serves " + platform);
+
+            final Run status = run(aiCli, "--local-ai-status", "--data-dir", data.toString());
+            assertEquals(ExitCode.OK, status.code(), status.err());
+            assertTrue(status.out().contains("Local AI: not installed (install it with --install-local-ai)"), status.out());
+            assertTrue(status.out().contains("Download: "), status.out());
+            assertTrue(status.out().contains("Folder: " + paths.localAiDir()), status.out());
+            assertTrue(status.out().contains("Size on disk: 0 B"), status.out());
+
+            final Run install = run(aiCli, "--install-local-ai", "--data-dir", data.toString());
+            assertEquals(ExitCode.OK, install.code(), install.out() + install.err());
+            assertTrue(install.out().contains("Installing the Local AI into " + paths.localAiDir()), install.out());
+            assertTrue(install.out().contains("Runtime: llama.cpp b11429 (llama-b11429-bin-"), install.out());
+            assertTrue(install.out().contains("Model: Qwen3-1.7B Q8_0 (Qwen3-1.7B-Q8_0.gguf, "), install.out());
+            assertTrue(install.out().contains("[1/1] Installing the Local AI"), install.out());
+            assertTrue(install.out().contains("      " + dev.vanta.launcher.core.ai.LocalAiService.STEP_RUNTIME), install.out());
+            assertTrue(install.out().contains("      " + dev.vanta.launcher.core.ai.LocalAiService.STEP_MODEL), install.out());
+            assertTrue(install.out().contains("Local AI: installed (llama.cpp b11429, Qwen3-1.7B Q8_0)"), install.out());
+            assertTrue(install.out().contains("Note: " + paths.localAiNoteFile()), install.out());
+            assertTrue(Files.isRegularFile(paths.localAiDir().resolve("installed.json")), "installed.json is written");
+            assertTrue(Files.isRegularFile(paths.localAiDir().resolve("models").resolve("Qwen3-1.7B-Q8_0.gguf")));
+            assertTrue(Files.isRegularFile(paths.localAiNoteFile()), "the note is written into the game folder");
+            assertTrue(Files.readString(paths.settingsFile()).contains("\"localAiAccepted\": true"), "an explicit install records the consent");
+
+            final Run installed = run(aiCli, "--local-ai-status", "--data-dir", data.toString());
+            assertEquals(ExitCode.OK, installed.code());
+            assertTrue(installed.out().startsWith("Local AI: installed (llama.cpp b11429, Qwen3-1.7B Q8_0)\n"), installed.out());
+            assertTrue(installed.out().contains("Server: " + paths.localAiDir().resolve("runtime").resolve("b11429").resolve(platform)), installed.out());
+            assertTrue(installed.out().contains("Model: " + paths.localAiDir().resolve("models").resolve("Qwen3-1.7B-Q8_0.gguf")), installed.out());
+            assertFalse(installed.out().contains("Download: "), "nothing left to download");
+
+            final Run again = run(aiCli, "--install-local-ai", "--data-dir", data.toString());
+            assertEquals(ExitCode.OK, again.code(), again.err());
+            assertTrue(again.out().contains("Local AI already installed"), again.out());
+
+            final Run remove = run(aiCli, "--remove-local-ai", "--data-dir", data.toString());
+            assertEquals(ExitCode.OK, remove.code(), remove.err());
+            assertTrue(remove.out().contains("Removed the Local AI from " + paths.localAiDir() + " ("), remove.out());
+            assertTrue(remove.out().contains("Automatic installation of the Local AI switched off"), remove.out());
+            assertFalse(Files.exists(paths.localAiDir()));
+            assertTrue(Files.readString(paths.settingsFile()).contains("\"installLocalAi\": false"));
+            final Run removeAgain = run(aiCli, "--remove-local-ai", "--data-dir", data.toString());
+            assertEquals(ExitCode.OK, removeAgain.code());
+            assertTrue(removeAgain.out().contains("Local AI: not installed (nothing to remove in " + paths.localAiDir() + ")"), removeAgain.out());
+
+            // A corrupt model: integrity exit code, nothing recorded.
+            ai.corruptModel();
+            final Run corrupt = run(aiCli, "--install-local-ai", "--data-dir", data.toString());
+            assertEquals(ExitCode.INTEGRITY, corrupt.code(), corrupt.out() + corrupt.err());
+            assertTrue(corrupt.err().contains("SHA256 mismatch"), corrupt.err());
+            assertFalse(Files.exists(paths.localAiDir().resolve("installed.json")));
+        }
+        // Without the manifest override the test class path carries only the unresolved template: an honest refusal.
+        final Run unavailable = run("--install-local-ai", "--data-dir", tmp.resolve("local-ai-none").toString());
+        assertEquals(ExitCode.NOT_CONFIGURED, unavailable.code(), unavailable.out() + unavailable.err());
+        assertTrue(unavailable.err().startsWith("Local AI: "), unavailable.err());
+        assertTrue(unavailable.err().contains("incomplete"), unavailable.err());
+        final Run noneStatus = run("--local-ai-status", "--data-dir", tmp.resolve("local-ai-none").toString());
+        assertEquals(ExitCode.OK, noneStatus.code());
+        assertTrue(noneStatus.out().startsWith("Local AI: not available in this build ("), noneStatus.out());
     }
 
     @Test

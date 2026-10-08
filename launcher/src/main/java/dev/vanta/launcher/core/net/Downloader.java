@@ -309,7 +309,7 @@ public final class Downloader implements AutoCloseable {
         }
         final Path tmp = AtomicFiles.tempSibling(target);
         final AtomicBoolean stalled = new AtomicBoolean();
-        try (HttpResult result = transport.execute(HttpRequestSpec.get(request.url()))) {
+        try (HttpResult result = transport.execute(HttpRequestSpec.get(request.url()).withTimeout(request.timeout()))) {
             if (!result.isSuccess()) {
                 throw new HttpStatusException(result.status(), request.url());
             }

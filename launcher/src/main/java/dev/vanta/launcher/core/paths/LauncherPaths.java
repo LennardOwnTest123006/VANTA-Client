@@ -21,6 +21,7 @@ import java.util.Optional;
  * ├── assets/{indexes,objects,log_configs}/
  * ├── versions/&lt;id&gt;/&lt;id&gt;.json       version JSONs and the client jar; versions/vanta-client/&lt;v&gt;/ keeps rollback jars
  * ├── runtimes/                     Java runtimes installed by the launcher
+ * ├── local-ai/                     Local AI: runtime/&lt;tag&gt;/&lt;platform&gt;/, models/, installed.json
  * ├── logs/                         launcher.log and game-&lt;timestamp&gt;.log
  * ├── cache/                        temporary downloads (updates/)
  * ├── settings.json
@@ -310,6 +311,26 @@ public final class LauncherPaths {
         return dataDir.resolve("runtimes");
     }
 
+    /**
+     * The launcher-managed Local AI (llama-server runtime, GGUF model, {@code installed.json}); the VANTA Client is told
+     * about it through {@link #localAiNoteFile()} and uses it read-only (see {@code core.ai.LocalAiService}).
+     *
+     * @return {@code local-ai/}
+     */
+    public Path localAiDir() {
+        return dataDir.resolve("local-ai");
+    }
+
+    /**
+     * Written by the launcher: where its Local AI folder is, so the client starts the server from there instead of
+     * downloading a second copy (see {@code core.ai.LocalAiNote}).
+     *
+     * @return {@code <instance>/config/vanta/local-ai.json}
+     */
+    public Path localAiNoteFile() {
+        return vantaConfigDir().resolve("local-ai.json");
+    }
+
     /** @return {@code logs/} */
     public Path logsDir() {
         return dataDir.resolve("logs");
@@ -349,7 +370,7 @@ public final class LauncherPaths {
     public List<Path> allDirectories() {
         return List.of(dataDir, instancesDir(), instanceDir(), modsDir(), configDir(), savesDir(), librariesDir(),
             assetsDir(), assetIndexesDir(), assetObjectsDir(), logConfigsDir(), versionsDir(), clientVersionsDir(),
-            runtimesDir(), logsDir(), cacheDir(), updatesCacheDir());
+            runtimesDir(), localAiDir(), logsDir(), cacheDir(), updatesCacheDir());
     }
 
     /**

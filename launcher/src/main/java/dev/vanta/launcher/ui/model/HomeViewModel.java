@@ -140,6 +140,7 @@ public final class HomeViewModel {
     private final ToastModel toasts;
     private final LogBuffer launcherLog;
     private final LogBuffer gameLog;
+    private final LocalAiViewModel localAi;
 
     private final ReadOnlyObjectWrapper<State> state = new ReadOnlyObjectWrapper<>(State.NOT_READY);
     private final StringProperty errorText = new SimpleStringProperty("");
@@ -187,6 +188,25 @@ public final class HomeViewModel {
      */
     public HomeViewModel(final SessionModel session, final LauncherBackend backend, final UiExecutors executors, final Messages messages,
                          final Formats formats, final ToastModel toasts, final LogBuffer launcherLog, final LogBuffer gameLog) {
+        this(session, backend, executors, messages, formats, toasts, launcherLog, gameLog,
+            new LocalAiViewModel(session, backend, executors, messages, formats, toasts, launcherLog));
+    }
+
+    /**
+     * @param session     shared session state
+     * @param backend     backend
+     * @param executors   executors
+     * @param messages    messages
+     * @param formats     formats
+     * @param toasts      notifications
+     * @param launcherLog launcher log buffer (install messages are appended here)
+     * @param gameLog     game log buffer (process output is appended here)
+     * @param localAi     the Local AI state shared with the Settings page (first-start offer, status line)
+     */
+    public HomeViewModel(final SessionModel session, final LauncherBackend backend, final UiExecutors executors, final Messages messages,
+                         final Formats formats, final ToastModel toasts, final LogBuffer launcherLog, final LogBuffer gameLog,
+                         final LocalAiViewModel localAi) {
+        this.localAi = Objects.requireNonNull(localAi, "localAi");
         this.session = Objects.requireNonNull(session, "session");
         this.backend = Objects.requireNonNull(backend, "backend");
         this.executors = Objects.requireNonNull(executors, "executors");
@@ -468,9 +488,29 @@ public final class HomeViewModel {
         }, this::fail);
     }
 
-    /** @return the standard install, with the performance pack as Settings say */
+    /**
+     * @return the standard install, with the performance pack as Settings say and the Local AI step when its automatic
+     *     install is on and the player agreed to the download once
+     */
     private InstallRequest standardRequest() {
-        return InstallRequest.standard().withPerformancePack(backend.settings().performancePack());
+        final dev.vanta.launcher.core.settings.LauncherSettings settings = backend.settings();
+        return InstallRequest.standard().withPerformancePack(settings.performancePack()).withLocalAi(settings.localAiWithInstalls());
+    }
+
+    /** @return the Local AI state and actions shared with the Settings page */
+    public LocalAiViewModel localAi() {
+        return localAi;
+    }
+
+    /**
+     * First start, after the start check: when the automatic Local AI install is on, nothing is installed and the player
+     * has not been asked yet, the view gets the consent dialog content (once per session). With consent given earlier
+     * and files missing, the install runs right away. See {@link LocalAiViewModel#checkOffer}.
+     *
+     * @param onOffer receives the offer on the UI thread
+     */
+    public void offerLocalAi(final Consumer<LocalAiViewModel.Offer> onOffer) {
+        localAi.checkOffer(onOffer);
     }
 
     /**
@@ -648,6 +688,7 @@ public final class HomeViewModel {
             case STORE_PROFILES_BACKUP -> messages.get("official.plan.storeProfilesBackup");
             case STORE_PROFILES -> messages.get("official.plan.storeProfiles");
             case MINECRAFT_FOLDER_NOTE -> messages.get("official.plan.minecraftFolderNote");
+            case LOCAL_AI_NOTE -> messages.get("official.plan.localAiNote");
         };
     }
 

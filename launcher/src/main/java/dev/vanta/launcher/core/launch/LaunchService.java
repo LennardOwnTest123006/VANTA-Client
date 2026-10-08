@@ -1,6 +1,7 @@
 package dev.vanta.launcher.core.launch;
 
 import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.core.ai.LocalAiNote;
 import dev.vanta.launcher.core.auth.Account;
 import dev.vanta.launcher.core.log.LauncherLog;
 import dev.vanta.launcher.core.log.Redactor;
@@ -223,6 +224,7 @@ public final class LaunchService {
             LOG.log(Level.INFO, "Removed a left-over {0} before the start", RestartRequest.FILE_NAME);
         }
         recordMinecraftFolder(command.workingDirectory());
+        recordLocalAiFolder(command.workingDirectory());
         final Redactor redactor = Redactor.global();
         command.secrets().forEach(redactor::register);
         final ProcessBuilder builder = new ProcessBuilder(command.command())
@@ -253,6 +255,20 @@ public final class LaunchService {
                 LOG.log(Level.WARNING, "Could not record the Minecraft folder for Singleplayer: " + e.getMessage(), e);
             }
         });
+    }
+
+    /**
+     * Tells the client where the launcher keeps the Local AI ({@code config/vanta/local-ai.json}), so the client starts
+     * llama-server from there and never downloads a second copy. A failure only logs; the game starts anyway.
+     */
+    private void recordLocalAiFolder(final Path gameDir) {
+        try {
+            if (LocalAiNote.write(gameDir, paths.localAiDir())) {
+                LOG.log(Level.INFO, "Recorded the Local AI folder {0} in {1}", new Object[] {paths.localAiDir(), LocalAiNote.file(gameDir)});
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.log(Level.WARNING, "Could not record the Local AI folder for the client: " + e.getMessage(), e);
+        }
     }
 
     /**

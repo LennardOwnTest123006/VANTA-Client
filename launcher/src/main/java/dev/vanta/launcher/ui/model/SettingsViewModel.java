@@ -72,6 +72,7 @@ public final class SettingsViewModel {
     private final StringProperty resolutionHeight = new SimpleStringProperty("");
     private final BooleanProperty keepLauncherOpen = new SimpleBooleanProperty(false);
     private final BooleanProperty performancePack = new SimpleBooleanProperty(true);
+    private final BooleanProperty localAiAutoInstall = new SimpleBooleanProperty(true);
     private final StringProperty msClientId = new SimpleStringProperty("");
     private final StringProperty releasesBaseUrl = new SimpleStringProperty("");
     private final BooleanProperty autoUpdateCheck = new SimpleBooleanProperty(true);
@@ -106,7 +107,7 @@ public final class SettingsViewModel {
         effectiveReleasesUrl = Bindings.createStringBinding(() -> effectiveReleasesBaseUrl().url(), releasesBaseUrl);
         effectiveReleasesSource = Bindings.createStringBinding(() -> sourceText(effectiveReleasesBaseUrl()), releasesBaseUrl);
         for (javafx.beans.Observable o : new javafx.beans.Observable[] {memoryMb, javaAuto, javaPath, jvmArgs, resolutionEnabled,
-            resolutionWidth, resolutionHeight, keepLauncherOpen, performancePack, msClientId, releasesBaseUrl, autoUpdateCheck,
+            resolutionWidth, resolutionHeight, keepLauncherOpen, performancePack, localAiAutoInstall, msClientId, releasesBaseUrl, autoUpdateCheck,
             shareOfficialFiles, developerMode, highContrast, reducedMotion}) {
             o.addListener(obs -> markDirty());
         }
@@ -174,6 +175,14 @@ public final class SettingsViewModel {
     /** @return whether installs add the performance pack (Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling, Iris) */
     public BooleanProperty performancePackProperty() {
         return performancePack;
+    }
+
+    /**
+     * @return whether the Local AI is installed automatically: offered once at the first start, kept complete by every
+     *     install after the player agreed (saved with {@link #save})
+     */
+    public BooleanProperty localAiAutoInstallProperty() {
+        return localAiAutoInstall;
     }
 
     /** @return Microsoft client id */
@@ -310,6 +319,7 @@ public final class SettingsViewModel {
             resolutionHeight.set(res.map(r -> Integer.toString(r.height())).orElse(""));
             keepLauncherOpen.set(settings.keepLauncherOpen());
             performancePack.set(settings.performancePack());
+            localAiAutoInstall.set(settings.localAiAutoInstall());
             msClientId.set(settings.msClientId());
             releasesBaseUrl.set(settings.releasesBaseUrl());
             autoUpdateCheck.set(settings.autoUpdateCheck());
@@ -371,7 +381,9 @@ public final class SettingsViewModel {
         return new LauncherSettings(base.schemaVersion(), memoryMb.get(), javaAuto.get() ? "" : javaPath.get().trim(),
             parseJvmArgs(jvmArgs.get()), resolutionEnabled.get() ? parseResolution().orElse(null) : null, keepLauncherOpen.get(),
             msClientId.get().trim(), releasesBaseUrl.get().trim(), autoUpdateCheck.get(), developerMode.get(), shareOfficialFiles.get(),
-            highContrast.get() ? THEME_HIGH_CONTRAST : LauncherSettings.DEFAULT_THEME, performancePack.get());
+            highContrast.get() ? THEME_HIGH_CONTRAST : LauncherSettings.DEFAULT_THEME, performancePack.get(), localAiAutoInstall.get(),
+            // The consent is not edited here: an install or the first-start dialog records it.
+            backend.settings().localAiConsent());
     }
 
     /** @return UI preferences from the editor */

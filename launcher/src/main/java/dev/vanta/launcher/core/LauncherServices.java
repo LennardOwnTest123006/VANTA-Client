@@ -1,6 +1,8 @@
 package dev.vanta.launcher.core;
 
 import dev.vanta.launcher.LauncherVersion;
+import dev.vanta.launcher.core.ai.LocalAiManifest;
+import dev.vanta.launcher.core.ai.LocalAiService;
 import dev.vanta.launcher.core.auth.AccountStore;
 import dev.vanta.launcher.core.auth.MicrosoftAuthService;
 import dev.vanta.launcher.core.install.FabricApiService;
@@ -83,6 +85,7 @@ public final class LauncherServices implements AutoCloseable {
     private final ModrinthService modrinth;
     private final PerformancePack performancePack;
     private final StartupGuard startupGuard;
+    private final LocalAiService localAi;
     private final Optional<Path> officialMinecraftDir;
     private final Path userHome;
     private final ServiceEndpoints endpoints;
@@ -152,6 +155,8 @@ public final class LauncherServices implements AutoCloseable {
             new Downloader(modrinthTransport, sleeper, Downloader.DEFAULT_ATTEMPTS, 3), paths, clock, LauncherVersion.MINECRAFT);
         this.performancePack = new PerformancePack(modrinth, clock);
         this.startupGuard = new StartupGuard(paths, modrinth, clock);
+        // The manifest: a file named by VANTA_LOCAL_AI_MANIFEST (CI, tests) or the copy embedded in this build.
+        this.localAi = new LocalAiService(downloader, paths, os, () -> LocalAiManifest.load(this.env), clock);
         this.officialProfiles = new OfficialProfileService(paths, downloader, fabric, fabricApi, vantaClient, clock, performancePack);
         this.officialLauncher = OfficialLauncher.system(os, env, userHome);
     }
@@ -270,7 +275,13 @@ public final class LauncherServices implements AutoCloseable {
     public Installer installer() {
         final Optional<SharedFileSource> shared = settings().shareOfficialMinecraftFiles()
             ? officialMinecraftDir.map(SharedFileSource::new) : Optional.empty();
-        return new Installer(paths, os, downloader, mojang, fabric, fabricApi, vantaClient, shared, clock, Optional.of(performancePack));
+        return new Installer(paths, os, downloader, mojang, fabric, fabricApi, vantaClient, shared, clock, Optional.of(performancePack),
+            Optional.of(localAi));
+    }
+
+    /** @return the Local AI (llama-server runtime and model in {@code <data>/local-ai}) */
+    public LocalAiService localAi() {
+        return localAi;
     }
 
     /** @return Java probe */

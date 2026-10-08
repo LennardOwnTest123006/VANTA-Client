@@ -66,6 +66,41 @@ class SettingsTest {
         assertTrue(s.shareOfficialMinecraftFiles());
         assertEquals(LauncherSettings.DEFAULT_THEME, s.theme());
         assertEquals(1, s.schemaVersion());
+        assertTrue(s.localAiAutoInstall(), "the Local AI is offered by default");
+        assertFalse(s.localAiConsent(), "but never downloaded before the player agreed");
+        assertFalse(s.localAiWithInstalls());
+    }
+
+    @Test
+    void localAiFieldsAreNullTolerantAndRoundTrip() throws IOException {
+        // A settings.json written before 1.4.0 has neither key: offered, not yet accepted.
+        final LauncherSettings old = dev.vanta.launcher.core.util.Json.parse(
+            "{\"schemaVersion\":1,\"memoryMb\":4096,\"installPerformancePack\":false}", LauncherSettings.class);
+        assertTrue(old.localAiAutoInstall());
+        assertFalse(old.localAiConsent());
+        assertFalse(old.performancePack());
+        // The 12- and 13-argument constructors keep working.
+        final LauncherSettings twelve = new LauncherSettings(1, 4096, "", List.of(), null, false, "", "", true, false, true, "t");
+        assertTrue(twelve.localAiAutoInstall());
+        assertFalse(twelve.localAiConsent());
+        final LauncherSettings thirteen = new LauncherSettings(1, 4096, "", List.of(), null, false, "", "", true, false, true, "t", Boolean.FALSE);
+        assertFalse(thirteen.performancePack());
+        assertTrue(thirteen.localAiAutoInstall());
+
+        final LauncherSettings accepted = LauncherSettings.defaults(0).withLocalAiAccepted(true);
+        assertTrue(accepted.localAiWithInstalls(), "on and accepted: installs include the Local AI step");
+        assertFalse(accepted.withInstallLocalAi(false).localAiWithInstalls(), "switched off: never, even with consent");
+        assertTrue(accepted.withInstallLocalAi(false).localAiConsent(), "the consent itself is kept");
+        assertEquals(accepted.withMemoryMb(2048).localAiConsent(), true, "every wither keeps both fields");
+
+        final SettingsStore store = new SettingsStore(tmp.resolve("local-ai-settings.json"), 16384);
+        store.save(accepted.withInstallLocalAi(false));
+        final LauncherSettings loaded = store.load();
+        assertFalse(loaded.localAiAutoInstall());
+        assertTrue(loaded.localAiConsent());
+        final String json = Files.readString(store.file());
+        assertTrue(json.contains("\"installLocalAi\": false"), json);
+        assertTrue(json.contains("\"localAiAccepted\": true"), json);
     }
 
     @Test
