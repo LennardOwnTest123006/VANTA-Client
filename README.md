@@ -130,8 +130,13 @@ version contains is in [CHANGELOG.md](CHANGELOG.md).
 | `client-v1.3.0` | `vanta-client-1.3.0.jar` | the Fabric mod (the launcher installs it for you) |
 | `client-v1.3.0` | `vanta-client-1.3.0-mods.zip` | manual installation: `mods/` with the VANTA jar, Fabric API and the redistributable Performance pack mods (Sodium, Lithium, FerriteCore, ImmediatelyFast, Iris; not EntityCulling), plus `INSTALL.txt`, `PERFORMANCE-PACK.txt`, `THIRD-PARTY-LICENSES.txt`, `performance-pack.json` and `SHA256SUMS` |
 | `client-v1.3.0` | `fabric-api-0.141.6+1.21.11.jar` | Fabric API, the unmodified FabricMC release (Apache-2.0), required by VANTA |
+| `v1.3.0` | `VantaClient-1.3.0-Release.zip` | everything of both releases in one archive (the files above plus the docs, the changelog and checksums); see its `README.txt` |
 
-Each release also has `SHA256SUMS.txt` and its manifest (`client-1.3.0.json`, `launcher-1.3.0.json`). Every launcher
+Each release also has `SHA256SUMS.txt` and its manifest (`client-1.3.0.json`, `launcher-1.3.0.json`); the full release
+zip has its own `SHA256SUMS.txt` inside, and the release `v1.3.0` carries the zip's checksum and its manifest
+(`vanta-1.3.0.json`). The bundle workflow packs that zip from the files `client-v1.3.0` and `launcher-v1.3.0` have
+published, downloaded again and checked against their manifests, never from a new build, and you still take only one
+launcher file from it ([docs/installation.md](docs/installation.md#the-full-release-zip)). Every launcher
 jar contains JavaFX for one system only, so take the jar with your system in its name; started on another system it
 says which file to download and exits with code 1. From 1.0.1 on, the launcher updates itself with the file that
 matches how it was installed: the `.msi` for a launcher installed with the `.msi` or `.exe`, the portable `.zip` for

@@ -55,6 +55,8 @@ SHA-256:
 - all releases: [github.com/LennardOwnTest123006/VANTA-Client/releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases)
 - VANTA Launcher 1.3.0: release [`launcher-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.3.0)
 - VANTA Client 1.3.0: release [`client-v1.3.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.3.0)
+- the full release zip `VantaClient-1.3.0-Release.zip`, both releases plus the documentation in one archive: release
+  `v1.3.0` (see [The full release zip](#the-full-release-zip))
 - the previous releases [`launcher-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.1.0),
   [`client-v1.1.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.1.0),
   [`launcher-v1.0.2`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.0.2),
@@ -112,6 +114,44 @@ If the Download page says a version is **not published yet**, its files are not 
 the newest published release; see
 [Troubleshooting → The Download page says "Not published yet"](troubleshooting.md#the-download-page-says-not-published-yet).
 
+### The full release zip
+
+`VantaClient-1.3.0-Release.zip` is one archive with every file of the two releases above plus the documentation, for
+anyone who wants everything in one download or a complete copy of one version. It is the asset of the release `v1.3.0`
+(*VANTA 1.3.0 full release*), and the Download page lists it next to the launcher and client downloads. The project's
+bundle workflow builds it from the files that `client-v1.3.0` and `launcher-v1.3.0` have already published: it
+downloads each file from the address in its release manifest, checks size and SHA-256 against the manifest and packs
+it unchanged. Nothing in the zip is built again, so every file inside is byte for byte the published file, with the
+same checksum.
+
+The zip unpacks to one folder:
+
+```text
+VantaClient-1.3.0-Release/
+  README.txt          what is inside, which file to take on which system, how to verify, links to the two releases
+                      and the website
+  CHANGELOG.md        the repository's CHANGELOG.md
+  LICENSE             the MIT licence of the code
+  SHA256SUMS.txt      the SHA-256 of every other file in the folder (paths relative to this folder, for sha256sum -c)
+  release-notes/      client-1.3.0.md and launcher-1.3.0.md, the release notes of both products
+  docs/               every page of this documentation as Markdown
+  client/             the three files of client-v1.3.0, that release's SHA256SUMS.txt and client-1.3.0.json
+  launcher/           the seven files of launcher-v1.3.0, that release's SHA256SUMS.txt and launcher-1.3.0.json
+```
+
+**You still need only one launcher file for your system.** The zip does not change the choice: take the file the
+[launcher table](#vanta-launcher-files) names for your system from `launcher/` and install it as in
+[step 3](#3-install-the-launcher), or for path C take `client/vanta-client-1.3.0-mods.zip`. The other launcher files
+are for other systems. `README.txt` says the same.
+
+To verify, compare the zip itself with the SHA-256 on the Download page or on the release `v1.3.0`, with the commands
+of [step 2](#2-verify-the-checksum). The release also carries the bundle manifest `vanta-1.3.0.json` with the zip's
+size and SHA-256 and the SHA-256 of every other file inside. After unpacking, check every file at once in the unpacked
+folder: `sha256sum -c SHA256SUMS.txt` (Linux) or `shasum -a 256 -c SHA256SUMS.txt` (macOS) prints `OK` per file. On
+Windows run `Get-FileHash <file> -Algorithm SHA256` for the file you use and compare it with its line in
+`SHA256SUMS.txt`. The `SHA256SUMS.txt` inside `client/` and `launcher/` are the checksum files of the two releases
+and list the same values.
+
 ## 2. Verify the checksum
 
 The files are **not code-signed**, so the SHA-256 checksum is how you know a file is the one the release workflow
@@ -148,6 +188,9 @@ Windows run `Get-FileHash mods\*.jar -Algorithm SHA256 | Format-List Hash, Path`
 path of each jar (or `certutil -hashfile mods\<jar> SHA256` for each jar in the Command Prompt, for example
 `certutil -hashfile mods\vanta-client-1.3.0.jar SHA256`), and compare the hash of **every** jar with the line for the
 same file in `SHA256SUMS`. `INSTALL.txt` in the bundle lists the same commands.
+
+**The full release zip** has its own `SHA256SUMS.txt` for the whole unpacked folder; the commands are the same, see
+[The full release zip](#the-full-release-zip).
 
 The value must match character for character (upper or lower case aside). If it does not, delete the file and download
 it again; if it still differs, do not use it and [report it](troubleshooting.md#how-to-report-a-problem).
