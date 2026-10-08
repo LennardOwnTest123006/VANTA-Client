@@ -158,8 +158,7 @@ describe('local-ai.schema.json', () => {
     assert.equal(check(fixtureManifest({ tag: 'v0.6.0' })), true);
   });
 
-  test('rejects the committed template and every single unfilled value', () => {
-    assert.equal(check(JSON.parse(readFileSync(TEMPLATE, 'utf8'))), false);
+  test('rejects the template and every single unfilled value', () => {
     assert.equal(check(fixtureManifest({ template: true })), false);
     assert.equal(check(variant((m) => { m.resolvedAt = ''; })), false);
     assert.equal(check(variant((m) => { m.resolvedAt = '2026-10-08T12:00:00.000Z'; })), false, 'milliseconds are not the resolver format');
@@ -204,28 +203,42 @@ describe('local-ai.schema.json', () => {
     assert.equal(check(variant((m) => { delete m.requirements; })), false);
   });
 
-  test('the committed template is consistent: six platforms, GitHub digests, URLs derived from the tag, unfilled sizes', () => {
-    const template = JSON.parse(readFileSync(TEMPLATE, 'utf8'));
-    assert.equal(template.schemaVersion, 1);
-    assert.equal(template.resolvedAt, '');
-    assert.deepEqual(Object.keys(template.runtime.platforms), [...PLATFORM_KEYS]);
-    assert.equal(template.runtime.releaseUrl, `${template.runtime.sourceUrl}/releases/tag/${template.runtime.tag}`);
-    for (const [key, entry] of Object.entries(template.runtime.platforms)) {
+  test('the committed manifest is consistent: six platforms, GitHub digests, URLs derived from the tag; resolved or a template', () => {
+    const committed = JSON.parse(readFileSync(TEMPLATE, 'utf8'));
+    const resolved = templateValues(committed).length === 0;
+    assert.equal(committed.schemaVersion, 1);
+    assert.deepEqual(Object.keys(committed.runtime.platforms), [...PLATFORM_KEYS]);
+    assert.equal(committed.runtime.releaseUrl, `${committed.runtime.sourceUrl}/releases/tag/${committed.runtime.tag}`);
+    for (const [key, entry] of Object.entries(committed.runtime.platforms)) {
       assert.match(entry.sha256, /^[a-f0-9]{64}$/, `${key}: the SHA-256 GitHub shows for the asset`);
-      assert.equal(entry.size, 0, `${key}: size is filled by the resolver`);
-      assert.equal(entry.url, `${template.runtime.sourceUrl}/releases/download/${template.runtime.tag}/${entry.file}`, key);
-      assert.ok(entry.file.includes(template.runtime.tag), `${key}: the asset name carries the tag`);
-      assert.equal(entry.serverPath, entry.file.endsWith('.zip') ? 'llama-server.exe' : '...', key);
+      assert.equal(entry.url, `${committed.runtime.sourceUrl}/releases/download/${committed.runtime.tag}/${entry.file}`, key);
+      assert.ok(entry.file.includes(committed.runtime.tag), `${key}: the asset name carries the tag`);
       assert.equal(key.startsWith('windows'), entry.file.endsWith('.zip'), `${key}: Windows builds are zips, the others tar.gz`);
+      if (resolved) {
+        assert.ok(Number.isInteger(entry.size) && entry.size > 0, `${key}: size filled by the resolver`);
+        assert.equal(entry.serverPath, entry.file.endsWith('.zip') ? 'llama-server.exe' : `${committed.runtime.tag.replace(/^/, 'llama-')}/llama-server`, key);
+      } else {
+        assert.equal(entry.size, 0, `${key}: size is filled by the resolver`);
+        assert.equal(entry.serverPath, entry.file.endsWith('.zip') ? 'llama-server.exe' : '...', key);
+      }
     }
-    assert.equal(new Set(Object.values(template.runtime.platforms).map((e) => e.sha256)).size, 6, 'six different digests');
-    assert.equal(template.model.size, 0);
-    assert.equal(template.model.sha256, '');
-    assert.equal(template.model.url, `${template.model.sourceUrl}/resolve/main/${template.model.file}`);
-    assert.equal(hfTreeApiUrl(template.model.url).api, 'https://huggingface.co/api/models/Qwen/Qwen3-1.7B-GGUF/tree/main');
-    assert.equal(githubReleaseApiUrl(template.runtime.sourceUrl, template.runtime.tag), 'https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/b11429');
-    assert.equal(validateManifest(template).valid, false);
-    assert.throws(() => loadLocalAiManifest(REPO_ROOT), /is not resolved: it still holds template values/);
+    assert.equal(new Set(Object.values(committed.runtime.platforms).map((e) => e.sha256)).size, 6, 'six different digests');
+    assert.equal(committed.model.url, `${committed.model.sourceUrl}/resolve/main/${committed.model.file}`);
+    assert.equal(hfTreeApiUrl(committed.model.url).api, 'https://huggingface.co/api/models/Qwen/Qwen3-1.7B-GGUF/tree/main');
+    assert.equal(githubReleaseApiUrl(committed.runtime.sourceUrl, committed.runtime.tag), 'https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/b11429');
+    if (resolved) {
+      assert.match(committed.resolvedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+      assert.ok(committed.model.size > 0);
+      assert.match(committed.model.sha256, /^[a-f0-9]{64}$/);
+      assert.deepEqual(validateManifest(committed).errors, []);
+      assert.equal(loadLocalAiManifest(REPO_ROOT).manifest.resolvedAt, committed.resolvedAt);
+    } else {
+      assert.equal(committed.resolvedAt, '');
+      assert.equal(committed.model.size, 0);
+      assert.equal(committed.model.sha256, '');
+      assert.equal(validateManifest(committed).valid, false);
+      assert.throws(() => loadLocalAiManifest(REPO_ROOT), /is not resolved: it still holds template values/);
+    }
   });
 });
 
