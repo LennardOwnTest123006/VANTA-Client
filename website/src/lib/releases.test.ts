@@ -8,6 +8,7 @@ import {
   isReleasePending,
   latestRelease,
   loadReleaseManifests,
+  olderReleases,
   parseReleaseManifest,
   pickFile,
   ReleaseManifestError,
@@ -171,6 +172,39 @@ describe('latestRelease / upcomingRelease with an unpublished next version', () 
     expect(isReleasePending([client101], 'website', '1.0.0')).toBe(false);
     expect(isReleasePending([client101], 'client', '9.9.9')).toBe(false);
     expect(findRelease([client100, client101], 'client', '1.0.1')).toBe(client101);
+  });
+});
+
+describe('olderReleases', () => {
+  const client090 = clientFixture({ published: true, version: '0.9.0' });
+  const client100 = clientFixture({ published: true });
+  const client101 = clientFixture({ published: false, version: '1.0.1' });
+  const client102 = clientFixture({ published: true, version: '1.0.2' });
+  const launcher100 = launcherFixture({ published: true });
+
+  it('lists the published releases older than the offered one, newest first, whatever the input order', () => {
+    for (const manifests of [
+      [client102, client101, client100, client090, launcher100],
+      [launcher100, client090, client100, client101, client102],
+    ]) {
+      expect(latestRelease(manifests, 'client')).toBe(client102);
+      // 1.0.1 is committed but not published: skipped, not offered as a download.
+      expect(olderReleases(manifests, 'client')).toEqual([client100, client090]);
+      expect(olderReleases(manifests, 'launcher')).toEqual([]);
+    }
+  });
+
+  it('is empty while at most one release is published or the offered one is unpublished', () => {
+    expect(olderReleases([client100], 'client')).toEqual([]);
+    expect(olderReleases([client101, client100], 'client')).toEqual([]);
+    expect(olderReleases([clientFixture({ published: false })], 'client')).toEqual([]);
+    expect(olderReleases([], 'client')).toEqual([]);
+  });
+
+  it('never lists the offered release itself or a newer unpublished one', () => {
+    const manifests = [client101, client100, client090];
+    expect(latestRelease(manifests, 'client')).toBe(client100);
+    expect(olderReleases(manifests, 'client')).toEqual([client090]);
   });
 });
 

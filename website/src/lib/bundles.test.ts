@@ -8,6 +8,7 @@ import {
   isBundlePublished,
   latestBundle,
   loadBundleManifests,
+  olderBundles,
   parseBundleManifest,
 } from './bundles';
 
@@ -134,6 +135,32 @@ describe('latestBundle', () => {
     expect(latestBundle([])).toBeUndefined();
     expect(latestBundle([unpublished120])).toBeUndefined();
     expect(latestBundle([beta130])).toBeUndefined();
+  });
+});
+
+describe('olderBundles', () => {
+  const published090 = bundleFixture({ published: true, version: '0.9.0' });
+  const published100 = bundleFixture({ published: true });
+  const published110 = bundleFixture({ published: true, version: '1.1.0' });
+  const unpublished120 = bundleFixture({ published: false, version: '1.2.0' });
+  const beta130 = bundleFixture({ published: true, version: '1.3.0', channel: 'beta' });
+
+  it('lists the published stable bundles older than the offered one, newest first', () => {
+    for (const list of [
+      [published090, published100, published110, unpublished120, beta130],
+      [beta130, unpublished120, published110, published090, published100],
+    ]) {
+      expect(olderBundles(list)).toEqual([published100, published090]);
+      // The beta channel has one published bundle: nothing older.
+      expect(olderBundles(list, 'beta')).toEqual([]);
+    }
+  });
+
+  it('is empty with at most one published bundle', () => {
+    expect(olderBundles([])).toEqual([]);
+    expect(olderBundles([published110])).toEqual([]);
+    expect(olderBundles([published110, unpublished120])).toEqual([]);
+    expect(olderBundles([unpublished120, beta130])).toEqual([]);
   });
 });
 

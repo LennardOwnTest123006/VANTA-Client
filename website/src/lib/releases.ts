@@ -214,6 +214,23 @@ export function upcomingRelease(
   return offered && offered !== newest ? newest : undefined;
 }
 
+/**
+ * The published releases of a product that are older than the one the website offers
+ * ({@link latestRelease}), newest first: what the download page lists under "Older versions". A
+ * manifest without published files is never listed, whatever its version, so the list holds only
+ * versions that can be downloaded. Empty while at most one release of the product is published.
+ */
+export function olderReleases(
+  manifests: readonly ReleaseManifest[],
+  product: Product,
+  channel: Channel = 'stable',
+): ReleaseManifest[] {
+  const offered = latestRelease(manifests, product, channel);
+  return releasesOf(manifests, product, channel).filter(
+    (manifest) => manifest !== offered && isPublished(manifest),
+  );
+}
+
 /** The manifest of exactly this product version (any channel), when the repository has one. */
 export function findRelease(
   manifests: readonly ReleaseManifest[],

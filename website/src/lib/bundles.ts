@@ -204,6 +204,23 @@ export function latestBundle(
     .sort((a, b) => compareVersionsDesc(a.version, b.version))[0];
 }
 
+/**
+ * The published bundles on the channel that are older than the one the website offers
+ * ({@link latestBundle}), newest first: the full release zips the download page lists under "Older
+ * versions". Empty while at most one bundle is published.
+ */
+export function olderBundles(
+  bundles: readonly BundleManifest[],
+  channel: BundleChannel = 'stable',
+): BundleManifest[] {
+  const offered = latestBundle(bundles, channel);
+  return bundles
+    .filter(
+      (bundle) => bundle !== offered && bundle.channel === channel && isBundlePublished(bundle),
+    )
+    .sort((a, b) => compareVersionsDesc(a.version, b.version));
+}
+
 /** True when the zip holds exactly this client version and this launcher version. */
 export function bundleMatches(
   bundle: BundleManifest,

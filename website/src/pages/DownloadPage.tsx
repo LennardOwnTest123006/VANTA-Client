@@ -1,4 +1,5 @@
 import {
+  ArrowDown,
   BookOpen,
   ExternalLink,
   History,
@@ -14,6 +15,7 @@ import { BundleCard } from '../components/download/BundleCard';
 import { DownloadCard } from '../components/download/DownloadCard';
 import { InstallOptions } from '../components/download/InstallOptions';
 import { LatestVersion } from '../components/download/LatestVersion';
+import { OlderVersions } from '../components/download/OlderVersions';
 import { WhatsNew } from '../components/download/WhatsNew';
 import { PageMeta } from '../components/layout/PageMeta';
 import { PageHero } from '../components/page/PageHero';
@@ -24,10 +26,10 @@ import { RouteLink } from '../components/ui/RouteLink';
 import { Section } from '../components/ui/Section';
 import { Stat, StatGroup } from '../components/ui/Stat';
 import { githubLinks, officialLauncherProfileName, site, specFacts } from '../config/site';
-import { bundles, latestBundle } from '../lib/bundles';
+import { bundles, latestBundle, olderBundles } from '../lib/bundles';
 import { modsBundleFile, resolveDownload } from '../lib/downloads';
 import { env } from '../lib/env';
-import { latestRelease, releases, upcomingRelease } from '../lib/releases';
+import { latestRelease, olderReleases, releases, upcomingRelease } from '../lib/releases';
 
 const requirements = [
   {
@@ -76,9 +78,10 @@ const verification = [
 /**
  * Download center: the latest versions, the launcher and client cards from the release manifests,
  * the full release zip from the bundle manifest when one is published, what is new in the offered
- * versions, requirements and verification. Each card offers the newest published release; a newer
- * version that is committed but not published yet is mentioned on the card instead of replacing the
- * working downloads, and without a published bundle there is no zip card at all.
+ * versions, requirements, verification and, at the end, every older published version. Each card
+ * offers the newest published release; a newer version that is committed but not published yet is
+ * mentioned on the card instead of replacing the working downloads, and without a published bundle
+ * there is no zip card at all.
  */
 export default function DownloadPage() {
   const launcher = latestRelease(releases, 'launcher');
@@ -87,6 +90,11 @@ export default function DownloadPage() {
   const clientDownload = resolveDownload(client, env.downloadClientUrl);
   const modsBundle = modsBundleFile(client);
   const bundle = latestBundle(bundles);
+  const olderLaunchers = olderReleases(releases, 'launcher');
+  const olderClients = olderReleases(releases, 'client');
+  const olderZips = olderBundles(bundles);
+  const hasOlderVersions =
+    olderLaunchers.length > 0 || olderClients.length > 0 || olderZips.length > 0;
 
   return (
     <>
@@ -150,9 +158,19 @@ export default function DownloadPage() {
             />
           ) : null}
         </div>
-        {site.releasesBaseUrl || githubLinks ? (
+        {hasOlderVersions || site.releasesBaseUrl || githubLinks ? (
           <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-text-secondary">
             <span>Looking for older versions or checksum files?</span>
+            {hasOlderVersions ? (
+              <Button
+                href="#older-versions"
+                variant="link"
+                trailingIcon={<ArrowDown />}
+                className="text-sm"
+              >
+                Older versions on this page
+              </Button>
+            ) : null}
             {githubLinks ? (
               <Button href={githubLinks.releases} variant="link" trailingIcon={<ExternalLink />}>
                 All releases on GitHub
@@ -318,6 +336,8 @@ export default function DownloadPage() {
           </p>
         ) : null}
       </Section>
+
+      <OlderVersions launcher={olderLaunchers} client={olderClients} bundles={olderZips} />
     </>
   );
 }

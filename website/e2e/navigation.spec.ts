@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { trackConsoleErrors, waitForApp } from './helpers';
-import { changelogIds, offeredBundle, offeredRelease, upcomingRelease } from './repo-state';
+import {
+  changelogIds,
+  offeredBundle,
+  offeredRelease,
+  olderBundles,
+  olderReleases,
+  primaryFileName,
+  upcomingRelease,
+} from './repo-state';
 
 /**
  * A release asset of this repository under one tag: the only place the download page may link files
@@ -214,6 +222,97 @@ test.describe('navigation', () => {
         await expect(
           column.getByRole('link', { name: `Full release notes for ${label} ${offered.version}` }),
         ).toHaveAttribute('href', `/changelog#${product}-${offered.version}`);
+      }
+    }
+
+    // "Older versions": every published release of shared/releases older than the offered one, per
+    // product, and every older published full release zip; no section while nothing is older.
+    const older = page.locator('#older-versions');
+    const jump = page.getByRole('link', { name: 'Older versions on this page' });
+    const olderZips = olderBundles();
+    const olderByProduct = (['launcher', 'client'] as const).map((product) => ({
+      product,
+      label: product === 'client' ? 'VANTA Client' : 'VANTA Launcher',
+      releases: olderReleases(product),
+    }));
+    if (olderZips.length === 0 && olderByProduct.every(({ releases }) => releases.length === 0)) {
+      await expect(older).toHaveCount(0);
+      await expect(jump).toHaveCount(0);
+    } else {
+      await expect(older).toBeVisible();
+      await expect(jump).toHaveAttribute('href', '#older-versions');
+      await expect(older.getByRole('heading', { level: 2 })).toHaveText(
+        'Every earlier release stays available.',
+      );
+      for (const { product, label, releases } of olderByProduct) {
+        const list = older.getByRole('list', { name: label });
+        if (releases.length === 0) {
+          await expect(list).toHaveCount(0);
+          continue;
+        }
+        const rows = list.getByRole('listitem');
+        await expect(rows).toHaveCount(releases.length);
+        // Newest first, one row per older published version, never an unpublished one.
+        for (const [index, release] of releases.entries()) {
+          const row = rows.nth(index);
+          await expect(row.getByText(release.version, { exact: true })).toBeVisible();
+          const download = row.getByRole('link', { name: `Download ${label} ${release.version}` });
+          await expect(download).toHaveAttribute(
+            'href',
+            releaseAsset(`${product}-v${release.version}`),
+          );
+          const file = primaryFileName(release);
+          expect(file, `${product} ${release.version} has a primary file`).toBeDefined();
+          if (file) {
+            await expect(download).toHaveAttribute(
+              'href',
+              new RegExp(`/${file.replace(/[.+]/g, '\\$&')}$`),
+            );
+            await expect(row.getByText(file, { exact: true })).toBeVisible();
+          }
+          await expect(
+            row.getByRole('link', {
+              name: `Release page on GitHub for ${label} ${release.version}`,
+            }),
+          ).toHaveAttribute(
+            'href',
+            new RegExp(`/releases/tag/${product}-v${escapeVersion(release.version)}$`),
+          );
+          const notes = row.getByRole('link', {
+            name: `Release notes for ${label} ${release.version}`,
+          });
+          if (ids.includes(`${product}-${release.version}`)) {
+            await expect(notes).toHaveAttribute('href', `/changelog#${product}-${release.version}`);
+          } else {
+            await expect(notes).toHaveCount(0);
+          }
+        }
+        const upcoming = upcomingRelease(product);
+        if (upcoming) {
+          expect(await list.locator(`a[href*="-v${upcoming.version}/"]`).count()).toBe(0);
+        }
+      }
+      const zips = older.getByRole('list', { name: 'Full release zip' });
+      if (olderZips.length === 0) {
+        await expect(zips).toHaveCount(0);
+      } else {
+        const rows = zips.getByRole('listitem');
+        await expect(rows).toHaveCount(olderZips.length);
+        for (const [index, zip] of olderZips.entries()) {
+          const row = rows.nth(index);
+          await expect(
+            row.getByRole('link', { name: `Download Full release zip ${zip.version}` }),
+          ).toHaveAttribute('href', zip.downloadUrl);
+          await expect(row.getByText(zip.fileName, { exact: true })).toBeVisible();
+        }
+      }
+      // Every download in the section is an asset of this repository.
+      for (const href of await older
+        .locator('a[href*="/releases/download/"]')
+        .evaluateAll((anchors) => anchors.map((a) => a.getAttribute('href') ?? ''))) {
+        expect(href).toMatch(
+          /^https:\/\/github\.com\/LennardOwnTest123006\/VANTA-Client\/releases\/download\/[^/]+\/[^/]+$/,
+        );
       }
     }
 

@@ -71,6 +71,30 @@ export function upcomingRelease(product: Product): ManifestSummary | undefined {
   return newest && !newest.published && offered && offered !== newest ? newest : undefined;
 }
 
+/**
+ * Same rule as `olderReleases` in src/lib/releases.ts: the published stable manifests older than the
+ * offered one, newest first. Unpublished manifests are never listed.
+ */
+export function olderReleases(product: Product): ManifestSummary[] {
+  const offered = offeredRelease(product)?.version;
+  return repositoryManifests().filter(
+    (m) => m.product === product && m.channel === 'stable' && m.published && m.version !== offered,
+  );
+}
+
+/** Same rule as `primaryFile` in src/lib/downloads.ts: the file the download button of a release offers. */
+export function primaryFileName(manifest: ManifestSummary): string | undefined {
+  if (manifest.product === 'client') {
+    const exact = `vanta-client-${manifest.version}.jar`;
+    return manifest.fileNames.includes(exact) ? exact : undefined;
+  }
+  for (const extension of ['.msi', '.exe', '.jar']) {
+    const match = manifest.fileNames.find((name) => name.toLowerCase().endsWith(extension));
+    if (match) return match;
+  }
+  return manifest.fileNames[0];
+}
+
 export interface BundleSummary {
   readonly version: string;
   readonly clientVersion: string;
@@ -115,6 +139,14 @@ export function repositoryBundles(): BundleSummary[] {
 /** Same rule as `latestBundle` in src/lib/bundles.ts: the newest published stable bundle, else none. */
 export function offeredBundle(): BundleSummary | undefined {
   return repositoryBundles().find((bundle) => bundle.channel === 'stable' && bundle.published);
+}
+
+/** Same rule as `olderBundles`: the published stable bundles older than the offered one, newest first. */
+export function olderBundles(): BundleSummary[] {
+  const offered = offeredBundle()?.version;
+  return repositoryBundles().filter(
+    (bundle) => bundle.channel === 'stable' && bundle.published && bundle.version !== offered,
+  );
 }
 
 /** Ids (`<product>-<version>`) of every release notes file, as the changelog page renders them. */

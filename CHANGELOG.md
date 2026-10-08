@@ -8,6 +8,16 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 ## [Unreleased]
 
+No changes yet.
+
+## [Website 1.1.0] - 2026-10-08
+
+Website-only release. The Download page offers the full release zip `VantaClient-1.3.0-Release.zip` (GitHub Release
+`v1.3.0`, built by the new bundle workflow from the published files of client 1.3.0 and launcher 1.3.0), names the
+latest versions, shows what is new in them and lists every older published version. **VANTA Client and VANTA Launcher
+stay at 1.3.0** (`client-v1.3.0`, `launcher-v1.3.0`); nothing in the game or the launcher changed. Minecraft 1.21.11,
+Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged.
+
 ### Release tooling
 - **Full release zip.** The new bundle workflow (`.github/workflows/bundle.yml`, `scripts/release/build-bundle.mjs`)
   downloads the already published files of one client and one launcher release, checks every file against its
@@ -22,7 +32,17 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
   release dates. A third card offers the full release zip from the newest published bundle manifest (no card while
   none is published). A "What's new" section shows the highlights of both products' release notes with links to the
   full notes and the newest news post.
+- **Older versions.** A section at the end of the download page
+  (`website/src/components/download/OlderVersions.tsx`) lists every published release older than the one the cards
+  offer, for the launcher and the client (and for the full release zip once more than one bundle is published), newest
+  first: release date, the primary file with size and SHA-256, a direct download link, the GitHub release page and the
+  release notes. A product without older published releases gets no list, an unpublished manifest is never listed,
+  and without any older version the section is left out. The line "Looking for older versions or checksum files?"
+  under the cards links to the section.
 - Release-note excerpts on the download page no longer show single-asterisk italics markers.
+- The website's own release notes `website/content/changelog/website-1.1.0.md` ("Website 1.1.0" on the changelog
+  page) and the news post `website/content/news/2026-10-08-full-release-zip.md`, "One zip with everything, and a new
+  download page".
 
 ### Documentation
 - README, installation guide, FAQ and docs index describe the full release zip and how to verify it.
