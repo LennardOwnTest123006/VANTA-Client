@@ -43,7 +43,8 @@ import java.util.stream.Stream;
  *
  * <pre>
  * local-ai/
- * ├── installed.json                 what is installed, when, and the verified sizes and digests
+ * ├── installed.json                 what is installed, when, and the sizes and times of the files (the shape the
+ *                                    client reads: shared/local-ai/fixtures/installed.example.json)
  * ├── runtime/&lt;tag&gt;/&lt;platform&gt;/      the extracted release archive (the server executable at its serverPath)
  * ├── models/&lt;file&gt;                  the GGUF model
  * ├── downloads/                     archives while they download (removed after extraction)
@@ -206,7 +207,8 @@ public final class LocalAiService {
     // ---------------------------------------------------------------- status
 
     /**
-     * Quick check: {@code installed.json} plus the size and modification time of every recorded file. Nothing is hashed.
+     * Quick check: {@code installed.json} plus the size and modification time of the server executable and the model
+     * file. Nothing is hashed.
      *
      * @return report
      * @throws IOException when the folder cannot be read
@@ -216,7 +218,9 @@ public final class LocalAiService {
     }
 
     /**
-     * Full check: every recorded file is hashed again. When everything matches, {@code verifiedAt} is updated.
+     * Full check: the model is hashed again against the manifest digest recorded in {@code installed.json}; the server
+     * executable is checked by presence and size (the manifest names the archive's digest, not the extracted file's).
+     * When everything matches, {@code verifiedAt} and the recorded modification times are updated.
      *
      * @return report
      * @throws IOException when the folder cannot be read
@@ -238,41 +242,22 @@ public final class LocalAiService {
         if (installed.isPresent()) {
             final LocalAiInstalled record = installed.get();
             final List<String> fileProblems = new ArrayList<>();
-            final List<LocalAiInstalled.InstalledFile> refreshed = new ArrayList<>();
-            if (record.file(LocalAiInstalled.ROLE_SERVER).isEmpty()) {
-                fileProblems.add("installed.json records no server executable");
+            if (!record.platform().equals(platformKey)) {
+                fileProblems.add(INSTALLED_FILE + " was written for " + record.platform() + ", this system is " + platformKey);
             }
-            if (record.file(LocalAiInstalled.ROLE_MODEL).isEmpty()) {
-                fileProblems.add("installed.json records no model file");
-            }
-            for (LocalAiInstalled.InstalledFile f : record.files()) {
-                final Path file = dir().resolve(f.path());
-                if (!Files.isRegularFile(file)) {
-                    fileProblems.add("missing: " + f.path());
-                    continue;
-                }
-                final long size = Files.size(file);
-                if (size != f.size()) {
-                    fileProblems.add(f.path() + " has " + size + " bytes, expected " + f.size());
-                    continue;
-                }
-                final long modified = Files.getLastModifiedTime(file).toMillis();
-                if (fullHash) {
-                    final String actual = Checksums.sha256Hex(file);
-                    if (!actual.equals(f.sha256())) {
-                        fileProblems.add(f.path() + " does not match its SHA-256 (expected " + f.sha256() + ", computed " + actual + ")");
-                        continue;
-                    }
-                    refreshed.add(new LocalAiInstalled.InstalledFile(f.role(), f.path(), size, f.sha256(), modified));
-                } else if (modified != f.modifiedMillis()) {
-                    fileProblems.add(f.path() + " changed since the install (modification time differs)");
-                }
-            }
+            final LocalAiInstalled.Files recorded = record.files();
+            final Path server = LocalAiReport.resolve(dir(), record.serverRelativePath());
+            final Path model = LocalAiReport.resolve(dir(), record.modelRelativePath());
+            final long[] serverFacts = checkFile(server, record.serverRelativePath(), recorded.serverSize(), recorded.serverMtime(), fullHash,
+                null, fileProblems);
+            final long[] modelFacts = checkFile(model, record.modelRelativePath(), recorded.modelSize(), recorded.modelMtime(), fullHash,
+                record.model().sha256(), fileProblems);
             final boolean ok = fileProblems.isEmpty();
             problems.addAll(fileProblems);
             LocalAiInstalled current = record;
             if (ok && fullHash) {
-                current = record.withVerified(Instant.now(clock).toString(), refreshed);
+                current = record.withVerified(Instant.now(clock).toString(),
+                    new LocalAiInstalled.Files(serverFacts[0], serverFacts[1], modelFacts[0], modelFacts[1]));
                 Json.write(installedFile(), current);
             }
             final boolean outdated = manifest.isPresent() && isOutdated(manifest.get(), current);
@@ -293,13 +278,44 @@ public final class LocalAiService {
         return new LocalAiReport(LocalAiState.NOT_INSTALLED, platformKey, dir(), manifest, Optional.empty(), bytes, problems, false);
     }
 
+    /**
+     * Checks one recorded file: present, the recorded size and (quick check) the recorded modification time; with
+     * {@code fullHash} and a digest, the SHA-256 as well. Problems are added in plain English.
+     *
+     * @return {@code {size, modificationMillis}} of the file as it is now ({@code {-1, 0}} when missing)
+     */
+    private static long[] checkFile(final Path file, final String relative, final long expectedSize, final long expectedMtime, final boolean fullHash,
+                                    final String sha256, final List<String> problems) throws IOException {
+        if (!Files.isRegularFile(file)) {
+            problems.add("missing: " + relative);
+            return new long[] {-1L, 0L};
+        }
+        final long size = Files.size(file);
+        final long modified = Files.getLastModifiedTime(file).toMillis();
+        if (size != expectedSize) {
+            problems.add(relative + " has " + size + " bytes, expected " + expectedSize);
+            return new long[] {size, modified};
+        }
+        if (fullHash) {
+            if (sha256 != null && !sha256.isEmpty()) {
+                final String actual = Checksums.sha256Hex(file);
+                if (!actual.equals(sha256)) {
+                    problems.add(relative + " does not match its SHA-256 (expected " + sha256 + ", computed " + actual + ")");
+                }
+            }
+        } else if (expectedMtime > 0 && modified != expectedMtime) {
+            problems.add(relative + " changed since the install (modification time differs)");
+        }
+        return new long[] {size, modified};
+    }
+
     private Optional<LocalAiInstalled> readInstalled(final List<String> problems) {
         if (!Files.isRegularFile(installedFile())) {
             return Optional.empty();
         }
         try {
             final LocalAiInstalled record = Json.read(installedFile(), LocalAiInstalled.class);
-            if (record == null || record.runtime() == null || record.model() == null) {
+            if (record == null || !record.isComplete()) {
                 problems.add(INSTALLED_FILE + " is incomplete");
                 return Optional.empty();
             }
@@ -312,8 +328,9 @@ public final class LocalAiService {
 
     private boolean isOutdated(final LocalAiManifest manifest, final LocalAiInstalled installed) {
         final Optional<LocalAiManifest.PlatformFile> platform = manifest.platform(installed.platform());
+        final Optional<LocalAiManifest.PlatformFile> recorded = installed.runtimePlatform();
         final boolean runtimeDiffers = !manifest.runtime().tag().equals(installed.runtime().tag())
-            || platform.isEmpty() || installed.runtime().file() == null || !platform.get().sha256().equals(installed.runtime().file().sha256());
+            || platform.isEmpty() || recorded.isEmpty() || !platform.get().sha256().equals(recorded.get().sha256());
         final boolean modelDiffers = !manifest.model().sha256().equals(installed.model().sha256())
             || !manifest.model().file().equals(installed.model().file());
         return runtimeDiffers || modelDiffers;
@@ -407,25 +424,22 @@ public final class LocalAiService {
         t.throwIfCancelled();
         final boolean unchanged = !runtimeNeeded && modelResult.skipped() && before.installed().isPresent() && !before.outdated();
 
-        // 3. Verify: the downloads were hashed while streaming (or by isValid); record sizes, digests and times.
+        // 3. Verify: the downloads were hashed while streaming (or by isValid); record the sizes and times the quick check
+        //    compares against (the digests in the record are the manifest's).
         progress.phase(STEP_VERIFYING, null);
         if (!Files.isRegularFile(server)) {
             throw new IOException("The runtime at " + runtimeDir + " has no " + platform.serverPath());
         }
         setExecutable(server);
-        final String serverSha = Checksums.sha256Hex(server);
-        final List<LocalAiInstalled.InstalledFile> files = List.of(
-            new LocalAiInstalled.InstalledFile(LocalAiInstalled.ROLE_SERVER, relative(server), Files.size(server), serverSha,
-                Files.getLastModifiedTime(server).toMillis()),
-            new LocalAiInstalled.InstalledFile(LocalAiInstalled.ROLE_MODEL, relative(modelRequest.target()), Files.size(modelRequest.target()),
-                manifest.model().sha256(), Files.getLastModifiedTime(modelRequest.target()).toMillis()));
+        final Path modelFile = modelRequest.target();
+        final LocalAiInstalled.Files files = new LocalAiInstalled.Files(Files.size(server), Files.getLastModifiedTime(server).toMillis(),
+            Files.size(modelFile), Files.getLastModifiedTime(modelFile).toMillis());
 
         // 4. Record (an unchanged install keeps its installedAt and only gets a new verifiedAt), prune older versions, note.
         progress.phase(STEP_INSTALLING, INSTALLED_FILE);
         final String now = Instant.now(clock).toString();
         final String installedAt = unchanged ? before.installed().orElseThrow().installedAt() : now;
-        final LocalAiInstalled record = new LocalAiInstalled(LocalAiInstalled.SCHEMA_VERSION, platformKey, installedAt, now,
-            LocalAiInstalled.InstalledRuntime.of(manifest.runtime(), platform), manifest.model(), files);
+        final LocalAiInstalled record = LocalAiInstalled.of(manifest, platformKey, installedAt, now, files);
         Json.write(installedFile(), record);
         prune(manifest, l);
         writeNoteQuietly(l);
@@ -440,19 +454,22 @@ public final class LocalAiService {
         if (!Files.isRegularFile(server)) {
             return false;
         }
-        // The archive itself is gone after extraction: trust the recorded install only when it names this exact archive and
-        // the server executable still has the recorded digest (small file, cheap to hash).
+        // The archive itself is gone after extraction and the manifest names no digest for the extracted executable:
+        // trust the recorded install only when it names this exact archive (tag, SHA-256 and server path) and the server
+        // executable is where the record says with the recorded size.
         return before.installed()
-            .filter(i -> i.runtime() != null && i.runtime().file() != null)
-            .filter(i -> manifest.runtime().tag().equals(i.runtime().tag()) && platform.sha256().equals(i.runtime().file().sha256()))
-            .flatMap(i -> i.file(LocalAiInstalled.ROLE_SERVER))
-            .map(f -> dir().resolve(f.path()).normalize().equals(server) && hashMatches(server, f.sha256()))
+            .filter(LocalAiInstalled::isComplete)
+            .filter(i -> manifest.runtime().tag().equals(i.runtime().tag()))
+            .filter(i -> i.runtimePlatform().map(p -> platform.sha256().equals(p.sha256()) && platform.serverPath().equals(p.serverPath()))
+                .orElse(false))
+            .map(i -> LocalAiReport.resolve(dir(), i.serverRelativePath()).equals(server.toAbsolutePath().normalize())
+                && sizeMatches(server, i.files().serverSize()))
             .orElse(false);
     }
 
-    private static boolean hashMatches(final Path file, final String sha256) {
+    private static boolean sizeMatches(final Path file, final long size) {
         try {
-            return Checksums.sha256Hex(file).equals(sha256);
+            return Files.size(file) == size;
         } catch (IOException e) {
             return false;
         }
@@ -559,10 +576,6 @@ public final class LocalAiService {
     }
 
     // ---------------------------------------------------------------- helpers
-
-    private String relative(final Path file) {
-        return dir().toAbsolutePath().normalize().relativize(file.toAbsolutePath().normalize()).toString().replace('\\', '/');
-    }
 
     private static String hostOf(final String url) {
         try {

@@ -77,6 +77,16 @@ public record LocalAiManifest(int schemaVersion, String resolvedAt, Runtime runt
             releaseUrl = blankToEmpty(releaseUrl);
             platforms = platforms == null ? Map.of() : Map.copyOf(platforms);
         }
+
+        /**
+         * @param key platform key
+         * @return copy with only that platform's archive (empty platforms when the key is unknown); what
+         *         {@code installed.json} records
+         */
+        public Runtime only(final String key) {
+            final PlatformFile entry = platforms.get(key);
+            return new Runtime(name, component, tag, license, sourceUrl, releaseUrl, entry == null ? Map.of() : Map.of(key, entry));
+        }
     }
 
     /**

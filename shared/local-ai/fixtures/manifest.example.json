@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "resolvedAt": "2026-10-08T12:00:00Z",
+  "runtime": {
+    "name": "llama.cpp",
+    "component": "llama-server",
+    "tag": "b11429",
+    "license": "MIT",
+    "sourceUrl": "https://github.com/ggml-org/llama.cpp",
+    "releaseUrl": "https://github.com/ggml-org/llama.cpp/releases/tag/b11429",
+    "platforms": {
+      "windows-x64": {
+        "file": "llama-b11429-bin-win-cpu-x64.zip",
+        "url": "https://example.invalid/ggml-org/llama.cpp/releases/download/b11429/llama-b11429-bin-win-cpu-x64.zip",
+        "size": 64,
+        "sha256": "72f02b17a9277fdec1a49b74d1e10b6e63e279ceb9b7cc53ba98cfeb14363f17",
+        "serverPath": "llama-server.exe"
+      },
+      "windows-arm64": {
+        "file": "llama-b11429-bin-win-cpu-arm64.zip",
+        "url": "https://example.invalid/ggml-org/llama.cpp/releases/download/b11429/llama-b11429-bin-win-cpu-arm64.zip",
+        "size": 66,
+        "sha256": "f047e487b19f6ba5cfd1a6035db14b78b8c668b63ea0a78b710177b54be51d4c",
+        "serverPath": "llama-server.exe"
+      },
+      "linux-x64": {
+        "file": "llama-b11429-bin-ubuntu-x64.tar.gz",
+        "url": "https://example.invalid/ggml-org/llama.cpp/releases/download/b11429/llama-b11429-bin-ubuntu-x64.tar.gz",
+        "size": 66,
+        "sha256": "7ff90a06ac98de7f0ba4a7b385a13b5d7a3adaa7921a81dd2470bc60b6a844f0",
+        "serverPath": "llama-b11429/llama-server"
+      },
+      "linux-arm64": {
+        "file": "llama-b11429-bin-ubuntu-arm64.tar.gz",
+        "url": "https://example.invalid/ggml-org/llama.cpp/releases/download/b11429/llama-b11429-bin-ubuntu-arm64.tar.gz",
+        "size": 68,
+        "sha256": "3da0c2478d7810884c0551779ec917dabdfbe5ae3951536175b963864e2a4f12",
+        "serverPath": "llama-b11429/llama-server"
+      },
+      "macos-arm64": {
+        "file": "llama-b11429-bin-macos-arm64.tar.gz",
+        "url": "https://example.invalid/ggml-org/llama.cpp/releases/download/b11429/llama-b11429-bin-macos-arm64.tar.gz",
+        "size": 67,
+        "sha256": "6f84f5d14cab5f127f679066efa48c7b1f03234d318ef5d215809190e15a0457",
+        "serverPath": "llama-b11429/llama-server"
+      },
+      "macos-x64": {
+        "file": "llama-b11429-bin-macos-x64.tar.gz",
+        "url": "https://example.invalid/ggml-org/llama.cpp/releases/download/b11429/llama-b11429-bin-macos-x64.tar.gz",
+        "size": 65,
+        "sha256": "ecc59128e8958742c49d2050d47ec6a847f3280f20b5a699b133cd8d974898c7",
+        "serverPath": "llama-b11429/llama-server"
+      }
+    }
+  },
+  "model": {
+    "name": "Qwen3-1.7B",
+    "quantization": "Q8_0",
+    "file": "Qwen3-1.7B-Q8_0.gguf",
+    "url": "https://example.invalid/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf",
+    "size": 4096,
+    "sha256": "371866705d66b547691142fe87e00e55ea74b961365b4193a6fce4b302bed49a",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/blob/main/LICENSE",
+    "sourceUrl": "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF",
+    "contextSize": 4096
+  },
+  "requirements": {
+    "diskMb": 2200,
+    "ramMb": 3072
+  }
+}

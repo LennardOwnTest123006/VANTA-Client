@@ -51,13 +51,28 @@ public record LocalAiReport(LocalAiState state, String platform, Path dir, Optio
         return installed.map(LocalAiInstalled::describe).or(() -> manifest.map(LocalAiManifest::describe)).orElse("");
     }
 
-    /** @return the installed server executable (absolute), when recorded */
+    /** @return the installed server executable ({@code <dir>/runtime/<tag>/<platform>/<serverPath>}), when recorded */
     public Optional<Path> serverExecutable() {
-        return installed.flatMap(i -> i.file(LocalAiInstalled.ROLE_SERVER)).map(f -> dir.resolve(f.path()));
+        return installed.filter(LocalAiInstalled::isComplete).map(i -> resolve(dir, i.serverRelativePath()));
     }
 
-    /** @return the installed model file (absolute), when recorded */
+    /** @return the installed model file ({@code <dir>/models/<file>}), when recorded */
     public Optional<Path> modelFile() {
-        return installed.flatMap(i -> i.file(LocalAiInstalled.ROLE_MODEL)).map(f -> dir.resolve(f.path()));
+        return installed.filter(LocalAiInstalled::isComplete).map(i -> resolve(dir, i.modelRelativePath()));
+    }
+
+    /**
+     * @param dir      the Local AI folder
+     * @param relative a path with forward slashes, as {@code installed.json} records it
+     * @return the file below {@code dir}
+     */
+    public static Path resolve(final Path dir, final String relative) {
+        Path path = dir;
+        for (String segment : relative.split("/")) {
+            if (!segment.isEmpty()) {
+                path = path.resolve(segment);
+            }
+        }
+        return path.normalize();
     }
 }

@@ -176,9 +176,10 @@ jobs:
         with:
           node-version: '22'
       # Local AI for the LocalAiStep of the game test: the real llama-server archive and model of the committed
-      # manifest, prepared once per manifest (cache key = hash of the manifest) and handed to the game through
-      # VANTA_LOCAL_AI_DIR. Before the resolve workflow has run the manifest is the template; then nothing is prepared
-      # and the game test runs without a Local AI install (the step skips itself).
+      # manifest, prepared once per manifest (cache key = hash of the manifest), checked and re-recorded after every
+      # cache restore, and handed to the game through VANTA_LOCAL_AI_DIR. Before the resolve workflow has run the
+      # manifest is the template; then nothing is prepared and the game test runs without a Local AI install (the step
+      # skips itself).
       - name: Local AI manifest (the cached install is prepared only from a resolved manifest)
         id: local-ai-manifest
         run: |
@@ -194,18 +195,23 @@ jobs:
         if: steps.local-ai-manifest.outputs.ready == 'true'
         with:
           path: ${{ runner.temp }}/local-ai
-          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
-      - name: Prepare the Local AI install (llama-server archive + model from the manifest; cache miss only)
-        if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
+          key: local-ai-linux-x64-v2-${{ hashFiles('shared/local-ai/local-ai.json') }}
+      - name: Prepare the Local AI install (downloads on a cache miss; on a hit it verifies the restored files and rewrites installed.json)
+        if: steps.local-ai-manifest.outputs.ready == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/release/local-ai.mjs prepare --dir "$RUNNER_TEMP/local-ai" --platform linux-x64
+        # Runs after the cache restore on purpose, on a hit as well: installed.json records the modification times the
+        # client's quick check compares against, and a restore need not keep them, so prepare re-hashes what is there
+        # (nothing is downloaded when it verifies) and writes the record again with the times the files have now.
+        # --keep-downloads keeps the runtime archive and a hard link to the model under downloads/, which the launcher
+        # integration job serves on 127.0.0.1 for --install-local-ai (cache key v2 = this layout).
+        run: node scripts/release/local-ai.mjs prepare --dir "$RUNNER_TEMP/local-ai" --platform linux-x64 --keep-downloads
       - uses: actions/cache/save@v4
         # Saved right after the download, so a failing game test does not throw the 1.8 GB away.
         if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
         with:
           path: ${{ runner.temp }}/local-ai
-          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
+          key: local-ai-linux-x64-v2-${{ hashFiles('shared/local-ai/local-ai.json') }}
       - name: Hand the Local AI install to the game test (VANTA_LOCAL_AI_DIR)
         if: steps.local-ai-manifest.outputs.ready == 'true'
         run: |
@@ -302,17 +308,22 @@ jobs:
         if: steps.local-ai-manifest.outputs.ready == 'true'
         with:
           path: ${{ runner.temp }}/local-ai
-          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
-      - name: Prepare the Local AI install (llama-server archive + model from the manifest; cache miss only)
-        if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
+          key: local-ai-linux-x64-v2-${{ hashFiles('shared/local-ai/local-ai.json') }}
+      - name: Prepare the Local AI install (downloads on a cache miss; on a hit it verifies the restored files and rewrites installed.json)
+        if: steps.local-ai-manifest.outputs.ready == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/release/local-ai.mjs prepare --dir "$RUNNER_TEMP/local-ai" --platform linux-x64
+        # Runs after the cache restore on purpose, on a hit as well: installed.json records the modification times the
+        # client's quick check compares against, and a restore need not keep them, so prepare re-hashes what is there
+        # (nothing is downloaded when it verifies) and writes the record again with the times the files have now.
+        # --keep-downloads keeps the runtime archive and a hard link to the model under downloads/, which the launcher
+        # integration job serves on 127.0.0.1 for --install-local-ai (cache key v2 = this layout).
+        run: node scripts/release/local-ai.mjs prepare --dir "$RUNNER_TEMP/local-ai" --platform linux-x64 --keep-downloads
       - uses: actions/cache/save@v4
         if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
         with:
           path: ${{ runner.temp }}/local-ai
-          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
+          key: local-ai-linux-x64-v2-${{ hashFiles('shared/local-ai/local-ai.json') }}
       - name: Hand the Local AI install to the game test (VANTA_LOCAL_AI_DIR)
         if: steps.local-ai-manifest.outputs.ready == 'true'
         run: |
@@ -735,7 +746,9 @@ jobs:
           node-version: '22'
       # Local AI for the launcher's --install-local-ai and the headless launch: the real llama-server archive and
       # model of the committed manifest, prepared once per manifest (cache key = hash of the manifest) and named by
-      # VANTA_LOCAL_AI_DIR. Skipped while the manifest is the unresolved template (before the resolve workflow ran).
+      # VANTA_LOCAL_AI_DIR. The launcher installs from a local mirror of these files (steps after --install below), so
+      # the job never downloads them a second time. Skipped while the manifest is the unresolved template (before the
+      # resolve workflow ran).
       - name: Local AI manifest (the cached install is prepared only from a resolved manifest)
         id: local-ai-manifest
         run: |
@@ -751,17 +764,22 @@ jobs:
         if: steps.local-ai-manifest.outputs.ready == 'true'
         with:
           path: ${{ runner.temp }}/local-ai
-          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
-      - name: Prepare the Local AI install (llama-server archive + model from the manifest; cache miss only)
-        if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
+          key: local-ai-linux-x64-v2-${{ hashFiles('shared/local-ai/local-ai.json') }}
+      - name: Prepare the Local AI install (downloads on a cache miss; on a hit it verifies the restored files and rewrites installed.json)
+        if: steps.local-ai-manifest.outputs.ready == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/release/local-ai.mjs prepare --dir "$RUNNER_TEMP/local-ai" --platform linux-x64
+        # Runs after the cache restore on purpose, on a hit as well: installed.json records the modification times the
+        # client's quick check compares against, and a restore need not keep them, so prepare re-hashes what is there
+        # (nothing is downloaded when it verifies) and writes the record again with the times the files have now.
+        # --keep-downloads keeps the runtime archive and a hard link to the model under downloads/, which the launcher
+        # integration job serves on 127.0.0.1 for --install-local-ai (cache key v2 = this layout).
+        run: node scripts/release/local-ai.mjs prepare --dir "$RUNNER_TEMP/local-ai" --platform linux-x64 --keep-downloads
       - uses: actions/cache/save@v4
         if: steps.local-ai-manifest.outputs.ready == 'true' && steps.local-ai-cache.outputs.cache-hit != 'true'
         with:
           path: ${{ runner.temp }}/local-ai
-          key: local-ai-linux-x64-${{ hashFiles('shared/local-ai/local-ai.json') }}
+          key: local-ai-linux-x64-v2-${{ hashFiles('shared/local-ai/local-ai.json') }}
       - name: Hand the Local AI install to the launcher steps (VANTA_LOCAL_AI_DIR)
         if: steps.local-ai-manifest.outputs.ready == 'true'
         run: |
@@ -775,6 +793,103 @@ jobs:
           echo "Client jar: $JAR"
           java -jar launcher/build/libs/vanta-launcher-*-all.jar --install --client-jar "$JAR" --data-dir "$RUNNER_TEMP/vanta" | tee "$RUNNER_TEMP/install.out"
           grep -F "Performance pack: sodium, lithium, ferrite-core, immediatelyfast, entityculling, iris from Modrinth" "$RUNNER_TEMP/install.out"
+      - name: Install the Local AI through the launcher from a local mirror of the prepared files (--install-local-ai)
+        if: steps.local-ai-manifest.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          # The archive and the model that `prepare --keep-downloads` kept are served on 127.0.0.1 (local-ai.mjs serve);
+          # `local-ai.mjs mirror` writes a copy of the committed manifest whose linux-x64 archive URL and model URL point
+          # at that server. The launcher reads it through VANTA_LOCAL_AI_MANIFEST and verifies every SHA-256 exactly as
+          # it would against github.com and huggingface.co; nothing else about the install differs.
+          MIRROR_PORT=18765
+          MANIFEST=shared/local-ai/local-ai.json
+          ARCHIVE=$(jq -r '.runtime.platforms["linux-x64"].file' "$MANIFEST")
+          MODEL=$(jq -r '.model.file' "$MANIFEST")
+          node scripts/release/local-ai.mjs serve --dir "$RUNNER_TEMP/local-ai/downloads" --port "$MIRROR_PORT" > "$RUNNER_TEMP/local-ai-serve.log" 2>&1 &
+          SERVE_PID=$!
+          trap 'kill "$SERVE_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 50); do
+            if curl -sfI "http://127.0.0.1:$MIRROR_PORT/$ARCHIVE" >/dev/null; then break; fi
+            if [ "$i" -eq 50 ]; then echo "::error::the Local AI mirror did not start"; cat "$RUNNER_TEMP/local-ai-serve.log"; exit 1; fi
+            sleep 0.2
+          done
+          curl -sfI "http://127.0.0.1:$MIRROR_PORT/$MODEL" | grep -i '^content-length:'
+          node scripts/release/local-ai.mjs mirror --dir "$RUNNER_TEMP/local-ai" --base "http://127.0.0.1:$MIRROR_PORT/" --out "$RUNNER_TEMP/local-ai-mirror.json" --platform linux-x64
+          jq '{resolvedAt, runtime: .runtime.platforms["linux-x64"].url, model: .model.url}' "$RUNNER_TEMP/local-ai-mirror.json"
+          VANTA_LOCAL_AI_MANIFEST="$RUNNER_TEMP/local-ai-mirror.json" java -jar launcher/build/libs/vanta-launcher-*-all.jar --install-local-ai --data-dir "$RUNNER_TEMP/vanta" | tee "$RUNNER_TEMP/local-ai-install.out"
+          grep -F "Installing the Local AI into $RUNNER_TEMP/vanta/local-ai" "$RUNNER_TEMP/local-ai-install.out"
+          grep -F "Downloaded Local AI runtime $ARCHIVE" "$RUNNER_TEMP/local-ai-install.out"
+          grep -F "Downloaded Local AI model $MODEL" "$RUNNER_TEMP/local-ai-install.out"
+          grep -F "Local AI installed: " "$RUNNER_TEMP/local-ai-install.out"
+          grep -F "Note: $RUNNER_TEMP/vanta/instances/vanta-1.21.11/config/vanta/local-ai.json" "$RUNNER_TEMP/local-ai-install.out"
+          # Both files really came from the mirror (the server logs every request).
+          echo "--- mirror requests"; cat "$RUNNER_TEMP/local-ai-serve.log"
+          grep -E "^GET /$ARCHIVE 200 " "$RUNNER_TEMP/local-ai-serve.log"
+          grep -E "^GET /$MODEL 200 " "$RUNNER_TEMP/local-ai-serve.log"
+      - name: Local AI status line, installed.json in the client's shape, the note, then --remove-local-ai
+        if: steps.local-ai-manifest.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          DATA="$RUNNER_TEMP/vanta"
+          MANIFEST=shared/local-ai/local-ai.json
+          # "Local AI: installed (llama.cpp b11429, Qwen3-1.7B Q8_0)" for the b11429 manifest; derived from the manifest so a
+          # new runtime tag does not break the job. The status runs against the embedded (real) manifest: an install from
+          # the mirror must match it by digest, so no "update available" suffix may appear.
+          EXPECTED="Local AI: installed ($(jq -r '.runtime.name + " " + .runtime.tag + ", " + .model.name + " " + .model.quantization' "$MANIFEST"))"
+          echo "expected: $EXPECTED"
+          java -jar launcher/build/libs/vanta-launcher-*-all.jar --local-ai-status --data-dir "$DATA" | tee "$RUNNER_TEMP/local-ai-status.out"
+          grep -Fx "$EXPECTED" "$RUNNER_TEMP/local-ai-status.out" || { echo "::error::--local-ai-status did not print exactly '$EXPECTED'"; exit 1; }
+          grep -Fx "Folder: $DATA/local-ai" "$RUNNER_TEMP/local-ai-status.out"
+          TAG=$(jq -r '.runtime.tag' "$MANIFEST")
+          SERVER_PATH=$(jq -r '.runtime.platforms["linux-x64"].serverPath' "$MANIFEST")
+          MODEL=$(jq -r '.model.file' "$MANIFEST")
+          grep -Fx "Server: $DATA/local-ai/runtime/$TAG/linux-x64/$SERVER_PATH" "$RUNNER_TEMP/local-ai-status.out"
+          grep -Fx "Model: $DATA/local-ai/models/$MODEL" "$RUNNER_TEMP/local-ai-status.out"
+          test -x "$DATA/local-ai/runtime/$TAG/linux-x64/$SERVER_PATH"
+          # installed.json parses as the client's shape (dev.vanta.core.ai.LocalAiInstalled): exactly the key set and
+          # nesting of shared/local-ai/fixtures/installed.example.json, with this manifest's values.
+          jq . "$DATA/local-ai/installed.json"
+          cat > "$RUNNER_TEMP/check-installed.mjs" <<'JS'
+          import { readFileSync } from 'node:fs';
+          const [actualPath, fixturePath, manifestPath] = process.argv.slice(2);
+          const read = (p) => JSON.parse(readFileSync(p, 'utf8'));
+          const actual = read(actualPath);
+          const fixture = read(fixturePath);
+          const manifest = read(manifestPath);
+          const keys = (v, prefix = '') => (v && typeof v === 'object' && !Array.isArray(v))
+            ? Object.entries(v).flatMap(([k, x]) => keys(x, prefix ? `${prefix}.${prefix === 'runtime.platforms' ? '<platform>' : k}` : k))
+            : [prefix];
+          const a = keys(actual).sort();
+          const f = keys(fixture).sort();
+          const problems = [];
+          if (JSON.stringify(a) !== JSON.stringify(f)) problems.push(`key set differs from the fixture:\n  installed.json: ${a.join(', ')}\n  fixture:        ${f.join(', ')}`);
+          if (actual.schemaVersion !== 1) problems.push(`schemaVersion ${actual.schemaVersion}`);
+          if (actual.platform !== 'linux-x64') problems.push(`platform ${actual.platform}`);
+          for (const field of ['installedAt', 'verifiedAt']) if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(actual[field] ?? '')) problems.push(`${field} ${JSON.stringify(actual[field])}`);
+          const entry = actual.runtime?.platforms?.['linux-x64'];
+          const expected = manifest.runtime.platforms['linux-x64'];
+          if (actual.runtime?.tag !== manifest.runtime.tag) problems.push(`runtime.tag ${actual.runtime?.tag}`);
+          if (Object.keys(actual.runtime?.platforms ?? {}).join() !== 'linux-x64') problems.push('runtime.platforms must hold only linux-x64');
+          if (entry?.sha256 !== expected.sha256 || entry?.size !== expected.size || entry?.serverPath !== expected.serverPath || entry?.file !== expected.file) problems.push('runtime.platforms.linux-x64 differs from the manifest (apart from the mirror URL)');
+          if (actual.model?.sha256 !== manifest.model.sha256 || actual.model?.size !== manifest.model.size || actual.model?.file !== manifest.model.file) problems.push('model differs from the manifest (apart from the mirror URL)');
+          if (actual.files?.modelSize !== manifest.model.size) problems.push(`files.modelSize ${actual.files?.modelSize}`);
+          if (!(actual.files?.serverSize > 0 && actual.files?.serverMtime > 0 && actual.files?.modelMtime > 0)) problems.push(`files ${JSON.stringify(actual.files)}`);
+          if (problems.length > 0) { console.error(`::error::installed.json is not in the client's shape: ${problems.join('; ')}`); process.exit(1); }
+          console.log(`installed.json: ${a.length} leaf keys, same set and nesting as ${fixturePath}; values match ${manifestPath}`);
+          JS
+          node "$RUNNER_TEMP/check-installed.mjs" "$DATA/local-ai/installed.json" shared/local-ai/fixtures/installed.example.json "$MANIFEST"
+          # The note in the game folder the launcher set up points at the launcher's Local AI folder.
+          NOTE="$DATA/instances/vanta-1.21.11/config/vanta/local-ai.json"
+          jq . "$NOTE"
+          test "$(realpath -m "$(jq -r .localAiDir "$NOTE")")" = "$(realpath -m "$DATA/local-ai")" || { echo "::error::the note does not point at $DATA/local-ai"; exit 1; }
+          # Remove: only local-ai/ goes; the instance, settings and the note stay.
+          java -jar launcher/build/libs/vanta-launcher-*-all.jar --remove-local-ai --data-dir "$DATA" | tee "$RUNNER_TEMP/local-ai-remove.out"
+          grep -F "Removed the Local AI from $DATA/local-ai (" "$RUNNER_TEMP/local-ai-remove.out"
+          test ! -e "$DATA/local-ai" || { echo "::error::$DATA/local-ai still exists after --remove-local-ai"; ls -la "$DATA/local-ai"; exit 1; }
+          test -f "$DATA/settings.json"
+          test -d "$DATA/instances/vanta-1.21.11/mods"
+          test -f "$NOTE"
+          java -jar launcher/build/libs/vanta-launcher-*-all.jar --local-ai-status --data-dir "$DATA" | grep -Fx "Local AI: not installed (install it with --install-local-ai)"
       - name: Performance pack from Modrinth (live) - jars in mods/, SHA-512 matches modrinth.json and Modrinth
         run: |
           set -euo pipefail
@@ -1054,4 +1169,8 @@ jobs:
             ${{ runner.temp }}/official-profile.out
             ${{ runner.temp }}/official-profile-store.out
             ${{ runner.temp }}/launch.out
+            ${{ runner.temp }}/local-ai-serve.log
+            ${{ runner.temp }}/local-ai-install.out
+            ${{ runner.temp }}/local-ai-status.out
+            ${{ runner.temp }}/local-ai-remove.out
           if-no-files-found: ignore
