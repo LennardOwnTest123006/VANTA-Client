@@ -75,7 +75,8 @@ hosts and nothing else, ever: Modrinth (Mods & Shaders) and, only when the playe
 - **Two install paths**: the launcher-managed Local AI in `<launcher data dir>/local-ai/`, announced by the note
   `config/vanta/local-ai.json` (`{"localAiDir": "<absolute path>"}`), which the client uses read-only (Nexus shows
   *Installed by the VANTA Launcher* and hides Install, Reinstall and Remove), and the client-managed install in
-  `config/vanta/local-ai/` (`VantaPaths.localAiDir()`, inside the only folder core writes to). Layout in both:
+  `config/vanta/local-ai/` (`VantaPaths.localAiDir()`, inside the only folder core writes to), which the client also
+  uses when the note points at a folder without a complete install (for example after *Not now* in the launcher). Layout in both:
   `installed.json`, `runtime/<tag>/<platform>/`, `models/<file>`, `downloads/`, `logs/llama-server.log`.
 - **First start**: once per client version, when the VANTA main menu is first shown in a session and no other popup
   is open, with Nexus enabled and the Local AI neither installed nor launcher-managed, a dialog *Vanta Nexus: Local AI
