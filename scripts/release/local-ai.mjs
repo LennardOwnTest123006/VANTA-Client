@@ -980,7 +980,7 @@ export function localAiNote(manifest) {
   lines.push(`  sha256:   ${model.sha256}`);
   lines.push(`  Context:  ${model.contextSize} tokens`);
   lines.push('');
-  lines.push(...wrapText(`Requirements: about ${requirements.diskMb} MB of free disk space for the runtime and the model and ${requirements.ramMb} MB of RAM while the assistant runs. The download hosts are github.com (runtime) and huggingface.co (model); nothing else is contacted for the Local AI.`));
+  lines.push(...wrapText(`Requirements: about ${requirements.diskMb} MB of free disk space for the runtime and the model and ${requirements.ramMb} MB of RAM while the assistant runs. The download hosts are github.com (runtime) and huggingface.co (model); each answers with a redirect to its own file host, which the download follows (GitHub's release asset host objects.githubusercontent.com, Hugging Face's CDN hosts). Beyond those two sites and their file hosts, nothing else is contacted for the Local AI.`));
   lines.push('');
   lines.push(...wrapText(`local-ai/local-ai.json in this archive is the exact list the client and the launcher use (resolved ${manifest.resolvedAt}); both refuse any file whose size or SHA-256 differs from it.`));
   lines.push('');

@@ -100,11 +100,13 @@ The launcher downloads from `piston-meta.mojang.com`, `piston-data.mojang.com`, 
 `libraries.minecraft.net`, `meta.fabricmc.net`, `maven.fabricmc.net`, `api.adoptium.net` (Java), the Microsoft and
 Xbox Live sign-in endpoints, `api.minecraftservices.com`, GitHub (release downloads), from launcher 1.1.0 on
 `api.modrinth.com` and `cdn.modrinth.com` (the Performance pack and the Mods page) and, from launcher 1.4.0 on and only
-when you agree to install the Local AI, `github.com` (the llama.cpp runtime archive) and `huggingface.co` (the model).
-After installation the game only needs the network for multiplayer and the usual Minecraft services. VANTA itself
-contacts no server of its own. The client contacts Modrinth while you use Mods & Shaders and, only when you install the
-Local AI from the game, the same two hosts for the same two downloads; nothing else, ever. The Local AI then works
-offline, and the assistant's prompts go to `127.0.0.1` only ([Privacy](privacy.md#the-local-ai)).
+when you agree to install the Local AI, `github.com` (the llama.cpp runtime archive) and `huggingface.co` (the model),
+each of which redirects the download to its own file host (GitHub's release asset host `objects.githubusercontent.com`,
+Hugging Face's CDN hosts), so a firewall has to allow those too. After installation the game only needs the network for
+multiplayer and the usual Minecraft services. VANTA itself contacts no server of its own. The client contacts Modrinth
+while you use Mods & Shaders and, only when you install the Local AI from the game, the same two sites and their file
+hosts for the same two downloads; nothing else, ever. The Local AI then works offline, and the assistant's prompts go
+to `127.0.0.1` only ([Privacy](privacy.md#the-local-ai)).
 
 ## Local AI
 

@@ -20,7 +20,7 @@ The website for VANTA 1.4.0: the Download page is split into the sections WINDOW
 
 ## Improved
 
-- Every statement about network use on the site now says the same thing: the client contacts Modrinth (Mods & Shaders) and, only when you install the Local AI, github.com and huggingface.co; nothing else, ever; the assistant's prompts go to 127.0.0.1 only; no cloud AI, no API key, no account, no telemetry (Features, About, home page, Download page, navigation descriptions)
+- Every statement about network use on the site now says the same thing: the client contacts Modrinth (Mods & Shaders) and, only when you install the Local AI, github.com and huggingface.co, which redirect the two downloads to their own file hosts (GitHub's release asset host objects.githubusercontent.com, Hugging Face's CDN hosts); nothing else, ever; the assistant's prompts go to 127.0.0.1 only; no cloud AI, no API key, no account, no telemetry (Features, About, home page, Download page, navigation descriptions)
 - The launcher card's footnote names the `.exe` only when the offered release lists one, and the file labels, verification text and install options mention the Local AI where the launcher 1.4.0 behaviour matters
 - The site's unit tests render the three sections and the Local AI note from fixture manifests and check the repository's Local AI manifest (hosts, licences, platform keys); the end-to-end tests check the split file lists against `shared/releases/` and the support topics count
 

@@ -976,7 +976,11 @@ describe('LOCAL-AI.txt', () => {
     assert.ok(note.includes(MODEL_URL));
     assert.ok(note.includes('https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/blob/main/LICENSE'));
     assert.match(note.replace(/\n\s*/g, ' '), /about 2200 MB of free disk space for the runtime and the model and 3072 MB of RAM/);
-    assert.match(note.replace(/\n\s*/g, ' '), /github\.com \(runtime\) and huggingface\.co \(model\); nothing else is contacted/);
+    const unwrapped = note.replace(/\n\s*/g, ' ');
+    // The two sites answer with redirects; the note names the file hosts the download follows instead of claiming
+    // that nothing but github.com and huggingface.co is ever contacted.
+    assert.match(unwrapped, /github\.com \(runtime\) and huggingface\.co \(model\); each answers with a redirect to its own file host, which the download follows \(GitHub's release asset host objects\.githubusercontent\.com, Hugging Face's CDN hosts\)\. Beyond those two sites and their file hosts, nothing else is contacted for the Local AI\./);
+    assert.doesNotMatch(unwrapped, /huggingface\.co \(model\); nothing else is contacted/, 'the old exclusivity claim is gone');
     assert.match(note.replace(/\n\s*/g, ' '), /talks to 127\.0\.0\.1 only; nothing you type is sent anywhere/);
     assert.match(note.replace(/\n\s*/g, ' '), /\(resolved 2026-10-08T12:00:00Z\)/);
     assert.doesNotMatch(note, /cloud|API key|account/i);

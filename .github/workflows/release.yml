@@ -128,6 +128,14 @@ jobs:
           node scripts/release/validate-json.mjs shared/schemas/release-manifest.schema.json "$MANIFEST"
           # The manifest must list exactly the files this workflow uploads, in order (no stale template entries).
           node scripts/release/release-assets.mjs check-manifest "$MANIFEST"
+          # Both products embed shared/local-ai/local-ai.json at build time and refuse the unresolved template (sizes 0,
+          # empty model sha256, serverPath "..."), so a release built from it would ship a client or launcher that
+          # reports the Local AI as not available while every published text says it is part of the release. `status`
+          # exits 1 while the manifest is the template or broken; this fails the release before anything is built.
+          node scripts/release/local-ai.mjs status || {
+            echo "::error::shared/local-ai/local-ai.json is not a resolved Local AI manifest. Run the Local AI resolve workflow (.github/workflows/local-ai-resolve.yml), commit its local-ai.json and release again."
+            exit 1
+          }
           # The release tag must name the commit that is built. "Run workflow" creates the tag at this commit; a tag
           # that already exists elsewhere would leave the release pointing at other source code.
           TAG="${PRODUCT}-v${VERSION}"

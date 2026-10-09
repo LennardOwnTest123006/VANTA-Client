@@ -34,7 +34,7 @@ const principles = [
   {
     icon: <Lock />,
     title: 'Your data stays yours',
-    text: 'Statistics live in a JSON file on your computer. The client contacts Modrinth while you use Mods & Shaders and, only when you install the optional Local AI of Vanta Nexus (1.4.0), github.com and huggingface.co for that one download; nothing else, ever. The assistant itself runs on your PC and its prompts go to 127.0.0.1 only. The website has no analytics, and account tokens are encrypted locally.',
+    text: "Statistics live in a JSON file on your computer. The client contacts Modrinth while you use Mods & Shaders and, only when you install the optional Local AI of Vanta Nexus (1.4.0), github.com and huggingface.co for that one download (each redirects it to its own file host: GitHub's objects.githubusercontent.com, Hugging Face's CDN hosts); nothing else, ever. The assistant itself runs on your PC and its prompts go to 127.0.0.1 only. The website has no analytics, and account tokens are encrypted locally.",
   },
   {
     icon: <Code />,

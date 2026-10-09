@@ -69,8 +69,9 @@ The built-in **Recording** profile turns *Remember servers* off.
 - No statistic, setting, crash report or identifier is sent to the VANTA project or anyone else. From client 1.4.0
   on the client contacts exactly these hosts and nothing else, ever: Modrinth while you use
   [Mods & Shaders](mods-and-shaders.md), and, only when you install the [Local AI](local-ai.md), `github.com` (the
-  llama.cpp runtime archive) and `huggingface.co` (the model). None of them receives statistics. The Vanta Nexus
-  assistant's prompts go to `127.0.0.1` only; there is no cloud AI, no API key, no account and no telemetry. The
-  game's own connections (Mojang services, the servers you join) are unchanged.
+  llama.cpp runtime archive) and `huggingface.co` (the model) together with the file hosts those two sites redirect
+  the downloads to (GitHub's release asset host `objects.githubusercontent.com`, Hugging Face's CDN hosts). None of
+  them receives statistics. The Vanta Nexus assistant's prompts go to `127.0.0.1` only; there is no cloud AI, no API
+  key, no account and no telemetry. The game's own connections (Mojang services, the servers you join) are unchanged.
 - No statistic is shown to other players or servers.
 - The launcher and the website follow the same rule — see [Privacy](privacy.md).

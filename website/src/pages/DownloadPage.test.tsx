@@ -370,6 +370,11 @@ describe('DownloadPage Local AI note', () => {
     expect(note).toHaveTextContent(
       /github\.com and huggingface\.co, are contacted for this download only/,
     );
+    // Both sites redirect the download to their own file hosts; the note names them instead of claiming that
+    // nothing but the two sites is ever contacted.
+    expect(note).toHaveTextContent(
+      /each answers with a redirect to its own file host, which the client follows \(GitHub's release asset host objects\.githubusercontent\.com, Hugging Face's CDN hosts\)\. Besides those, the client contacts Modrinth/,
+    );
     expect(note).toHaveTextContent(/Modrinth while you use Mods & Shaders, and nothing else, ever/);
     expect(note).toHaveTextContent(/127\.0\.0\.1/);
     expect(note).toHaveTextContent(/no cloud AI, no API key, no account,\s*no telemetry/);

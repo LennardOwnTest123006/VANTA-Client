@@ -75,6 +75,28 @@ describe('release.yml portable marker', () => {
   });
 });
 
+describe('release.yml prepare job', () => {
+  const prepare = job('prepare');
+
+  test('an unresolved Local AI manifest fails the release before anything is built', () => {
+    // Both products embed shared/local-ai/local-ai.json at build time and refuse the template, so the guard runs in
+    // the prepare job, right after the release manifest checks and before the outputs every build job depends on.
+    const checkManifest = indexOfOrFail(prepare, 'node scripts/release/release-assets.mjs check-manifest "$MANIFEST"');
+    const status = indexOfOrFail(prepare, 'node scripts/release/local-ai.mjs status || {');
+    const outputs = indexOfOrFail(prepare, '>> "$GITHUB_OUTPUT"');
+    assert.ok(checkManifest < status && status < outputs, 'check-manifest, then the Local AI status guard, then the outputs');
+    const guard = prepare.slice(status, prepare.indexOf('\n          }\n', status));
+    assert.match(guard, /echo "::error::shared\/local-ai\/local-ai\.json is not a resolved Local AI manifest\./, 'names the file');
+    assert.match(guard, /local-ai-resolve\.yml/, 'names the workflow that resolves it');
+    assert.match(guard, /\n {12}exit 1$/, 'fails the step');
+    assert.doesNotMatch(prepare, /local-ai\.mjs status \|\| true/, 'the release never swallows an unresolved manifest the way ci.yml may');
+    assert.equal(WORKFLOW.split('local-ai.mjs status').length - 1, 1, 'the guard runs once, in prepare');
+    for (const id of ['client', 'launcher-windows', 'launcher-linux', 'launcher-macos', 'publish']) {
+      assert.match(job(id), /^ {4}needs: (prepare|\[prepare, )/m, `${id} runs only after prepare`);
+    }
+  });
+});
+
 describe('bundle.yml full release zip', () => {
   const prepare = job('prepare', BUNDLE);
   const publish = job('publish', BUNDLE);

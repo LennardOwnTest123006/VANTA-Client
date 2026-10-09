@@ -8,6 +8,7 @@ import {
   localAiDownloadHosts,
   localAiModelLabel,
   localAiPlatformLabel,
+  localAiRedirectTargets,
   localAiRuntimeLabel,
   localAiRuntimeSizeRange,
   parseLocalAiManifest,
@@ -121,6 +122,20 @@ describe('parseLocalAiManifest', () => {
     expect(range?.largest.key).toBe('windows-x64');
     expect(localAiDownloadBytes(manifest, 'linux-x64')).toBe(1_002_000_000);
     expect(localAiDownloadBytes(manifest, 'linux-arm64')).toBeUndefined();
+  });
+
+  it('names the file hosts github.com and huggingface.co redirect the downloads to, and nothing for an unknown host', () => {
+    const manifest = parseLocalAiManifest(manifestJson());
+    expect(localAiRedirectTargets(manifest)).toEqual([
+      "GitHub's release asset host objects.githubusercontent.com",
+      "Hugging Face's CDN hosts",
+    ]);
+    // Another host would get no invented CDN name; the GitHub phrase stays for the archives.
+    const otherModelHost = manifestJson();
+    otherModelHost.model.url = 'https://models.example.invalid/Qwen3-1.7B-Q8_0.gguf';
+    expect(localAiRedirectTargets(parseLocalAiManifest(otherModelHost))).toEqual([
+      "GitHub's release asset host objects.githubusercontent.com",
+    ]);
   });
 
   it('labels every platform key', () => {

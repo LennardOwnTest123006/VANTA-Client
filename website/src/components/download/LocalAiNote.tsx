@@ -8,6 +8,7 @@ import {
   localAiDownloadHosts,
   localAiModelLabel,
   localAiPlatformLabel,
+  localAiRedirectTargets,
   localAiRuntimeLabel,
   localAiRuntimeSizeRange,
 } from '../../lib/localAi';
@@ -38,6 +39,7 @@ export function LocalAiNote({ manifest }: LocalAiNoteProps) {
   if (!manifest) return null;
   const resolved = isLocalAiResolved(manifest);
   const hosts = localAiDownloadHosts(manifest);
+  const redirects = localAiRedirectTargets(manifest);
   const range = localAiRuntimeSizeRange(manifest);
   const modelSize = formatBytes(manifest.model.size);
   const manifestUrl = githubLinks
@@ -164,8 +166,12 @@ export function LocalAiNote({ manifest }: LocalAiNoteProps) {
                   After the download the assistant works offline. The client starts{' '}
                   {manifest.runtime.component} on 127.0.0.1 and your questions go there only: no
                   cloud AI, no API key, no account, no telemetry. The hosts above,{' '}
-                  {hosts.join(' and ')}, are contacted for this download only; besides them the
-                  client contacts Modrinth while you use Mods &amp; Shaders, and nothing else, ever.
+                  {hosts.join(' and ')}, are contacted for this download only
+                  {redirects.length > 0
+                    ? `; each answers with a redirect to its own file host, which the client follows (${redirects.join(', ')})`
+                    : ''}
+                  . Besides those, the client contacts Modrinth while you use Mods &amp; Shaders,
+                  and nothing else, ever.
                 </span>
               </li>
             </ul>
