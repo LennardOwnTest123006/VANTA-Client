@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "product": "launcher",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "minecraftVersion": "1.21.11",
   "fabricVersion": "0.19.5",
   "fabricApiVersion": "0.141.6+1.21.11",
@@ -10,41 +10,41 @@
   "channel": "stable",
   "files": [
     {
-      "name": "VANTA-Launcher-1.4.0.msi",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/VANTA-Launcher-1.4.0.msi",
+      "name": "VANTA-Launcher-1.4.1.msi",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/VANTA-Launcher-1.4.1.msi",
       "size": 67175449,
-      "sha256": "134ae959143a9debae68a55e682f08f6ae36f2dc9fc422934318fa472d857d0f"
+      "sha256": "9c44ad39c5215ae1829f132f9ec50186d7cea7af2a8d3257e04512cf7c94a0d0"
     },
     {
-      "name": "VANTA-Launcher-1.4.0-windows-portable.zip",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/VANTA-Launcher-1.4.0-windows-portable.zip",
-      "size": 65366632,
-      "sha256": "01279f1fc1f6afc21e6d3f98993ee8917cf28ad6c1b9880791311fe9521ca619"
+      "name": "VANTA-Launcher-1.4.1-windows-portable.zip",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/VANTA-Launcher-1.4.1-windows-portable.zip",
+      "size": 65366972,
+      "sha256": "93e8ee6ac339295592fa18a44a38ec8cbdea519648d2491615cd4a3a8c2aa204"
     },
     {
-      "name": "vanta-launcher-1.4.0-windows-all.jar",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/vanta-launcher-1.4.0-windows-all.jar",
-      "size": 14549972,
-      "sha256": "c723242ddf3431157a7452b1f6d248d7488f865ffafcbe1975834da03ef6512f"
+      "name": "vanta-launcher-1.4.1-windows-all.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/vanta-launcher-1.4.1-windows-all.jar",
+      "size": 14549991,
+      "sha256": "61d5478a07fc9865d1b6a858f056bc718d9ef7132725430b844504f3a44e87d7"
     },
     {
-      "name": "VANTA-Launcher-1.4.0-linux-x64.tar.gz",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/VANTA-Launcher-1.4.0-linux-x64.tar.gz",
-      "size": 67178808,
-      "sha256": "43fb553d994ec7b48fa7dcfd6b6e9106d1883064198b46269eccc2501375db24"
+      "name": "VANTA-Launcher-1.4.1-linux-x64.tar.gz",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/VANTA-Launcher-1.4.1-linux-x64.tar.gz",
+      "size": 67178275,
+      "sha256": "738741974d79eed89b719dc0eb3d0dac86f73ec4040a592b383e5f63f6f25172"
     },
     {
-      "name": "vanta-launcher-1.4.0-linux-all.jar",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/vanta-launcher-1.4.0-linux-all.jar",
-      "size": 13323090,
-      "sha256": "09f5830ba0afdaf3ca6aeadc397e1e534d84c7f7e887530ab8b7631a304f87ea"
+      "name": "vanta-launcher-1.4.1-linux-all.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/vanta-launcher-1.4.1-linux-all.jar",
+      "size": 13323109,
+      "sha256": "c7af52b3b3f4b855f5989cbdbda5a239283f83987824cce0ebc9c239fc28dd95"
     },
     {
-      "name": "vanta-launcher-1.4.0-macos-aarch64-all.jar",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/vanta-launcher-1.4.0-macos-aarch64-all.jar",
-      "size": 13409915,
-      "sha256": "8f8a8d9781d3a201697eed74b4ae6d28aa6c15abf8ee74800fd0ef88cdfbbff3"
+      "name": "vanta-launcher-1.4.1-macos-aarch64-all.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/vanta-launcher-1.4.1-macos-aarch64-all.jar",
+      "size": 13409934,
+      "sha256": "4a03d462f62e4fc9adbf154c82ef488f3cc376155e397d67de087c2265235e1b"
     }
   ],
-  "changelog": "website/content/changelog/launcher-1.4.0.md"
+  "changelog": "website/content/changelog/launcher-1.4.1.md"
 }
