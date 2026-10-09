@@ -330,11 +330,19 @@ public final class Installer {
     /**
      * The Local AI step: a complete, current install is only checked; otherwise runtime and model are downloaded, verified
      * and extracted. Problems (no manifest in this build, unsupported platform, network, integrity, disk space) are logged
-     * and never fail the install; cancellation and interruption propagate.
+     * and never fail the install; cancellation and interruption propagate. While the shared service is busy (the
+     * first-start offer's install, Settings > Install or Verify files is running) the step is skipped with a log line
+     * instead of waiting behind it, so PLAY stays responsive; that run finishes on its own and writes the same files.
      */
     private void installLocalAi(final LocalAiService service, final Progress progress, final InstallListener l, final CancellationToken t)
         throws InterruptedException {
         try {
+            if (service.isBusy()) {
+                progress.advance(0, "Local AI: another Local AI task is already running");
+                l.onLog("Local AI skipped: a Local AI install, verify or remove is already running; it finishes on its own");
+                LOG.log(Level.INFO, "Local AI step skipped: the Local AI service is busy");
+                return;
+            }
             final LocalAiReport before = service.status();
             if (before.isInstalled() && !before.outdated()) {
                 progress.advance(0, "Local AI already installed: " + before.describeVersions());

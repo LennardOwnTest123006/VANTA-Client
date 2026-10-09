@@ -30,6 +30,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -355,6 +362,57 @@ class LocalAiServiceTest {
         assertThrows(java.util.concurrent.CancellationException.class, () -> service.install(cancelAfterRuntime, token));
         assertFalse(Files.exists(service.installedFile()));
         assertEquals(0, ai.server().hits(ai.modelPath()), "the model download never started");
+    }
+
+    /**
+     * The first-start offer and PLAY share one service: a second install() that starts while the first one downloads
+     * waits for it and then only confirms, instead of downloading the same files into the same folder at the same
+     * time (and pruning the other run's temp files). isBusy() is true for the whole of the running install.
+     */
+    @Test
+    void twoConcurrentInstallsAreSerialisedIntoOneCompleteInstall() throws Exception {
+        final LocalAiService service = service(LINUX);
+        assertFalse(service.isBusy());
+        final CountDownLatch firstDownloadsTheModel = new CountDownLatch(1);
+        final List<Boolean> busyWhileRunning = new CopyOnWriteArrayList<>();
+        final InstallListener first = new InstallListener() {
+            @Override
+            public void onLog(final String message) {
+                busyWhileRunning.add(service.isBusy());
+                if (message.startsWith(LocalAiService.STEP_MODEL)) {
+                    firstDownloadsTheModel.countDown();
+                }
+            }
+        };
+        final ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            final Future<LocalAiReport> a = pool.submit(() -> service.install(first, new CancellationToken()));
+            assertTrue(firstDownloadsTheModel.await(30, TimeUnit.SECONDS), "the first install reached the model download");
+            assertTrue(service.isBusy(), "busy while the first install runs");
+            final Recorder second = new Recorder();
+            final Future<LocalAiReport> b = pool.submit(() -> service.install(second, new CancellationToken()));
+
+            final LocalAiReport ra = a.get(60, TimeUnit.SECONDS);
+            final LocalAiReport rb = b.get(60, TimeUnit.SECONDS);
+
+            assertEquals(LocalAiState.INSTALLED, ra.state(), ra.problems().toString());
+            assertEquals(LocalAiState.INSTALLED, rb.state(), rb.problems().toString());
+            assertFalse(busyWhileRunning.isEmpty());
+            assertTrue(busyWhileRunning.stream().allMatch(Boolean::booleanValue), "isBusy() is true for every step of a running install");
+            assertEquals(1, ai.server().hits(ai.archivePath("linux-x64")), "the runtime is downloaded once");
+            assertEquals(1, ai.server().hits(ai.modelPath()), "the model is downloaded once; the second install waited and only verified");
+            assertTrue(String.join("\n", second.logs()).contains("Local AI already installed"), second.logs().toString());
+            assertArrayEquals(ai.model(), Files.readAllBytes(service.modelsDir().resolve(FakeLocalAi.MODEL_FILE)));
+            try (Stream<Path> walk = Files.walk(service.dir())) {
+                final List<String> leftovers = walk.map(p -> p.getFileName().toString())
+                    .filter(n -> n.endsWith(".tmp") || n.endsWith(".extracting")).toList();
+                assertEquals(List.of(), leftovers, "no temp file or staging folder is left behind");
+            }
+            assertEquals(LocalAiState.INSTALLED, service.verify().state(), "every file matches after both runs");
+            assertFalse(service.isBusy());
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test

@@ -1,6 +1,7 @@
 package dev.vanta.launcher.core.install;
 
 import dev.vanta.launcher.core.ai.LocalAiNote;
+import dev.vanta.launcher.core.ai.LocalAiReport;
 import dev.vanta.launcher.core.ai.LocalAiService;
 import dev.vanta.launcher.core.ai.LocalAiState;
 import dev.vanta.launcher.core.model.InstanceInfo;
@@ -23,6 +24,11 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -119,6 +125,67 @@ class InstallerLocalAiTest {
         Files.delete(LocalAiNote.file(paths.instanceDir()));
         installer.install(request.withLocalAi(false), new Recorder(), new CancellationToken());
         assertEquals(Optional.of(paths.localAiDir()), LocalAiNote.read(paths.instanceDir()), "every install writes the note");
+    }
+
+    /**
+     * PLAY pressed while the first-start offer's install still downloads: the pipeline shares the service with it, finds
+     * it busy and skips its Local AI step with a log line instead of a second install into the same folder (or a wait
+     * behind the download); the offer's install finishes on its own.
+     */
+    @Test
+    void theStepIsSkippedWhileAnotherLocalAiTaskRuns() throws Exception {
+        final LauncherPaths paths = new LauncherPaths(tmp.resolve("data"));
+        final FakeWorld.Wired wired = world.wire(paths, LINUX, Optional.empty(), CLOCK);
+        final LocalAiService localAi = new LocalAiService(wired.downloader(), paths, LINUX, ai::manifest, CLOCK);
+        final Installer installer = new Installer(paths, LINUX, wired.downloader(), wired.mojang(), wired.fabric(), wired.fabricApi(), wired.vanta(),
+            Optional.empty(), CLOCK, Optional.of(wired.pack()), Optional.of(localAi));
+        // The offer's install: its listener holds the first step until the test lets it go, so the service stays busy.
+        final CountDownLatch offerStarted = new CountDownLatch(1);
+        final CountDownLatch letTheOfferFinish = new CountDownLatch(1);
+        final InstallListener holding = new InstallListener() {
+            @Override
+            public void onLog(final String message) {
+                offerStarted.countDown();
+                try {
+                    letTheOfferFinish.await(60, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        };
+        final ExecutorService pool = Executors.newSingleThreadExecutor();
+        try {
+            final Future<LocalAiReport> offer = pool.submit(() -> localAi.install(holding, new CancellationToken()));
+            assertTrue(offerStarted.await(30, TimeUnit.SECONDS), "the offer's install started");
+            assertTrue(localAi.isBusy());
+
+            final Recorder recorder = new Recorder();
+            final InstallRequest request = new InstallRequest("1.21.11", "0.19.5", dev.vanta.launcher.LauncherVersion.FABRIC_API, null, true, false, false)
+                .withLocalAi(true);
+            final InstanceInfo info = installer.install(request, recorder, new CancellationToken());
+
+            assertTrue(info.hasVantaClient(), "Minecraft, Fabric and the client are installed");
+            assertTrue(localAi.isBusy(), "the offer's install is still running; PLAY did not wait for it");
+            final String logs = String.join("\n", recorder.logs());
+            assertTrue(logs.contains("Local AI skipped: a Local AI install, verify or remove is already running"), logs);
+            assertFalse(logs.contains("Downloading Local AI model"), "the pipeline started no install of its own:\n" + logs);
+            assertFalse(Files.exists(paths.localAiDir().resolve(LocalAiService.INSTALLED_FILE)), "nothing was installed behind the running one");
+            assertEquals(Optional.of(paths.localAiDir()), LocalAiNote.read(paths.instanceDir()), "the note is written anyway");
+
+            letTheOfferFinish.countDown();
+            final LocalAiReport finished = offer.get(60, TimeUnit.SECONDS);
+            assertEquals(LocalAiState.INSTALLED, finished.state(), finished.problems().toString());
+            assertFalse(localAi.isBusy());
+            assertEquals(1, world.server().hits(ai.modelPath()), "the model was downloaded by the offer's install only");
+
+            // With the service free again, the step confirms the install the offer made.
+            final Recorder again = new Recorder();
+            installer.install(request, again, new CancellationToken());
+            assertTrue(String.join("\n", again.logs()).contains("Local AI already installed"), again.logs().toString());
+        } finally {
+            letTheOfferFinish.countDown();
+            pool.shutdownNow();
+        }
     }
 
     @Test

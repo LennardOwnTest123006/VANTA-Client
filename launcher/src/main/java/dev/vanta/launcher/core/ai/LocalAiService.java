@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -56,6 +57,12 @@ import java.util.stream.Stream;
  * fails the install. Archives are extracted with {@link ArchiveExtractor} (path-traversal safe) into a staging folder
  * that is moved into place only when the server executable is really inside. Nothing downloaded is ever executed by the
  * launcher: the VANTA Client starts the server, from this folder, read-only. "Remove" deletes only this folder.</p>
+ *
+ * <p>One service instance is shared by the first-start offer, the Settings page, the CLI and the {@code Installer}
+ * pipeline that PLAY runs. {@link #install}, {@link #verify} and {@link #remove} therefore run one at a time: a lock
+ * serialises them, so a second caller waits and then finds the finished install instead of downloading into the same
+ * folder at the same time. {@link #isBusy()} tells callers that would rather skip than wait (the pipeline's Local AI
+ * step). The quick {@link #status()} check never waits.</p>
  */
 public final class LocalAiService {
 
@@ -107,6 +114,8 @@ public final class LocalAiService {
     private final ManifestSource source;
     private final Clock clock;
     private final String platformKey;
+    /** Held for the whole of install, verify and remove: they change the same files. */
+    private final ReentrantLock lock = new ReentrantLock();
     private volatile LocalAiManifest cached;
 
     /**
@@ -218,15 +227,28 @@ public final class LocalAiService {
     }
 
     /**
+     * @return whether an {@link #install}, {@link #verify} or {@link #remove} is running right now (on any thread)
+     */
+    public boolean isBusy() {
+        return lock.isLocked();
+    }
+
+    /**
      * Full check: the model is hashed again against the manifest digest recorded in {@code installed.json}; the server
      * executable is checked by presence and size (the manifest names the archive's digest, not the extracted file's).
-     * When everything matches, {@code verifiedAt} and the recorded modification times are updated.
+     * When everything matches, {@code verifiedAt} and the recorded modification times are updated. Waits for a running
+     * install, verify or remove to finish first.
      *
      * @return report
      * @throws IOException when the folder cannot be read
      */
     public LocalAiReport verify() throws IOException {
-        return inspect(true);
+        lock.lock();
+        try {
+            return inspect(true);
+        } finally {
+            lock.unlock();
+        }
     }
 
     private LocalAiReport inspect(final boolean fullHash) throws IOException {
@@ -360,7 +382,9 @@ public final class LocalAiService {
 
     /**
      * Downloads, verifies and extracts whatever is missing, writes {@code installed.json} and the note into the VANTA game
-     * folder. A complete and current install is only checked, nothing is downloaded again.
+     * folder. A complete and current install is only checked, nothing is downloaded again. Only one install, verify or
+     * remove runs at a time: a second caller waits for the running one and then finds its result in place (the first-start
+     * offer and PLAY share this service and would otherwise download the same files into the same folder twice).
      *
      * @param listener progress (one step {@link InstallStep#LOCAL_AI}; {@code done}/{@code total} are bytes)
      * @param token    cancellation
@@ -369,9 +393,18 @@ public final class LocalAiService {
      * @throws dev.vanta.launcher.core.install.InsufficientDiskSpaceException when the disk is too full
      * @throws dev.vanta.launcher.core.net.IntegrityException when a download does not match the manifest
      * @throws IOException          on any other failure
-     * @throws InterruptedException when interrupted
+     * @throws InterruptedException when interrupted (also while waiting for another install, verify or remove)
      */
     public LocalAiReport install(final InstallListener listener, final CancellationToken token) throws IOException, InterruptedException {
+        lock.lockInterruptibly();
+        try {
+            return doInstall(listener, token);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private LocalAiReport doInstall(final InstallListener listener, final CancellationToken token) throws IOException, InterruptedException {
         final InstallListener l = listener == null ? InstallListener.NONE : listener;
         final CancellationToken t = token == null ? CancellationToken.NONE : token;
         final Progress progress = new Progress(l);
@@ -544,24 +577,30 @@ public final class LocalAiService {
 
     /**
      * Deletes the Local AI folder and nothing else. The empty folder the launcher creates on start counts as nothing.
+     * Waits for a running install, verify or remove to finish first.
      *
      * @return whether any file existed
      * @throws IOException when a file cannot be deleted
      */
     public boolean remove() throws IOException {
-        if (!Files.exists(dir())) {
-            return false;
+        lock.lock();
+        try {
+            if (!Files.exists(dir())) {
+                return false;
+            }
+            final boolean hadFiles;
+            try (Stream<Path> walk = Files.walk(dir())) {
+                hadFiles = walk.anyMatch(Files::isRegularFile);
+            }
+            if (!hadFiles) {
+                return false;
+            }
+            deleteRecursively(dir());
+            LOG.log(Level.INFO, "Removed the Local AI folder {0}", dir());
+            return true;
+        } finally {
+            lock.unlock();
         }
-        final boolean hadFiles;
-        try (Stream<Path> walk = Files.walk(dir())) {
-            hadFiles = walk.anyMatch(Files::isRegularFile);
-        }
-        if (!hadFiles) {
-            return false;
-        }
-        deleteRecursively(dir());
-        LOG.log(Level.INFO, "Removed the Local AI folder {0}", dir());
-        return true;
     }
 
     /**
