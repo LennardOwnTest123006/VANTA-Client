@@ -33,6 +33,11 @@ public record HudWidgetState(String id, HudWidgetType type, boolean enabled, Hud
     public static final double MAX_SCALE = 2.0;
     /** Smallest width/height a widget may be resized to. */
     public static final int MIN_SIZE = 8;
+    /**
+     * Smallest width of the clock while it shows seconds: room for the widest AM/PM time, {@code 12:59:59 PM}, so a
+     * layout sized for the former 24-hour clock ({@code 56}) never cuts the time off.
+     */
+    public static final int CLOCK_SECONDS_MIN_WIDTH = 68;
     /** Default panel colour: {@code bg.base} at 70 %. */
     public static final int DEFAULT_BACKGROUND = 0xB30B0B10;
     /** Default text colour: {@code text.primary}. */
@@ -54,6 +59,9 @@ public record HudWidgetState(String id, HudWidgetType type, boolean enabled, Hud
             validated.put(prop.key(), prop.normalize(raw).orElse(prop.defaultValue()));
         }
         props = Map.copyOf(validated);
+        if (type == HudWidgetType.CLOCK && "true".equals(props.get("showSeconds"))) {
+            width = Math.max(width, CLOCK_SECONDS_MIN_WIDTH);
+        }
         if (type.alwaysCentered()) {
             anchor = HudAnchor.CENTER;
             offsetX = 0;

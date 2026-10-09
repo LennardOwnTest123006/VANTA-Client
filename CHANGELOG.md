@@ -16,7 +16,8 @@ No changes yet.
 - **The HUD clock shows AM/PM only**: the system time reads like `2:32 PM` (with seconds `2:32:07 PM`) and the
   in-game time like `6:00 AM` (`12:00 PM` at noon, `12:00 AM` at midnight). The clock's *Time format* offers *System
   time (AM/PM)* (default) and *In-game time (AM/PM)*; the 24-hour option was removed. A layout or profile saved with
-  the former 24-hour clock shows the AM/PM system time without any action.
+  the former 24-hour clock shows the AM/PM system time without any action; with seconds shown the clock is at least
+  68 px wide, so `12:59:59 PM` is never cut off.
 - **Statistics** shows session start times in AM/PM (for example `9 Oct 2026, 2:05 PM`). Durations keep `h:mm:ss`.
 
 ## [Launcher 1.4.1] - 2026-10-09

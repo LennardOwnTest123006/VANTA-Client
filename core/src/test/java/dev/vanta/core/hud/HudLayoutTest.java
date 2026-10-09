@@ -112,6 +112,10 @@ class HudLayoutTest {
         assertEquals("system_12h", clock.withProp("format", "nonsense").prop("format"));
         // A layout saved before 1.4.1 with the 24-hour clock reads as the AM/PM system clock.
         assertEquals("system_12h", clock.withProp("format", "system_24h").prop("format"));
+        // With seconds the clock is at least wide enough for "12:59:59 PM"; without them its size is kept.
+        assertEquals(HudWidgetState.CLOCK_SECONDS_MIN_WIDTH, clock.withSize(56, 14).withProp("showSeconds", "true").width());
+        assertEquals(56, clock.withSize(56, 14).withProp("showSeconds", "false").width());
+        assertEquals(90, clock.withSize(90, 14).withProp("showSeconds", "true").width());
         assertEquals("true", clock.withProp("showSeconds", "true").prop("showSeconds"));
         assertTrue(clock.withProp("showSeconds", "true").propBool("showSeconds"));
         HudWidgetState coords = HudWidgetState.defaults("coords", HudWidgetType.COORDINATES);
