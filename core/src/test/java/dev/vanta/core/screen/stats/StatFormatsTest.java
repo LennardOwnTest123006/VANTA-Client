@@ -40,8 +40,8 @@ class StatFormatsTest {
     @Test
     void datesAndRelativeTimes() {
         assertEquals("4 Oct 2026", StatFormats.date(T0, ZoneOffset.UTC));
-        assertEquals("4 Oct 2026, 12:00", StatFormats.dateTime(T0, ZoneOffset.UTC));
-        assertEquals("12:00", StatFormats.time(T0, ZoneOffset.UTC));
+        assertEquals("4 Oct 2026, 12:00 PM", StatFormats.dateTime(T0, ZoneOffset.UTC));
+        assertEquals("12:00 PM", StatFormats.time(T0, ZoneOffset.UTC));
         assertEquals("just now", StatFormats.relative(T0 - 30_000, T0, ZoneOffset.UTC));
         assertEquals("5 min ago", StatFormats.relative(T0 - 5 * 60_000L, T0, ZoneOffset.UTC));
         assertEquals("3 h ago", StatFormats.relative(T0 - 3 * 3_600_000L, T0, ZoneOffset.UTC));

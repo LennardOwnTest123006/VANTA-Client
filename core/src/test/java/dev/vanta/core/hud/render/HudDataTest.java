@@ -27,10 +27,9 @@ class HudDataTest {
         assertEquals("-220.3", data.coordinate(2, 1));
         assertEquals("128.50", data.coordinate(0, 2));
         assertSame(data.coordinate(0, 0), data.coordinate(0, 0), "memoised per tick");
-        assertEquals("14:32", data.clock24(false));
-        assertEquals("14:32:07", data.clock24(true));
         assertEquals("2:32 PM", data.clock12(false));
-        assertEquals("12:00", data.gameClock());
+        assertEquals("2:32:07 PM", data.clock12(true));
+        assertEquals("12:00 PM", data.gameClock());
         assertEquals("Cherry Grove", data.biomeName());
         assertEquals("minecraft", data.biomeNamespace());
         assertEquals("Overworld", data.dimensionName());
@@ -69,11 +68,13 @@ class HudDataTest {
 
     @Test
     void staticFormattersCoverEdgeCases() {
-        assertEquals("06:00", HudData.formatGameTime(0));
-        assertEquals("12:00", HudData.formatGameTime(6_000));
-        assertEquals("18:00", HudData.formatGameTime(12_000));
-        assertEquals("00:00", HudData.formatGameTime(18_000));
-        assertEquals("06:00", HudData.formatGameTime(24_000));
+        assertEquals("6:00 AM", HudData.formatGameTime(0));
+        assertEquals("12:00 PM", HudData.formatGameTime(6_000));
+        assertEquals("6:00 PM", HudData.formatGameTime(12_000));
+        assertEquals("12:00 AM", HudData.formatGameTime(18_000));
+        assertEquals("6:00 AM", HudData.formatGameTime(24_000));
+        assertEquals("1:30 PM", HudData.formatGameTime(7_500));
+        assertEquals("11:59 PM", HudData.formatGameTime(17_999));
         assertEquals("Dark Forest", HudData.prettyName("minecraft:dark_forest"));
         assertEquals("Cherry Grove", HudData.prettyName("cherry_grove"));
         assertEquals("", HudData.prettyName(""));

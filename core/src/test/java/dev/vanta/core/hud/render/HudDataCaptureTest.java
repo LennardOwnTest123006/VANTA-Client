@@ -86,7 +86,7 @@ class HudDataCaptureTest {
         assertEquals(complete.cpuLoad(), all.cpuLoad());
         assertEquals(complete.entityCount(), all.entityCount());
         assertEquals(complete.minecraftVersion(), all.minecraftVersion());
-        assertEquals(complete.clock24(true), all.clock24(true));
+        assertEquals(complete.clock12(true), all.clock12(true));
         assertEquals(complete.gameClock(), all.gameClock());
     }
 

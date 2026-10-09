@@ -107,9 +107,11 @@ class HudLayoutTest {
     @Test
     void widgetStateValidatesProps() {
         HudWidgetState clock = HudWidgetState.defaults("clock", HudWidgetType.CLOCK);
-        assertEquals("system_24h", clock.prop("format"));
+        assertEquals("system_12h", clock.prop("format"));
         assertEquals("game_time", clock.withProp("format", "GAME_TIME").prop("format"));
-        assertEquals("system_24h", clock.withProp("format", "nonsense").prop("format"));
+        assertEquals("system_12h", clock.withProp("format", "nonsense").prop("format"));
+        // A layout saved before 1.4.1 with the 24-hour clock reads as the AM/PM system clock.
+        assertEquals("system_12h", clock.withProp("format", "system_24h").prop("format"));
         assertEquals("true", clock.withProp("showSeconds", "true").prop("showSeconds"));
         assertTrue(clock.withProp("showSeconds", "true").propBool("showSeconds"));
         HudWidgetState coords = HudWidgetState.defaults("coords", HudWidgetType.COORDINATES);

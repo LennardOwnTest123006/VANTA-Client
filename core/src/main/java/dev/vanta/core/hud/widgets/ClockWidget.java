@@ -6,13 +6,12 @@ import dev.vanta.core.hud.render.HudData;
 import dev.vanta.core.i18n.Lang;
 
 /**
- * System time (24 h or 12 h, optionally with seconds) or the in-game time of day, selected by the {@code format}
- * property.
+ * System time or the in-game time of day, both in 12-hour time with AM/PM (optionally with seconds for the system
+ * time), selected by the {@code format} property. A layout saved with the former 24-hour format is read as the system
+ * time in AM/PM, because the property no longer offers that value and falls back to its default.
  */
 public final class ClockWidget extends AbstractLineWidget {
 
-    /** {@code format} value for the 24-hour system clock. */
-    public static final String SYSTEM_24H = "system_24h";
     /** {@code format} value for the 12-hour system clock. */
     public static final String SYSTEM_12H = "system_12h";
     /** {@code format} value for the in-game time. */
@@ -33,9 +32,8 @@ public final class ClockWidget extends AbstractLineWidget {
         String format = state.prop("format");
         boolean seconds = state.propBool("showSeconds");
         return switch (format) {
-            case SYSTEM_12H -> data.clock12(seconds);
             case GAME_TIME -> data.gameClock();
-            default -> data.clock24(seconds);
+            default -> data.clock12(seconds);
         };
     }
 }

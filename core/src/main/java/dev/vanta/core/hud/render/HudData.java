@@ -79,8 +79,6 @@ public final class HudData {
 
     // Memoised per-tick strings (lazily built, never observable from outside except through the accessors).
     private final String[] coordinateCache = new String[3 * 3];
-    private String clock24;
-    private String clock24Seconds;
     private String clock12;
     private String clock12Seconds;
     private String gameClock;
@@ -485,58 +483,42 @@ public final class HudData {
         return String.format(Locale.ROOT, decimals == 1 ? "%.1f" : "%.2f", value);
     }
 
-    /** System time as {@code HH:mm} or {@code HH:mm:ss}. */
-    public String clock24(boolean seconds) {
-        if (seconds) {
-            if (clock24Seconds == null) {
-                clock24Seconds = formatTime(false, true);
-            }
-            return clock24Seconds;
-        }
-        if (clock24 == null) {
-            clock24 = formatTime(false, false);
-        }
-        return clock24;
-    }
-
     /** System time as {@code h:mm AM} or {@code h:mm:ss AM}. */
     public String clock12(boolean seconds) {
         if (seconds) {
             if (clock12Seconds == null) {
-                clock12Seconds = formatTime(true, true);
+                clock12Seconds = formatTime(true);
             }
             return clock12Seconds;
         }
         if (clock12 == null) {
-            clock12 = formatTime(true, false);
+            clock12 = formatTime(false);
         }
         return clock12;
     }
 
-    private String formatTime(boolean twelveHour, boolean seconds) {
+    private String formatTime(boolean seconds) {
         LocalTime time = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalTime();
-        int hour = time.getHour();
+        return twelveHour(time.getHour(), time.getMinute(), seconds ? time.getSecond() : -1);
+    }
+
+    /** {@code h:mm AM} (or {@code h:mm:ss PM} when {@code second} is not negative): 12-hour time, 12 for noon/midnight. */
+    static String twelveHour(int hour, int minute, int second) {
         StringBuilder sb = new StringBuilder(11);
-        if (twelveHour) {
-            int h = hour % 12;
-            sb.append(h == 0 ? 12 : h);
-        } else {
-            pad2(sb, hour);
-        }
+        int h = hour % 12;
+        sb.append(h == 0 ? 12 : h);
         sb.append(':');
-        pad2(sb, time.getMinute());
-        if (seconds) {
+        pad2(sb, minute);
+        if (second >= 0) {
             sb.append(':');
-            pad2(sb, time.getSecond());
+            pad2(sb, second);
         }
-        if (twelveHour) {
-            sb.append(hour < 12 ? " AM" : " PM");
-        }
+        sb.append(hour < 12 ? " AM" : " PM");
         return sb.toString();
     }
 
     /**
-     * In-game time of day as {@code HH:mm}. Minecraft days are 24 000 ticks long and tick 0 is 06:00.
+     * In-game time of day as {@code h:mm AM}. Minecraft days are 24 000 ticks long and tick 0 is 6:00 AM.
      */
     public String gameClock() {
         if (gameClock == null) {
@@ -545,16 +527,12 @@ public final class HudData {
         return gameClock;
     }
 
-    /** Formats a tick count as the in-game time of day. */
+    /** Formats a tick count as the in-game time of day in 12-hour time with AM/PM. */
     public static String formatGameTime(long ticks) {
         long dayTicks = Math.floorMod(ticks, 24_000L);
         int hour = (int) ((dayTicks / 1_000L + 6L) % 24L);
         int minute = (int) ((dayTicks % 1_000L) * 60L / 1_000L);
-        StringBuilder sb = new StringBuilder(5);
-        pad2(sb, hour);
-        sb.append(':');
-        pad2(sb, minute);
-        return sb.toString();
+        return twelveHour(hour, minute, -1);
     }
 
     /** Human-readable biome name ({@code minecraft:dark_forest} → {@code Dark Forest}), or "—" when unknown. */

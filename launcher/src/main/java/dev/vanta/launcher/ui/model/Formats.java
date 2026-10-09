@@ -111,10 +111,10 @@ public final class Formats {
 
     /**
      * @param instant instant
-     * @return {@code HH:mm:ss} in the local zone
+     * @return {@code h:mm:ss AM} (12-hour time with AM/PM) in the local zone
      */
     public String time(final Instant instant) {
-        return DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ROOT).withZone(zone).format(instant);
+        return DateTimeFormatter.ofPattern("h:mm:ss a", Locale.ENGLISH).withZone(zone).format(instant);
     }
 
     private static String oneDecimal(final double value) {

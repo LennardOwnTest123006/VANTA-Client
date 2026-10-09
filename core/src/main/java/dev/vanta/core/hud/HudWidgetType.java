@@ -28,7 +28,7 @@ public enum HudWidgetType implements LangKeyed {
     CPS(60, 14, HudAnchor.BOTTOM_RIGHT, true, true, true, false,
             List.of(HudProp.bool("showRight", true), HudProp.bool("showLabel", true))),
     CLOCK(56, 14, HudAnchor.TOP_RIGHT, true, true, true, false,
-            List.of(HudProp.choice("format", "system_24h", "system_24h", "system_12h", "game_time"),
+            List.of(HudProp.choice("format", "system_12h", "system_12h", "game_time"),
                     HudProp.bool("showSeconds", false))),
     ARMOR(64, 56, HudAnchor.BOTTOM_LEFT, true, true, true, false,
             List.of(HudProp.bool("showDurability", true), HudProp.choice("layout", "vertical", "vertical", "horizontal"))),

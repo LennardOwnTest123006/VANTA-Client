@@ -159,10 +159,12 @@ class HudWidgetRenderersTest {
         assertTrue(render(HudWidgetType.CPS, Map.of()).hasText("6 | 3"));
         assertTrue(render(HudWidgetType.CPS, Map.of("showRight", "false")).hasText("6"));
 
-        assertTrue(render(HudWidgetType.CLOCK, Map.of()).hasText("14:32"));
-        assertTrue(render(HudWidgetType.CLOCK, Map.of("showSeconds", "true")).hasText("14:32:07"));
+        assertFalse(render(HudWidgetType.CLOCK, Map.of()).hasTextContaining("14:32"), "no 24-hour time any more");
+        assertTrue(render(HudWidgetType.CLOCK, Map.of("showSeconds", "true")).hasText("2:32:07 PM"));
         assertTrue(render(HudWidgetType.CLOCK, Map.of("format", "system_12h")).hasText("2:32 PM"));
-        assertTrue(render(HudWidgetType.CLOCK, Map.of("format", "game_time")).hasText("12:00"));
+        assertTrue(render(HudWidgetType.CLOCK, Map.of("format", "game_time")).hasText("12:00 PM"));
+        assertTrue(render(HudWidgetType.CLOCK, Map.of()).hasText("2:32 PM"), "the default clock is the AM/PM system time");
+        assertTrue(render(HudWidgetType.CLOCK, Map.of("format", "system_24h")).hasText("2:32 PM"), "a saved 24-hour clock shows AM/PM");
 
         assertTrue(render(HudWidgetType.MINECRAFT_VERSION, Map.of()).hasText("Minecraft 1.21.11"));
         assertTrue(render(HudWidgetType.MINECRAFT_VERSION, Map.of("showFabric", "true"))

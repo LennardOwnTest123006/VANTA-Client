@@ -90,7 +90,7 @@ class ErrorMessagesTest {
         assertEquals("512 MB", f.memory(512));
         assertEquals("1:05", f.countdown(java.time.Duration.ofSeconds(65)));
         assertEquals("0:00", f.countdown(java.time.Duration.ofSeconds(-5)));
-        assertEquals("12:00:00", f.time(java.time.Instant.parse("2026-10-04T12:00:00Z")));
+        assertEquals("12:00:00 PM", f.time(java.time.Instant.parse("2026-10-04T12:00:00Z")));
         assertEquals("not-a-date", f.isoDateTime("not-a-date"));
         assertEquals(m.get("common.unknown"), f.isoDateTime(""));
         assertTrue(f.isoDateTime("2026-10-03T18:42:00Z").contains("2026"));

@@ -21,7 +21,7 @@ is open.
 | **Biome** | the biome you are standing in | show namespace |
 | **Server** | server name and address; hide the address when streaming | show address |
 | **CPS** | clicks per second, left and right button | show right button, show label |
-| **Clock** | system time (24 h or 12 h) or in-game time | format, show seconds |
+| **Clock** | system time or in-game time, both in 12-hour time with AM/PM (for example `2:32 PM`) | format, show seconds (system time) |
 | **Armor** | armor points and the durability of each of the four pieces | show durability, vertical/horizontal |
 | **Item durability** | durability bar of the held items | show offhand, show percentage |
 | **Potion effects** | active effects with colour, amplifier and remaining time (∞ for infinite) | show duration, compact |
