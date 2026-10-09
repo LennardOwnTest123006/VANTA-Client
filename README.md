@@ -98,7 +98,7 @@ This is a monorepo. Each product is an independent build with its own README.
 
 ## Status
 
-The latest releases are **VANTA Client 1.4.0** and **VANTA Launcher 1.4.0**, released on 2026-10-08 as the GitHub
+The latest releases are **VANTA Client 1.4.0** and **VANTA Launcher 1.4.0**, released on 2026-10-09 as the GitHub
 Releases [`client-v1.4.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.4.0) and
 [`launcher-v1.4.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.4.0). They bring
 **Vanta Nexus**, one screen with an assistant, the HUD Designer, profiles, live performance values, waypoints and Vanta

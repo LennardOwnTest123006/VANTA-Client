@@ -10,7 +10,7 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 No changes yet.
 
-## [Client 1.4.0] - 2026-10-08
+## [Client 1.4.0] - 2026-10-09
 
 VANTA Client 1.4.0 adds **Vanta Nexus**: one screen with an assistant you ask in plain language, the HUD Designer,
 profiles, live performance values, waypoints, Vanta Lab and the Nexus settings. The assistant runs on the **Local AI**,
@@ -190,7 +190,7 @@ hosts and nothing else, ever: Modrinth (Mods & Shaders) and, only when the playe
   releases still pass `check-manifest`; `release.yml`'s Windows job builds exactly three files; `RELEASE.md`,
   `shared/releases/README.md` and the docs describe it.
 
-## [Launcher 1.4.0] - 2026-10-08
+## [Launcher 1.4.0] - 2026-10-09
 
 VANTA Launcher 1.4.0 can install the **Local AI** that Vanta Nexus runs on the player's PC, after the player agrees
 once, and tells the game where it is. The Windows installer is the **`.msi` only** from this release on. Minecraft
@@ -267,7 +267,7 @@ once, and tells the game where it is. The Windows installer is the **`.msi` only
   Windows jar. Releases before 1.4.0 keep their `.exe` on their release pages, and a launcher installed with one of
   them updates itself with the `.msi`.
 
-## [Website 1.2.0] - 2026-10-08
+## [Website 1.2.0] - 2026-10-09
 
 Website-only version, released with client 1.4.0 and launcher 1.4.0 (`client-v1.4.0`, `launcher-v1.4.0`). Minecraft
 1.21.11, Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11 and Java 21 are unchanged.
@@ -287,7 +287,7 @@ Website-only version, released with client 1.4.0 and launcher 1.4.0 (`client-v1.
   installs the Local AI; nothing else, ever; prompts to `127.0.0.1` only; no cloud AI, no API key, no account, no
   telemetry).
 - The release notes `website/content/changelog/client-1.4.0.md`, `launcher-1.4.0.md` and `website-1.2.0.md`, and the
-  news post `website/content/news/2026-10-08-vanta-1-4-nexus.md` ("Vanta Nexus and the strictly local AI").
+  news post `website/content/news/2026-10-09-vanta-1-4-nexus.md` ("Vanta Nexus and the strictly local AI").
 
 ### Changed
 - The pinned test texts (site navigation, support topics, docs search expectations, Download page copy) follow the

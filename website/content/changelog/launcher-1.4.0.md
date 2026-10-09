@@ -1,7 +1,7 @@
 ---
 product: launcher
 version: 1.4.0
-date: 2026-10-08
+date: 2026-10-09
 title: VANTA Launcher 1.4.0
 minecraftVersion: 1.21.11
 ---

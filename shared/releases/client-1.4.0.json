@@ -6,26 +6,26 @@
   "fabricVersion": "0.19.5",
   "fabricApiVersion": "0.141.6+1.21.11",
   "javaVersion": 21,
-  "releaseDate": "2026-10-08",
+  "releaseDate": "2026-10-09",
   "channel": "stable",
   "files": [
     {
       "name": "vanta-client-1.4.0.jar",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.4.0/vanta-client-1.4.0.jar",
+      "size": 2144963,
+      "sha256": "117adbf1e21293dd03ce64bd6168be6fa4de03063733fac538736c2592e2f132"
     },
     {
       "name": "vanta-client-1.4.0-mods.zip",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.4.0/vanta-client-1.4.0-mods.zip",
+      "size": 9967787,
+      "sha256": "1b95fb52b70c7d5c10a25f5c4b97b656dd38f812d2ecfaab98bb8959eac705e0"
     },
     {
       "name": "fabric-api-0.141.6+1.21.11.jar",
-      "downloadUrl": "",
-      "size": 0,
-      "sha256": ""
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/client-v1.4.0/fabric-api-0.141.6+1.21.11.jar",
+      "size": 2426039,
+      "sha256": "bdff7fd7e220085cfad2ff9b1f40dde6534ae0b96cf378f97a374bc54cb9ed0f"
     }
   ],
   "changelog": "website/content/changelog/client-1.4.0.md"

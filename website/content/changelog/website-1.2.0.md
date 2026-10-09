@@ -1,7 +1,7 @@
 ---
 product: website
 version: 1.2.0
-date: 2026-10-08
+date: 2026-10-09
 title: Website 1.2.0
 minecraftVersion: 1.21.11
 ---
