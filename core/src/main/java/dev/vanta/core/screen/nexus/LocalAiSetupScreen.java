@@ -36,7 +36,9 @@ import java.util.Optional;
  * {@link InstallStep}s with progress bars, bytes and speed, [Install Local AI] (nothing downloads before this click),
  * [Cancel] while installing, and afterwards either "Vanta Nexus ready" with a button to the assistant (the runtime is
  * started right after the install and the INITIALIZING / READY steps follow its status) or the failure reason with
- * [Retry]. All progress arrives through {@link LocalAiService.Listener} on the render thread.
+ * [Retry]. Opened through {@link ScreenNavigator#openLocalAiReinstall} (Nexus > Settings > Reinstall) the screen
+ * offers the install as [Reinstall Local AI] although the files are installed. All progress arrives through
+ * {@link LocalAiService.Listener} on the render thread.
  */
 public final class LocalAiSetupScreen extends VantaUiScreen {
     /** What the screen is doing. */
@@ -56,16 +58,24 @@ public final class LocalAiSetupScreen extends VantaUiScreen {
     private String failure = "";
     private Runnable unsubscribe;
     private boolean startRequested;
+    /** Opened from Reinstall: the install is offered although the files pass the quick check. */
+    private boolean reinstall;
 
     public LocalAiSetupScreen(VantaServices services, ScreenNavigator navigator) {
         super(services, navigator, ScreenId.LOCAL_AI_SETUP);
         this.localAi = services.localAi();
+        this.reinstall = navigator.takePendingLocalAiReinstall() && localAi.status().isInstalled();
     }
 
     // ---- accessors (tests) ---------------------------------------------------------------------------------------
 
     public Phase phase() {
         return phase;
+    }
+
+    /** True while the screen offers a reinstall of installed files (opened from Reinstall). */
+    public boolean isReinstall() {
+        return reinstall;
     }
 
     public Button installButton() {
@@ -130,7 +140,8 @@ public final class LocalAiSetupScreen extends VantaUiScreen {
         message.setId("localai.setup.message");
         stepsCard.add(message);
         ChipFlow actions = new ChipFlow();
-        installButton = Button.primary(Lang.tr("vanta.localai.install"), this::install).compact(true);
+        installButton = Button.primary(Lang.tr(reinstall ? "vanta.localai.setup.reinstall" : "vanta.localai.install"),
+                this::install).compact(true);
         installButton.icon(Icons.DOWNLOAD);
         installButton.setId("localai.setup.install");
         actions.add(installButton);
@@ -186,7 +197,11 @@ public final class LocalAiSetupScreen extends VantaUiScreen {
 
     // ---- actions -------------------------------------------------------------------------------------------------
 
-    /** Starts the install (the player's click is the consent; nothing downloads before it). */
+    /**
+     * Starts the install (the player's click is the consent; nothing downloads before it). As a reinstall the same
+     * call runs over installed files: the service stops a running server first, the installer keeps what still
+     * matches the manifest and downloads the rest.
+     */
     public void install() {
         if (localAi.isInstalling() || phase == Phase.STARTING) {
             // Already running: the rows follow the service's events.
@@ -198,6 +213,7 @@ public final class LocalAiSetupScreen extends VantaUiScreen {
         phase = Phase.INSTALLING;
         failure = "";
         startRequested = false;
+        reinstall = false;
         for (StepRow row : steps.values()) {
             row.reset();
         }
@@ -311,12 +327,21 @@ public final class LocalAiSetupScreen extends VantaUiScreen {
         refresh();
     }
 
-    /** Reads the service state once (opening the screen during an install, or with an install already present). */
+    /**
+     * Reads the service state once (opening the screen during an install, with an install already present, or as a
+     * reinstall of that install).
+     */
     private void syncWithService() {
         if (localAi.isInstalling()) {
             phase = Phase.INSTALLING;
         } else if (phase != Phase.FAILED && !startRequested) {
-            if (localAi.status().isInstalled() || localAi.status().isRunning()) {
+            if (reinstall) {
+                // Opened from Reinstall: the files are installed, and the install is offered anyway.
+                phase = Phase.IDLE;
+                for (StepRow row : steps.values()) {
+                    row.reset();
+                }
+            } else if (localAi.status().isInstalled() || localAi.status().isRunning()) {
                 phase = localAi.status() == LocalAiStatus.READY || localAi.status() == LocalAiStatus.BUSY ? Phase.READY
                         : Phase.READY;
                 for (StepRow row : steps.values()) {
@@ -354,6 +379,8 @@ public final class LocalAiSetupScreen extends VantaUiScreen {
                 } else if (!localAi.isSupported()) {
                     text = localAi.statusReason().isEmpty() ? Lang.tr(status.langKey()) : localAi.statusReason();
                     color = theme().danger();
+                } else if (reinstall) {
+                    text = Lang.tr("vanta.localai.setup.reinstall_idle");
                 } else {
                     text = Lang.tr("vanta.localai.setup.idle");
                 }

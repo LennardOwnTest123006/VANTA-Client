@@ -28,6 +28,7 @@ public final class ScreenNavigator {
     private SettingCategory pendingCategory;
     private String pendingKeybindId;
     private String pendingNexusSection;
+    private boolean pendingLocalAiReinstall;
 
     public ScreenNavigator(VantaServices services) {
         this.services = Objects.requireNonNull(services, "services");
@@ -125,6 +126,27 @@ public final class ScreenNavigator {
         String id = pendingNexusSection;
         pendingNexusSection = null;
         return Optional.ofNullable(id);
+    }
+
+    /**
+     * Opens the Local AI setup screen as a reinstall: it offers the install (labelled Reinstall) although the files
+     * are installed, so a player can repair or refresh them; the setup screen takes the flag in its constructor.
+     */
+    public void openLocalAiReinstall(UiContext ctx) {
+        pendingLocalAiReinstall = true;
+        openScreen(ctx, ScreenId.LOCAL_AI_SETUP);
+    }
+
+    /** Marks the next Local AI setup screen as a reinstall without opening it (hosts, previews, tests). */
+    public void stageLocalAiReinstall() {
+        pendingLocalAiReinstall = true;
+    }
+
+    /** Takes (and clears) whether the next Local AI setup screen opens as a reinstall. */
+    public boolean takePendingLocalAiReinstall() {
+        boolean reinstall = pendingLocalAiReinstall;
+        pendingLocalAiReinstall = false;
+        return reinstall;
     }
 
     /** Takes (and clears) the key mapping id the keybinds screen should reveal. */

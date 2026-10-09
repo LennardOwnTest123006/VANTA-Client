@@ -140,6 +140,8 @@ public final class LocalAiRuntime implements ChatBackend, AutoCloseable {
     private volatile int port = -1;
     private volatile long lastUsedAt;
     private volatile boolean closed;
+    /** A {@link #stop()} is queued on the worker and has not run yet; keeps {@link #tick} from queueing more. */
+    private volatile boolean stopPending;
     private Thread shutdownHook;
 
     public LocalAiRuntime(Path serverExecutable, Path modelFile, Path logFile, Config config,
@@ -264,7 +266,9 @@ public final class LocalAiRuntime implements ChatBackend, AutoCloseable {
 
     /** Stops the server in the background. */
     public void stop() {
+        stopPending = true;
         worker.execute(() -> {
+            stopPending = false;
             destroyProcess();
             if (status != LocalAiStatus.FAILED) {
                 setStatus(LocalAiStatus.INSTALLED, "");
@@ -272,9 +276,16 @@ public final class LocalAiRuntime implements ChatBackend, AutoCloseable {
         });
     }
 
-    /** Called once per client tick on the render thread: stops an idle server. */
+    /**
+     * Called once per client tick on the render thread: stops an idle server. The stop is queued once: while the
+     * worker is busy with something else (a verification hashes the whole model) the status stays READY, and every
+     * following tick would otherwise queue another stop with its own round of status callbacks.
+     */
     public void tick(long nowMillis) {
         Config c = config;
+        if (stopPending) {
+            return;
+        }
         if (status == LocalAiStatus.READY && !c.keepRunning() && nowMillis - lastUsedAt >= c.idleTimeout().toMillis()) {
             CoreLog.info("Local AI idle for {} min; stopping llama-server", c.idleTimeout().toMinutes());
             stop();

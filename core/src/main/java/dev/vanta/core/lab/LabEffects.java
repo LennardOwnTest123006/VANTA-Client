@@ -14,7 +14,8 @@ import java.util.Objects;
  *       counts as 1) that eases out over {@value #MOVEMENT_HOLD_MS} + {@value #MOVEMENT_FADE_MS} ms after the
  *       last movement report, plus a {@value #ATTACK_PULSE_MS} ms pulse per attack.</li>
  *   <li>{@link #transitionProgress}: {@code SCREEN_TRANSITIONS}. 0..1 over {@value #TRANSITION_MS} ms after a
- *       screen opened, 1..0 over the same time after it started closing; 1.0 while the feature is off.</li>
+ *       screen opened, 1..0 over the same time after it started closing, 1.0 again once that close finished;
+ *       1.0 while the feature is off.</li>
  * </ul>
  * All methods are render-thread only, like every other core service.
  */
@@ -138,14 +139,20 @@ public final class LabEffects {
     /**
      * Progress of the screen transition: 1.0 when Screen transitions are off or no screen event happened; after
      * {@link #onScreenOpened} rising 0..1 over {@value #TRANSITION_MS} ms; after {@link #onScreenClosed} falling
-     * 1..0 over the same time.
+     * 1..0 over the same time and 1.0 again once that close finished.
      */
     public float transitionProgress(long nowMillis) {
         if (!lab.isEnabled(LabFeature.SCREEN_TRANSITIONS)) {
             return 1f;
         }
         if (closedAt != Long.MIN_VALUE && closedAt >= openedAt) {
-            return 1f - (float) clamp01((nowMillis - closedAt) / (double) TRANSITION_MS);
+            long age = nowMillis - closedAt;
+            if (age >= TRANSITION_MS) {
+                // The close finished: the closing screen is gone, and the screen the host shows next (a parent
+                // re-shown without a new open event) must not stay shifted by the slide.
+                return 1f;
+            }
+            return 1f - (float) clamp01(age / (double) TRANSITION_MS);
         }
         if (openedAt != Long.MIN_VALUE) {
             return (float) clamp01((nowMillis - openedAt) / (double) TRANSITION_MS);

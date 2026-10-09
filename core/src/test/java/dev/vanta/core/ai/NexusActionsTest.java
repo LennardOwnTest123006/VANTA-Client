@@ -18,6 +18,8 @@ import dev.vanta.core.perf.PerformancePreset;
 import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.screen.cosmetics.ServicesFixture;
 import dev.vanta.core.settings.VantaSettings;
+import dev.vanta.core.waypoints.NexusWaypointBridge;
+import dev.vanta.core.waypoints.WorldKeys;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -288,6 +290,30 @@ class NexusActionsTest {
                 onlyRejection(run("{\"type\":\"waypoint.add\",\"name\":\"X\",\"x\":1,\"y\":2,\"z\":3}")));
         assertEquals(RejectedAction.Reason.UNKNOWN_FEATURE,
                 onlyRejection(run("{\"type\":\"lab.set\",\"feature\":\"dynamic_hud\",\"enabled\":true}")));
+    }
+
+    @Test
+    void waypointNamesThatGetSanitisedCanStillBeUndoneAndRemoved() {
+        // The real store behind the real bridge: a stored name is sanitised (whitespace collapsed, 48 characters).
+        NexusWaypointBridge bridge = services.waypointBridge();
+        services.setWaypoints(bridge, bridge);
+        String world = bridge.worldKey();
+        assertFalse(WorldKeys.isNone(world));
+
+        NexusActions.Outcome outcome = run(
+                "{\"type\":\"waypoint.add\",\"name\":\"My  Base\",\"x\":1,\"y\":2,\"z\":3}");
+        assertEquals(1, outcome.applied().size(), outcome.toString());
+        assertTrue(services.waypoints().has(world, "My Base"), "stored with a single space");
+        assertTrue(undo.undoLast());
+        assertFalse(services.waypoints().has(world, "My Base"), "undo removes the waypoint under its stored name");
+
+        String longName = "x".repeat(60);
+        outcome = run("{\"type\":\"waypoint.add\",\"name\":\"" + longName + "\",\"x\":1,\"y\":2,\"z\":3}",
+                "{\"type\":\"waypoint.toggle\",\"name\":\"" + longName + "\",\"enabled\":false}",
+                "{\"type\":\"waypoint.remove\",\"name\":\"" + longName + "\"}");
+        assertEquals(List.of(), outcome.rejected());
+        assertEquals(3, outcome.applied().size(), outcome.toString());
+        assertTrue(services.waypoints().forWorld(world).isEmpty(), "the over-long name removed the truncated waypoint");
     }
 
     @Test

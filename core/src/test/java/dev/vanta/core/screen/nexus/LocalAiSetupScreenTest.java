@@ -2,7 +2,9 @@ package dev.vanta.core.screen.nexus;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.vanta.core.ai.FakeArchives;
@@ -42,6 +44,7 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -173,6 +176,72 @@ class LocalAiSetupScreenTest {
         LocalAiSetupScreen again = show(ScreenId.LOCAL_AI_SETUP, 427, 240);
         assertEquals(LocalAiSetupScreen.Phase.READY, again.phase());
         assertEquals(List.of(), ReachabilityWalker.walk(again, "LOCAL_AI_SETUP", "427x240").failures());
+    }
+
+    @Test
+    void reinstallFromSettingsStopsTheServerAndRunsTheInstallAgain() throws Exception {
+        services(goodManifest());
+        LocalAiService localAi = services.localAi();
+        assertTrue(localAi.install());
+        assertTrue(localAi.start());
+        assertEquals(LocalAiStatus.READY, localAi.status());
+        FakeProcess first = processes.last();
+        String verifiedBefore = localAi.installed().orElseThrow().verifiedAt();
+        clock.advance(60_000L);
+
+        NexusScreen nexus = show(ScreenId.NEXUS, 854, 480);
+        nexus.select(NexusSection.SETTINGS);
+        settle(nexus);
+        NexusSettingsPanel settings = nexus.panel(NexusSection.SETTINGS);
+        assertTrue(settings.reinstallButton().isVisible() && settings.reinstallButton().isEnabled());
+        reveal(nexus, settings.reinstallButton());
+        ScreenTestSupport.click(nexus, settings.reinstallButton());
+        assertTrue(host.events().contains("openScreen:LOCAL_AI_SETUP"));
+        assertEquals(LocalAiStatus.READY, localAi.status(), "opening the setup changes nothing yet");
+
+        LocalAiSetupScreen screen = show(ScreenId.LOCAL_AI_SETUP, 854, 480);
+        assertTrue(screen.isReinstall());
+        assertEquals(LocalAiSetupScreen.Phase.IDLE, screen.phase(),
+                "the install is offered although the files are installed");
+        assertTrue(screen.installButton().isVisible() && screen.installButton().isEnabled());
+        assertEquals(Lang.tr("vanta.localai.setup.reinstall"), screen.installButton().label());
+        assertEquals(Lang.tr("vanta.localai.setup.reinstall_idle"), screen.messageText());
+        assertFalse(screen.openAssistantButton().isVisible());
+        assertFalse(screen.step(InstallStep.READY).isDone(), "the rows start over");
+        assertEquals(List.of(), ReachabilityWalker.walk(screen, "LOCAL_AI_SETUP", "854x480 [reinstall]").failures());
+
+        long downloads = server.requestCount(ManifestFixtures.MODEL_PATH);
+        List<String> serverStateAtSteps = new ArrayList<>();
+        localAi.addListener(new LocalAiService.Listener() {
+            @Override
+            public void onProgress(InstallStep step, long bytesDone, long bytesTotal, double bytesPerSecond) {
+                String entry = step.id() + (first.alive ? ":running" : ":stopped");
+                if (serverStateAtSteps.isEmpty() || !serverStateAtSteps.get(serverStateAtSteps.size() - 1).equals(entry)) {
+                    serverStateAtSteps.add(entry);
+                }
+            }
+        });
+        ScreenTestSupport.click(screen, screen.installButton());
+        settle(screen);
+        assertFalse(screen.isReinstall());
+        assertEquals(LocalAiSetupScreen.Phase.READY, screen.phase(), screen.failureText());
+        assertTrue(serverStateAtSteps.contains("checking:stopped"), serverStateAtSteps.toString());
+        assertTrue(serverStateAtSteps.contains("verifying:stopped"), serverStateAtSteps.toString());
+        assertTrue(serverStateAtSteps.stream().noneMatch(s -> s.endsWith(":running")),
+                "llama-server was stopped before the installer touched a file: " + serverStateAtSteps);
+        assertEquals(downloads, server.requestCount(ManifestFixtures.MODEL_PATH),
+                "intact files are checked again, not downloaded again");
+        assertNotEquals(verifiedBefore, localAi.installed().orElseThrow().verifiedAt(),
+                "installed.json records the new verification");
+        assertEquals(LocalAiStatus.READY, localAi.status(), "the server was started again from the checked files");
+        assertFalse(first.alive);
+        assertNotSame(first, processes.last());
+        assertTrue(processes.last().alive);
+        for (InstallStep step : InstallStep.values()) {
+            assertTrue(screen.step(step).isDone(), step + " done");
+        }
+        assertTrue(screen.openAssistantButton().isVisible());
+        assertFalse(screen.installButton().isVisible());
     }
 
     @Test

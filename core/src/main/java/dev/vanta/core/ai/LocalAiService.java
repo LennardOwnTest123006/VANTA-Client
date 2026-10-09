@@ -8,6 +8,7 @@ import dev.vanta.core.notifications.NotificationCenter;
 import dev.vanta.core.settings.SettingsStore;
 import dev.vanta.core.settings.VantaSettings;
 import java.net.http.HttpClient;
+import java.nio.file.Files;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
@@ -127,6 +128,7 @@ public final class LocalAiService implements ChatBackend, AutoCloseable {
     private final AtomicBoolean cancelRequested = new AtomicBoolean();
     private boolean busy;
     private boolean installing;
+    private boolean fallbackLogged;
     private volatile boolean closed;
 
     public LocalAiService(VantaPaths vantaPaths, SettingsStore settings, NotificationCenter notifications,
@@ -142,9 +144,12 @@ public final class LocalAiService implements ChatBackend, AutoCloseable {
 
     // ---- lifecycle -----------------------------------------------------------------------------------------------
 
-    /** Resolves the install directory (note or default) and runs the quick check. Cheap; render thread. */
+    /**
+     * Resolves the install directory (the launcher's folder from the note while it holds an install, otherwise the
+     * client's own folder) and runs the quick check. Cheap; render thread.
+     */
     public void load() {
-        paths = LocalAiPaths.resolve(vantaPaths);
+        paths = LocalAiPaths.clientManaged(vantaPaths.localAiDir());
         installer = Optional.empty();
         if (deps.platform().isEmpty()) {
             setInstallStatus(LocalAiStatus.UNSUPPORTED_PLATFORM,
@@ -155,18 +160,65 @@ public final class LocalAiService implements ChatBackend, AutoCloseable {
             setInstallStatus(LocalAiStatus.FAILED, deps.manifestProblem());
             return;
         }
-        LocalAiInstaller inst = new LocalAiInstaller(deps.manifest().get(), paths, deps.platform().get(), deps.http(),
-                deps.installerConfig(), clock);
-        installer = Optional.of(inst);
-        refresh();
+        resolvePaths();
+        applyQuickCheck();
     }
 
-    /** Re-runs the quick check (after an external change). */
+    /**
+     * Re-runs the directory resolution and the quick check (after an external change). The directory is only
+     * re-resolved while nothing runs from or writes into the current one.
+     */
     public void refresh() {
         if (installer.isEmpty()) {
             return;
         }
-        LocalAiInstaller inst = installer.get();
+        if (!busy && (runtime == null || !runtime.isRunning())) {
+            resolvePaths();
+        }
+        applyQuickCheck();
+    }
+
+    /**
+     * Picks the install directory. The note's folder counts as launcher-managed only while it holds an install: a
+     * complete one, or at least its {@code installed.json} (the launcher updates such a folder itself). The launcher
+     * writes the note into every game folder, also when the player declined its offer; a note pointing at a folder
+     * without an install therefore leaves the client its own folder, so Install works from the game. Re-run on every
+     * {@link #refresh()}, so a launcher install made later is picked up.
+     */
+    private void resolvePaths() {
+        LocalAiPaths resolved = LocalAiPaths.resolve(vantaPaths);
+        LocalAiInstaller inst = newInstaller(resolved);
+        if (resolved.isLauncherManaged() && !holdsInstall(resolved, inst)) {
+            if (!fallbackLogged) {
+                CoreLog.info("The Local AI note points at {} which holds no install; using {} instead",
+                        resolved.root(), vantaPaths.localAiDir());
+                fallbackLogged = true;
+            }
+            resolved = LocalAiPaths.clientManaged(vantaPaths.localAiDir());
+            inst = newInstaller(resolved);
+        }
+        if (runtime != null && (!resolved.root().equals(paths.root())
+                || resolved.isLauncherManaged() != paths.isLauncherManaged())) {
+            // The directory changed under a stopped server: the next start builds a runtime for the new one.
+            dropRuntime();
+        }
+        paths = resolved;
+        installer = Optional.of(inst);
+    }
+
+    private LocalAiInstaller newInstaller(LocalAiPaths dir) {
+        return new LocalAiInstaller(deps.manifest().orElseThrow(), dir, deps.platform().orElseThrow(), deps.http(),
+                deps.installerConfig(), clock);
+    }
+
+    /** True when the folder holds a complete install, or an {@code installed.json} the launcher is responsible for. */
+    private static boolean holdsInstall(LocalAiPaths dir, LocalAiInstaller inst) {
+        return inst.quickCheck() == LocalAiStatus.INSTALLED || Files.isRegularFile(dir.installedFile());
+    }
+
+    /** The quick check of the resolved directory, published as the install status. */
+    private void applyQuickCheck() {
+        LocalAiInstaller inst = installer.orElseThrow();
         LocalAiStatus status = inst.quickCheck();
         installed = status.isInstalled() ? inst.readInstalled() : Optional.empty();
         if (status == LocalAiStatus.INSTALLED && runtime != null && runtime.isRunning()) {
@@ -289,8 +341,10 @@ public final class LocalAiService implements ChatBackend, AutoCloseable {
     // ---- install / verify / remove ---------------------------------------------------------------------------------
 
     /**
-     * Starts the install in the background (after the player clicked Install). Progress goes to the listeners and a
-     * progress toast; the outcome to the listeners and a toast.
+     * Starts the install in the background (after the player clicked Install or Reinstall). Progress goes to the
+     * listeners and a progress toast; the outcome to the listeners and a toast. Over an existing install the installer
+     * keeps the files that still match the manifest and downloads the rest; a running server is stopped first, on
+     * the same worker, so no file is replaced under a llama-server that has it open.
      *
      * @return false when nothing was started (unsupported, launcher-managed, already busy)
      */
@@ -306,6 +360,11 @@ public final class LocalAiService implements ChatBackend, AutoCloseable {
         long toastId = toast.map(Notification::id).orElse(-1L);
         long total = downloadBytes();
         ProgressRelay relay = new ProgressRelay(toastId, total);
+        LocalAiRuntime r = runtime;
+        if (r != null) {
+            // Queued on the single worker ahead of the install: destroys the process and reports INSTALLED.
+            r.stop();
+        }
         deps.worker().execute(() -> {
             LocalAiInstalled result = null;
             LocalAiException failure = null;
@@ -326,6 +385,8 @@ public final class LocalAiService implements ChatBackend, AutoCloseable {
     private void finishInstall(LocalAiInstalled result, LocalAiException error, long toastId) {
         busy = false;
         installing = false;
+        // The server was stopped before the install; the next start builds a runtime for the files now on disk.
+        dropRuntime();
         if (toastId >= 0) {
             notifications.dismiss(toastId);
         }
