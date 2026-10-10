@@ -32,6 +32,13 @@ public final class NexusAssistant {
     public static final int CONTEXT_TURNS = 8;
     /** Longest question accepted. */
     public static final int MAX_QUESTION = 2000;
+    /**
+     * Rule in the system prompt: the assistant never caps the frame rate on its own. A frame-rate limit or VSync is
+     * the player's explicit choice; asked for "more FPS" it removes the cap instead.
+     */
+    public static final String FRAME_RATE_RULE = "Never turn VSync on or set a frame-rate limit (video.vsync, "
+            + "video.framerateLimit, performance.fpsLimitPreset) unless the player asks for exactly that. For more FPS "
+            + "use performance.fpsLimitPreset unlimited, which turns VSync off.";
 
     private final NexusActions actions;
     private final NexusUndo undo;
@@ -105,6 +112,7 @@ public final class NexusAssistant {
         p.append("- perf.preset {preset}: one of ").append(String.join(", ", actions.perfPresetIds()))
                 .append(". perf.smartBoost {run: true}: measure this PC and pick a preset automatically.\n");
         p.append("- setting.set {id, value}: change one of the settings listed below.\n");
+        p.append("  ").append(FRAME_RATE_RULE).append('\n');
         p.append("- waypoint.add {name, x, y, z, category?}, waypoint.remove {name}, waypoint.toggle {name, enabled}.\n");
         p.append("- lab.set {feature, enabled}: switch a Vanta Lab feature.\n\n");
 

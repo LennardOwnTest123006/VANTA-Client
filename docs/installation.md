@@ -443,7 +443,9 @@ VANTA's own configuration lives in the game directory under `config/vanta/`: `se
 `smart-boost.json` (from client 1.3.0 on, [Smart Boost](performance.md#smart-boost)), `exports/` and `imports/`, and
 from client 1.4.0 on `waypoints.json` ([Waypoints](waypoints.md)), `nexus-chat.json` and `nexus-first-start.json`
 ([Vanta Nexus](nexus.md)), `local-ai.json` (the launcher's note, when the launcher set the game up) and `local-ai/`
-(the Local AI the game installed itself, [Local AI](local-ai.md)). See the individual guides for each file.
+(the Local AI the game installed itself, [Local AI](local-ai.md)), and from client 1.5.0 on `frame-rate.json` (the
+one-time frame-rate uncap, [Performance Center](performance.md#one-time-uncap-client-150)). See the individual guides
+for each file.
 
 ### Where your worlds are
 

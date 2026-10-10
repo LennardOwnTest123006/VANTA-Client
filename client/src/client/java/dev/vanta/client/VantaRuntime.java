@@ -132,6 +132,9 @@ public final class VantaRuntime {
         services.search().rebuild();
         keys.syncZoomKey(services.settings());
         refreshTheme();
+        // The one-time frame-rate uncap of client 1.5.0 (VSync off, Max Framerate Unlimited when the game folder still
+        // has Minecraft's defaults); the options exist from here on. Its notification follows on the main menu.
+        VantaClient.LOGGER.info("Frame-rate check at start-up: {}", services.onGameStarted());
     }
 
     /** Re-reads every configuration store from disk ({@code /vanta reload}). */

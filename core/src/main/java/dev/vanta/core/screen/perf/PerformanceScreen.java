@@ -600,7 +600,7 @@ public final class PerformanceScreen extends VantaUiScreen {
         sparkline.setValues(fpsHistory()).reference(perf.isFpsCapped() ? (float) perf.targetFps() : null);
         fpsReadout.set(inWorld ? snapshot.fps() : -1, snapshot.onePercentLowFps());
         target.setValue(perf.isFpsCapped() ? Lang.tr("vanta.common.fps", perf.targetFps())
-                : Lang.tr("vanta.perf.fps_limit.unlimited"));
+                : Lang.tr("vanta.common.unlimited"));
         frameAvg.setValue(ms(snapshot.frameTimeAvgMs()));
         frameLow.setValue(snapshot.frameTimeOnePercentMs() > 0
                 ? ms(snapshot.frameTimeOnePercentMs()) + " · " + Lang.tr("vanta.common.fps", Math.round(snapshot.onePercentLowFps()))
