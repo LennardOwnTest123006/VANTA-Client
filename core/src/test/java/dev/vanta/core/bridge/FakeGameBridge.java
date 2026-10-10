@@ -255,6 +255,14 @@ public final class FakeGameBridge implements GameBridge {
         actions.add("sound");
     }
 
+    /** Alarm sounds the timer requested (counted apart from {@link #actions}). */
+    public int alarmSounds;
+
+    @Override
+    public void playAlarmSound() {
+        alarmSounds++;
+    }
+
     @Override
     public Optional<Path> screenshotsDir() {
         return screenshotsDir;
