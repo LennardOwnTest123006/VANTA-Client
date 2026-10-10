@@ -376,7 +376,7 @@ public final class VantaServices {
                 return true;
             }
             case ActionEntry.CLEAR_STATISTICS -> {
-                statsStore.clearAll();
+                stats.clearAll();
                 notifications.statisticsCleared();
                 return true;
             }

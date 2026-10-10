@@ -15,7 +15,7 @@ For the running session, and summarised when it ends:
 
 | Value | How it is measured |
 | --- | --- |
-| Playtime | time spent in a world (menus do not count) |
+| Playtime | time with a world or server loaded (the pause menu counts; the title screen and the other menus outside a world do not) |
 | FPS | average and highest frame rate sampled while playing |
 | Worlds played | names of singleplayer worlds you entered (optional, see privacy switches) |
 | Servers visited | host names of servers you joined — only the host name, never the full address with port, never chat or players (optional) |
@@ -45,6 +45,14 @@ blocks placed) with small bars for the last 30 sessions, the current session, a 
 average FPS, world or server) and a privacy panel. A fresh installation shows honest empty states, not sample
 numbers.
 
+From client 1.5.0 on the totals are live. *Playtime* is the stored total plus the running session, shown with
+seconds (`h:mm:ss`, or `m:ss` below an hour) and counting up every second while the screen is open and you are in a
+world; the *This session* card shows the running session's play time the same way and says so when you are outside a
+world, where play time stands still. Distance, blocks broken and placed, best FPS, worlds and servers include the
+running session too. Only the screen's text changes: `stats.json` is still written once per session, when you quit
+the game, so a crash loses the running session, as in earlier versions. With *Record statistics* off the totals stay
+at the stored values, because a session that is not recorded is not added.
+
 ## Privacy switches
 
 All in *Settings → Privacy* and mirrored on the Statistics screen:
@@ -62,7 +70,8 @@ The built-in **Recording** profile turns *Remember servers* off.
 - **Export JSON** writes a copy of the statistics to `config/vanta/exports/` (the notification shows the exact file
   name) and copies the same JSON to your clipboard. You decide where it goes from there.
 - **Clear all** deletes every statistic after a confirmation. The file is rewritten empty; there is no backup and no
-  server copy, because there is no server.
+  server copy, because there is no server. The running session starts again from zero, so the cleared numbers are
+  not recorded again when you quit.
 
 ## What never happens
 

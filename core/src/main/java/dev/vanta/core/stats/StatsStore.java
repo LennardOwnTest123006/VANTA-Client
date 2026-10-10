@@ -124,9 +124,7 @@ public final class StatsStore {
         List<SessionRecord> copy = new ArrayList<>(recent);
         recent.clear();
         for (SessionRecord r : copy) {
-            recent.addLast(new SessionRecord(r.startedAt(), r.endedAt(), r.playtimeMs(), r.averageFps(), r.maxFps(),
-                    worlds ? List.of() : r.worlds(), servers ? List.of() : r.servers(), r.distanceBlocks(),
-                    r.blocksBroken(), r.blocksPlaced(), r.screenshots()));
+            recent.addLast(r.withoutNames(worlds, servers));
         }
         dirty = true;
     }

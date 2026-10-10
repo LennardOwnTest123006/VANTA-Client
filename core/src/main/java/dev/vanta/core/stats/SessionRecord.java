@@ -48,6 +48,15 @@ public record SessionRecord(long startedAt, long endedAt, long playtimeMs, doubl
         return o;
     }
 
+    /** Copy without world names ({@code dropWorlds}) and/or server names ({@code dropServers}). */
+    public SessionRecord withoutNames(boolean dropWorlds, boolean dropServers) {
+        if (!dropWorlds && !dropServers) {
+            return this;
+        }
+        return new SessionRecord(startedAt, endedAt, playtimeMs, averageFps, maxFps, dropWorlds ? List.of() : worlds,
+                dropServers ? List.of() : servers, distanceBlocks, blocksBroken, blocksPlaced, screenshots);
+    }
+
     /** Tolerant JSON read. */
     public static SessionRecord fromJson(JsonObject o) {
         return new SessionRecord(num(o, "startedAt"), num(o, "endedAt"), num(o, "playtimeMs"),

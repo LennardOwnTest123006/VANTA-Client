@@ -7,6 +7,7 @@ import java.time.Clock;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Feeds {@link SessionStats} from game events and commits sessions to the {@link StatsStore}.
@@ -14,6 +15,11 @@ import java.util.Optional;
  * Distance is integrated from position deltas between ticks; a delta above {@value #TELEPORT_THRESHOLD} blocks or a
  * dimension change is treated as a teleport and ignored. Privacy flags are re-read from the settings on every call, so
  * turning tracking off takes effect immediately. Server addresses are reduced to lower-case hostnames (no port).
+ * <p>
+ * Play time counts only while a world or server is loaded ({@link GameBridge#isInWorld()}, which includes the pause
+ * menu over a world but not the title screen). The session is written to the {@link StatsStore} once, when it ends;
+ * {@link #live()} adds the running session to the stored totals in memory so screens can show them counting up
+ * without any extra disk write.
  */
 public final class StatsTracker {
     /** Largest per-tick movement counted as walking/flying. */
@@ -55,6 +61,45 @@ public final class StatsTracker {
     /** The running session, if any. */
     public Optional<SessionStats> current() {
         return Optional.ofNullable(session);
+    }
+
+    /**
+     * Play time of the running session in milliseconds, 0 when there is none. Allocation-free, for callers that poll
+     * every tick to notice when the shown second changes (it does not look at the privacy flags; {@link #live()}
+     * does).
+     */
+    public long sessionPlaytimeMs() {
+        return session == null ? 0L : session.playtimeMs();
+    }
+
+    /**
+     * The lifetime totals including the running session, read from memory only (see {@link LiveStats}). The running
+     * session counts only while statistics are turned on, because {@link #endSession()} records nothing otherwise.
+     */
+    public LiveStats live() {
+        LifetimeStats stored = store.lifetime();
+        StatsPrivacy privacy = privacy();
+        if (session == null || !privacy.enabled()) {
+            return LiveStats.storedOnly(stored, privacy.enabled());
+        }
+        int worlds = privacy.trackWorlds() ? distinct(stored.worlds(), session.worlds()) : stored.worlds().size();
+        int servers = privacy.trackServers() ? distinct(stored.servers(), session.servers()) : stored.servers().size();
+        return new LiveStats(stored, true, session.playtimeMs(), session.distanceBlocks(), session.blocksBroken(),
+                session.blocksPlaced(), session.maxFps(), worlds, servers);
+    }
+
+    /**
+     * Size of the union of both name sets, capped at {@link LifetimeStats#MAX_NAMES} like {@link LifetimeStats#plus}
+     * caps it (a longer stored list, only possible in a hand-edited file, is counted as it is).
+     */
+    private static int distinct(Set<String> stored, Set<String> running) {
+        int count = stored.size();
+        for (String name : running) {
+            if (!stored.contains(name)) {
+                count++;
+            }
+        }
+        return Math.min(count, Math.max(stored.size(), LifetimeStats.MAX_NAMES));
     }
 
     /** Once per client tick while the game runs. */
@@ -154,16 +199,35 @@ public final class StatsTracker {
         if (session == null) {
             return Optional.empty();
         }
-        SessionRecord record = session.toRecord(clock.millis());
+        StatsPrivacy privacy = privacy();
+        // A "remember" switch turned off during the session also drops the names the session collected before.
+        SessionRecord record = session.toRecord(clock.millis())
+                .withoutNames(!privacy.trackWorlds(), !privacy.trackServers());
         session = null;
         onLeave();
-        if (!privacy().enabled() || record.playtimeMs() == 0 && record.blocksBroken() == 0
+        if (!privacy.enabled() || record.playtimeMs() == 0 && record.blocksBroken() == 0
                 && record.blocksPlaced() == 0 && record.screenshots() == 0) {
             return Optional.empty();
         }
         store.record(record);
         store.save();
         return Optional.of(record);
+    }
+
+    /**
+     * Deletes every stored statistic (one write, like {@link StatsStore#clearAll()}) and restarts the running session
+     * from zero, so the totals read zero right after and the cleared numbers are not recorded again when the game
+     * closes. World and server names come back with the next join.
+     */
+    public void clearAll() {
+        store.clearAll();
+        if (session != null) {
+            session = new SessionStats(clock.millis());
+            tickCounter = 0;
+            if (lastTickAt > 0) {
+                lastTickAt = clock.millis();
+            }
+        }
     }
 
     /** Lower-case hostname without port or user info; empty for blank input. */
