@@ -171,6 +171,13 @@ public interface GameBridge {
     /** Plays the vanilla UI click sound. */
     void playUiSound();
 
+    /**
+     * Plays the timer's alarm sound once (a bell); the timer calls it every second while it rings. Must never throw,
+     * also when the game has no sound device. The default (hosts without sound) does nothing.
+     */
+    default void playAlarmSound() {
+    }
+
     /** Screenshot directory when it exists. */
     Optional<Path> screenshotsDir();
 
