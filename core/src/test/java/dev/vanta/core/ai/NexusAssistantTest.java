@@ -160,6 +160,13 @@ class NexusAssistantTest {
         assistant.ask("Move the FPS counter to the bottom right", replies::add);
         assertEquals(dev.vanta.core.hud.HudAnchor.BOTTOM_RIGHT,
                 services.hud().layout().find("fps").orElseThrow().anchor());
+        // The bottom-right corner already held the item durability widget: the turn ends with the two stacked, FPS
+        // keeping the requested corner spot (from client 1.6.0 on).
+        NexusReply moved = replies.get(0);
+        assertEquals(List.of("hud.set", "hud.resolve"), moved.applied().stream().map(AppliedAction::type).toList());
+        assertEquals(4, services.hud().layout().find("fps").orElseThrow().offsetY());
+        assertEquals(20, services.hud().layout().find("item_durability").orElseThrow().offsetY());
+        assertTrue(dev.vanta.core.hud.HudArranger.overlaps(services.hud().layout(), 854, 480, 1.0).isEmpty());
 
         backend.nextContent = "{\"message\":\"Created.\",\"actions\":[{\"type\":\"hud.preset\",\"preset\":\"recording\"},"
                 + "{\"type\":\"profile.create\",\"name\":\"Recording\",\"fromCurrent\":true}]}";
@@ -170,7 +177,9 @@ class NexusAssistantTest {
         assertTrue(services.hud().layout().byType(HudWidgetType.KEYSTROKES).get(0).enabled());
         assertEquals(NexusHudPreset.RECORDING.apply(HudPresets.defaultPreset().layout()
                         .with(HudPresets.defaultPreset().layout().find("fps").orElseThrow()
-                                .withPosition(dev.vanta.core.hud.HudAnchor.BOTTOM_RIGHT, 4, 4))),
+                                .withPosition(dev.vanta.core.hud.HudAnchor.BOTTOM_RIGHT, 4, 4))
+                        .with(HudPresets.defaultPreset().layout().find("item_durability").orElseThrow()
+                                .withPosition(dev.vanta.core.hud.HudAnchor.BOTTOM_RIGHT, 4, 20))),
                 services.hud().layout());
     }
 

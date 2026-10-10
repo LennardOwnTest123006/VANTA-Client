@@ -358,6 +358,21 @@ public final class VantaSettings {
             "text background", "readability");
     public static final Setting<?> ACCESSIBILITY_CHAT_OPACITY = vanilla("accessibility.chatOpacity", ACCESSIBILITY,
             VanillaOption.CHAT_OPACITY, "chat", "opacity", "transparency");
+    /** From client 1.6.0 on: vanilla chat text size ({@code chatScale}, 0 to 1). */
+    public static final Setting<?> ACCESSIBILITY_CHAT_SCALE = vanilla("accessibility.chatScale", ACCESSIBILITY,
+            VanillaOption.CHAT_SCALE, "chat", "text size", "font size", "smaller", "bigger");
+    /** From client 1.6.0 on: vanilla chat width ({@code chatWidth}, 0 to 1). */
+    public static final Setting<?> ACCESSIBILITY_CHAT_WIDTH = vanilla("accessibility.chatWidth", ACCESSIBILITY,
+            VanillaOption.CHAT_WIDTH, "chat", "width", "narrow", "wide");
+    /** From client 1.6.0 on: vanilla chat height while the chat is open ({@code chatHeightFocused}, 0 to 1). */
+    public static final Setting<?> ACCESSIBILITY_CHAT_HEIGHT_FOCUSED = vanilla("accessibility.chatHeightFocused",
+            ACCESSIBILITY, VanillaOption.CHAT_HEIGHT_FOCUSED, "chat", "height", "focused", "lines");
+    /** From client 1.6.0 on: vanilla chat height while playing ({@code chatHeightUnfocused}, 0 to 1). */
+    public static final Setting<?> ACCESSIBILITY_CHAT_HEIGHT_UNFOCUSED = vanilla("accessibility.chatHeightUnfocused",
+            ACCESSIBILITY, VanillaOption.CHAT_HEIGHT_UNFOCUSED, "chat", "height", "unfocused", "lines");
+    /** From client 1.6.0 on: vanilla chat line spacing ({@code chatLineSpacing}, 0 to 1). */
+    public static final Setting<?> ACCESSIBILITY_CHAT_LINE_SPACING = vanilla("accessibility.chatLineSpacing",
+            ACCESSIBILITY, VanillaOption.CHAT_LINE_SPACING, "chat", "line spacing", "lines", "readability");
 
     // ---- language -----------------------------------------------------------------------------------------------------
     /** Button: open the vanilla language screen (VANTA strings follow the game language). */

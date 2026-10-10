@@ -11,10 +11,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
@@ -33,6 +35,7 @@ public final class NexusUndo {
         private final Map<String, JsonElement> settingsBefore;
         private final Optional<String> profileBefore;
         private final List<Runnable> restores = new ArrayList<>();
+        private final Set<String> hudChanged = new LinkedHashSet<>();
 
         private Turn() {
             this.hudBefore = hud.layout();
@@ -43,6 +46,21 @@ public final class NexusUndo {
         /** Registers a step that reverts something the snapshots do not cover (waypoints, lab features). */
         public void addRestore(Runnable restore) {
             restores.add(Objects.requireNonNull(restore, "restore"));
+        }
+
+        /**
+         * Notes a HUD widget this turn moved or showed ({@code hud.set}); {@link NexusActions#finishTurn} checks
+         * these for overlaps once all of the turn's actions ran.
+         */
+        void noteHudChange(String widgetId) {
+            hudChanged.add(Objects.requireNonNull(widgetId, "widgetId"));
+        }
+
+        /** Widgets noted by {@link #noteHudChange} and not yet checked, in order; clears the list. */
+        List<String> takeHudChanges() {
+            List<String> out = List.copyOf(hudChanged);
+            hudChanged.clear();
+            return out;
         }
     }
 

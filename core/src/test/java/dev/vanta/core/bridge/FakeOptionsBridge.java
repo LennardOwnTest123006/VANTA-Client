@@ -76,6 +76,11 @@ public final class FakeOptionsBridge implements OptionsBridge {
         values.put(VanillaOption.REDUCED_DEBUG_INFO, false);
         values.put(VanillaOption.TEXT_BACKGROUND_OPACITY, 0.5);
         values.put(VanillaOption.CHAT_OPACITY, 1.0);
+        values.put(VanillaOption.CHAT_SCALE, 1.0);
+        values.put(VanillaOption.CHAT_WIDTH, 1.0);
+        values.put(VanillaOption.CHAT_HEIGHT_FOCUSED, 1.0);
+        values.put(VanillaOption.CHAT_HEIGHT_UNFOCUSED, 0.4375);
+        values.put(VanillaOption.CHAT_LINE_SPACING, 0.0);
     }
 
     /** Marks an option as missing from the running game. */

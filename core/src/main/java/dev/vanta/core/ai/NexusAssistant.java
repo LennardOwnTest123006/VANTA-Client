@@ -4,6 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import dev.vanta.core.config.CoreLog;
+import dev.vanta.core.crosshair.CrosshairColors;
+import dev.vanta.core.crosshair.CrosshairPresets;
 import dev.vanta.core.hud.HudLayout;
 import dev.vanta.core.hud.HudPreset;
 import dev.vanta.core.hud.HudStore;
@@ -14,6 +16,7 @@ import dev.vanta.core.perf.PerformancePreset;
 import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.profiles.ProfileManager;
 import dev.vanta.core.settings.Setting;
+import dev.vanta.core.settings.SettingKind;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +42,37 @@ public final class NexusAssistant {
     public static final String FRAME_RATE_RULE = "Never turn VSync on or set a frame-rate limit (video.vsync, "
             + "video.framerateLimit, performance.fpsLimitPreset) unless the player asks for exactly that. For more FPS "
             + "use performance.fpsLimitPreset unlimited, which turns VSync off.";
+    /**
+     * Rule in the system prompt (from client 1.6.0 on): what the 0..1 numbers mean, and how "chat smaller" maps to the
+     * vanilla chat size settings. {@link NexusActions} also reads "50 %" and numbers above 1 as percent and never sets
+     * the chat text size below {@value NexusActions#MIN_CHAT_SCALE}.
+     */
+    public static final String FRACTION_RULE = "Numbers 0..1 (volumes audio.*, opacities, chat size) are fractions: "
+            + "0 = off, 0.5 = 50 %, 1 = 100 %. Chat size is accessibility.chatScale (text) and accessibility.chatWidth: "
+            + "smaller = 0.2 less than now (scale at least 0.5), bigger = 0.2 more (at most 1).";
+    /**
+     * Few-shot examples at the end of the system prompt (from client 1.6.0 on): the requests players make most, each
+     * with the actions it maps to. Only ids that always exist are used.
+     */
+    public static final String EXAMPLES = """
+            Examples (player: actions):
+            music off: [{"type":"setting.set","id":"audio.music","value":0}]
+            master volume 50 %: [{"type":"setting.set","id":"audio.master","value":0.5}]
+            make the crosshair a circle: [{"type":"crosshair.set","shape":"circle"}]
+            red dot crosshair: [{"type":"crosshair.set","shape":"dot","color":"red"}]
+            make the chat smaller (scale and width now 1): [{"type":"setting.set","id":"accessibility.chatScale",\
+            "value":0.8},{"type":"setting.set","id":"accessibility.chatWidth","value":0.8}]
+            sort the HUD: [{"type":"hud.arrange"}]
+            delete the coordinates: [{"type":"hud.set","element":"coordinates","visible":false}]
+            only show FPS and coordinates: [{"type":"hud.only","elements":["fps","coordinates"]}]
+            """;
+    /** Context size of the Local AI model (the manifest's {@code contextSize}, {@code -c}). */
+    public static final int CONTEXT_TOKENS = 4096;
+    /**
+     * Budget of the system prompt in {@link #estimateTokens} tokens: the context minus the
+     * {@value LocalAiClient#MAX_TOKENS}-token answer and room for the {@value #CONTEXT_TURNS} turns of conversation.
+     */
+    public static final int PROMPT_TOKEN_BUDGET = 2600;
 
     private final NexusActions actions;
     private final NexusUndo undo;
@@ -90,20 +124,32 @@ public final class NexusAssistant {
     public String systemPrompt() {
         StringBuilder p = new StringBuilder(4096);
         p.append("You are Vanta Nexus, the local assistant inside the VANTA Minecraft client. You help the player ")
-                .append("with their own client only: HUD layout, settings, profiles, performance presets, waypoints and ")
-                .append("Vanta Lab features. You never act in the game world, never touch other players, keybinds, the ")
-                .append("network or files.\n");
+                .append("with their own client only: HUD layout, crosshair, settings (sound and chat size too), profiles, ")
+                .append("performance presets, waypoints and Vanta Lab features. You never act in the game world, never ")
+                .append("touch other players, keybinds, the network or files.\n");
         p.append("Reply with one JSON object only: {\"message\": string, \"actions\": array}. \"message\" is one or two ")
                 .append("plain English sentences for the player, no markdown. \"actions\" lists the changes to make now, ")
                 .append("in order. Return an empty array when nothing should change or when you need to ask a question. ")
                 .append("Use only the action types and the ids, names and values listed below; never invent names. If a ")
                 .append("request is outside these actions, say so briefly.\n\n");
         p.append("Action types:\n");
-        p.append("- hud.set {element, visible?, anchor?, x?, y?, scale?, opacity?}: show or hide a widget, anchor it ")
+        p.append("- hud.set {element, visible?, anchor?, x?, y?, scale?, opacity?}: show or hide a widget (visible ")
+                .append("false removes it from the screen), anchor it ")
                 .append("(top_left, top_center, top_right, middle_left, center, middle_right, bottom_left, bottom_center, ")
                 .append("bottom_right), place it at x,y as fractions of the screen (0 = left/top, 1 = right/bottom), ")
                 .append("scale 0.5..2, opacity 0.1..1. A widget type that is not on the HUD yet is added.\n");
         p.append("- hud.only {elements: [ids]}: show exactly these widgets and hide every other one (the crosshair stays).\n");
+        p.append("- hud.arrange {corner?}: sort, arrange, tidy, organize, order or line up the HUD (also \"sortieren\", ")
+                .append("\"ordnen\"): stacks every visible widget without overlap in its nearest corner (corner auto) ")
+                .append("or all in top_left, top_right, bottom_left or bottom_right. Never sort with hud.set.\n");
+        if (actions.crosshair().isPresent()) {
+            p.append("- crosshair.set {preset?, shape?, size?, thickness?, gap?, color?, outline?, opacity?, vanilla?}: ")
+                    .append("preset ").append(String.join(", ", CrosshairPresets.IDS)).append("; shape ")
+                    .append(String.join(", ", NexusActions.crosshairShapeIds()))
+                    .append("; size 1..32, thickness 1..8, gap 0..16, opacity 0.1..1; color #RRGGBB or ")
+                    .append(String.join(", ", CrosshairColors.names()))
+                    .append("; vanilla true = Minecraft's own crosshair.\n");
+        }
         p.append("- hud.layout.save {name} and hud.layout.load {name}: save the current layout under a name, or load a ")
                 .append("saved layout.\n");
         p.append("- hud.preset {preset}: one of ").append(String.join(", ", actions.hudPresetIds())).append(".\n");
@@ -112,6 +158,7 @@ public final class NexusAssistant {
         p.append("- perf.preset {preset}: one of ").append(String.join(", ", actions.perfPresetIds()))
                 .append(". perf.smartBoost {run: true}: measure this PC and pick a preset automatically.\n");
         p.append("- setting.set {id, value}: change one of the settings listed below.\n");
+        p.append("  ").append(FRACTION_RULE).append('\n');
         p.append("  ").append(FRAME_RATE_RULE).append('\n');
         p.append("- waypoint.add {name, x, y, z, category?}, waypoint.remove {name}, waypoint.toggle {name, enabled}.\n");
         p.append("- lab.set {feature, enabled}: switch a Vanta Lab feature.\n\n");
@@ -129,6 +176,7 @@ public final class NexusAssistant {
             p.append("Widget types not on the HUD (use as element to add them): ").append(String.join(", ", addable))
                     .append('\n');
         }
+        actions.crosshairSummary().ifPresent(summary -> p.append("Crosshair now: ").append(summary).append('\n'));
         p.append("Saved HUD layouts: ");
         List<String> layouts = new ArrayList<>();
         for (HudPreset preset : hud.allPresets()) {
@@ -136,10 +184,29 @@ public final class NexusAssistant {
         }
         p.append(layouts.isEmpty() ? "none" : String.join(", ", layouts)).append("\n\n");
 
+        // On/off and 0..1 settings are listed on one line each (id=current) to keep the prompt within the context.
         p.append("Settings you may change (id: allowed values, current):\n");
+        List<String> toggles = new ArrayList<>();
+        List<String> fractions = new ArrayList<>();
+        List<String> others = new ArrayList<>();
         for (Setting<?> setting : actions.allowedSettings()) {
-            p.append(setting.id()).append(": ").append(NexusActions.allowedValues(setting)).append(", current ")
-                    .append(actions.currentValue(setting)).append('\n');
+            String current = actions.currentValue(setting);
+            if (setting.kind() == SettingKind.BOOL) {
+                toggles.add(setting.id() + "=" + current);
+            } else if (NexusActions.isFraction(setting)) {
+                fractions.add(setting.id() + "=" + current);
+            } else {
+                others.add(setting.id() + ": " + NexusActions.allowedValues(setting) + ", current " + current);
+            }
+        }
+        if (!toggles.isEmpty()) {
+            p.append("On/off, true or false (id=current): ").append(String.join(", ", toggles)).append('\n');
+        }
+        if (!fractions.isEmpty()) {
+            p.append("Fractions, number 0..1 (id=current): ").append(String.join(", ", fractions)).append('\n');
+        }
+        for (String line : others) {
+            p.append(line).append('\n');
         }
         p.append('\n');
 
@@ -168,7 +235,17 @@ public final class NexusAssistant {
             }
             p.append(String.join(", ", labLines)).append('\n');
         }
+        p.append('\n').append(EXAMPLES);
         return p.toString();
+    }
+
+    /**
+     * Rough token count of a text for the {@value #CONTEXT_TOKENS}-token context: one token per three characters,
+     * which over-counts English and the setting ids (Qwen's tokenizer averages closer to four), so a prompt that fits
+     * this estimate fits the real context.
+     */
+    public static int estimateTokens(String text) {
+        return text == null ? 0 : (text.length() + 2) / 3;
     }
 
     /** The request for a question: system prompt, the last {@value #CONTEXT_TURNS} turns, then the question. */

@@ -26,6 +26,8 @@ public final class CrosshairPresets {
 
     /** Built-in ids in display order. */
     public static final List<String> IDS = List.of(DEFAULT, DOT, THIN, BOLD, CIRCLE, PRECISION);
+    /** {@code cosmetics.crosshairPreset} value of a style that matches no built-in preset. */
+    public static final String CUSTOM = "custom";
 
     private static final String RESOURCE_DIR = "/vanta/presets/crosshair/";
     private static volatile List<CrosshairPreset> cache;
@@ -65,6 +67,14 @@ public final class CrosshairPresets {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Value of the {@code cosmetics.crosshairPreset} setting for a style: the id of the built-in preset it equals, or
+     * {@value #CUSTOM} (what the crosshair customizer and the Vanta Nexus assistant store after a change).
+     */
+    public static String settingValueFor(CrosshairStyle style) {
+        return matching(style).map(CrosshairPreset::id).orElse(CUSTOM);
     }
 
     static CrosshairPreset load(String id) {

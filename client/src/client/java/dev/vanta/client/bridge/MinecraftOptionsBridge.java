@@ -102,6 +102,12 @@ public final class MinecraftOptionsBridge implements OptionsBridge {
         map.put(VanillaOption.REDUCED_DEBUG_INFO, bool(o.reducedDebugInfo()));
         map.put(VanillaOption.TEXT_BACKGROUND_OPACITY, number(o.textBackgroundOpacity(), Number::doubleValue));
         map.put(VanillaOption.CHAT_OPACITY, number(o.chatOpacity(), Number::doubleValue));
+        // chat size (from client 1.6.0 on); OptionInstance.set runs the game's own update, which re-wraps the chat
+        map.put(VanillaOption.CHAT_SCALE, number(o.chatScale(), Number::doubleValue));
+        map.put(VanillaOption.CHAT_WIDTH, number(o.chatWidth(), Number::doubleValue));
+        map.put(VanillaOption.CHAT_HEIGHT_FOCUSED, number(o.chatHeightFocused(), Number::doubleValue));
+        map.put(VanillaOption.CHAT_HEIGHT_UNFOCUSED, number(o.chatHeightUnfocused(), Number::doubleValue));
+        map.put(VanillaOption.CHAT_LINE_SPACING, number(o.chatLineSpacing(), Number::doubleValue));
         return map;
     }
 
