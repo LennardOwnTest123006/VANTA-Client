@@ -6,7 +6,7 @@ title: VANTA Client 1.5.0
 minecraftVersion: 1.21.11
 ---
 
-Update of VANTA Client 1.4.1 for Minecraft Java Edition 1.21.11 (Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11, Java 21). The game is no longer held at 60 FPS by Minecraft's default VSync, the Statistics play time counts up live every second, and a new timer rings until you stop it. Vanta Nexus, the Local AI and everything else work as in 1.4.1.
+Update of VANTA Client 1.4.1 for Minecraft Java Edition 1.21.11 (Fabric Loader 0.19.5, Fabric API 0.141.6+1.21.11, Java 21). The game is no longer held at 60 FPS by Minecraft's default VSync, and the Statistics play time counts up live every second. Vanta Nexus, the Local AI and everything else work as in 1.4.1.
 
 ## Fixed
 
@@ -14,14 +14,8 @@ Update of VANTA Client 1.4.1 for Minecraft Java Edition 1.21.11 (Fabric Loader 0
 - **Unlimited means unlimited.** The frame-rate choice reads *Unlimited (VSync off)* and *VSync (monitor refresh rate)*, and moving VANTA's Max Framerate slider to Unlimited also turns VSync off. No preset, profile, Smart Boost step, render-distance advice or Nexus action turns VSync on or sets a limit by itself; new tests check each of them
 - **Statistics play time is live.** *Playtime* is the stored total plus the running session and counts up every second while the Statistics screen is open and you are in a world (the pause menu counts, the title screen does not), shown as `h:mm:ss` (or `m:ss` below an hour). The *This session* card shows the running session the same way and says when play time stands still outside a world. Distance, blocks, best FPS, worlds and servers include the running session too. Only the text on the screen changes: `stats.json` is still written once per session, when you quit the game
 
-## Added
-
-- **Timer.** Set a countdown with the presets 1, 5, 10, 15, 30 or 60 minutes or your own minutes and seconds (up to 24 hours), with an optional label; pause, resume or cancel it. It counts in real time, also in menus, in the pause menu and while the game window is in the background. When the time is up, an alarm window opens over whatever you are doing and a bell rings every second until you click **Stop** (Enter and Escape stop it too); then the ringing ends and the window closes
-- Open the timer from the command palette or the settings search (*Open timer*, also found by "alarm", "countdown" and "minutes"), or with the chat command `/vanta timer` (`/vanta timer 10` starts 10 minutes, `/vanta timer 2:30 Tea` starts 2 minutes 30 seconds labelled *Tea*, `/vanta timer stop` stops or cancels it)
-
 ## Notes
 
 - Minecraft itself limits menus without a world (the title screen and the VANTA main menu) to 60 FPS and lowers the frame rate while you are away from the keyboard; VANTA changes neither. Worlds are not capped. How many frames your PC reaches depends on your hardware; VANTA promises no number
-- A running timer lives in memory only: it is not kept when you close the game
 - Clear all on the Statistics screen now also restarts the running session from zero, so cleared numbers are not recorded again when you quit
 - Update through the VANTA Launcher (it offers 1.5.0 by itself) or replace `vanta-client-1.4.1.jar` with `vanta-client-1.5.0.jar` in your `mods` folder

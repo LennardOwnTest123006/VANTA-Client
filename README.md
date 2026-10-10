@@ -102,8 +102,7 @@ The latest releases are **VANTA Client 1.5.0** and **VANTA Launcher 1.5.0**, rel
 Releases [`client-v1.5.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.5.0) and
 [`launcher-v1.5.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.5.0). Client 1.5.0
 removes the 60 FPS cap a new game folder had (Minecraft's default VSync is turned off once and Max Framerate set to
-Unlimited; your own later choice stays), lets the Statistics play time count up live every second, and adds a
-**timer** with a ringing alarm window you stop with one click. Launcher 1.5.0 keeps the version numbers aligned and
+Unlimited; your own later choice stays), and lets the Statistics play time count up live every second. Launcher 1.5.0 keeps the version numbers aligned and
 changes nothing else. They build on 1.4.0, which brought
 **Vanta Nexus** and the **Local AI** that runs the assistant strictly on the player's PC (`llama-server` from llama.cpp with the
 Qwen3-1.7B model, downloaded once after a click, verified by SHA-256, offline afterwards; no cloud AI, no API key, no

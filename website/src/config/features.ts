@@ -21,7 +21,6 @@ import {
   Zap,
   ZoomIn,
   Layers,
-  AlarmClock,
 } from 'lucide-react';
 import { formatBytes } from '../lib/format';
 import {
@@ -560,21 +559,6 @@ export const featureFamilies: readonly FeatureFamily[] = [
       'Worlds and servers you joined; each list can be switched off separately',
       'Pause tracking, reset or delete the data at any time from the Privacy settings',
       'Nothing is uploaded: there is no account and no telemetry',
-    ],
-  },
-  {
-    id: 'timer',
-    title: 'Timer',
-    icon: AlarmClock,
-    eyebrow: 'New in 1.5.0',
-    description:
-      'A countdown inside the game. When the time is up, a window opens over whatever you are doing and a bell rings until you click Stop.',
-    bullets: [
-      'Presets of 1, 5, 10, 15, 30 and 60 minutes, or your own minutes and seconds up to 24 hours, with an optional label',
-      'Pause, resume and cancel; it counts in real time, also in menus, in the pause menu and with the game in the background',
-      'The alarm window shows the label and when the time was up; Stop (or Enter or Escape) ends the ringing and closes it',
-      'Open it from the command palette or the settings search (Open timer), or type /vanta timer 10 in chat; /vanta timer stop stops it',
-      'Kept in memory only: a running timer does not survive closing the game',
     ],
   },
   {

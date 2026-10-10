@@ -70,7 +70,6 @@ with no cloud AI, no API key, no account and no telemetry ([Privacy](privacy.md)
   settings, verify / reinstall / remove, unsupported systems, licences
 - [Waypoints](waypoints.md): the waypoint store and per-world keys, screen markers and their settings, the beams of
   Vanta Lab, the Waypoints section of Nexus, the assistant's waypoint actions
-- [Timer](timer.md): the countdown timer of client 1.5.0, its alarm window with the ringing bell, and `/vanta timer`.
 - [Settings](settings.md): categories (including Vanta Nexus, Waypoints and Vanta Lab), search, reset, tooltips,
   keyboard navigation, `settings.json`
 - [HUD and crosshair](hud.md): every widget (including the frame time graph of Vanta Lab), the HUD editor, presets,

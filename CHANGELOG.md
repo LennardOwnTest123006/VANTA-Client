@@ -28,13 +28,6 @@ No changes yet.
   restarts the running session from zero; world and server names collected before a remember switch was turned off
   are no longer recorded at exit.
 
-### Added
-- **Timer** (`dev.vanta.core.timer`, screens *Timer* and *Time is up*): presets 1, 5, 10, 15, 30 and 60 minutes or a
-  custom duration up to 24 hours with an optional label; pause, resume, cancel; real time, also in menus. When the
-  time is up the alarm window opens over any screen and a bell (`GameBridge.playAlarmSound`) rings every second until
-  **Stop** (or Enter / Escape). Command palette entry *Open timer*; chat command `/vanta timer [minutes|m:ss] [label]`
-  and `/vanta timer stop`. A running timer is not kept across restarts.
-
 ## [Launcher 1.5.0] - 2026-10-10
 
 ### Changed
