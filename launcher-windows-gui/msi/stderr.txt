@@ -1,0 +1,148 @@
+Picked up JAVA_TOOL_OPTIONS: -Dprism.verbose=true -Djavafx.verbose=true
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics begin
+INFO: VANTA Launcher 1.5.0 starting (Java 21.0.12.1, Windows Server 2025 10.0 amd64, JavaFX platform win)
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   code source = file:/C:/Users/runneradmin/AppData/Local/VANTA%20Launcher/app/vanta-launcher-1.5.0-all.jar
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   file.encoding = UTF-8
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   java.home = C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   java.runtime.version = 21.0.12.1+1-LTS
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   java.vendor = Eclipse Adoptium
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   java.version = 21.0.12.1
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   javafx.platform (build) = win
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   jpackage.app-path = C:\Users\runneradmin\AppData\Local\VANTA Launcher\VANTA Launcher.exe
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   launcher.version = 1.5.0
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   module = unnamed module @4d95d2a2
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   os.arch = amd64
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   os.name = Windows Server 2025
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   os.version = 10.0
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   sun.jnu.encoding = Cp1252
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   user.dir = D:\a\VANTA-Client\VANTA-Client
+Oct 10, 2026 3:29:58 PM dev.vanta.launcher.StartupDiagnostics lambda$begin$0
+INFO:   vanta.launcher.packaged = true
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-console-l1-1-0.dll
+Loaded library /api-ms-win-core-console-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-console-l1-2-0.dll
+Loaded C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk\21.0.12-101.0\x64\bin\api-ms-win-core-console-l1-2-0.dll from java.library.path
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-datetime-l1-1-0.dll
+Loaded library /api-ms-win-core-datetime-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-debug-l1-1-0.dll
+Loaded library /api-ms-win-core-debug-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-errorhandling-l1-1-0.dll
+Loaded library /api-ms-win-core-errorhandling-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-file-l1-1-0.dll
+Loaded library /api-ms-win-core-file-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-file-l1-2-0.dll
+Loaded library /api-ms-win-core-file-l1-2-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-file-l2-1-0.dll
+Loaded library /api-ms-win-core-file-l2-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-handle-l1-1-0.dll
+Loaded library /api-ms-win-core-handle-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-heap-l1-1-0.dll
+Loaded library /api-ms-win-core-heap-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-interlocked-l1-1-0.dll
+Loaded library /api-ms-win-core-interlocked-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-libraryloader-l1-1-0.dll
+Loaded library /api-ms-win-core-libraryloader-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-localization-l1-2-0.dll
+Loaded library /api-ms-win-core-localization-l1-2-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-memory-l1-1-0.dll
+Loaded library /api-ms-win-core-memory-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-namedpipe-l1-1-0.dll
+Loaded library /api-ms-win-core-namedpipe-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-processenvironment-l1-1-0.dll
+Loaded library /api-ms-win-core-processenvironment-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-processthreads-l1-1-0.dll
+Loaded library /api-ms-win-core-processthreads-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-processthreads-l1-1-1.dll
+Loaded library /api-ms-win-core-processthreads-l1-1-1.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-profile-l1-1-0.dll
+Loaded library /api-ms-win-core-profile-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-rtlsupport-l1-1-0.dll
+Loaded library /api-ms-win-core-rtlsupport-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-string-l1-1-0.dll
+Loaded library /api-ms-win-core-string-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-synch-l1-1-0.dll
+Loaded library /api-ms-win-core-synch-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-synch-l1-2-0.dll
+Loaded library /api-ms-win-core-synch-l1-2-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-sysinfo-l1-1-0.dll
+Loaded library /api-ms-win-core-sysinfo-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-timezone-l1-1-0.dll
+Loaded library /api-ms-win-core-timezone-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-core-util-l1-1-0.dll
+Loaded library /api-ms-win-core-util-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-conio-l1-1-0.dll
+Loaded library /api-ms-win-crt-conio-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-convert-l1-1-0.dll
+Loaded library /api-ms-win-crt-convert-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-environment-l1-1-0.dll
+Loaded library /api-ms-win-crt-environment-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-filesystem-l1-1-0.dll
+Loaded library /api-ms-win-crt-filesystem-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-heap-l1-1-0.dll
+Loaded library /api-ms-win-crt-heap-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-locale-l1-1-0.dll
+Loaded library /api-ms-win-crt-locale-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-math-l1-1-0.dll
+Loaded library /api-ms-win-crt-math-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-multibyte-l1-1-0.dll
+Loaded library /api-ms-win-crt-multibyte-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-private-l1-1-0.dll
+Loaded library /api-ms-win-crt-private-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-process-l1-1-0.dll
+Loaded library /api-ms-win-crt-process-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-runtime-l1-1-0.dll
+Loaded library /api-ms-win-crt-runtime-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-stdio-l1-1-0.dll
+Loaded library /api-ms-win-crt-stdio-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-string-l1-1-0.dll
+Loaded library /api-ms-win-crt-string-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-time-l1-1-0.dll
+Loaded library /api-ms-win-crt-time-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\api-ms-win-crt-utility-l1-1-0.dll
+Loaded library /api-ms-win-crt-utility-l1-1-0.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\ucrtbase.dll
+Loaded library /ucrtbase.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\vcruntime140.dll
+Loaded library /vcruntime140.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\vcruntime140_1.dll
+Loaded library /vcruntime140_1.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\msvcp140.dll
+Loaded library /msvcp140.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\msvcp140_1.dll
+Loaded library /msvcp140_1.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\msvcp140_2.dll
+Loaded library /msvcp140_2.dll from resource
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\prism_d3d.dll
+Loaded library /prism_d3d.dll from resource
+D3DPipelineManager: Created D3D9Ex device
+JavaFX: using com.sun.javafx.tk.quantum.QuantumToolkit
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\glass.dll
+Loaded library /glass.dll from resource
+Maximum supported texture size: 16384
+Maximum texture size clamped to 4096
+ vsync: true vpipe: true
+WARNING: java.lang.UnsatisfiedLinkError: Can't load library: C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime\bin\javafx\javafx_font.dll
+Loaded library /javafx_font.dll from resource
+Oct 10, 2026 3:30:01 PM dev.vanta.launcher.ui.LauncherApp startWindow
+INFO: Main window shown (1,120 x 720)
+Oct 10, 2026 3:30:01 PM dev.vanta.launcher.ui.UiSmoke start
+INFO: UI smoke: window shown; screenshot D:\a\_temp\launcher-windows-gui\msi\window.png, exit after 20 s, page unchanged, size unchanged
+Oct 10, 2026 3:30:03 PM dev.vanta.launcher.ui.UiSmoke snapshot
+INFO: UI smoke: wrote D:\a\_temp\launcher-windows-gui\msi\window.png (1,120 x 720)
+Oct 10, 2026 3:30:21 PM dev.vanta.launcher.ui.UiSmoke lambda$start$5
+INFO: UI smoke: exiting with code 0

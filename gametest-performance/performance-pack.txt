@@ -1,0 +1,6 @@
+sodium: mc1.21.11-0.8.14-fabric (version id rkdTcxoT)
+lithium: mc1.21.11-0.21.4-fabric (version id Ow7wA0kG)
+ferrite-core: 8.2.0-fabric (version id Ii0gP3D8)
+immediatelyfast: 1.14.3+1.21.11-fabric (version id 4EwhsTu7)
+entityculling: 1.11.3 (version id CTabrwB1)
+iris: 1.10.8+1.21.11-fabric (version id ka9PDlsN)

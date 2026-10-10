@@ -1,0 +1,8 @@
+tag=v1.4.0
+client_version=1.4.0
+launcher_version=1.4.0
+commit=62d53e8eb83f60ad84973d3c86f0d546f0d10dd5
+release=https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.4.0
+run=https://github.com/LennardOwnTest123006/VANTA-Client/actions/runs/37980073574
+public_url_verified=true
+apply=cp vanta-1.4.0.json <repo>/shared/releases/bundles/

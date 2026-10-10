@@ -1,0 +1,20 @@
+2026-10-10T15:30:45.143Z INFO [VANTA.Startup] VANTA Launcher 1.5.0 starting (Java 21.0.12.1, Windows Server 2025 10.0 amd64, JavaFX platform win)
+2026-10-10T15:30:45.198Z INFO [VANTA.Startup]   code source = file:/D:/a/VANTA-Client/VANTA-Client/launcher/build/libs/vanta-launcher-1.5.0-all.jar
+2026-10-10T15:30:45.213Z INFO [VANTA.Startup]   file.encoding = UTF-8
+2026-10-10T15:30:45.215Z INFO [VANTA.Startup]   java.home = C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk\21.0.12-101.0\x64
+2026-10-10T15:30:45.231Z INFO [VANTA.Startup]   java.runtime.version = 21.0.12.1+1-LTS
+2026-10-10T15:30:45.232Z INFO [VANTA.Startup]   java.vendor = Eclipse Adoptium
+2026-10-10T15:30:45.248Z INFO [VANTA.Startup]   java.version = 21.0.12.1
+2026-10-10T15:30:45.250Z INFO [VANTA.Startup]   javafx.platform (build) = win
+2026-10-10T15:30:45.266Z INFO [VANTA.Startup]   launcher.version = 1.5.0
+2026-10-10T15:30:45.268Z INFO [VANTA.Startup]   module = unnamed module @504bae78
+2026-10-10T15:30:45.284Z INFO [VANTA.Startup]   os.arch = amd64
+2026-10-10T15:30:45.284Z INFO [VANTA.Startup]   os.name = Windows Server 2025
+2026-10-10T15:30:45.300Z INFO [VANTA.Startup]   os.version = 10.0
+2026-10-10T15:30:45.302Z INFO [VANTA.Startup]   sun.jnu.encoding = Cp1252
+2026-10-10T15:30:45.318Z INFO [VANTA.Startup]   user.dir = D:\a\VANTA-Client\VANTA-Client
+2026-10-10T15:30:47.059Z FINE [VANTA.UI] Loaded fonts: [Inter Regular, Inter Medium, Inter SemiBold, Inter Bold, Space Grotesk Bold]
+2026-10-10T15:30:47.788Z INFO [VANTA.UI] Main window shown (1,152 x 798)
+2026-10-10T15:30:47.815Z INFO [VANTA.UI.Smoke] UI smoke: window shown; screenshot D:\a\_temp\launcher-windows-gui\jar\window.png, exit after 20 s, page unchanged, size unchanged
+2026-10-10T15:30:50.769Z INFO [VANTA.UI.Smoke] UI smoke: wrote D:\a\_temp\launcher-windows-gui\jar\window.png (1,152 x 798)
+2026-10-10T15:31:07.829Z INFO [VANTA.UI.Smoke] UI smoke: exiting with code 0

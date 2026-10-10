@@ -1,0 +1,7 @@
+tag=launcher-v1.4.0
+channel=stable
+commit=4eec7c8e4dafa72160f4cda3a842967f9bab76bc
+release=https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.4.0
+run=https://github.com/LennardOwnTest123006/VANTA-Client/actions/runs/37887084525
+public_urls_verified=true
+apply=cp launcher-1.4.0.json <repo>/shared/releases/ && cp latest/launcher-latest.json <repo>/shared/releases/latest/

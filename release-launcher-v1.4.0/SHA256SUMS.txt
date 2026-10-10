@@ -1,0 +1,6 @@
+134ae959143a9debae68a55e682f08f6ae36f2dc9fc422934318fa472d857d0f  VANTA-Launcher-1.4.0.msi
+01279f1fc1f6afc21e6d3f98993ee8917cf28ad6c1b9880791311fe9521ca619  VANTA-Launcher-1.4.0-windows-portable.zip
+c723242ddf3431157a7452b1f6d248d7488f865ffafcbe1975834da03ef6512f  vanta-launcher-1.4.0-windows-all.jar
+43fb553d994ec7b48fa7dcfd6b6e9106d1883064198b46269eccc2501375db24  VANTA-Launcher-1.4.0-linux-x64.tar.gz
+09f5830ba0afdaf3ca6aeadc397e1e534d84c7f7e887530ab8b7631a304f87ea  vanta-launcher-1.4.0-linux-all.jar
+8f8a8d9781d3a201697eed74b4ae6d28aa6c15abf8ee74800fd0ef88cdfbbff3  vanta-launcher-1.4.0-macos-aarch64-all.jar

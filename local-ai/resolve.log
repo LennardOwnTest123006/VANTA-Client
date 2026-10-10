@@ -1,0 +1,12 @@
+Resolving /home/runner/work/VANTA-Client/VANTA-Client/shared/local-ai/local-ai.json
+GitHub release b11429: 36 assets (https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/b11429)
+  ok  windows-x64   llama-b11429-bin-win-cpu-x64.zip  19398918 bytes  sha256 1283323272b04cd07905816a597a0da810918102de958f4ff6f7bbaa70ed2efe  serverPath llama-server.exe
+  ok  windows-arm64 llama-b11429-bin-win-cpu-arm64.zip  12229035 bytes  sha256 ee0f631a9e58b146ff50714099d9cb498906af3143a773b580093a9214a8d1e5  serverPath llama-server.exe
+  ok  linux-x64     llama-b11429-bin-ubuntu-x64.tar.gz  17693462 bytes  sha256 f6d25dde8f51133143d1453da4fd5f73b145127177612a283bf7995957af3392  serverPath llama-b11429/llama-server
+  ok  linux-arm64   llama-b11429-bin-ubuntu-arm64.tar.gz  13682895 bytes  sha256 ed44c0f79c3d02424f62bdc87e106318b0b89f49050e2e80c5f352723d14e00b  serverPath llama-b11429/llama-server
+  ok  macos-arm64   llama-b11429-bin-macos-arm64.tar.gz  11971406 bytes  sha256 740288ec6887be94280a5dfa25b5e23a78285cab104519e6c7e218904ee82459  serverPath llama-b11429/llama-server
+  ok  macos-x64     llama-b11429-bin-macos-x64.tar.gz  11487431 bytes  sha256 29ac3ea02be6bd143e824973f2cc5fa74bc4094393a9eaab0ff6814f19dd8522  serverPath llama-b11429/llama-server
+Hugging Face: Qwen3-1.7B-Q8_0.gguf  1834426016 bytes  sha256 061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a (https://huggingface.co/api/models/Qwen/Qwen3-1.7B-GGUF/tree/main)
+  downloading https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf (1.8 GB) to confirm the digest
+  ok  model         Qwen3-1.7B-Q8_0.gguf  1834426016 bytes  sha256 061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a
+wrote /home/runner/work/_temp/local-ai-out/local-ai.json (resolved 2026-10-08T15:24:03Z)

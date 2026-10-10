@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "product": "launcher",
+  "version": "1.4.0",
+  "minecraftVersion": "1.21.11",
+  "fabricVersion": "0.19.5",
+  "fabricApiVersion": "0.141.6+1.21.11",
+  "javaVersion": 21,
+  "releaseDate": "2026-10-09",
+  "channel": "stable",
+  "files": [
+    {
+      "name": "VANTA-Launcher-1.4.0.msi",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/VANTA-Launcher-1.4.0.msi",
+      "size": 67175449,
+      "sha256": "134ae959143a9debae68a55e682f08f6ae36f2dc9fc422934318fa472d857d0f"
+    },
+    {
+      "name": "VANTA-Launcher-1.4.0-windows-portable.zip",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/VANTA-Launcher-1.4.0-windows-portable.zip",
+      "size": 65366632,
+      "sha256": "01279f1fc1f6afc21e6d3f98993ee8917cf28ad6c1b9880791311fe9521ca619"
+    },
+    {
+      "name": "vanta-launcher-1.4.0-windows-all.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/vanta-launcher-1.4.0-windows-all.jar",
+      "size": 14549972,
+      "sha256": "c723242ddf3431157a7452b1f6d248d7488f865ffafcbe1975834da03ef6512f"
+    },
+    {
+      "name": "VANTA-Launcher-1.4.0-linux-x64.tar.gz",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/VANTA-Launcher-1.4.0-linux-x64.tar.gz",
+      "size": 67178808,
+      "sha256": "43fb553d994ec7b48fa7dcfd6b6e9106d1883064198b46269eccc2501375db24"
+    },
+    {
+      "name": "vanta-launcher-1.4.0-linux-all.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/vanta-launcher-1.4.0-linux-all.jar",
+      "size": 13323090,
+      "sha256": "09f5830ba0afdaf3ca6aeadc397e1e534d84c7f7e887530ab8b7631a304f87ea"
+    },
+    {
+      "name": "vanta-launcher-1.4.0-macos-aarch64-all.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.0/vanta-launcher-1.4.0-macos-aarch64-all.jar",
+      "size": 13409915,
+      "sha256": "8f8a8d9781d3a201697eed74b4ae6d28aa6c15abf8ee74800fd0ef88cdfbbff3"
+    }
+  ],
+  "changelog": "website/content/changelog/launcher-1.4.0.md"
+}
