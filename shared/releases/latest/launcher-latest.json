@@ -1,50 +1,50 @@
 {
   "schemaVersion": 1,
   "product": "launcher",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "minecraftVersion": "1.21.11",
   "fabricVersion": "0.19.5",
   "fabricApiVersion": "0.141.6+1.21.11",
   "javaVersion": 21,
-  "releaseDate": "2026-10-09",
+  "releaseDate": "2026-10-10",
   "channel": "stable",
   "files": [
     {
-      "name": "VANTA-Launcher-1.4.1.msi",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/VANTA-Launcher-1.4.1.msi",
-      "size": 67175449,
-      "sha256": "9c44ad39c5215ae1829f132f9ec50186d7cea7af2a8d3257e04512cf7c94a0d0"
+      "name": "VANTA-Launcher-1.5.0.msi",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.5.0/VANTA-Launcher-1.5.0.msi",
+      "size": 67179545,
+      "sha256": "28b1ae32b39e72887c2cf69ccfc983fe15796b0de96038b96aeadb8a63a673de"
     },
     {
-      "name": "VANTA-Launcher-1.4.1-windows-portable.zip",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/VANTA-Launcher-1.4.1-windows-portable.zip",
-      "size": 65366972,
-      "sha256": "93e8ee6ac339295592fa18a44a38ec8cbdea519648d2491615cd4a3a8c2aa204"
+      "name": "VANTA-Launcher-1.5.0-windows-portable.zip",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.5.0/VANTA-Launcher-1.5.0-windows-portable.zip",
+      "size": 65366970,
+      "sha256": "abf2a2418ccc0188bb5dbf74de05d8d782409d1aa752c3fdc80dc8f4223e1801"
     },
     {
-      "name": "vanta-launcher-1.4.1-windows-all.jar",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/vanta-launcher-1.4.1-windows-all.jar",
-      "size": 14549991,
-      "sha256": "61d5478a07fc9865d1b6a858f056bc718d9ef7132725430b844504f3a44e87d7"
+      "name": "vanta-launcher-1.5.0-windows-all.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.5.0/vanta-launcher-1.5.0-windows-all.jar",
+      "size": 14549990,
+      "sha256": "404a7bd0f6362100fc64e4f2fa170670943bfd815fe8f13cafe3af04e0ae7111"
     },
     {
-      "name": "VANTA-Launcher-1.4.1-linux-x64.tar.gz",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/VANTA-Launcher-1.4.1-linux-x64.tar.gz",
-      "size": 67178275,
-      "sha256": "738741974d79eed89b719dc0eb3d0dac86f73ec4040a592b383e5f63f6f25172"
+      "name": "VANTA-Launcher-1.5.0-linux-x64.tar.gz",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.5.0/VANTA-Launcher-1.5.0-linux-x64.tar.gz",
+      "size": 67178369,
+      "sha256": "6eba24a8d7777c225016dc3965a8f2909333c0ea4d5619181da055206778f814"
     },
     {
-      "name": "vanta-launcher-1.4.1-linux-all.jar",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/vanta-launcher-1.4.1-linux-all.jar",
-      "size": 13323109,
-      "sha256": "c7af52b3b3f4b855f5989cbdbda5a239283f83987824cce0ebc9c239fc28dd95"
+      "name": "vanta-launcher-1.5.0-linux-all.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.5.0/vanta-launcher-1.5.0-linux-all.jar",
+      "size": 13323108,
+      "sha256": "7d5231d46d65f76eb45d6c57874d6ecbced56b7bea9325c42942a1eff53dd635"
     },
     {
-      "name": "vanta-launcher-1.4.1-macos-aarch64-all.jar",
-      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.4.1/vanta-launcher-1.4.1-macos-aarch64-all.jar",
-      "size": 13409934,
-      "sha256": "4a03d462f62e4fc9adbf154c82ef488f3cc376155e397d67de087c2265235e1b"
+      "name": "vanta-launcher-1.5.0-macos-aarch64-all.jar",
+      "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/launcher-v1.5.0/vanta-launcher-1.5.0-macos-aarch64-all.jar",
+      "size": 13409933,
+      "sha256": "07e591c317fcad66dd2d04013833f7d636cc66429559d46990d2f7291cb28b2c"
     }
   ],
-  "changelog": "website/content/changelog/launcher-1.4.1.md"
+  "changelog": "website/content/changelog/launcher-1.5.0.md"
 }
