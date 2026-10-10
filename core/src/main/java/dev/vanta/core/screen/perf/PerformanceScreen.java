@@ -396,7 +396,7 @@ public final class PerformanceScreen extends VantaUiScreen {
         } else if (state.result().isPresent()) {
             SmartBoostState.Result r = state.result().get();
             status = Lang.tr("vanta.perf.smart_boost.status.last", Lang.tr(r.preset().langKey()),
-                    Math.round(r.p50Fps()), r.targetFps(), date(state.lastRunAtMillis()));
+                    Math.round(r.p50Fps()), r.targetFps(), date(state.lastRunAtMillis(), services().timeZone()));
         } else {
             status = Lang.tr("vanta.perf.smart_boost.status.never");
         }
@@ -426,12 +426,13 @@ public final class PerformanceScreen extends VantaUiScreen {
         invalidateLayout();
     }
 
-    private static String date(long epochMillis) {
+    /** The date of an instant in the player's time zone ({@code VantaServices.timeZone()}). */
+    private static String date(long epochMillis, ZoneId zone) {
         if (epochMillis <= 0) {
             return "";
         }
         return DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ROOT)
-                .format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()));
+                .format(Instant.ofEpochMilli(epochMillis).atZone(zone));
     }
 
     private Card presetCard() {

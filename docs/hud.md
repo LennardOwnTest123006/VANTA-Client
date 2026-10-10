@@ -21,7 +21,7 @@ is open.
 | **Biome** | the biome you are standing in | show namespace |
 | **Server** | server name and address; hide the address when streaming | show address |
 | **CPS** | clicks per second, left and right button | show right button, show label |
-| **Clock** | system time or in-game time, both in 12-hour time with AM/PM (for example `2:32 PM`) | format, show seconds (system time) |
+| **Clock** | system time in your time zone, or the in-game time; both in 12-hour time with AM/PM (for example `2:32 PM`) | format, show seconds (system time) |
 | **Armor** | armor points and the durability of each of the four pieces | show durability, vertical/horizontal |
 | **Item durability** | durability bar of the held items | show offhand, show percentage |
 | **Potion effects** | active effects with colour, amplifier and remaining time (∞ for infinite) | show duration, compact |
@@ -44,6 +44,15 @@ Nexus presets hide it like every widget outside their set; a layout that already
 back when you switch the feature on. The frame times are collected only while the widget is enabled. With *Vanta Lab →
 Dynamic HUD* on, the whole HUD fades out after 10 seconds without input in a world and returns on any input
 ([Settings → Vanta Lab](settings.md#vanta-lab)).
+
+**The Clock** shows the system time in your time zone (from client 1.6.0 on). By default that is this PC's time
+zone, and daylight saving time is followed by itself: at 8:00 AM in Germany the clock reads `8:00 AM` in summer and in
+winter. Client 1.5.0 and older formatted the system time in UTC, which in Germany is two hours behind in summer and one
+in winter. To see another zone, pick it under *Settings → General → Time zone* ([Settings](settings.md#time-zone)):
+the choice applies to the HUD clock and to every other time of day VANTA shows, and the clock switches on the next
+tick. Java reads the PC's time zone when Minecraft starts, so after changing the PC's zone restart the game or pick
+the zone in the setting. The in-game time (format *In-game time (AM/PM)*, where tick 0 is 6:00 AM) is the same in
+every zone. Outside a world the HUD editor shows a fixed sample time, `2:32 PM`.
 
 ## The HUD editor
 

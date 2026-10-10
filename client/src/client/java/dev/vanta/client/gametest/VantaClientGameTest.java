@@ -68,8 +68,10 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *   <li>the resource pack bridge lists the vanilla "Default" pack as enabled;</li>
  *   <li>in a fresh creative world: the frame-rate uncap ({@link FrameRateStep}: the start-up check's record, then
  *       VSync off, Max Framerate 260 in the game, VANTA and options.txt, Minecraft's frame-rate limiter at 260 with no
- *       screen open, the measured FPS logged), HUD widgets enabled → {@code 20_hud_ingame}, the BALANCED preset sets
- *       render distance 10, the in-game VANTA menu → {@code 21_ingame_menu};</li>
+ *       screen open, the measured FPS logged), HUD widgets enabled → {@code 20_hud_ingame}, the HUD clock in local
+ *       time ({@link ClockStep}: with the default time zone setting it equals {@code LocalTime.now()}, it follows a
+ *       changed JVM default zone, a chosen zone wins), the BALANCED preset sets render distance 10, the in-game VANTA
+ *       menu → {@code 21_ingame_menu};</li>
  *   <li>still in the world: the frame-cost probe ({@link PerfProbeStep}: game frame time with / without the VANTA
  *       HUD / with the GUI hidden, VANTA render hook wall times and primitive counts over 300 frames each, written to
  *       {@code screenshots/vanta-perf-probe.json}) and the windowed click reproduction ({@link ModsClickReproduction}:
@@ -99,6 +101,9 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *       them)}, {@code frame rate: the game-test runner restored the options captured before the start-up check:
  *       ...}, {@code frame rate: uncapped in the world (VSync off, Max Framerate 260, limiter 260 with no screen; ...)
  *       N FPS measured ...};</li>
+ *   <li>{@code clock: HUD clock 8:00 AM in Europe/Berlin (setting auto), LocalTime.now() 08:00:12.345 in
+ *       Europe/Berlin}, {@code clock: with the PC zone Asia/Kolkata the HUD clock shows ... (expected ...)},
+ *       {@code clock: with the setting Berlin the HUD clock shows ... (expected ...)};</li>
  *   <li>{@code nexus [854x480_gui2]: opened (...)}, {@code nexus [...]: N section control(s): [...]},
  *       {@code nexus [...]: section <id> renders (...)}, {@code nexus [...]: N of M showing controls reachable};
  *       a finding reads {@code UNREACHABLE [nexus ...] <control>: <reason>};</li>
@@ -409,6 +414,8 @@ public final class VantaClientGameTest implements FabricClientGameTest {
             context.waitTicks(20);
             Path hudShot = context.takeScreenshot("20_hud_ingame");
             step("HUD widgets enabled → " + hudShot.getFileName());
+            // The HUD clock in the player's local time (1.6.0): the default zone, a changed default zone, a chosen one.
+            ClockStep.run(context, services, VantaRuntime.get().hud());
 
             context.runOnClient(client -> services.performance().applyPreset(PerformancePreset.BALANCED));
             context.waitTick();

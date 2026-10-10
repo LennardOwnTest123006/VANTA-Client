@@ -246,7 +246,7 @@ public final class NexusPerformancePanel extends NexusPanel {
         } else if (state.result().isPresent()) {
             SmartBoostState.Result r = state.result().get();
             status = Lang.tr("vanta.perf.smart_boost.status.last", Lang.tr(r.preset().langKey()),
-                    Math.round(r.p50Fps()), r.targetFps(), date(state.lastRunAtMillis()));
+                    Math.round(r.p50Fps()), r.targetFps(), date(state.lastRunAtMillis(), services().timeZone()));
         } else {
             status = Lang.tr("vanta.perf.smart_boost.status.never");
         }
@@ -267,12 +267,13 @@ public final class NexusPerformancePanel extends NexusPanel {
         }
     }
 
-    private static String date(long epochMillis) {
+    /** The date of an instant in the player's time zone ({@code VantaServices.timeZone()}). */
+    private static String date(long epochMillis, java.time.ZoneId zone) {
         if (epochMillis <= 0) {
             return "";
         }
         return java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ROOT)
-                .format(java.time.Instant.ofEpochMilli(epochMillis).atZone(java.time.ZoneId.systemDefault()));
+                .format(java.time.Instant.ofEpochMilli(epochMillis).atZone(zone));
     }
 
     private static String ms(double value) {

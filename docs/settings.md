@@ -23,7 +23,7 @@ vanilla menu and they are saved to `options.txt`, not to VANTA's file.
 
 | Category | What is in it |
 | --- | --- |
-| **General** | main menu: replace the title screen, background style, particles, version label; interface: notification corner and duration, UI scale (0.75–1.5), UI sounds, theme; *Singleplayer worlds* (*Minecraft folder* or *VANTA folder*, from client 1.3.0 on, see below); *Reset all settings*, *Open config folder* |
+| **General** | main menu: replace the title screen, background style, particles, version label; interface: notification corner and duration, UI scale (0.75–1.5), UI sounds, theme, *Time zone* (from client 1.6.0 on, see [below](#time-zone)); *Singleplayer worlds* (*Minecraft folder* or *VANTA folder*, from client 1.3.0 on, see below); *Reset all settings*, *Open config folder* |
 | **Video** (vanilla) | graphics mode (Fast, Fancy, Fabulous; shows *Custom* when the game reports it, see below), render distance, simulation distance, max framerate, VSync, FOV, GUI scale, particles, clouds, smooth lighting, entity shadows, entity distance, biome blend, mipmap levels, view bobbing, menu blur, inactivity FPS limit, screen/FOV effect scale, glint speed/strength, autosave indicator, panorama speed, dark loading screen; *Open vanilla video settings* |
 | **Audio** (vanilla) | master, music, jukebox, weather, blocks, hostile, neutral, players, ambient, voice volumes and subtitles; *Open vanilla sound settings* |
 | **Controls** | zoom (enable, factor 1.5–8.0, key, smooth animation, scroll to adjust); vanilla mouse sensitivity, invert mouse, wheel sensitivity, discrete scroll, raw input, auto-jump, toggle sneak/sprint; *Open keybind manager* |
@@ -58,6 +58,25 @@ With *Minecraft folder* the VANTA folder still stays in use when the Minecraft f
 another launcher's instance without the VANTA Launcher's note. Nothing is moved, copied or deleted, and the change
 takes effect at the next game start (the row is marked *Restart required*). Details:
 [Installation → Where your worlds are](installation.md#where-your-worlds-are).
+
+### Time zone
+
+**Time zone** (`general.timeZone`, from client 1.6.0 on) is the zone of every time of day VANTA shows: the HUD
+clock's system time ([HUD → Clock](hud.md#widgets)), the start times in the statistics session list and the time in
+the name of a statistics export, the profile dates, the date of the last Smart Boost run and the time the timer rang.
+
+| Value | Times of day are shown in |
+| --- | --- |
+| *Automatic (this PC, UTC+2)* (default, stored as `auto`) | this PC's time zone. Java reads it when Minecraft starts, so after changing the PC's zone restart the game or pick the zone here. Daylight saving time is part of the zone and is followed without a restart |
+| a city, for example *Berlin (UTC+2)*, *New York (UTC-4)*, *Tokyo (UTC+9)*, or *UTC* | that zone, whatever the PC is set to, with its own daylight saving time |
+
+The list holds UTC and 53 cities from Honolulu to Tonga, ordered from west to east, with one or more cities for every
+common offset, the half-hour and 45-minute ones included (for example Kolkata UTC+5:30, Kathmandu UTC+5:45). The
+offset in brackets is computed when the list is shown, so Berlin reads UTC+2 in summer and UTC+1 in winter. Times
+stay in 12-hour time with AM/PM. Only the display changes: VANTA keeps storing every timestamp in UTC, so sessions
+recorded earlier appear in the new zone too. A change shows on the next tick, without a restart. The in-game time of
+the Clock widget does not depend on any zone. A profile you save stores the choice like every other VANTA setting;
+profiles saved before 1.6.0 leave it as it is. Client 1.5.0 and older showed these times in UTC.
 
 ### Vanta Nexus
 
@@ -154,6 +173,7 @@ the VANTA Launcher that is `<data directory>/instances/vanta-1.21.11/config/vant
     "menu.customMainMenu": true,
     "menu.background": "violet_horizon",
     "general.uiScale": 1.0,
+    "general.timeZone": "auto",
     "hud.globalOpacity": 1.0,
     "zoom.factor": 3.0
   }

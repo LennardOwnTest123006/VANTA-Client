@@ -9,9 +9,8 @@ import dev.vanta.core.bridge.Vec3d;
 import dev.vanta.core.hud.FrameTimeTracker;
 import dev.vanta.core.hud.HudWidgetType;
 import dev.vanta.core.i18n.Lang;
+import dev.vanta.core.time.TimeOfDay;
 
-import java.time.Instant;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.EnumSet;
@@ -133,7 +132,8 @@ public final class HudData {
      * @param cpsLeft    left-button clicks in the last second
      * @param cpsRight   right-button clicks in the last second
      * @param frameTimes frame time history for the 1 % low figure (may be empty)
-     * @param zone       time zone used by the clock widget
+     * @param zone       time zone of the clock widget's system time ({@code VantaServices.timeZone()}); null means
+     *                   this PC's zone
      */
     public static HudData capture(GameBridge game, int cpsLeft, int cpsRight, FrameTimeTracker frameTimes,
                                   ZoneId zone) {
@@ -183,7 +183,7 @@ public final class HudData {
                 cpsLeft, cpsRight,
                 clock ? game.currentTimeMillis() : 0L,
                 clock ? game.gameTicks() : 0L,
-                zone == null ? ZoneOffset.UTC : zone,
+                zone == null ? ZoneId.systemDefault() : zone,
                 armor ? game.armorValue() : 0,
                 armor ? game.armorPieces() : List.of(),
                 held ? game.heldItems() : List.of(),
@@ -215,7 +215,9 @@ public final class HudData {
 
     /**
      * The believable sample snapshot shown by the HUD editor and the previews when no world is loaded. Uses
-     * {@link SampleGameData} plus fixed click rates and a fixed 1 % low figure; the clock reads UTC so it is stable.
+     * {@link SampleGameData} plus fixed click rates and a fixed 1 % low figure; the sample clock reads its fixed
+     * instant in UTC ({@code 2:32 PM}) so the editor and the screenshots are stable. Live snapshots use the player's
+     * time zone.
      */
     public static HudData sample() {
         SampleGameData game = new SampleGameData();
@@ -364,7 +366,7 @@ public final class HudData {
         return cpsRight;
     }
 
-    /** Wall clock at capture time. */
+    /** Wall clock at capture time (UTC epoch milliseconds). */
     public long epochMillis() {
         return epochMillis;
     }
@@ -373,6 +375,7 @@ public final class HudData {
         return gameTicks;
     }
 
+    /** Time zone the system clock is formatted in. */
     public ZoneId zone() {
         return zone;
     }
@@ -483,7 +486,7 @@ public final class HudData {
         return String.format(Locale.ROOT, decimals == 1 ? "%.1f" : "%.2f", value);
     }
 
-    /** System time as {@code h:mm AM} or {@code h:mm:ss AM}. */
+    /** System time in the snapshot's {@link #zone()} as {@code h:mm AM} or {@code h:mm:ss AM}. */
     public String clock12(boolean seconds) {
         if (seconds) {
             if (clock12Seconds == null) {
@@ -498,23 +501,7 @@ public final class HudData {
     }
 
     private String formatTime(boolean seconds) {
-        LocalTime time = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalTime();
-        return twelveHour(time.getHour(), time.getMinute(), seconds ? time.getSecond() : -1);
-    }
-
-    /** {@code h:mm AM} (or {@code h:mm:ss PM} when {@code second} is not negative): 12-hour time, 12 for noon/midnight. */
-    static String twelveHour(int hour, int minute, int second) {
-        StringBuilder sb = new StringBuilder(11);
-        int h = hour % 12;
-        sb.append(h == 0 ? 12 : h);
-        sb.append(':');
-        pad2(sb, minute);
-        if (second >= 0) {
-            sb.append(':');
-            pad2(sb, second);
-        }
-        sb.append(hour < 12 ? " AM" : " PM");
-        return sb.toString();
+        return TimeOfDay.format(epochMillis, zone, seconds);
     }
 
     /**
@@ -532,7 +519,7 @@ public final class HudData {
         long dayTicks = Math.floorMod(ticks, 24_000L);
         int hour = (int) ((dayTicks / 1_000L + 6L) % 24L);
         int minute = (int) ((dayTicks % 1_000L) * 60L / 1_000L);
-        return twelveHour(hour, minute, -1);
+        return TimeOfDay.twelveHour(hour, minute, -1);
     }
 
     /** Human-readable biome name ({@code minecraft:dark_forest} → {@code Dark Forest}), or "—" when unknown. */
@@ -614,12 +601,5 @@ public final class HudData {
     /** Fraction of the allocated heap in use (0–1). */
     public double memoryFraction() {
         return memoryAllocated <= 0L ? 0.0 : Math.max(0.0, Math.min(1.0, memoryUsed / (double) memoryAllocated));
-    }
-
-    private static void pad2(StringBuilder sb, int value) {
-        if (value < 10) {
-            sb.append('0');
-        }
-        sb.append(value);
     }
 }

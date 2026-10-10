@@ -71,7 +71,8 @@ public final class HudRenderer {
 
     /**
      * Called once per client tick (20/s): snapshots the game data the enabled widgets need and refreshes the paint
-     * from the settings.
+     * from the settings. The clock is formatted in {@link VantaServices#timeZone()} (this PC's zone unless the player
+     * picked another), read on every tick so a changed choice shows on the next tick.
      */
     public void tick() {
         tick(enabledTypes(services.hud().layout()));
@@ -86,7 +87,7 @@ public final class HudRenderer {
         data = sampleSource
                 ? HudData.sample()
                 : HudData.capture(source, leftCps.cps(now), rightCps.cps(now), services.performance().frameTimes(),
-                        services.clock().getZone(), types);
+                        services.timeZone(), types);
         captured = true;
         refreshPaint();
     }

@@ -1,6 +1,7 @@
 package dev.vanta.core.screen.stats;
 
 import dev.vanta.core.i18n.Lang;
+import dev.vanta.core.time.TimeOfDay;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -10,11 +11,12 @@ import java.util.Locale;
  * Human-readable formatting of statistics values: durations ("2h 14m"), distances ("12.4 km"), large counts
  * ("12.3k"), frame rates, dates and relative times ("3 days ago"). Shared by the statistics and profiles screens.
  * All methods are deterministic (ROOT locale, explicit zone) so previews and tests render the same text everywhere.
+ * The screens pass {@code VantaServices.timeZone()} (this PC's zone unless the player picked another one); times of day
+ * are 12-hour with AM/PM.
  */
 public final class StatFormats {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("d MMM yyyy, h:mm a", Locale.ENGLISH);
-    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
     private static final long MINUTE = 60_000L;
     private static final long HOUR = 60 * MINUTE;
     private static final long DAY = 24 * HOUR;
@@ -88,14 +90,14 @@ public final class StatFormats {
         return DATE.format(Instant.ofEpochMilli(epochMillis).atZone(zone));
     }
 
-    /** {@code 4 Oct 2026, 12:00}. */
+    /** {@code 4 Oct 2026, 12:00 PM}. */
     public static String dateTime(long epochMillis, ZoneId zone) {
         return DATE_TIME.format(Instant.ofEpochMilli(epochMillis).atZone(zone));
     }
 
-    /** {@code 12:00}. */
+    /** {@code 12:00 PM} (the shared 12-hour {@link TimeOfDay} format). */
     public static String time(long epochMillis, ZoneId zone) {
-        return TIME.format(Instant.ofEpochMilli(epochMillis).atZone(zone));
+        return TimeOfDay.format(epochMillis, zone);
     }
 
     /**
