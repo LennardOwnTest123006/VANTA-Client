@@ -13,9 +13,11 @@ import dev.vanta.core.screen.cosmetics.ThemedScreen;
 import dev.vanta.core.settings.Setting;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.stats.LifetimeStats;
+import dev.vanta.core.stats.LiveStats;
 import dev.vanta.core.stats.SessionRecord;
 import dev.vanta.core.stats.StatsPrivacy;
 import dev.vanta.core.stats.StatsStore;
+import dev.vanta.core.stats.StatsTracker;
 import dev.vanta.core.ui.Icons;
 import dev.vanta.core.ui.Theme;
 import dev.vanta.core.ui.UiContext;
@@ -40,10 +42,19 @@ import java.util.Optional;
  * Statistics dashboard: lifetime summary tiles with per-session mini charts, the live current-session card, the
  * recent sessions table and the privacy panel (the three privacy settings, Export JSON, Clear all and the
  * "everything stays on this computer" note). Fresh installs get honest empty states.
+ * <p>
+ * The totals are live: the tiles add the running session to the stored lifetime values ({@link StatsTracker#live()})
+ * and show play time with seconds, and the current-session card follows the session. Both are refreshed from the
+ * screen tick: while play time counts, exactly when its shown second changes (so the clock steps by one second, never
+ * skips or repeats one); while it does not count (outside a world, or statistics off), once per second for the other
+ * values. Only the tile values whose text changed are replaced, nothing is laid out again and nothing is written to
+ * disk; the session still reaches {@code stats.json} once, when it ends.
  */
 public final class StatisticsScreen extends ThemedScreen {
     /** Folder below the config root that receives exports. */
     public static final String EXPORTS_DIR = "exports";
+    /** Gap between two live refreshes while play time does not count (outside a world). */
+    public static final long LIVE_REFRESH_MS = 1000L;
 
     private final StatsStore store;
     private VantaShell shell;
@@ -58,6 +69,10 @@ public final class StatisticsScreen extends ThemedScreen {
     private Toggle worldsToggle;
     private Button exportButton;
     private Button clearButton;
+    private long liveSecond = -1L;
+    private long seenPlaytimeMs = -1L;
+    private long liveRefreshedAt;
+    private int liveRefreshes;
 
     public StatisticsScreen(VantaServices services) {
         super(services, ScreenId.STATISTICS);
@@ -80,6 +95,7 @@ public final class StatisticsScreen extends ThemedScreen {
         tiles.clear();
         StatsSummary summary = StatsSummary.of(store);
         StatsPrivacy privacy = services().stats().privacy();
+        LiveStats live = services().stats().live();
         ZoneId zone = services().clock().getZone();
 
         disabledBanner = new InfoBanner(InfoBanner.Tone.WARNING, Lang.tr("vanta.stats.disabled"),
@@ -97,9 +113,10 @@ public final class StatisticsScreen extends ThemedScreen {
                 .trailing(Plurals.count(life.sessions(), "vanta.stats.sessions_recorded")));
         CardGrid grid = new CardGrid(150, 3, Theme.SPACE_4).rowHeight(StatTile.HEIGHT);
         Optional<SessionRecord> last = summary.lastSession();
-        tile(grid, "stats.playtime", Lang.tr("vanta.stats.playtime"), StatFormats.duration(life.playtimeMs()),
+        tile(grid, "stats.playtime", Lang.tr("vanta.stats.playtime"), playtimeText(live),
                 last.map(s -> Lang.tr("vanta.stats.tile.last_session", StatFormats.duration(s.playtimeMs())))
-                        .orElse(Lang.tr("vanta.stats.tile.none")), summary.playtimeSeries(), false);
+                        .orElse(Lang.tr("vanta.stats.tile.none")), summary.playtimeSeries(), false)
+                .setTooltip(Lang.tr("vanta.stats.playtime.live_hint"));
         tile(grid, "stats.sessions", Lang.tr("vanta.stats.sessions"), StatFormats.count(life.sessions()),
                 life.sessions() == 0 ? Lang.tr("vanta.stats.tile.none")
                         : Lang.tr("vanta.stats.tile.per_session", StatFormats.duration(summary.averageSessionMs())),
@@ -108,23 +125,23 @@ public final class StatisticsScreen extends ThemedScreen {
                 last.filter(s -> s.averageFps() > 0)
                         .map(s -> Lang.tr("vanta.stats.tile.last_session", StatFormats.fps(s.averageFps())))
                         .orElse(Lang.tr("vanta.stats.tile.none")), summary.averageFpsSeries(), false);
-        tile(grid, "stats.max-fps", Lang.tr("vanta.stats.max_fps"), life.maxFps() > 0 ? StatFormats.count(life.maxFps()) : "—",
+        tile(grid, "stats.max-fps", Lang.tr("vanta.stats.max_fps"), maxFpsText(live),
                 last.filter(s -> s.maxFps() > 0)
                         .map(s -> Lang.tr("vanta.stats.tile.last_session", StatFormats.count(s.maxFps())))
                         .orElse(Lang.tr("vanta.stats.tile.none")), summary.maxFpsSeries(), true);
-        tile(grid, "stats.worlds", Lang.tr("vanta.stats.worlds"), StatFormats.count(life.worlds().size()),
+        tile(grid, "stats.worlds", Lang.tr("vanta.stats.worlds"), StatFormats.count(live.worlds()),
                 privacy.trackWorlds() ? Lang.tr("vanta.stats.tile.distinct") : Lang.tr("vanta.stats.names_hidden"),
                 summary.worldsSeries(), false);
-        tile(grid, "stats.servers", Lang.tr("vanta.stats.servers"), StatFormats.count(life.servers().size()),
+        tile(grid, "stats.servers", Lang.tr("vanta.stats.servers"), StatFormats.count(live.servers()),
                 privacy.trackServers() ? Lang.tr("vanta.stats.tile.distinct") : Lang.tr("vanta.stats.names_hidden"),
                 summary.serversSeries(), true);
-        tile(grid, "stats.distance", Lang.tr("vanta.stats.distance"), StatFormats.distance(life.distanceBlocks()),
+        tile(grid, "stats.distance", Lang.tr("vanta.stats.distance"), StatFormats.distance(live.distanceBlocks()),
                 last.map(s -> Lang.tr("vanta.stats.tile.last_session", StatFormats.distance(s.distanceBlocks())))
                         .orElse(Lang.tr("vanta.stats.tile.none")), summary.distanceSeries(), false);
-        tile(grid, "stats.broken", Lang.tr("vanta.stats.blocks_broken"), StatFormats.count(life.blocksBroken()),
+        tile(grid, "stats.broken", Lang.tr("vanta.stats.blocks_broken"), StatFormats.count(live.blocksBroken()),
                 last.map(s -> Lang.tr("vanta.stats.tile.last_session", StatFormats.count(s.blocksBroken())))
                         .orElse(Lang.tr("vanta.stats.tile.none")), summary.blocksBrokenSeries(), true);
-        tile(grid, "stats.placed", Lang.tr("vanta.stats.blocks_placed"), StatFormats.count(life.blocksPlaced()),
+        tile(grid, "stats.placed", Lang.tr("vanta.stats.blocks_placed"), StatFormats.count(live.blocksPlaced()),
                 last.map(s -> Lang.tr("vanta.stats.tile.last_session", StatFormats.count(s.blocksPlaced())))
                         .orElse(Lang.tr("vanta.stats.tile.none")), summary.blocksPlacedSeries(), false);
         body.add(grid);
@@ -175,18 +192,93 @@ public final class StatisticsScreen extends ThemedScreen {
         privacyCard.add(actions);
         body.add(privacyCard);
         body.add(Spacer.fixed(0, Theme.SPACE_2));
+        markLiveRefreshed();
 
         if (context() != null) {
             context().requestLayout();
         }
     }
 
-    private void tile(CardGrid grid, String id, String title, String value, String caption, float[] series,
-                      boolean blue) {
+    private StatTile tile(CardGrid grid, String id, String title, String value, String caption, float[] series,
+                          boolean blue) {
         StatTile tile = new StatTile(title, value, caption, series).blue(blue);
         tile.setId(id);
         tiles.add(tile);
         grid.add(tile);
+        return tile;
+    }
+
+    private static String playtimeText(LiveStats live) {
+        return StatFormats.clock(live.playtimeMs());
+    }
+
+    private static String maxFpsText(LiveStats live) {
+        return live.maxFps() > 0 ? StatFormats.count(live.maxFps()) : "—";
+    }
+
+    /**
+     * Once per game tick (also while the game is paused): refreshes the live values when the shown second of the
+     * running session's play time changed, or, while play time stands still, {@value #LIVE_REFRESH_MS} ms after the
+     * last refresh. The check reads two numbers and allocates nothing.
+     */
+    @Override
+    protected void onTick() {
+        if (body == null) {
+            return;
+        }
+        long playtime = services().stats().sessionPlaytimeMs();
+        boolean counting = playtime != seenPlaytimeMs;
+        seenPlaytimeMs = playtime;
+        if (playtime / 1000L != liveSecond) {
+            refreshLive();
+            return;
+        }
+        long now = services().clock().millis();
+        if (!counting && (now - liveRefreshedAt >= LIVE_REFRESH_MS || now < liveRefreshedAt)) {
+            refreshLive();
+        }
+    }
+
+    /**
+     * Updates the tiles that depend on the running session (play time, best FPS, worlds, servers, distance, blocks)
+     * and the current-session card. Only a value whose text changed is replaced; tile sizes are fixed, so nothing is
+     * laid out again.
+     */
+    public void refreshLive() {
+        LiveStats live = services().stats().live();
+        updateTile("stats.playtime", playtimeText(live));
+        updateTile("stats.max-fps", maxFpsText(live));
+        updateTile("stats.worlds", StatFormats.count(live.worlds()));
+        updateTile("stats.servers", StatFormats.count(live.servers()));
+        updateTile("stats.distance", StatFormats.distance(live.distanceBlocks()));
+        updateTile("stats.broken", StatFormats.count(live.blocksBroken()));
+        updateTile("stats.placed", StatFormats.count(live.blocksPlaced()));
+        if (currentCard != null) {
+            currentCard.refresh();
+        }
+        liveRefreshes++;
+        markLiveRefreshed();
+    }
+
+    private void updateTile(String id, String value) {
+        for (StatTile tile : tiles) {
+            if (id.equals(tile.id())) {
+                if (!value.equals(tile.value())) {
+                    tile.setValue(value);
+                }
+                return;
+            }
+        }
+    }
+
+    private void markLiveRefreshed() {
+        liveSecond = services().stats().sessionPlaytimeMs() / 1000L;
+        liveRefreshedAt = services().clock().millis();
+    }
+
+    /** How often {@link #refreshLive()} ran since the screen opened (tests: the cadence). */
+    public int liveRefreshes() {
+        return liveRefreshes;
     }
 
     private Toggle privacyToggle(Setting<Boolean> setting, String id) {
@@ -228,7 +320,7 @@ public final class StatisticsScreen extends ThemedScreen {
     public void confirmClear() {
         Dialog.confirm(context(), Lang.tr("vanta.stats.confirm_clear.title"), Lang.tr("vanta.stats.confirm_clear.body"),
                 Lang.tr("vanta.stats.clear"), Lang.tr("vanta.common.cancel"), true, () -> {
-                    store.clearAll();
+                    services().stats().clearAll();
                     services().notifications().statisticsCleared();
                     rebuild();
                 });

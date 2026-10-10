@@ -19,9 +19,11 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Live card of the running session: duration, average and current fps, distance, blocks, screenshots and where the
- * player is. It reads the {@link StatsTracker} and {@link GameBridge} on every frame, so it needs no rebuild. When
- * statistics are turned off it says so instead of showing zeros.
+ * Live card of the running session: play time (h:mm:ss, counting only while a world is loaded, which the heading says
+ * while the player is outside one), average and current fps, distance, blocks, screenshots and where the player is.
+ * The text is read from the {@link StatsTracker} and {@link GameBridge} by {@link #refresh()}, which the Statistics
+ * screen calls once per shown second; a frame only draws the cached text. When statistics are turned off it says so
+ * instead of showing zeros.
  */
 public final class CurrentSessionCard extends UiNode {
     /** Card height. */
@@ -34,23 +36,48 @@ public final class CurrentSessionCard extends UiNode {
     }
 
     private final VantaServices services;
+    private boolean recording;
+    private boolean inWorld;
+    private String heading = "";
+    private List<Fact> facts = List.of();
 
     public CurrentSessionCard(VantaServices services) {
         this.services = Objects.requireNonNull(services, "services");
+        refresh();
     }
 
-    /** The facts shown right now (six, or empty when statistics are off). */
-    public List<Fact> facts() {
+    /**
+     * Re-reads the running session and the game (one small list of six facts). The screen calls it once per shown
+     * second, never per frame.
+     */
+    public void refresh() {
         StatsTracker tracker = services.stats();
-        if (!tracker.privacy().enabled()) {
-            return List.of();
+        recording = tracker.privacy().enabled();
+        inWorld = services.game().isInWorld();
+        facts = recording ? readFacts(tracker, services.game()) : List.of();
+        if (!recording) {
+            heading = Lang.tr("vanta.stats.current.none");
+        } else {
+            heading = inWorld ? Lang.tr("vanta.stats.recording") : Lang.tr("vanta.stats.recording.outside_world");
         }
+    }
+
+    /** The facts as of the last {@link #refresh()} (six, or empty when statistics are off). */
+    public List<Fact> facts() {
+        return facts;
+    }
+
+    /** The heading as of the last {@link #refresh()}. */
+    public String heading() {
+        return heading;
+    }
+
+    private static List<Fact> readFacts(StatsTracker tracker, GameBridge game) {
         Optional<SessionStats> current = tracker.current();
-        GameBridge game = services.game();
-        List<Fact> out = new ArrayList<>();
+        List<Fact> out = new ArrayList<>(6);
         long playtime = current.map(SessionStats::playtimeMs).orElse(0L);
         double avg = current.map(SessionStats::averageFps).orElse(0.0);
-        out.add(new Fact(Lang.tr("vanta.stats.duration_label"), StatFormats.duration(playtime)));
+        out.add(new Fact(Lang.tr("vanta.stats.playtime"), StatFormats.clock(playtime)));
         out.add(new Fact(Lang.tr("vanta.stats.avg_fps"), avg > 0 ? StatFormats.fps(avg) : StatFormats.fps(game.fps())));
         out.add(new Fact(Lang.tr("vanta.stats.distance"),
                 StatFormats.distance(current.map(SessionStats::distanceBlocks).orElse(0.0))));
@@ -60,7 +87,7 @@ public final class CurrentSessionCard extends UiNode {
         out.add(new Fact(Lang.tr("vanta.stats.screenshots"),
                 StatFormats.count(current.map(SessionStats::screenshots).orElse(0))));
         out.add(new Fact(Lang.tr("vanta.stats.where"), where(game)));
-        return out;
+        return List.copyOf(out);
     }
 
     private static String where(GameBridge game) {
@@ -86,13 +113,12 @@ public final class CurrentSessionCard extends UiNode {
         Rect b = bounds();
         canvas.fillRounded(b.x(), b.y(), b.w(), b.h(), Theme.RADIUS_LG, theme.panelBackground());
         canvas.strokeRounded(b.x(), b.y(), b.w(), b.h(), Theme.RADIUS_LG, theme.borderSubtle());
-        boolean recording = services.stats().privacy().enabled();
-        int dot = recording ? theme.success() : theme.textMuted();
+        boolean counting = recording && inWorld;
+        int dot = counting ? theme.success() : recording ? theme.warning() : theme.textMuted();
         canvas.circle(b.x() + PAD + 2, b.y() + PAD + 3, 2, dot);
-        String heading = recording ? Lang.tr("vanta.stats.recording") : Lang.tr("vanta.stats.current.none");
-        canvas.text(canvas.textClipped(heading, b.w() - PAD * 2 - 8, FontKind.UI_BOLD), b.x() + PAD + 8, b.y() + PAD - 1,
-                recording ? theme.textPrimary() : theme.textMuted(), FontKind.UI_BOLD, false);
-        List<Fact> facts = facts();
+        canvas.text(canvas.textClipped(heading, b.w() - PAD * 2 - 8, FontKind.UI_BOLD), b.x() + PAD + 8,
+                b.y() + PAD - 1, recording ? theme.textPrimary() : theme.textMuted(), FontKind.UI_BOLD, false);
+        List<Fact> facts = this.facts;
         if (facts.isEmpty()) {
             canvas.text(canvas.textClipped(Lang.tr("vanta.stats.disabled"), b.w() - PAD * 2, FontKind.UI), b.x() + PAD,
                     b.y() + PAD + LINE + Theme.SPACE_2, theme.textMuted(), FontKind.UI, false);
