@@ -18,7 +18,11 @@ import dev.vanta.core.ai.LocalAiStatus;
 import dev.vanta.core.ai.NexusActions;
 import dev.vanta.core.ai.NexusHudPreset;
 import dev.vanta.core.ai.NexusUndo;
+import dev.vanta.core.bridge.OptionsBridge;
+import dev.vanta.core.bridge.VanillaOption;
 import dev.vanta.core.bridge.Vec3d;
+import dev.vanta.core.crosshair.CrosshairShape;
+import dev.vanta.core.hud.HudArranger;
 import dev.vanta.core.hud.HudLayout;
 import dev.vanta.core.hud.HudWidgetState;
 import dev.vanta.core.hud.HudWidgetType;
@@ -103,6 +107,7 @@ final class NexusStep {
             context.waitForScreen(null);
         }
         hudPreset(context, services);
+        assistantActions(context, services);
         profileSwitch(context, services);
         waypoints(context, services);
         labToggles(context, services);
@@ -356,6 +361,65 @@ final class NexusStep {
         Set<HudWidgetType> restored = context.computeOnClient(client -> visibleTypes(services.hud().layout()));
         check(restored.equals(before), "Undo restored the visible widgets to " + restored + " instead of " + before);
         step("nexus: Undo restored the layout (" + restored + ")");
+    }
+
+    /**
+     * Client 1.6.0's assistant actions in one turn through {@code NexusActions}, on the real game options: music off
+     * ({@code audio.music} 0), a smaller chat ({@code accessibility.chatScale} 0.8, the vanilla {@code chatScale}
+     * option), a circle crosshair ({@code crosshair.set}) and {@code hud.arrange}; then Undo restores all four.
+     */
+    private static void assistantActions(ClientGameTestContext context, VantaServices services) {
+        record State(Object music, Object chatScale, CrosshairShape shape, HudLayout layout) {
+        }
+        java.util.function.Supplier<State> read = () -> {
+            OptionsBridge options = services.settings().optionsBridge().orElseThrow();
+            return new State(options.get(VanillaOption.MUSIC_VOLUME).orElse(null),
+                    options.get(VanillaOption.CHAT_SCALE).orElse(null), services.crosshair().style().shape(),
+                    services.hud().layout());
+        };
+        State before = context.computeOnClient(client -> read.get());
+        check(before.chatScale() != null, "the options bridge does not provide chatScale (VanillaOption.CHAT_SCALE)");
+        NexusActions.Outcome outcome = context.computeOnClient(client -> {
+            JsonArray actions = new JsonArray();
+            actions.add(com.google.gson.JsonParser.parseString(
+                    "{\"type\":\"setting.set\",\"id\":\"audio.music\",\"value\":0}"));
+            actions.add(com.google.gson.JsonParser.parseString(
+                    "{\"type\":\"setting.set\",\"id\":\"accessibility.chatScale\",\"value\":0.8}"));
+            actions.add(com.google.gson.JsonParser.parseString("{\"type\":\"crosshair.set\",\"shape\":\"circle\"}"));
+            actions.add(com.google.gson.JsonParser.parseString("{\"type\":\"hud.arrange\"}"));
+            NexusUndo.Turn turn = services.nexusUndo().begin();
+            NexusActions.Outcome result = services.nexusActions().execute(actions, turn);
+            services.nexusUndo().commit(turn, "game test: music off, chat smaller, circle crosshair, arrange");
+            return result;
+        });
+        check(outcome.rejected().isEmpty() && outcome.applied().size() == 4, "1.6.0 assistant actions: applied "
+                + outcome.applied() + ", rejected " + outcome.rejected());
+        State after = context.computeOnClient(client -> read.get());
+        check(after.music() instanceof Number n && n.doubleValue() == 0.0,
+                "music volume after audio.music 0 is " + after.music());
+        check(after.chatScale() instanceof Number n && Math.abs(n.doubleValue() - 0.8) < 1e-6,
+                "chat text size after accessibility.chatScale 0.8 is " + after.chatScale());
+        check(after.shape() == CrosshairShape.CIRCLE, "crosshair shape after crosshair.set circle is " + after.shape());
+        int[] gui = context.computeOnClient(client -> new int[]{client.getWindow().getGuiScaledWidth(),
+                client.getWindow().getGuiScaledHeight()});
+        List<String> overlaps = HudArranger.overlaps(after.layout(), gui[0], gui[1],
+                services.settings().get(VantaSettings.HUD_GLOBAL_SCALE));
+        check(overlaps.isEmpty(), "after hud.arrange widgets overlap at " + gui[0] + "x" + gui[1] + ": " + overlaps);
+        List<String> receipts = new ArrayList<>();
+        outcome.applied().forEach(a -> receipts.add(a.summary()));
+        step("nexus: 1.6.0 actions applied in the game " + receipts + "; music " + before.music() + " -> "
+                + after.music() + ", chat scale " + before.chatScale() + " -> " + after.chatScale()
+                + ", no overlap at " + gui[0] + "x" + gui[1]);
+        boolean undone = context.computeOnClient(client -> services.nexusUndo().undoLast());
+        check(undone, "NexusUndo.undoLast returned false after the 1.6.0 actions turn");
+        State restored = context.computeOnClient(client -> read.get());
+        check(java.util.Objects.equals(restored.music(), before.music())
+                        && java.util.Objects.equals(restored.chatScale(), before.chatScale())
+                        && restored.shape() == before.shape() && restored.layout().equals(before.layout()),
+                "Undo did not restore music " + before.music() + " (now " + restored.music() + "), chat scale "
+                        + before.chatScale() + " (now " + restored.chatScale() + "), crosshair " + before.shape()
+                        + " (now " + restored.shape() + ") or the HUD layout");
+        step("nexus: Undo restored music, chat scale, crosshair and HUD layout");
     }
 
     /** Enabled widget types of a layout without the crosshair. */

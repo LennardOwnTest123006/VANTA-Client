@@ -314,7 +314,7 @@ public final class HudArranger {
                 int h = Math.max(1, (int) Math.round(widget.scaledHeight() * Math.max(0.1, globalScale)));
                 items.add(new Item(widget, layout.indexOf(widget.id()), w, h, now, changed.contains(widget.id())));
             }
-            items.sort(order(group, REFERENCE_WIDTH, REFERENCE_HEIGHT));
+            items.sort(order(group));
             List<HudRect> preferred = preferredRects(group, items, placed, screenW, screenH);
             for (int i = 0; i < items.size(); i++) {
                 Item item = items.get(i);
@@ -341,19 +341,21 @@ public final class HudArranger {
     }
 
     /**
-     * Stacking order inside a group: nearest to the group's edge first (top for top and middle groups, bottom for
-     * bottom groups), then nearest to its side, then changed widgets first, then layout order.
+     * Stacking order inside a group: the widgets' top-to-bottom order on the screen (bottom-to-top for a bottom group,
+     * which stacks upwards), then changed widgets first, then layout order. The screen order is read from the anchors,
+     * not from pixel positions, so widgets of different sizes on one spot keep their layout order: first the widgets
+     * anchored at the group's own edge by their distance from it, then the middle row, then the far edge.
      */
-    private static Comparator<Item> order(HudAnchor group, int screenW, int screenH) {
-        Comparator<Item> byStack = Comparator.comparingInt(item -> group.row() == 2
-                ? screenH - item.before().bottom() : item.before().y());
-        Comparator<Item> bySide = Comparator.comparingInt(item -> switch (group.column()) {
-            case 0 -> item.before().x();
-            case 2 -> screenW - item.before().right();
-            default -> Math.abs(item.before().centerX() - screenW / 2);
+    private static Comparator<Item> order(HudAnchor group) {
+        boolean bottom = group.row() == 2;
+        Comparator<Item> band = Comparator.comparingInt(item -> bottom ? 2 - item.widget().anchor().row()
+                : item.widget().anchor().row());
+        Comparator<Item> along = Comparator.comparingInt(item -> {
+            int offset = item.widget().offsetY();
+            int downwards = item.widget().anchor().row() == 2 ? -offset : offset;
+            return bottom ? -downwards : downwards;
         });
-        return byStack.thenComparing(bySide).thenComparing(item -> !item.changed())
-                .thenComparingInt(Item::index);
+        return band.thenComparing(along).thenComparing(item -> !item.changed()).thenComparingInt(Item::index);
     }
 
     /**

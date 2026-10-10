@@ -1,6 +1,6 @@
 ---
 title: Vanta Nexus
-description: Vanta Nexus (client 1.4.0): its seven sections, how the strictly local assistant works, what it can and cannot do, actions with examples, undo, the transcript file, the N key and the palette entry.
+description: Vanta Nexus (client 1.4.0, more actions from 1.6.0): its seven sections, how the strictly local assistant works, what it can and cannot do (sound, chat size, crosshair and a tidy HUD from client 1.6.0 on), actions with examples, undo, the transcript file, the N key and the palette entry.
 order: 29
 category: Client
 ---
@@ -11,8 +11,8 @@ settings. The assistant runs a small language model **on your own PC** through `
 the [Local AI](local-ai.md). Nothing you type leaves your computer: the assistant's requests go to `127.0.0.1` and
 nowhere else. There is no cloud AI, no API key, no account and no telemetry.
 
-The assistant only ever changes **your own client**: the HUD layout, VANTA settings, profiles, performance presets,
-waypoints and Vanta Lab features. It never acts in the game world, never touches other players, key bindings or the
+The assistant only ever changes **your own client**: the HUD layout, the crosshair, VANTA settings (from client 1.6.0
+on also the sound volumes and the chat size), profiles, performance presets, waypoints and Vanta Lab features. It never acts in the game world, never touches other players, key bindings or the
 network, and it cannot run anything that is not one of the actions listed [below](#what-the-assistant-can-do).
 
 ## Opening Vanta Nexus
@@ -118,10 +118,15 @@ and Remove buttons are hidden while the VANTA Launcher manages the install, beca
 ## How the assistant works
 
 1. Every question is sent together with a **system prompt built from the live state of your client**: the HUD widget
-   ids with their current visibility and position, the widget types that can be added, the settings the assistant
-   may change with their type, allowed values and current value, your profile names, the performance presets, your
-   saved HUD layouts, the waypoints of the current world and the Lab features. Up to the last **8 turns** of the
-   conversation go along as context; a question longer than 2,000 characters is cut.
+   ids with their current visibility and position, the widget types that can be added, the crosshair (from client
+   1.6.0 on), the settings the assistant may change with their type, allowed values and current value, your profile
+   names, the performance presets, your saved HUD layouts, the waypoints of the current world and the Lab features.
+   From client 1.6.0 on the on/off settings and the settings from 0 to 1 are listed on one line each to keep the
+   prompt short, and the prompt ends with eight short examples (music off, master volume 50 %, crosshair circle, red
+   dot crosshair, chat smaller, sort the HUD, remove a widget, only FPS and coordinates). VANTA estimates the prompt
+   at one token per three characters and keeps it within 2,600 of the model's 4,096 tokens, so the answer (512
+   tokens) and the conversation still fit. Up to the last **8 turns** of the conversation go along as context; a
+   question longer than 2,000 characters is cut.
 2. The request goes to `llama-server` on `127.0.0.1` (`/v1/chat/completions`), with a **JSON schema** the answer must
    follow. The schema enumerates the real widget ids, preset names, profile names, setting ids and Lab features, so
    the model cannot name a thing that does not exist. Reasoning is off (`enable_thinking: false`, reasoning budget 0);
@@ -129,7 +134,9 @@ and Remove buttons are hidden while the VANTA Launcher manages the install, beca
 3. The answer is a short message plus a list of **actions**. VANTA validates every action against the same
    registries again (an action that names an unknown element, a forbidden setting or an out-of-range value is
    rejected and listed under *Not applied*), applies the valid ones through the same code paths the screens use, and
-   records one undo turn for the whole answer.
+   records one undo turn for the whole answer. From client 1.6.0 on, when the answer's `hud.set` actions leave two
+   visible widgets overlapping or on the same spot, VANTA stacks the corners involved apart before the turn ends
+   ([A tidy HUD](#a-tidy-hud)) and says so in the receipt.
 4. The transcript shows the message, the applied and the rejected actions, and a notification *Vanta Nexus: n
    changes applied* names the number of changes.
 
@@ -147,24 +154,91 @@ These are the only actions. Each one goes through the same code a click on the m
 | --- | --- | --- | --- |
 | `hud.set` | `element` (a widget id), optional `visible`, `anchor`, `x`, `y` (0..1 fractions of the screen), `scale` (0.5 to 2.0), `opacity` (0.1 to 1.0) | changes one HUD widget | "Move the FPS counter to the bottom right", "Make the coordinates half transparent" |
 | `hud.only` | `elements[]` | shows exactly these widgets and hides every other one (the crosshair stays) | "Only show FPS and coordinates" |
+| `hud.arrange` (from 1.6.0) | optional `corner`: `auto` (default), `top_left`, `top_right`, `bottom_left` or `bottom_right` | lays out every visible widget without overlap ([below](#a-tidy-hud)) | "Sort the HUD", "Tidy up my GUIs", "Put everything in the top right" |
 | `hud.layout.save` | `name` | saves the live HUD under that name | "Save this HUD as Streaming" |
 | `hud.layout.load` | `name` | loads a built-in or saved layout | "Load my Streaming layout" |
 | `hud.preset` | `preset`: `minimal`, `pvp`, `recording`, `survival`, `building` or `full` | applies a [Nexus preset](hud.md#nexus-presets) | "Make my HUD minimal", "Set up the HUD for PvP" |
+| `crosshair.set` (from 1.6.0) | any of `preset`, `shape`, `size`, `thickness`, `gap`, `color`, `outline`, `opacity`, `vanilla` | changes the crosshair like the [crosshair customizer](hud.md) ([below](#the-crosshair)) | "Make the crosshair a circle", "Red dot crosshair", "Use the normal Minecraft crosshair" |
 | `profile.switch` | `name` | activates a profile | "Switch to the Building profile" |
 | `profile.create` | `name`, `fromCurrent` | creates a profile from the current settings | "Create a recording profile" |
 | `perf.preset` | `preset`: `boost`, `low`, `balanced`, `high` or `ultra` | applies a [performance preset](performance.md#presets) (vanilla video options only) | "Apply the Low preset" |
 | `perf.smartBoost` | `run` | runs [Smart Boost](performance.md#smart-boost) again (Re-tune) | "Tune my performance" |
-| `setting.set` | `id`, `value` | changes one VANTA setting of the categories Video, HUD, Performance or Accessibility | "Turn off view bobbing", "Set the HUD scale to 1.2" |
+| `setting.set` | `id`, `value` | changes one VANTA setting of the categories Video, Audio (from 1.6.0), HUD, Performance or Accessibility | "Turn off view bobbing", "Set the HUD scale to 1.2", "Music off", "Make the chat smaller" |
 | `waypoint.add` | `name`, optional `x`, `y`, `z` (your position when left out), optional `category` | saves a waypoint in the current world | "Add a waypoint called Home here" |
 | `waypoint.remove` | `name` | deletes a waypoint of the current world | "Remove the waypoint Farm" |
 | `waypoint.toggle` | `name`, `enabled` | shows or hides its marker | "Hide the Portal waypoint" |
 | `lab.set` | `feature`, `enabled` | switches a [Vanta Lab](#6-vanta-lab) feature | "Turn on the dynamic HUD" |
 
+### Sound and chat size (from client 1.6.0 on)
+
+`setting.set` may change the **Audio** settings: `audio.master`, `audio.music`, `audio.records`, `audio.weather`,
+`audio.blocks`, `audio.hostile`, `audio.neutral`, `audio.players`, `audio.ambient`, `audio.voice` (each a number from
+0 to 1, where 0 is off and 1 is 100 %) and `audio.subtitles` (true or false). They are Minecraft's own sound options,
+written the way the *Music & Sounds* screen writes them. *Music off* is `audio.music` 0; *master volume 50 %* is
+`audio.master` 0.5. Because small models often answer in percent, VANTA reads `"50 %"` and any number above 1 up to
+100 as percent (50 is 0.5), and for a volume `false`, `"off"` and `"mute"` mean 0 and `true` and `"on"` mean 100 %.
+The receipt shows the value and the percentage, for example *Setting audio.music = 0 (0 %)*.
+
+The chat size has five new [Accessibility settings](accessibility.md#vanilla-options-in-the-same-place) bound to
+Minecraft's chat options: `accessibility.chatScale` (text size), `accessibility.chatWidth`,
+`accessibility.chatHeightFocused`, `accessibility.chatHeightUnfocused` and `accessibility.chatLineSpacing`, each from
+0 to 1 like `accessibility.chatOpacity`. The system prompt tells the model that *make the chat smaller* means the
+text size and the width 0.2 below their current values, and *bigger* 0.2 above them (at most 1). Whatever the model
+answers, VANTA never sets the text size below 0.5 or the width below 0.25 (110 pixels), so the chat stays readable;
+a smaller value is raised to that minimum and the receipt says so.
+
+### The crosshair
+
+From client 1.6.0 on the action `crosshair.set` changes the crosshair through the same store the crosshair customizer
+uses (and sets the customizer's *crosshair preset* setting to the matching preset or *custom*, as the customizer does);
+the change is saved with VANTA's other files. All fields are optional and are applied in this order:
+
+| Field | Values |
+| --- | --- |
+| `preset` | a built-in preset: `default`, `dot`, `thin`, `bold`, `circle`, `precision` (applied first, the other fields change it) |
+| `shape` | `cross`, `dot`, `circle`, `square`, `chevron`, `plus_dot` |
+| `size`, `thickness`, `gap` | whole numbers, kept within the customizer's ranges: size 1 to 32, thickness 1 to 8, gap 0 to 16 |
+| `color` | `#RRGGBB` or one of `white`, `red`, `green` (a bright green), `blue`, `yellow`, `cyan`, `magenta`, `black`, `orange`, `purple`, `pink`, `gray` (also `grey`) |
+| `outline` | `true` or `false` |
+| `opacity` | 0.1 to 1 (a number above 1 up to 100 counts as percent; the assistant never makes the crosshair invisible) |
+| `vanilla` | `true` switches to Minecraft's own crosshair, `false` back to VANTA's |
+
+A shape, colour or other style change while Minecraft's crosshair is active also turns VANTA's crosshair back on, so
+you see the change. Unknown shapes, presets and colours are refused with the allowed values. Examples: *make the
+crosshair a circle* is `{"type":"crosshair.set","shape":"circle"}`, *red dot crosshair* is `"shape":"dot",
+"color":"red"`.
+
+### A tidy HUD
+
+From client 1.6.0 on, "sort", "arrange", "tidy", "organize", "order" or "line up" the HUD (also "sortieren" and
+"ordnen") is one action, `hud.arrange`. It lays out every **visible** widget so that none overlaps another:
+
+- `auto` (the default) keeps each widget in the corner or at the edge it is nearest to (a widget in the middle of the
+  screen goes to the corner of its quarter) and stacks the widgets of each corner in a column, from the corner
+  inwards, with 2 pixels between them; a full column continues in a next column beside it. Edge groups are centred
+  along their edge.
+- `top_left`, `top_right`, `bottom_left` or `bottom_right` puts all of them into that corner, in the order they had
+  from top to bottom.
+- Sizes, scale, colours and settings are kept; only the anchor and the position change. Hidden widgets do not move,
+  the crosshair does not move, and no widget is placed over the crosshair.
+- The layout is computed for the smallest screen VANTA supports (427 x 240 GUI pixels). Every widget then hangs on
+  its corner or edge, so on a bigger window the groups only move further apart. When the widgets do not all fit
+  there, the layout is computed for 854 x 480 instead. A widget that finds no free spot at all is left where it was
+  and named in the receipt.
+
+The receipt reads, for example, *HUD arranged (auto): 9 widgets without overlap, 3 moved*. The same packing repairs
+an answer that moved widgets on top of each other with `hud.set` (for example an anchor for every widget and no
+position, which put them all on one spot before 1.6.0): every corner or edge with such an overlap is stacked again
+(a widget the answer moved keeps the requested spot, the other widgets of that corner move along its column), the
+other corners stay exactly where they are, a widget moved into the middle of the screen only steps to the nearest
+free spot, and the receipt says *Overlapping HUD widgets moved apart: …*. One **Undo** takes the whole answer back,
+the repair included.
+
 What it **cannot** do, by design:
 
-- change key bindings, the Controls, General, Audio, Language, Cosmetics, Privacy, Waypoints, Vanta Nexus or Vanta
-  Lab **settings** (Lab features only through `lab.set`), settings of the kind *action* or *key*, or settings that
-  need a restart;
+- change key bindings, the Controls, General, Language, Cosmetics, Privacy, Waypoints, Vanta Nexus or Vanta Lab
+  **settings** (Lab features only through `lab.set`; the crosshair only through `crosshair.set`), the Audio settings
+  before client 1.6.0, settings of the kind *action* or *key*, or settings that need a restart;
 - add or change anything in the game world, move you, use items, send chat messages or talk to a server;
 - see or change anything about other players;
 - install, download or run anything. The Local AI itself is installed only by your click on **Install Local AI**;
@@ -179,7 +253,8 @@ waypoint action outside a world) or *Could not apply*.
 
 Every answer that changed something is one **undo turn**: a snapshot of the active profile, every setting it changed,
 the HUD layout before the change, and a restore step for each other action (a waypoint it added is removed again, a
-toggled waypoint or Lab feature goes back, a created profile is deleted). **Undo** in the assistant section and in
+toggled waypoint or Lab feature goes back, a created profile is deleted, and from client 1.6.0 on a changed crosshair
+gets its previous style back; sound and chat settings are settings like any other). **Undo** in the assistant section and in
 the receipt takes the last turn back; the last 20 turns are kept while the game runs. The notification *Undone: the
 last assistant change was taken back* confirms it. The HUD Designer's preset chips and the *Load* buttons create undo
 turns of the same kind.

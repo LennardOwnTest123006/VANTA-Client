@@ -91,6 +91,110 @@ class NexusAssistantTest {
     }
 
     @Test
+    void systemPromptOffersSoundChatCrosshairAndArranging() {
+        String prompt = assistant.systemPrompt();
+        assertTrue(prompt.contains("- hud.arrange {corner?}: sort, arrange, tidy, organize, order or line up the HUD "
+                + "(also \"sortieren\", \"ordnen\")"), prompt);
+        assertTrue(prompt.contains("- crosshair.set {preset?, shape?, size?, thickness?, gap?, color?, outline?, "
+                + "opacity?, vanilla?}: preset default, dot, thin, bold, circle, precision; shape cross, dot, circle, "
+                + "square, chevron, plus_dot; size 1..32, thickness 1..8, gap 0..16, opacity 0.1..1"), prompt);
+        assertTrue(prompt.contains("Crosshair now: custom, shape cross, size 5, thickness 1, gap 1, color white, "
+                + "outline on, opacity 1"), prompt);
+        assertTrue(prompt.contains(NexusAssistant.FRACTION_RULE), prompt);
+        assertTrue(prompt.contains("audio.music=1"), prompt);
+        assertTrue(prompt.contains("audio.subtitles=false"), prompt);
+        assertTrue(prompt.contains("accessibility.chatScale=1"), prompt);
+        assertTrue(prompt.contains("accessibility.chatHeightUnfocused=0.44"), prompt);
+        assertTrue(prompt.contains("On/off, true or false (id=current): hud.enabled=true"), prompt);
+        assertTrue(prompt.endsWith(NexusAssistant.EXAMPLES), "the examples come last");
+        assertFalse(prompt.contains("audio.openVanilla"), "buttons are not settings");
+        assertFalse(prompt.contains("—"), "no em dashes in new prose");
+        assertTrue(NexusAssistant.estimateTokens(prompt) <= NexusAssistant.PROMPT_TOKEN_BUDGET,
+                "estimated " + NexusAssistant.estimateTokens(prompt) + " tokens");
+        assertEquals(NexusAssistant.CONTEXT_TOKENS, 4096);
+        assertTrue(NexusAssistant.PROMPT_TOKEN_BUDGET + LocalAiClient.MAX_TOKENS < NexusAssistant.CONTEXT_TOKENS,
+                "room for the answer and the conversation");
+    }
+
+    @Test
+    void aFullyStockedClientStillFitsTheContext() {
+        for (String type : services.nexusActions().addableWidgetTypes()) {
+            services.nexusActions().applyOne(com.google.gson.JsonParser.parseString(
+                    "{\"type\":\"hud.set\",\"element\":\"" + type + "\",\"visible\":true}").getAsJsonObject(),
+                    services.nexusUndo().begin(), new ArrayList<>());
+        }
+        for (int i = 0; i < 4; i++) {
+            services.hud().saveUserPreset("My layout number " + i);
+        }
+        for (int i = 0; i < 10; i++) {
+            waypoints.enabled.put("Waypoint number " + i, true);
+        }
+        String prompt = assistant.systemPrompt();
+        assertTrue(prompt.contains("memory: memory, visible"), "every widget type is on the HUD");
+        assertTrue(NexusAssistant.estimateTokens(prompt) <= NexusAssistant.PROMPT_TOKEN_BUDGET + 200,
+                "estimated " + NexusAssistant.estimateTokens(prompt) + " tokens for " + prompt.length() + " chars");
+    }
+
+    @Test
+    void everyFewShotExampleIsAValidTurn() {
+        int examples = 0;
+        for (String line : NexusAssistant.EXAMPLES.split("\n")) {
+            int start = line.indexOf(": [");
+            if (start < 0) {
+                continue;
+            }
+            examples++;
+            com.google.gson.JsonArray array = com.google.gson.JsonParser.parseString(line.substring(start + 2))
+                    .getAsJsonArray();
+            NexusUndo.Turn turn = services.nexusUndo().begin();
+            NexusActions.Outcome outcome = services.nexusActions().execute(array, turn);
+            assertEquals(List.of(), outcome.rejected(), line);
+            assertFalse(outcome.applied().isEmpty(), line);
+            services.nexusUndo().commit(turn, line);
+        }
+        assertTrue(examples >= 6 && examples <= 10, "6 to 10 examples: " + examples);
+        assertEquals(0.0, fixture.options.getDouble(dev.vanta.core.bridge.VanillaOption.MUSIC_VOLUME, -1), 1e-9);
+        assertEquals(0.5, fixture.options.getDouble(dev.vanta.core.bridge.VanillaOption.MASTER_VOLUME, -1), 1e-9);
+        assertEquals(0.8, fixture.options.getDouble(dev.vanta.core.bridge.VanillaOption.CHAT_SCALE, -1), 1e-9);
+        assertEquals(dev.vanta.core.crosshair.CrosshairShape.DOT, services.crosshair().style().shape());
+    }
+
+    @Test
+    void theReportedRequestsWorkThroughAModelReply() {
+        List<NexusReply> replies = new ArrayList<>();
+        backend.nextContent = "{\"message\":\"Music is off.\",\"actions\":[{\"type\":\"setting.set\","
+                + "\"id\":\"audio.music\",\"value\":0}]}";
+        assistant.ask("make music off", replies::add);
+        assertEquals(0.0, fixture.options.getDouble(dev.vanta.core.bridge.VanillaOption.MUSIC_VOLUME, -1), 1e-9);
+        backend.nextContent = "{\"message\":\"Circle.\",\"actions\":[{\"type\":\"crosshair.set\",\"shape\":\"circle\"}]}";
+        assistant.ask("make the crossover circle", replies::add);
+        assertEquals(dev.vanta.core.crosshair.CrosshairShape.CIRCLE, services.crosshair().style().shape());
+        backend.nextContent = "{\"message\":\"Smaller.\",\"actions\":[{\"type\":\"setting.set\","
+                + "\"id\":\"accessibility.chatScale\",\"value\":0.8},{\"type\":\"setting.set\","
+                + "\"id\":\"accessibility.chatWidth\",\"value\":0.8}]}";
+        assistant.ask("make the chat smaller", replies::add);
+        assertEquals(0.8, fixture.options.getDouble(dev.vanta.core.bridge.VanillaOption.CHAT_WIDTH, -1), 1e-9);
+        backend.nextContent = "{\"message\":\"Removed.\",\"actions\":[{\"type\":\"hud.set\","
+                + "\"element\":\"coordinates\",\"visible\":false}]}";
+        assistant.ask("delete the cordinates", replies::add);
+        assertFalse(services.hud().layout().find("coordinates").orElseThrow().enabled());
+        backend.nextContent = "{\"message\":\"Sorted.\",\"actions\":[{\"type\":\"hud.arrange\"}]}";
+        assistant.ask("sort the guis", replies::add);
+        assertTrue(dev.vanta.core.hud.HudArranger.overlaps(services.hud().layout(), 854, 480, 1.0).isEmpty());
+        for (NexusReply reply : replies) {
+            assertFalse(reply.isError());
+            assertEquals(List.of(), reply.rejected(), reply.message());
+            assertTrue(reply.undoable(), reply.message());
+        }
+        assertEquals(5, services.nexusUndo().depth());
+        List<NexusTranscript.Entry> entries = services.nexusTranscript().entries();
+        // Direction and biome close the gap the hidden coordinates left.
+        assertEquals(List.of("HUD arranged (auto): 8 widgets without overlap, 2 moved"),
+                entries.get(entries.size() - 1).applied());
+        assertEquals(36, services.hud().layout().find("direction").orElseThrow().offsetY());
+    }
+
+    @Test
     void requestsCarrySystemContextAndTheQuestion() {
         for (int i = 0; i < 12; i++) {
             services.nexusTranscript().append(NexusTranscript.Entry.user("q" + i, i));

@@ -131,6 +131,9 @@ class LangCoverageTest {
         for (String type : NexusActions.TYPES) {
             check(missing, new AppliedAction(type, "", "").langKey());
         }
+        for (String type : NexusActions.RECEIPT_TYPES) {
+            check(missing, new AppliedAction(type, "", "").langKey());
+        }
         for (Cardinal cardinal : Cardinal.values()) {
             check(missing, cardinal.langKey(), cardinal.axisKey());
         }
