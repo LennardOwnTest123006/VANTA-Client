@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "product": "client",
+  "version": "1.5.0",
+  "minecraftVersion": "1.21.11",
+  "fabricVersion": "0.19.5",
+  "fabricApiVersion": "0.141.6+1.21.11",
+  "javaVersion": 21,
+  "releaseDate": "2026-10-10",
+  "channel": "stable",
+  "files": [
+    {
+      "name": "vanta-client-1.5.0.jar",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "vanta-client-1.5.0-mods.zip",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    },
+    {
+      "name": "fabric-api-0.141.6+1.21.11.jar",
+      "downloadUrl": "",
+      "size": 0,
+      "sha256": ""
+    }
+  ],
+  "changelog": "website/content/changelog/client-1.5.0.md"
+}

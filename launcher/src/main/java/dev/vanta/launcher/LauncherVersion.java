@@ -40,7 +40,7 @@ public final class LauncherVersion {
         } catch (IOException ignored) {
             // fall through to defaults
         }
-        VERSION = props.getProperty("launcher.version", "1.4.1");
+        VERSION = props.getProperty("launcher.version", "1.5.0");
         MINECRAFT = props.getProperty("minecraft.version", "1.21.11");
         FABRIC_LOADER = props.getProperty("fabric.loader.version", "0.19.5");
         FABRIC_API = props.getProperty("fabric.api.version", "0.141.6+1.21.11");

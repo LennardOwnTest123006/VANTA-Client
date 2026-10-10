@@ -10,6 +10,36 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 No changes yet.
 
+## [Client 1.5.0] - 2026-10-10
+
+### Fixed
+- **No more 60 FPS cap**: a new game folder starts with Minecraft's defaults (VSync on, Max Framerate 120) and VANTA
+  only followed them, so a 60 Hz monitor held the game at 60 FPS even with *Unlimited* chosen. On the first start of
+  1.5.0 (`VantaServices.onGameStarted`, new `FrameRateUncap`) VANTA turns VSync off and sets Max Framerate to
+  Unlimited once when either caps the frame rate, saves `options.txt` once, records the run in
+  `config/vanta/frame-rate.json` and shows the notification *Frame rate uncapped*. It never runs again, so a later
+  VSync or limit choice stays. No other option is touched.
+- **Unlimited means unlimited**: labels *Unlimited (VSync off)* and *VSync (monitor refresh rate)*; VANTA's Max
+  Framerate slider at Unlimited also turns VSync off. New tests prove that no preset, profile, Smart Boost step,
+  render-distance advice or Nexus action turns VSync on or sets a limit by itself. Game test step `FrameRateStep`.
+- **Statistics play time is live**: *Playtime* is the stored total plus the running session (new `LiveStats`,
+  `StatsTracker.live()`), shown as `h:mm:ss` and refreshed exactly when the shown second changes while the screen is
+  open; the *This session* card likewise. `stats.json` is still written once per session, at game exit. Clear all
+  restarts the running session from zero; world and server names collected before a remember switch was turned off
+  are no longer recorded at exit.
+
+### Added
+- **Timer** (`dev.vanta.core.timer`, screens *Timer* and *Time is up*): presets 1, 5, 10, 15, 30 and 60 minutes or a
+  custom duration up to 24 hours with an optional label; pause, resume, cancel; real time, also in menus. When the
+  time is up the alarm window opens over any screen and a bell (`GameBridge.playAlarmSound`) rings every second until
+  **Stop** (or Enter / Escape). Command palette entry *Open timer*; chat command `/vanta timer [minutes|m:ss] [label]`
+  and `/vanta timer stop`. A running timer is not kept across restarts.
+
+## [Launcher 1.5.0] - 2026-10-10
+
+### Changed
+- Version aligned with VANTA Client 1.5.0; no functional change. The launcher never writes Minecraft's video options.
+
 ## [Client 1.4.1] - 2026-10-09
 
 ### Changed

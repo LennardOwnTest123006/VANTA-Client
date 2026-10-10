@@ -24,7 +24,7 @@ with no cloud AI, no API key, no account and no telemetry ([Privacy](privacy.md)
 | VANTA Launcher | 1.4.0 |
 | Launcher platforms | Windows 10/11 x64 (the `.msi` installer, portable app, jar); Linux x64 (app image, jar); Apple Silicon macOS (jar) |
 | Local AI (optional) | llama.cpp `llama-server` b11429 (MIT) with Qwen3-1.7B Q8_0 (Apache-2.0), downloaded once after you click Install, about 1.85 GB; Windows x64 and ARM64, Linux x64 and ARM64, macOS Apple Silicon and Intel ([Local AI](local-ai.md)) |
-| Downloads | GitHub Releases `client-v1.4.1` and `launcher-v1.4.1` (released 2026-10-09; the earlier releases stay available), the full release zip `VantaClient-1.4.1-Release.zip` on the release [`v1.4.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.4.1) (both releases plus the documentation in one archive, see [the full release zip](installation.md#the-full-release-zip)), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
+| Downloads | GitHub Releases `client-v1.5.0` and `launcher-v1.5.0` (released 2026-10-10; the earlier releases stay available), the full release zip `VantaClient-1.5.0-Release.zip` on the release [`v1.5.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.5.0) (both releases plus the documentation in one archive, see [the full release zip](installation.md#the-full-release-zip)), and the Download page of [vanta-client.netlify.app](https://vanta-client.netlify.app) |
 
 ## Quick start
 
@@ -70,6 +70,7 @@ with no cloud AI, no API key, no account and no telemetry ([Privacy](privacy.md)
   settings, verify / reinstall / remove, unsupported systems, licences
 - [Waypoints](waypoints.md): the waypoint store and per-world keys, screen markers and their settings, the beams of
   Vanta Lab, the Waypoints section of Nexus, the assistant's waypoint actions
+- [Timer](timer.md): the countdown timer of client 1.5.0, its alarm window with the ringing bell, and `/vanta timer`.
 - [Settings](settings.md): categories (including Vanta Nexus, Waypoints and Vanta Lab), search, reset, tooltips,
   keyboard navigation, `settings.json`
 - [HUD and crosshair](hud.md): every widget (including the frame time graph of Vanta Lab), the HUD editor, presets,

@@ -21,6 +21,7 @@ import {
   Zap,
   ZoomIn,
   Layers,
+  AlarmClock,
 } from 'lucide-react';
 import { formatBytes } from '../lib/format';
 import {
@@ -70,7 +71,7 @@ export const featureHighlights: readonly FeatureHighlight[] = [
     title: 'Performance',
     icon: Gauge,
     summary:
-      'Live FPS, frame time, memory and distance readouts with five presets built from vanilla video options that never cap the frame rate, a one-click Boost FPS (new in 1.2.0) and Smart Boost (new in 1.3.0).',
+      'Live FPS, frame time, memory and distance readouts with five presets that never cap the frame rate, Boost FPS (1.2.0), Smart Boost (1.3.0), and from 1.5.0 no 60 FPS VSync cap on a new game folder.',
   },
   {
     id: 'performance-pack',
@@ -133,7 +134,7 @@ export const featureHighlights: readonly FeatureHighlight[] = [
     title: 'Statistics',
     icon: ChartColumn,
     summary:
-      'Playtime, sessions and activity in a local dashboard. Stored in your config folder, never uploaded anywhere.',
+      'Playtime, sessions and activity in a local dashboard; from 1.5.0 the play time counts up live every second. Stored in your config folder, never uploaded anywhere.',
   },
   {
     id: 'settings',
@@ -377,6 +378,7 @@ export const featureFamilies: readonly FeatureFamily[] = [
       'New in 1.2.0: one-click Boost FPS applies MAX FPS, removes the frame-rate cap, turns VSync off, uses a plain menu and installs the Performance pack when it is missing',
       'New in 1.3.0: Smart Boost measures real gameplay once after an install or update and applies the preset your PC runs smoothly: local rules, no network, never Fast / Fancy / Fabulous, the frame-rate limit or VSync, never an option you changed; Re-tune and Undo on its card',
       'New in 1.4.0: the Performance section of Vanta Nexus shows live values only: FPS now, frame time p50 and p99, hitches over 50 ms, ping (Singleplayer when there is no server), render distance, GPU, memory and the Smart Boost status, with "n/a" where a value is missing, next to the presets, Boost FPS and a link to the Performance Center',
+      'New in 1.5.0: the 60 FPS cap of a new game folder is gone. Minecraft starts with VSync on, which holds a 60 Hz monitor at 60 FPS; on its first start VANTA 1.5.0 turns VSync off and sets Max Framerate to Unlimited once, then leaves both to you. Unlimited is labelled Unlimited (VSync off). Menus without a world stay at Minecraft\'s own 60 FPS menu limit; worlds are not capped',
       'Detects which preset matches your current options and shows "Custom" when you changed anything',
       'Render-distance advisor that suggests ±2 chunks from measured frame rate (never below 6 chunks), applied only when you say so',
       'No renderer replacement of its own and no unverified performance claims; for more, it points to the Performance pack',
@@ -554,9 +556,25 @@ export const featureFamilies: readonly FeatureFamily[] = [
       'A local dashboard about your own play. Everything is stored in config/vanta/stats.json on your computer.',
     bullets: [
       'Playtime, sessions, distance travelled, blocks broken and placed, screenshots taken and peak FPS',
+      'New in 1.5.0: play time counts up live, every second, with the running session included; stats.json is still written only once per session, when you quit',
       'Worlds and servers you joined; each list can be switched off separately',
       'Pause tracking, reset or delete the data at any time from the Privacy settings',
       'Nothing is uploaded: there is no account and no telemetry',
+    ],
+  },
+  {
+    id: 'timer',
+    title: 'Timer',
+    icon: AlarmClock,
+    eyebrow: 'New in 1.5.0',
+    description:
+      'A countdown inside the game. When the time is up, a window opens over whatever you are doing and a bell rings until you click Stop.',
+    bullets: [
+      'Presets of 1, 5, 10, 15, 30 and 60 minutes, or your own minutes and seconds up to 24 hours, with an optional label',
+      'Pause, resume and cancel; it counts in real time, also in menus, in the pause menu and with the game in the background',
+      'The alarm window shows the label and when the time was up; Stop (or Enter or Escape) ends the ringing and closes it',
+      'Open it from the command palette or the settings search (Open timer), or type /vanta timer 10 in chat; /vanta timer stop stops it',
+      'Kept in memory only: a running timer does not survive closing the game',
     ],
   },
   {

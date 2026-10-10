@@ -22,7 +22,7 @@ yet; the changelog page says the same next to that version. Only a product that 
 **"Not published yet — release pending"** with a disabled button. The page never links to a file that does not exist.
 
 1. Open [GitHub Releases](https://github.com/LennardOwnTest123006/VANTA-Client/releases). If the release you want
-   (for example `launcher-v1.4.1` or `client-v1.4.1`) is listed, the website has not been rebuilt yet: download the
+   (for example `launcher-v1.5.0` or `client-v1.5.0`) is listed, the website has not been rebuilt yet: download the
    file from its release page and compare it with `SHA256SUMS.txt` from the same page
    ([Installation → Verify the checksum](installation.md#2-verify-the-checksum)).
 2. If GitHub Releases does not list it either, that version has not been published yet and there is nothing to
@@ -39,7 +39,7 @@ configured value is not an `http(s)` URL; correct it or reset it.
 ## "Windows protected your PC"
 
 Windows SmartScreen shows this for programs without a code-signing certificate. The VANTA installers
-(`VANTA-Launcher-1.4.1.msi`; releases before 1.4.0 also had an `.exe`) and the portable app are **not code-signed** yet (a certificate is a paid item
+(`VANTA-Launcher-1.5.0.msi`; releases before 1.4.0 also had an `.exe`) and the portable app are **not code-signed** yet (a certificate is a paid item
 the project does not have), so the warning is expected for the files from GitHub Releases.
 
 1. First compare the file's SHA-256 with `SHA256SUMS.txt` from the release page
@@ -65,11 +65,11 @@ does not consider safe, and it offers **no "Run anyway"**. What this means for V
 - The `.msi` (and the `.exe` installer of releases before 1.4.0) and the program `VANTA Launcher.exe` (installed, and
   in the portable zip) are not signed, so Smart App Control can block all of them. The portable zip is therefore no way
   around it.
-- The launcher jars (`vanta-launcher-1.4.1-windows-all.jar`) are started by an installed Java 21 (`java` or `javaw`
+- The launcher jars (`vanta-launcher-1.5.0-windows-all.jar`) are started by an installed Java 21 (`java` or `javaw`
   from Eclipse Temurin or another vendor), not by a VANTA program, so they may start where the other files are
   blocked. We have **not tested** this on a PC with Smart App Control turned on; the jar also unpacks JavaFX libraries
   when it starts, and we cannot say whether Smart App Control lets them load. Install
-  [Java 21](java-21.md#install-options), then run `java -jar vanta-launcher-1.4.1-windows-all.jar` in PowerShell
+  [Java 21](java-21.md#install-options), then run `java -jar vanta-launcher-1.5.0-windows-all.jar` in PowerShell
   in the folder with the download (verify its SHA-256 first).
 - The [manual installation](installation.md#c-manual-installation) runs no VANTA program at all: the VANTA Client
   and Fabric API are mods that the game loads. Its Fabric installer is a separate program from fabricmc.net; with
@@ -85,9 +85,9 @@ worked; it helps others.
 
 - **"Windows protected your PC"**: SmartScreen; see [above](#windows-protected-your-pc).
 - **Blocked by your organisation** (a work or school PC with a policy against installers): use the portable zip
-  `VANTA-Launcher-1.4.1-windows-portable.zip` only if your policy allows it; otherwise ask your administrator. Do not
+  `VANTA-Launcher-1.5.0-windows-portable.zip` only if your policy allows it; otherwise ask your administrator. Do not
   try to get around a policy.
-- **Other installer errors**: try the portable zip `VANTA-Launcher-1.4.1-windows-portable.zip`, which needs no
+- **Other installer errors**: try the portable zip `VANTA-Launcher-1.5.0-windows-portable.zip`, which needs no
   installation: unzip it into a folder you own and start `VANTA Launcher\VANTA Launcher.exe`. From 1.4.0 on the `.msi`
   is the only Windows installer; releases before 1.4.0 offered the same installer a second time as an `.exe`, which
   stays on their release pages.
@@ -126,18 +126,18 @@ Each launcher jar contains the JavaFX libraries for one system only, so take the
 
 | Your computer | File | Needs |
 | --- | --- | --- |
-| Linux x64 (`uname -m` prints `x86_64`) | `VANTA-Launcher-1.4.1-linux-x64.tar.gz` (recommended) or `vanta-launcher-1.4.1-linux-all.jar` | nothing for the `.tar.gz`; Java 21 for the jar |
-| Mac with Apple Silicon (*About This Mac* shows an Apple M chip; `uname -m` prints `arm64`) | `vanta-launcher-1.4.1-macos-aarch64-all.jar` | Java 21; start it with `java -jar` from Terminal |
-| Mac with an Intel processor (`uname -m` prints `x86_64`) | none | use the [manual installation](installation.md#c-manual-installation) with `vanta-client-1.4.1-mods.zip` |
+| Linux x64 (`uname -m` prints `x86_64`) | `VANTA-Launcher-1.5.0-linux-x64.tar.gz` (recommended) or `vanta-launcher-1.5.0-linux-all.jar` | nothing for the `.tar.gz`; Java 21 for the jar |
+| Mac with Apple Silicon (*About This Mac* shows an Apple M chip; `uname -m` prints `arm64`) | `vanta-launcher-1.5.0-macos-aarch64-all.jar` | Java 21; start it with `java -jar` from Terminal |
+| Mac with an Intel processor (`uname -m` prints `x86_64`) | none | use the [manual installation](installation.md#c-manual-installation) with `vanta-client-1.5.0-mods.zip` |
 | Linux on ARM (`aarch64`) | none | use the manual installation |
 
 The Windows jar (`-windows-all.jar`) does not start its window on Linux or macOS, and the Linux jar does not start it
 on Windows or macOS, even though all of them are `.jar` files. Started on the wrong system, a jar says so before it
 tries to open a window: *"This jar is for Windows x64, but it was started by a Java runtime for Linux x64. …"* followed
-by the file to download instead (for example `vanta-launcher-1.4.1-linux-all.jar` or
-`VANTA-Launcher-1.4.1-linux-x64.tar.gz`) and the releases page. The check looks at the Java runtime, not at the
+by the file to download instead (for example `vanta-launcher-1.5.0-linux-all.jar` or
+`VANTA-Launcher-1.5.0-linux-x64.tar.gz`) and the releases page. The check looks at the Java runtime, not at the
 computer: an x64 (Intel) Java on an Apple Silicon Mac runs under Rosetta 2 and is told to install an arm64 (aarch64)
-Java 21 and start `vanta-launcher-1.4.1-macos-aarch64-all.jar` with it, and a 32-bit Java is told to use a 64-bit
+Java 21 and start `vanta-launcher-1.5.0-macos-aarch64-all.jar` with it, and a 32-bit Java is told to use a 64-bit
 Java 21 or a download that brings its own Java runtime (the `.msi`, the portable app or the Linux `.tar.gz`). The jar
 prints the message, also shows it in a message window when a display is available (a double-clicked jar has no
 console), and exits with code 1. Command line options such as `--help`, `--version` and `--install-official-profile`
@@ -149,9 +149,9 @@ the manual installation and [report it](#how-to-report-a-problem).
 ## Windows on ARM: which launcher file?
 
 There is no native arm64 build of the VANTA Launcher for Windows, but Windows 11 on ARM runs x64 programs under
-emulation. Use `VANTA-Launcher-1.4.1.msi` or the portable app `VANTA-Launcher-1.4.1-windows-portable.zip`: both are
+emulation. Use `VANTA-Launcher-1.5.0.msi` or the portable app `VANTA-Launcher-1.5.0-windows-portable.zip`: both are
 x64 and bring their own x64 Java runtime. Alternatively install an x64 Java 21 and start
-`vanta-launcher-1.4.1-windows-all.jar` with it. The project has not tested the launcher on a Windows on ARM device;
+`vanta-launcher-1.5.0-windows-all.jar` with it. The project has not tested the launcher on a Windows on ARM device;
 if it does not work for you, use the [manual installation](installation.md#c-manual-installation) and
 [report it](#how-to-report-a-problem).
 
@@ -159,7 +159,7 @@ Started with an arm64 Java, the Windows jar cannot open its window. From launche
 above instead (launcher 1.0.1 said that there is no download for Windows on ARM and pointed only to building from
 source or `--install-official-profile`) and exits with code 1. Windows 10
 on ARM cannot run x64 programs; there the jar's command line still works with an arm64 Java:
-`java -jar vanta-launcher-1.4.1-windows-all.jar --install-official-profile` sets VANTA up for the official Minecraft
+`java -jar vanta-launcher-1.5.0-windows-all.jar --install-official-profile` sets VANTA up for the official Minecraft
 Launcher ([Launcher → Use with the Minecraft Launcher](launcher.md#use-with-the-minecraft-launcher)).
 
 ## PLAY is disabled or sign-in is not configured
@@ -612,17 +612,17 @@ Problems with the [Local AI](local-ai.md) that runs the [Vanta Nexus](nexus.md) 
 - **After a portable update there is a `VANTA Launcher` folder inside your `VANTA Launcher` folder and the version did
   not change**: the zip was extracted into the portable folder instead of its parent. Close the launcher, delete the
   inner `VANTA Launcher` folder and extract the zip again into the folder that contains your portable folder.
-- **Launcher 1.0.0 offers `VANTA-Launcher-1.4.1.msi` although you use the portable folder or a jar** (or the
+- **Launcher 1.0.0 offers `VANTA-Launcher-1.5.0.msi` although you use the portable folder or a jar** (or the
   `.tar.gz` for a Linux jar): launcher 1.0.0 picks the update by system only. Choose *Not now* and download the
-  portable zip or the jar for your system from the release `launcher-v1.4.1` yourself; from 1.0.1 on the launcher
+  portable zip or the jar for your system from the release `launcher-v1.5.0` yourself; from 1.0.1 on the launcher
   picks the matching file ([Installation → Updating](installation.md#updating)). If you already installed the `.msi`,
   you have an installed launcher next to the portable copy or jar; both use the same data directory, so you can keep
   the installed one and delete the portable folder or jar.
-- **The downloaded update is called `1.4.1-vanta-launcher-1.4.1-linux-all.jar`** (or `1.4.1-` followed by another
+- **The downloaded update is called `1.5.0-vanta-launcher-1.5.0-linux-all.jar`** (or `1.5.0-` followed by another
   release file name) and `sha256sum -c --ignore-missing SHA256SUMS.txt` does not find it: launcher 1.0.0 and 1.0.1
   save an update as `cache/updates/<version>-<file name>`. It is the verified release file under a different name; it
   starts as it is from that folder (*Show in folder* opens it). Rename it to the release name (here
-  `vanta-launcher-1.4.1-linux-all.jar`) before you check it yourself. From launcher 1.0.2 on, updates are saved as
+  `vanta-launcher-1.5.0-linux-all.jar`) before you check it yourself. From launcher 1.0.2 on, updates are saved as
   `cache/updates/<version>/<file name>` with the release name.
 - **"Verify files" is missing on the Home screen**: expected while nothing is installed, and after setting up only
   *Use with Minecraft Launcher*. From launcher 1.0.2 on, *Verify files* works only on an existing installation and is

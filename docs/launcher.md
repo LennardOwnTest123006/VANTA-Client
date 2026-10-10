@@ -549,20 +549,20 @@ At start (and with `--check-update`) the launcher fetches `launcher-latest.json`
 
   **Updating from launcher 1.0.0.** The table describes launcher 1.0.1 and newer. An update is offered by the
   launcher you are running, and launcher 1.0.0 still picks the file by system only, for the update to 1.4.0 as for
-  every earlier one: on Windows it offers `VANTA-Launcher-1.4.1.msi` (also in the portable folder and when started as
-  a jar), on Linux x64 `VANTA-Launcher-1.4.1-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a
+  every earlier one: on Windows it offers `VANTA-Launcher-1.5.0.msi` (also in the portable folder and when started as
+  a jar), on Linux x64 `VANTA-Launcher-1.5.0-linux-x64.tar.gz` (also when started as a jar). Installing that `.msi` from a
   portable folder or a jar installs a second launcher and leaves the portable copy or jar at 1.0.0. To keep a portable
   or jar setup, choose *Not now* in the 1.0.0 launcher, close it and download
-  `VANTA-Launcher-1.4.1-windows-portable.zip` or the jar for your system from the release
-  [`launcher-v1.4.1`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.4.1) yourself
+  `VANTA-Launcher-1.5.0-windows-portable.zip` or the jar for your system from the release
+  [`launcher-v1.5.0`](https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/launcher-v1.5.0) yourself
   (verify it as in [Installation → Verify the checksum](installation.md#2-verify-the-checksum) and replace the files
   as described in the table). From 1.0.1 on, the launcher picks the matching file itself.
 
   **Update files saved by launcher 1.0.0 and 1.0.1.** They save the download as `cache/updates/<version>-<file name>`,
-  for example `1.4.1-vanta-launcher-1.4.1-linux-all.jar`. It is the verified release file under a different name:
+  for example `1.5.0-vanta-launcher-1.5.0-linux-all.jar`. It is the verified release file under a different name:
   *Show in folder* opens that folder and the file starts from there as it is. To check it yourself with
   `sha256sum -c --ignore-missing SHA256SUMS.txt` from the release, rename it to the release name first
-  (`vanta-launcher-1.4.1-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name
+  (`vanta-launcher-1.5.0-linux-all.jar`). From launcher 1.0.2 on, the file keeps its release name
   ([Installation → Updating](installation.md#updating)).
 - An announced release whose manifest still has an empty download URL is shown as *announced, not downloadable yet*.
 
@@ -635,7 +635,7 @@ on Linux, `"VANTA Launcher/bin/VANTA Launcher"` from the app image. The command 
 every launcher jar on every system; only the window needs the jar for your system. On Windows `VANTA Launcher.exe` is a
 window program without console output; use the jar with an installed Java 21 there, or the bundled runtime:
 `"VANTA Launcher\runtime\bin\java.exe" -jar "VANTA Launcher\app\vanta-launcher-<version>-all.jar"` inside the
-unzipped portable app (for 1.4.1: `vanta-launcher-1.4.1-all.jar`).
+unzipped portable app (for 1.5.0: `vanta-launcher-1.5.0-all.jar`).
 
 ```text
 vanta-launcher --install [--client-jar <path>] [--without-client] [--without-performance-pack] [--with-local-ai | --without-local-ai] [--no-assets]
