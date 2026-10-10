@@ -39,6 +39,7 @@ import dev.vanta.core.modrinth.PackOffer;
 import dev.vanta.core.modrinth.PerformancePack;
 import dev.vanta.core.notifications.NotificationCenter;
 import dev.vanta.core.perf.FpsLimitPreset;
+import dev.vanta.core.perf.FrameRateUncap;
 import dev.vanta.core.perf.PerformanceCenter;
 import dev.vanta.core.perf.PerformancePreset;
 import dev.vanta.core.perf.SmartBoostTuner;
@@ -93,6 +94,7 @@ public final class VantaServices {
     private final StatsTracker stats;
     private final PerformanceCenter performance;
     private final SmartBoostTuner smartBoost;
+    private final FrameRateUncap frameRateUncap;
     private final KeybindModel keybinds;
     private final ProfileManager profiles;
     private final AccessibilityService accessibility;
@@ -145,6 +147,8 @@ public final class VantaServices {
                 paths.smartBoostFile(), SystemInfo.current(),
                 SmartBoostTuner.autoAllowedByProperty() && !PackOffer.inGameTest());
         performance.attachSmartBoost(smartBoost);
+        this.frameRateUncap = new FrameRateUncap(performance, options, settings, notifications, jsonStore,
+                paths.frameRateFile(), clock);
         this.keybinds = new KeybindModel(keybindBridge);
         this.profiles = new ProfileManager(jsonStore, paths, clock, settings, hud, crosshair, keybindBridge);
         this.accessibility = new AccessibilityService(settings);
@@ -259,6 +263,7 @@ public final class VantaServices {
         waypoints.load();
         profiles.load();
         smartBoost.load();
+        frameRateUncap.load();
         nexusTranscript.load();
         localAi.load();
         keybinds.refresh();
@@ -296,9 +301,21 @@ public final class VantaServices {
         loaded = false;
     }
 
+    /**
+     * The game finished starting and its options exist (the client calls this once, on Fabric's client-started
+     * event): runs the one-time frame-rate uncap ({@link FrameRateUncap}). {@link #load()} itself never touches a game
+     * option, because it runs while Minecraft is still being constructed.
+     */
+    public FrameRateUncap.Outcome onGameStarted() {
+        return frameRateUncap.runOnce(game.clientVersion());
+    }
+
     /** Once per client tick. */
     public void tick() {
         mainThreadQueue.drain();
+        if (frameRateUncap.isNoticePending() && game.isInWorld()) {
+            frameRateUncap.postPendingNotice(); // the main menu was skipped (quick play) or is the vanilla one
+        }
         notifications.tick();
         stats.onTick(game);
         performance.tick();
@@ -625,6 +642,11 @@ public final class VantaServices {
     /** Smart Boost (automatic local video tuning). */
     public SmartBoostTuner smartBoost() {
         return smartBoost;
+    }
+
+    /** The one-time frame-rate uncap of client 1.5.0. */
+    public FrameRateUncap frameRateUncap() {
+        return frameRateUncap;
     }
 
     public KeybindModel keybinds() {

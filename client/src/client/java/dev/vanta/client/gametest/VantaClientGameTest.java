@@ -66,8 +66,10 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *   <li>a profile can be created and activated and exists on disk;</li>
  *   <li>the keybind model lists mappings (including VANTA's) and the conflict detector runs;</li>
  *   <li>the resource pack bridge lists the vanilla "Default" pack as enabled;</li>
- *   <li>in a fresh creative world: HUD widgets enabled → {@code 20_hud_ingame}, the BALANCED preset sets render
- *       distance 10, the in-game VANTA menu → {@code 21_ingame_menu};</li>
+ *   <li>in a fresh creative world: the frame-rate uncap ({@link FrameRateStep}: the start-up check's record, then
+ *       VSync off, Max Framerate 260 in the game, VANTA and options.txt, Minecraft's frame-rate limiter at 260 with no
+ *       screen open, the measured FPS logged), HUD widgets enabled → {@code 20_hud_ingame}, the BALANCED preset sets
+ *       render distance 10, the in-game VANTA menu → {@code 21_ingame_menu};</li>
  *   <li>still in the world: the frame-cost probe ({@link PerfProbeStep}: game frame time with / without the VANTA
  *       HUD / with the GUI hidden, VANTA render hook wall times and primitive counts over 300 frames each, written to
  *       {@code screenshots/vanta-perf-probe.json}) and the windowed click reproduction ({@link ModsClickReproduction}:
@@ -93,6 +95,10 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  * </ol>
  * Expected log lines (all prefixed {@code [VANTA gametest]}), useful when reading a CI log:
  * <ul>
+ *   <li>{@code frame rate: start-up check recorded for client ... (it found VSync on, Max Framerate 120; uncapped
+ *       them)}, {@code frame rate: the game-test runner restored the options captured before the start-up check:
+ *       ...}, {@code frame rate: uncapped in the world (VSync off, Max Framerate 260, limiter 260 with no screen; ...)
+ *       N FPS measured ...};</li>
  *   <li>{@code nexus [854x480_gui2]: opened (...)}, {@code nexus [...]: N section control(s): [...]},
  *       {@code nexus [...]: section <id> renders (...)}, {@code nexus [...]: N of M showing controls reachable};
  *       a finding reads {@code UNREACHABLE [nexus ...] <control>: <reason>};</li>
@@ -396,6 +402,8 @@ public final class VantaClientGameTest implements FabricClientGameTest {
                 .create()) {
             world.getClientWorld().waitForChunksRender();
             step("creative world loaded");
+            // The 1.5.0 frame-rate uncap: VSync off, Max Framerate and Minecraft's limiter at 260 with no screen open.
+            FrameRateStep.run(context, services);
             context.runOnClient(client -> enableWidgets(services, client.getWindow().getGuiScaledWidth(),
                     client.getWindow().getGuiScaledHeight()));
             context.waitTicks(20);

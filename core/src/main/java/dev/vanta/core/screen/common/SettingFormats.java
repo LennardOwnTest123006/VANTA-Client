@@ -68,7 +68,9 @@ public final class SettingFormats {
         switch (option) {
             case FRAMERATE_LIMIT -> {
                 int fps = number.intValue();
-                return fps >= FpsLimitPreset.VANILLA_UNLIMITED ? Lang.tr(FpsLimitPreset.UNLIMITED.langKey())
+                // Plain "Unlimited": the slider's own value (the frame-rate choice "Unlimited (VSync off)" says more,
+                // but VSync can be on again next to an unlimited Max Framerate).
+                return fps >= FpsLimitPreset.VANILLA_UNLIMITED ? Lang.tr("vanta.common.unlimited")
                         : Lang.tr("vanta.common.fps", fps);
             }
             case RENDER_DISTANCE, SIMULATION_DISTANCE -> {

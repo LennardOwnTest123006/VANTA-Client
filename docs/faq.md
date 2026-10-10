@@ -309,6 +309,10 @@ request (Boost FPS installs it too when it is missing). See
 [Performance Center → Honest limits](performance.md#honest-limits). If VANTA 1.1.0's *Low* preset or a profile left
 you at 60 or exactly 30 FPS, choose *Unlimited* once after updating to 1.2.0:
 [Troubleshooting](troubleshooting.md#low-fps-or-exactly-30-fps-after-choosing-a-preset-or-profile-in-vanta-110).
+From client 1.5.0 on, the first start turns VSync off and sets Max framerate to Unlimited once when the game still has
+Minecraft's defaults (VSync on, 120), which held a 60 Hz monitor at 60 FPS; the title screen and VANTA main menu stay at
+Minecraft's own 60 FPS menu limit, worlds are not capped
+([Performance Center → One-time uncap](performance.md#one-time-uncap-client-150)).
 
 ## Why Java 21 and not the Java I already have?
 

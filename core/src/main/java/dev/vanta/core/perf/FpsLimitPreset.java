@@ -5,7 +5,9 @@ import java.util.Locale;
 
 /**
  * Quick frame-rate limit choices. Each maps to the vanilla {@code framerateLimit} option (and {@code enableVsync} for
- * {@link #VSYNC}); 260 is vanilla's "unlimited" value.
+ * {@link #VSYNC}); 260 is vanilla's "unlimited" value. Every choice but {@link #VSYNC} turns VSync off, so
+ * {@link #UNLIMITED} ("Unlimited (VSync off)") really is unlimited instead of held at the monitor refresh rate, which is
+ * what {@link #VSYNC} ("VSync (monitor refresh rate)") stands for.
  */
 public enum FpsLimitPreset implements LangKeyed {
     /** Vertical sync on, limit unlimited (the monitor refresh rate caps the frame rate). */

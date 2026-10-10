@@ -69,6 +69,26 @@ public final class PerformanceCenter {
         // reach the vanilla options too, or picking "144 FPS" would only rewrite settings.json. Loading
         // settings.json does not fire listeners, so the user's options.txt is never overridden at startup.
         settings.onChange(VantaSettings.PERFORMANCE_FPS_LIMIT_PRESET, (old, preset) -> syncFpsLimit(preset));
+        // "Unlimited" means unlimited everywhere VANTA offers it: moving VANTA's Max Framerate slider (Settings > Video,
+        // the Performance Center) to Unlimited also turns VSync off, or a 60 Hz monitor would still hold 60 FPS.
+        settings.addListener(change -> {
+            if (change.is(VantaSettings.VIDEO_FRAMERATE_LIMIT) && change.newValue() instanceof Number limit
+                    && limit.intValue() >= FpsLimitPreset.VANILLA_UNLIMITED) {
+                onMaxFramerateUnlimited();
+            }
+        });
+    }
+
+    /**
+     * Max Framerate became Unlimited through a VANTA setting row: VSync goes off through the settings store (so
+     * {@code options.txt} is saved with the screen's other changes, not right away) and the frame-rate choice records
+     * Unlimited. An explicit VSync value applied after this (a profile that wants VSync) still wins.
+     */
+    private void onMaxFramerateUnlimited() {
+        if (options.supports(VanillaOption.VSYNC) && options.getBoolean(VanillaOption.VSYNC, false)) {
+            settings.setRaw(VantaSettings.VIDEO_VSYNC, Boolean.FALSE);
+        }
+        reconcileFpsLimitChoice();
     }
 
     /** Frame time history. */

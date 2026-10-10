@@ -262,6 +262,16 @@ public final class NotificationCenter {
     }
 
     /**
+     * The one-time frame-rate uncap of client 1.5.0 turned VSync off and set Max Framerate to Unlimited. Also says that
+     * menus without a world stay at Minecraft's own 60 FPS menu limit, so the player does not read 60 FPS on the main
+     * menu as the old cap.
+     */
+    public Optional<Notification> frameRateUncapped() {
+        return post(NotificationKind.SUCCESS, Lang.tr("vanta.notification.frame_rate_uncapped.title"),
+                Lang.tr("vanta.notification.frame_rate_uncapped.body"), 12000);
+    }
+
+    /**
      * Boost FPS or the pack offer's Install asked for the Performance pack while a Modrinth download (the pack
      * itself after a second click, or any other install) is still running; nothing new was queued behind it.
      */

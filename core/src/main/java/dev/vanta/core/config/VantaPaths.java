@@ -77,6 +77,11 @@ public final class VantaPaths {
         return root.resolve("smart-boost.json");
     }
 
+    /** {@code frame-rate.json}: the one-time frame-rate uncap (which client version ran it and what it found). */
+    public Path frameRateFile() {
+        return root.resolve("frame-rate.json");
+    }
+
     /** {@code cosmetics.json}: cosmetics state (installed packs). */
     public Path cosmeticsFile() {
         return root.resolve("cosmetics.json");

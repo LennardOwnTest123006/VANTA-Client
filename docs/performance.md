@@ -215,8 +215,9 @@ cannot provide reads **n/a**.
 Below the cards: the five preset buttons, **Boost FPS** and **Open Performance Center**; they run exactly the code the
 buttons here run. The [assistant](nexus.md#what-the-assistant-can-do) can apply a preset (`perf.preset`: `boost`,
 `low`, `balanced`, `high`, `ultra`; "Apply the Low preset") and start a Smart Boost re-tune (`perf.smartBoost`; "Tune
-my performance"), both undoable from the chat; it cannot change the frame-rate limit chooser or install the
-Performance pack. Smart Boost itself stays a rule-based tuner without a model: the Local AI is not involved in it.
+my performance"), both undoable from the chat; it cannot install the Performance pack. It changes the frame-rate limit
+chooser, Max Framerate or VSync only when you ask for exactly that (from client 1.5.0 on its instructions say so: never
+turn VSync on or set a limit by itself, and remove the cap when you ask for more FPS). Smart Boost itself stays a rule-based tuner without a model: the Local AI is not involved in it.
 
 ## Frame-rate limit chooser
 
@@ -226,12 +227,34 @@ here:
 
 | Choice | Max framerate | VSync |
 | --- | --- | --- |
-| VSync | Unlimited | On (the monitor refresh rate caps the frame rate) |
+| VSync (monitor refresh rate) | Unlimited | On (the monitor refresh rate caps the frame rate: 60 FPS on a 60 Hz monitor) |
 | 60 | 60 | Off |
 | 120 | 120 | Off |
 | 144 | 140 (vanilla steps in tens) | Off |
 | 240 | 240 | Off |
-| Unlimited | Unlimited | Off |
+| Unlimited (VSync off) | Unlimited | Off |
+
+*Unlimited* means unlimited everywhere VANTA offers it (from client 1.5.0 on): the chooser's *Unlimited (VSync off)*,
+Boost FPS and Reset turn VSync off together with the limit, and moving VANTA's **Max framerate** slider (Settings →
+Video, the Performance Center) to *Unlimited* turns VSync off too. Only vanilla Video Settings and Sodium's screen
+keep VSync on next to an unlimited Max framerate, which on a 60 Hz monitor still means 60 FPS. No preset, built-in
+profile, Smart Boost step or render distance suggestion turns VSync on or sets a limit; only your own choice does.
+
+### One-time uncap (client 1.5.0)
+
+A new game folder starts with Minecraft's own defaults, VSync on and Max framerate 120, and before 1.5.0 VANTA's
+frame-rate choice only followed what the game had. On a 60 Hz monitor that held the game at 60 FPS. So on the first
+start of client 1.5.0 (an update from 1.4.x or older, or a fresh install), once the game has started, VANTA checks the
+two options once: with VSync on or Max framerate below Unlimited it applies *Unlimited (VSync off)* exactly like the
+chooser (VSync off, Max framerate Unlimited, `options.txt` saved once) and shows one notification: *Frame rate
+uncapped: VSync is off and Max Framerate is Unlimited. If you see screen tearing, turn VSync on in Settings >
+Performance.* No other option is touched. The check is recorded in `config/vanta/frame-rate.json` (`uncappedFor`: the
+client version that ran it, and the values it found) and never runs again, also not after later updates, so turning
+VSync back on or setting a limit afterwards stays your choice.
+
+Minecraft itself limits menus without a world (the title screen, the VANTA main menu) to **60 FPS** by design, and
+with *Reduce FPS when: Away from keyboard* (vanilla's default) it lowers the frame rate while you are idle. VANTA
+changes neither; seeing 60 FPS on the main menu is that menu limit, not a cap. Worlds are not capped.
 
 ## Individual options
 
