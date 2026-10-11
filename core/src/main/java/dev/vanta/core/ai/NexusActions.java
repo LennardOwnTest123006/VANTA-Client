@@ -790,7 +790,8 @@ public final class NexusActions {
         }
         OptionalDouble thickness = number(a, "thickness", type);
         if (thickness.isPresent()) {
-            next = next.withThickness((int) Math.round(clamp(thickness.getAsDouble(), 1, CrosshairStyle.MAX_THICKNESS)));
+            next = next.withThickness((int) Math.round(clamp(thickness.getAsDouble(), 1,
+                    CrosshairStyle.MAX_THICKNESS)));
             changes.add("thickness " + next.thickness());
             styleGiven = true;
         }
@@ -970,7 +971,8 @@ public final class NexusActions {
      * other value is returned unchanged.
      */
     static JsonPrimitive fractionValue(Setting<?> setting, JsonPrimitive value) {
-        if (!isFraction(setting)) {
+        // Every number setting that ends at 1 reads percent (hud.globalOpacity 0.1..1 too), not only the 0..1 ones.
+        if (setting.kind() != SettingKind.DOUBLE_RANGE || setting.min() < 0.0 || setting.max() != 1.0) {
             return value;
         }
         boolean volume = setting.category() == SettingCategory.AUDIO;

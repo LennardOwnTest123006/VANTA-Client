@@ -166,7 +166,8 @@ class NexusAssistantTest {
                 + "\"id\":\"audio.music\",\"value\":0}]}";
         assistant.ask("make music off", replies::add);
         assertEquals(0.0, fixture.options.getDouble(dev.vanta.core.bridge.VanillaOption.MUSIC_VOLUME, -1), 1e-9);
-        backend.nextContent = "{\"message\":\"Circle.\",\"actions\":[{\"type\":\"crosshair.set\",\"shape\":\"circle\"}]}";
+        backend.nextContent = "{\"message\":\"Circle.\",\"actions\":[{\"type\":\"crosshair.set\","
+                + "\"shape\":\"circle\"}]}";
         assistant.ask("make the crossover circle", replies::add);
         assertEquals(dev.vanta.core.crosshair.CrosshairShape.CIRCLE, services.crosshair().style().shape());
         backend.nextContent = "{\"message\":\"Smaller.\",\"actions\":[{\"type\":\"setting.set\","

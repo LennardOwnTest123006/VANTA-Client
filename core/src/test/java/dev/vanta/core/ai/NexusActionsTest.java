@@ -368,7 +368,7 @@ class NexusActionsTest {
         assertTrue(hasVariant(reduced, "waypoint.add"));
     }
 
-    // ---- client 1.6.0: sound, chat size, crosshair, arranging the HUD ------------------------------------------------
+    // ---- client 1.6.0: sound, chat size, crosshair, arranging the HUD -------------------------------------------
 
     @Test
     void soundVolumesAreAllowedAndReadAsFractionsOrPercent() {
@@ -411,6 +411,11 @@ class NexusActionsTest {
                 "{\"type\":\"setting.set\",\"id\":\"accessibility.chatOpacity\",\"value\":\"off\"}")),
                 "\"off\" means 0 only for volumes");
         assertEquals("number 0..1", NexusActions.allowedValues(VantaSettings.AUDIO_MUSIC));
+        run("{\"type\":\"setting.set\",\"id\":\"hud.globalOpacity\",\"value\":60}");
+        assertEquals(0.6, services.settings().get(VantaSettings.HUD_GLOBAL_OPACITY), 1e-9,
+                "every setting ending at 1 reads percent");
+        run("{\"type\":\"setting.set\",\"id\":\"hud.globalScale\",\"value\":1.5}");
+        assertEquals(1.5, services.settings().get(VantaSettings.HUD_GLOBAL_SCALE), 1e-9, "a 0.5..2 scale does not");
     }
 
     @Test

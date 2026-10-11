@@ -48,8 +48,9 @@ public final class NexusAssistant {
      * the chat text size below {@value NexusActions#MIN_CHAT_SCALE}.
      */
     public static final String FRACTION_RULE = "Numbers 0..1 (volumes audio.*, opacities, chat size) are fractions: "
-            + "0 = off, 0.5 = 50 %, 1 = 100 %. Chat size is accessibility.chatScale (text) and accessibility.chatWidth: "
-            + "smaller = 0.2 less than now (scale at least 0.5), bigger = 0.2 more (at most 1).";
+            + "0 = off, 0.5 = 50 %, 1 = 100 %. Chat size is accessibility.chatScale (text) and "
+            + "accessibility.chatWidth: smaller = 0.2 less than now (scale at least 0.5), bigger = 0.2 more "
+            + "(at most 1).";
     /**
      * Few-shot examples at the end of the system prompt (from client 1.6.0 on): the requests players make most, each
      * with the actions it maps to. Only ids that always exist are used.
@@ -124,9 +125,9 @@ public final class NexusAssistant {
     public String systemPrompt() {
         StringBuilder p = new StringBuilder(4096);
         p.append("You are Vanta Nexus, the local assistant inside the VANTA Minecraft client. You help the player ")
-                .append("with their own client only: HUD layout, crosshair, settings (sound and chat size too), profiles, ")
-                .append("performance presets, waypoints and Vanta Lab features. You never act in the game world, never ")
-                .append("touch other players, keybinds, the network or files.\n");
+                .append("with their own client only: HUD layout, crosshair, settings (sound and chat size too), ")
+                .append("profiles, performance presets, waypoints and Vanta Lab features. You never act in the game ")
+                .append("world, never touch other players, keybinds, the network or files.\n");
         p.append("Reply with one JSON object only: {\"message\": string, \"actions\": array}. \"message\" is one or two ")
                 .append("plain English sentences for the player, no markdown. \"actions\" lists the changes to make now, ")
                 .append("in order. Return an empty array when nothing should change or when you need to ask a question. ")
@@ -139,12 +140,13 @@ public final class NexusAssistant {
                 .append("bottom_right), place it at x,y as fractions of the screen (0 = left/top, 1 = right/bottom), ")
                 .append("scale 0.5..2, opacity 0.1..1. A widget type that is not on the HUD yet is added.\n");
         p.append("- hud.only {elements: [ids]}: show exactly these widgets and hide every other one (the crosshair stays).\n");
-        p.append("- hud.arrange {corner?}: sort, arrange, tidy, organize, order or line up the HUD (also \"sortieren\", ")
-                .append("\"ordnen\"): stacks every visible widget without overlap in its nearest corner (corner auto) ")
-                .append("or all in top_left, top_right, bottom_left or bottom_right. Never sort with hud.set.\n");
+        p.append("- hud.arrange {corner?}: sort, arrange, tidy, organize, order or line up the HUD ")
+                .append("(also \"sortieren\", \"ordnen\"): stacks every visible widget without overlap in its ")
+                .append("nearest corner (corner auto) or all in top_left, top_right, bottom_left or bottom_right. ")
+                .append("Never sort with hud.set.\n");
         if (actions.crosshair().isPresent()) {
-            p.append("- crosshair.set {preset?, shape?, size?, thickness?, gap?, color?, outline?, opacity?, vanilla?}: ")
-                    .append("preset ").append(String.join(", ", CrosshairPresets.IDS)).append("; shape ")
+            p.append("- crosshair.set {preset?, shape?, size?, thickness?, gap?, color?, outline?, opacity?, ")
+                    .append("vanilla?}: preset ").append(String.join(", ", CrosshairPresets.IDS)).append("; shape ")
                     .append(String.join(", ", NexusActions.crosshairShapeIds()))
                     .append("; size 1..32, thickness 1..8, gap 0..16, opacity 0.1..1; color #RRGGBB or ")
                     .append(String.join(", ", CrosshairColors.names()))

@@ -46,9 +46,10 @@ import java.util.Optional;
  * never blocks.
  */
 public final class AssistantPanel extends NexusPanel {
-    /** The example prompts offered while the transcript is empty. */
+    /** The example prompts offered while the transcript is empty (the last two from client 1.6.0 on). */
     public static final List<String> EXAMPLE_PROMPTS = List.of("Make my HUD minimal", "Only show FPS and coordinates",
-            "Create a recording profile", "Move the FPS counter to the bottom right");
+            "Create a recording profile", "Move the FPS counter to the bottom right", "Sort the HUD",
+            "Turn the music off");
 
     private final NexusAssistant assistant;
     private final LocalAiService localAi;

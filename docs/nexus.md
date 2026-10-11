@@ -41,9 +41,9 @@ and the mouse. Esc closes the screen.
   and why (an unknown widget, a setting it may not change, a waypoint that does not exist in this world, …).
 - **Undo** on the last applied turn takes all of its changes back ([Undo](#undo)). **Clear chat** empties the
   transcript.
-- A single-line text field; **Enter** (or *Send*) sends. While the transcript is empty, four example chips send a
-  prompt with one click: *Make my HUD minimal*, *Only show FPS and coordinates*, *Create a recording profile* and
-  *Move the FPS counter to the bottom right*.
+- A single-line text field; **Enter** (or *Send*) sends. While the transcript is empty, example chips send a
+  prompt with one click: *Make my HUD minimal*, *Only show FPS and coordinates*, *Create a recording profile*,
+  *Move the FPS counter to the bottom right* and, from client 1.6.0 on, *Sort the HUD* and *Turn the music off*.
 - While the Local AI is **not installed**, the section shows the Local AI card instead of the input: runtime and
   model with their versions, the download size, the licences (MIT and Apache-2.0), the two hosts the download
   contacts (`github.com`, `huggingface.co`), the disk and RAM it needs, the sentence *Nothing is downloaded until you
@@ -176,7 +176,8 @@ These are the only actions. Each one goes through the same code a click on the m
 0 to 1, where 0 is off and 1 is 100 %) and `audio.subtitles` (true or false). They are Minecraft's own sound options,
 written the way the *Music & Sounds* screen writes them. *Music off* is `audio.music` 0; *master volume 50 %* is
 `audio.master` 0.5. Because small models often answer in percent, VANTA reads `"50 %"` and any number above 1 up to
-100 as percent (50 is 0.5), and for a volume `false`, `"off"` and `"mute"` mean 0 and `true` and `"on"` mean 100 %.
+100 as percent (50 is 0.5) for every number setting that ends at 1 (volumes, opacities, the chat size), and for a
+volume `false`, `"off"` and `"mute"` mean 0 and `true` and `"on"` mean 100 %.
 The receipt shows the value and the percentage, for example *Setting audio.music = 0 (0 %)*.
 
 The chat size has five new [Accessibility settings](accessibility.md#vanilla-options-in-the-same-place) bound to
