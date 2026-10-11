@@ -1,5 +1,7 @@
 package dev.vanta.core.timer;
 
+import java.time.ZoneId;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -10,11 +12,22 @@ import java.util.Objects;
  *   <li>{@code <m:ss> [label]}: minutes and seconds ({@code /vanta timer 2:30});</li>
  *   <li>{@code stop} or {@code cancel}: stops a ringing alarm or cancels a running or paused timer.</li>
  * </ul>
- * {@link #run(TimerService)} applies a parsed command; the client only turns the result into chat feedback.
+ * {@link #run(Parsed, TimerService)} applies a parsed command and {@link #execute(String, TimerService, ZoneId)}
+ * does both and names the chat line to print, so the client only sends that line.
  */
 public final class TimerCommand {
     /** Error key: the first word is not a duration. */
     public static final String INVALID = "vanta.command.timer.invalid";
+    /** Feedback key: a timer without a label started ({@code duration}, {@code rings at}). */
+    public static final String STARTED = "vanta.command.timer.started";
+    /** Feedback key: a labelled timer started ({@code label}, {@code duration}, {@code rings at}). */
+    public static final String STARTED_LABELLED = "vanta.command.timer.started_labelled";
+    /** Feedback key: a ringing alarm was stopped. */
+    public static final String STOPPED = "vanta.command.timer.stopped";
+    /** Feedback key: a running or paused timer was cancelled. */
+    public static final String CANCELLED = "vanta.command.timer.cancelled";
+    /** Feedback key: {@code stop} without a timer. */
+    public static final String NOTHING = "vanta.command.timer.nothing";
 
     private TimerCommand() {
     }
@@ -117,6 +130,52 @@ public final class TimerCommand {
             return timer.cancel() ? Outcome.CANCELLED : Outcome.NOTHING_TO_STOP;
         }
         throw new IllegalArgumentException("not a runnable timer command: " + command);
+    }
+
+    /**
+     * The chat line {@code /vanta timer <arguments>} answers with.
+     *
+     * @param key   translation key of the line
+     * @param args  its format arguments (already formatted text)
+     * @param error true for a red error line (input not understood), false for plain feedback
+     */
+    public record Reply(String key, List<String> args, boolean error) {
+        public Reply {
+            Objects.requireNonNull(key, "key");
+            args = List.copyOf(args);
+        }
+
+        /** The arguments for {@code Lang.tr(key, args)}. */
+        public Object[] argsArray() {
+            return args.toArray();
+        }
+    }
+
+    /**
+     * Parses and runs {@code /vanta timer <arguments>} and names the chat line to print: the duration and the time of
+     * day the timer rings (12-hour time with AM/PM in {@code zone}, the PC's time zone in the game) after a start,
+     * what was stopped or cancelled, or why the input was not understood (nothing changes then).
+     */
+    public static Reply execute(String arguments, TimerService timer, ZoneId zone) {
+        Objects.requireNonNull(timer, "timer");
+        Objects.requireNonNull(zone, "zone");
+        Parsed parsed = parse(arguments);
+        if (parsed instanceof Invalid invalid) {
+            return new Reply(invalid.errorKey(), List.of(), true);
+        }
+        return switch (run(parsed, timer)) {
+            case STARTED -> {
+                String duration = TimerFormats.remaining(timer.durationMillis());
+                String ringsAt = TimerFormats.timeOfDay(timer.endsAt().orElseThrow(), zone);
+                String label = timer.label();
+                yield label.isEmpty()
+                        ? new Reply(STARTED, List.of(duration, ringsAt), false)
+                        : new Reply(STARTED_LABELLED, List.of(label, duration, ringsAt), false);
+            }
+            case STOPPED -> new Reply(STOPPED, List.of(), false);
+            case CANCELLED -> new Reply(CANCELLED, List.of(), false);
+            case NOTHING_TO_STOP -> new Reply(NOTHING, List.of(), false);
+        };
     }
 
     private static int indexOfWhitespace(String text) {

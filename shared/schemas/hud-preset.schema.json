@@ -41,7 +41,7 @@
           "enum": [
             "fps", "ping", "coordinates", "direction", "biome", "server", "cps", "clock", "armor",
             "item_durability", "potion_effects", "keystrokes", "memory", "cpu", "entity_count",
-            "minecraft_version", "crosshair"
+            "minecraft_version", "timer", "frametime_graph", "crosshair"
           ]
         },
         "enabled": { "type": "boolean" },
