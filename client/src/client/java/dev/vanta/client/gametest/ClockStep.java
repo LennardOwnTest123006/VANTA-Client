@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
@@ -59,7 +61,9 @@ final class ClockStep {
             VantaClientGameTest.check(Math.abs(auto.wallMillis() - auto.capturedAt()) < 5_000L,
                     "The HUD clock instant " + Instant.ofEpochMilli(auto.capturedAt()) + " is not the wall clock "
                             + Instant.ofEpochMilli(auto.wallMillis()));
-            Set<String> local = Set.of(REFERENCE.format(before), REFERENCE.format(auto.localNow()));
+            // Both readings usually fall in the same minute: a LinkedHashSet keeps one copy (Set.of rejects that).
+            Set<String> local = new LinkedHashSet<>(
+                    List.of(REFERENCE.format(before), REFERENCE.format(auto.localNow())));
             VantaClientGameTest.check(local.contains(auto.text()), "The HUD clock shows " + auto.text()
                     + " but the local time is " + local);
             VantaClientGameTest.check(hour(auto.text()) == twelveHour(auto.localNow().getHour())
