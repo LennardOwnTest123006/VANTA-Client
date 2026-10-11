@@ -458,6 +458,102 @@ class NexusActionsTest {
     }
 
     @Test
+    void relativeStepsChangeTheCurrentValue() {
+        // "make the chat smaller" three times: the same "-0.2" answer works whatever the size is now.
+        String smaller = "{\"type\":\"setting.set\",\"id\":\"accessibility.chatScale\",\"value\":\"-0.2\"}";
+        assertEquals("0.8 (80 %)", run(smaller).applied().get(0).detail());
+        assertEquals(0.8, fixture.options.getDouble(VanillaOption.CHAT_SCALE, -1), 1e-9);
+        run(smaller);
+        assertEquals(0.6, fixture.options.getDouble(VanillaOption.CHAT_SCALE, -1), 1e-9);
+        NexusActions.Outcome floor = run(smaller);
+        assertEquals(NexusActions.MIN_CHAT_SCALE, fixture.options.getDouble(VanillaOption.CHAT_SCALE, -1), 1e-9,
+                "a step never goes below the readable minimum");
+        assertEquals("0.5 (50 %, the smallest the assistant sets)", floor.applied().get(0).detail());
+        run("{\"type\":\"setting.set\",\"id\":\"accessibility.chatScale\",\"value\":\"+0.2\"}");
+        assertEquals(0.7, fixture.options.getDouble(VanillaOption.CHAT_SCALE, -1), 1e-9, "bigger");
+        run("{\"type\":\"setting.set\",\"id\":\"accessibility.chatScale\",\"value\":\"+0.5\"}");
+        assertEquals(1.0, fixture.options.getDouble(VanillaOption.CHAT_SCALE, -1), 1e-9, "clamped to 100 %");
+
+        run("{\"type\":\"setting.set\",\"id\":\"accessibility.chatWidth\",\"value\":\"- 20 %\"}");
+        assertEquals(0.8, fixture.options.getDouble(VanillaOption.CHAT_WIDTH, -1), 1e-9, "a percent step");
+        run("{\"type\":\"setting.set\",\"id\":\"audio.music\",\"value\":\"-50\"}");
+        assertEquals(0.5, fixture.options.getDouble(VanillaOption.MUSIC_VOLUME, -1), 1e-9, "-50 is 50 % less");
+        run("{\"type\":\"setting.set\",\"id\":\"audio.music\",\"value\":\"-.25\"}");
+        assertEquals(0.25, fixture.options.getDouble(VanillaOption.MUSIC_VOLUME, -1), 1e-9);
+        run("{\"type\":\"setting.set\",\"id\":\"audio.music\",\"value\":\"-1\"}");
+        assertEquals(0.0, fixture.options.getDouble(VanillaOption.MUSIC_VOLUME, -1), 1e-9, "never below 0");
+
+        int fov = (Integer) services.settings().get(VantaSettings.VIDEO_FOV);
+        NexusActions.Outcome wider = run("{\"type\":\"setting.set\",\"id\":\"video.fov\",\"value\":\"+10\"}");
+        assertEquals(List.of(), wider.rejected());
+        assertEquals(fov + 10, (int) (Integer) services.settings().get(VantaSettings.VIDEO_FOV), "an integer step");
+        run("{\"type\":\"setting.set\",\"id\":\"hud.globalScale\",\"value\":\"+0.25\"}");
+        assertEquals(1.25, services.settings().get(VantaSettings.HUD_GLOBAL_SCALE), 1e-9, "not percent above 1");
+        assertEquals(RejectedAction.Reason.INVALID_VALUE,
+                onlyRejection(run("{\"type\":\"setting.set\",\"id\":\"video.fov\",\"value\":\"+10 %\"}")),
+                "a percent step only for the settings that read percent");
+        assertEquals(RejectedAction.Reason.INVALID_VALUE,
+                onlyRejection(run("{\"type\":\"setting.set\",\"id\":\"audio.music\",\"value\":\"--2\"}")));
+        // A JSON number is absolute: -0.2 is not a step.
+        run("{\"type\":\"setting.set\",\"id\":\"accessibility.chatWidth\",\"value\":-0.2}");
+        assertEquals(NexusActions.MIN_CHAT_WIDTH, fixture.options.getDouble(VanillaOption.CHAT_WIDTH, -1), 1e-9);
+
+        int turns = undo.depth();
+        for (int i = 0; i < turns; i++) {
+            assertTrue(undo.undoLast());
+        }
+        assertEquals(1.0, fixture.options.getDouble(VanillaOption.CHAT_SCALE, -1), 1e-9, "undo restores every step");
+        assertEquals(1.0, fixture.options.getDouble(VanillaOption.MUSIC_VOLUME, -1), 1e-9);
+        assertEquals(fov, (int) (Integer) services.settings().get(VantaSettings.VIDEO_FOV));
+    }
+
+    @Test
+    void aChatAlreadyBelowTheMinimumIsNeitherLoweredNorRaisedBySmaller() {
+        fixture.options.setFromGame(VanillaOption.CHAT_SCALE, 0.3); // set in Minecraft's own Chat Settings
+        NexusActions.Outcome smaller = run(
+                "{\"type\":\"setting.set\",\"id\":\"accessibility.chatScale\",\"value\":\"-0.2\"}");
+        assertEquals(0.3, fixture.options.getDouble(VanillaOption.CHAT_SCALE, -1), 1e-9);
+        assertEquals("0.3 (30 %, not lowered: already below 0.5)", smaller.applied().get(0).detail());
+        run("{\"type\":\"setting.set\",\"id\":\"accessibility.chatScale\",\"value\":0.1}");
+        assertEquals(0.3, fixture.options.getDouble(VanillaOption.CHAT_SCALE, -1), 1e-9);
+        run("{\"type\":\"setting.set\",\"id\":\"accessibility.chatScale\",\"value\":\"+0.1\"}");
+        assertEquals(0.4, fixture.options.getDouble(VanillaOption.CHAT_SCALE, -1), 1e-9, "bigger still works");
+    }
+
+    @Test
+    void settingsEndingAtOneShowThePercentage() {
+        NexusActions.Outcome opacity = run("{\"type\":\"setting.set\",\"id\":\"hud.globalOpacity\",\"value\":60}");
+        assertEquals("Setting hud.globalOpacity = 0.6 (60 %)", opacity.applied().get(0).summary());
+        NexusActions.Outcome scale = run("{\"type\":\"setting.set\",\"id\":\"hud.globalScale\",\"value\":1.5}");
+        assertEquals("Setting hud.globalScale = 1.5", scale.applied().get(0).summary());
+    }
+
+    @Test
+    void hudOnlyStacksAWidgetShownAgainOnAnOccupiedSpot() {
+        // Ping was hidden; meanwhile the FPS counter took its place. "Only show FPS and ping" shows ping again.
+        HudLayout layout = services.hud().layout();
+        HudWidgetState fps = layout.find("fps").orElseThrow();
+        HudWidgetState ping = layout.find("ping").orElseThrow().withEnabled(false)
+                .withPosition(fps.anchor(), fps.offsetX(), fps.offsetY());
+        HudLayout before = layout.with(ping);
+        services.hud().setLayout(before);
+        assertEquals(List.of(), dev.vanta.core.hud.HudArranger.overlaps(before, 854, 480, 1.0));
+
+        NexusActions.Outcome only = run("{\"type\":\"hud.only\",\"elements\":[\"fps\",\"ping\"]}");
+        assertEquals(List.of(), only.rejected());
+        assertEquals(List.of("hud.only", "hud.resolve"), only.applied().stream().map(AppliedAction::type).toList());
+        HudLayout after = services.hud().layout();
+        assertEquals(List.of(), dev.vanta.core.hud.HudArranger.overlaps(after, 854, 480, 1.0));
+        assertTrue(after.find("ping").orElseThrow().enabled());
+        assertTrue(undo.undoLast());
+        assertEquals(before, services.hud().layout(), "one undo takes hud.only and the repair back");
+
+        // Showing widgets that do not overlap needs no repair.
+        NexusActions.Outcome tidy = run("{\"type\":\"hud.only\",\"elements\":[\"fps\",\"coordinates\"]}");
+        assertEquals(List.of("hud.only"), tidy.applied().stream().map(AppliedAction::type).toList());
+    }
+
+    @Test
     void crosshairSetChangesTheStyleLikeTheCustomizerAndUndoes() {
         var store = services.crosshair();
         assertEquals(dev.vanta.core.crosshair.CrosshairStyle.DEFAULT, store.style());

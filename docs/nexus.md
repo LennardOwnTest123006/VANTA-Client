@@ -134,9 +134,9 @@ and Remove buttons are hidden while the VANTA Launcher manages the install, beca
 3. The answer is a short message plus a list of **actions**. VANTA validates every action against the same
    registries again (an action that names an unknown element, a forbidden setting or an out-of-range value is
    rejected and listed under *Not applied*), applies the valid ones through the same code paths the screens use, and
-   records one undo turn for the whole answer. From client 1.6.0 on, when the answer's `hud.set` actions leave two
-   visible widgets overlapping or on the same spot, VANTA stacks the corners involved apart before the turn ends
-   ([A tidy HUD](#a-tidy-hud)) and says so in the receipt.
+   records one undo turn for the whole answer. From client 1.6.0 on, when the answer's `hud.set` or `hud.only`
+   actions leave two visible widgets overlapping or on the same spot, VANTA stacks the corners involved apart before
+   the turn ends ([A tidy HUD](#a-tidy-hud)) and says so in the receipt.
 4. The transcript shows the message, the applied and the rejected actions, and a notification *Vanta Nexus: n
    changes applied* names the number of changes.
 
@@ -180,13 +180,22 @@ written the way the *Music & Sounds* screen writes them. *Music off* is `audio.m
 volume `false`, `"off"` and `"mute"` mean 0 and `true` and `"on"` mean 100 %.
 The receipt shows the value and the percentage, for example *Setting audio.music = 0 (0 %)*.
 
+A number setting can also be changed by a **step** from its current value: a text value that starts with `+` or `-`,
+such as `"-0.2"` or `"+0.2"`, is added to the value it has now and then kept within the setting's range like any
+other value (`"+10"` on `video.fov` turns 70 into 80). For the settings that end at 1, `"-20 %"` and `"-20"` are a
+step of 0.2, the same percent reading as above. A step in percent on another setting (`"+10 %"` on `video.fov`) is
+refused. A plain JSON number such as `-0.2` is never a step, it is that value. One Undo puts the old value back.
+
 The chat size has five new [Accessibility settings](accessibility.md#vanilla-options-in-the-same-place) bound to
 Minecraft's chat options: `accessibility.chatScale` (text size), `accessibility.chatWidth`,
 `accessibility.chatHeightFocused`, `accessibility.chatHeightUnfocused` and `accessibility.chatLineSpacing`, each from
-0 to 1 like `accessibility.chatOpacity`. The system prompt tells the model that *make the chat smaller* means the
-text size and the width 0.2 below their current values, and *bigger* 0.2 above them (at most 1). Whatever the model
-answers, VANTA never sets the text size below 0.5 or the width below 0.25 (110 pixels), so the chat stays readable;
-a smaller value is raised to that minimum and the receipt says so.
+0 to 1 like `accessibility.chatOpacity`. The system prompt tells the model that *make the chat smaller* is the step
+`"-0.2"` on the text size and on the width, and *bigger* the step `"+0.2"` (at most 1). Because a step does not depend
+on the current size, asking a second time makes the chat smaller again. Whatever the model answers, VANTA never sets
+the text size below 0.5 or the width below 0.25 (110 pixels), so the chat stays readable: a smaller value is raised
+to that minimum and the receipt says so (*0.5 (50 %, the smallest the assistant sets)*). A size you set below that
+minimum yourself in Minecraft's *Chat Settings* is left as it is when you ask for a smaller chat (*not lowered:
+already below 0.5*); a bigger chat still works.
 
 ### The crosshair
 
@@ -229,7 +238,8 @@ From client 1.6.0 on, "sort", "arrange", "tidy", "organize", "order" or "line up
 
 The receipt reads, for example, *HUD arranged (auto): 9 widgets without overlap, 3 moved*. The same packing repairs
 an answer that moved widgets on top of each other with `hud.set` (for example an anchor for every widget and no
-position, which put them all on one spot before 1.6.0): every corner or edge with such an overlap is stacked again
+position, which put them all on one spot before 1.6.0), or that showed a hidden widget again with `hud.set` or
+`hud.only` on a spot another widget took meanwhile: every corner or edge with such an overlap is stacked again
 (a widget the answer moved keeps the requested spot, the other widgets of that corner move along its column), the
 other corners stay exactly where they are, a widget moved into the middle of the screen only steps to the nearest
 free spot, and the receipt says *Overlapping HUD widgets moved apart: …*. One **Undo** takes the whole answer back,

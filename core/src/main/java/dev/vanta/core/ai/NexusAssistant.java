@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import dev.vanta.core.config.CoreLog;
 import dev.vanta.core.crosshair.CrosshairColors;
 import dev.vanta.core.crosshair.CrosshairPresets;
+import dev.vanta.core.crosshair.CrosshairStyle;
 import dev.vanta.core.hud.HudLayout;
 import dev.vanta.core.hud.HudPreset;
 import dev.vanta.core.hud.HudStore;
@@ -43,14 +44,15 @@ public final class NexusAssistant {
             + "video.framerateLimit, performance.fpsLimitPreset) unless the player asks for exactly that. For more FPS "
             + "use performance.fpsLimitPreset unlimited, which turns VSync off.";
     /**
-     * Rule in the system prompt (from client 1.6.0 on): what the 0..1 numbers mean, and how "chat smaller" maps to the
-     * vanilla chat size settings. {@link NexusActions} also reads "50 %" and numbers above 1 as percent and never sets
-     * the chat text size below {@value NexusActions#MIN_CHAT_SCALE}.
+     * Rule in the system prompt (from client 1.6.0 on): what the 0..1 numbers mean, the relative steps, and how "chat
+     * smaller" maps to the vanilla chat size settings. A step ({@code "-0.2"}) does not depend on the current value,
+     * so a small model gets "smaller" right the second time too. {@link NexusActions} also reads "50 %" and numbers
+     * above 1 as percent and never sets the chat text size below {@value NexusActions#MIN_CHAT_SCALE}.
      */
     public static final String FRACTION_RULE = "Numbers 0..1 (volumes audio.*, opacities, chat size) are fractions: "
-            + "0 = off, 0.5 = 50 %, 1 = 100 %. Chat size is accessibility.chatScale (text) and "
-            + "accessibility.chatWidth: smaller = 0.2 less than now (scale at least 0.5), bigger = 0.2 more "
-            + "(at most 1).";
+            + "0 = off, 0.5 = 50 %, 1 = 100 %. A text value starting with + or - (\"+0.2\", \"-0.2\") changes the "
+            + "current number by that much. Chat size is accessibility.chatScale (text) and accessibility.chatWidth: "
+            + "smaller = \"-0.2\" on both, bigger = \"+0.2\".";
     /**
      * Few-shot examples at the end of the system prompt (from client 1.6.0 on): the requests players make most, each
      * with the actions it maps to. Only ids that always exist are used.
@@ -61,8 +63,8 @@ public final class NexusAssistant {
             master volume 50 %: [{"type":"setting.set","id":"audio.master","value":0.5}]
             make the crosshair a circle: [{"type":"crosshair.set","shape":"circle"}]
             red dot crosshair: [{"type":"crosshair.set","shape":"dot","color":"red"}]
-            make the chat smaller (scale and width now 1): [{"type":"setting.set","id":"accessibility.chatScale",\
-            "value":0.8},{"type":"setting.set","id":"accessibility.chatWidth","value":0.8}]
+            make the chat smaller: [{"type":"setting.set","id":"accessibility.chatScale","value":"-0.2"},\
+            {"type":"setting.set","id":"accessibility.chatWidth","value":"-0.2"}]
             sort the HUD: [{"type":"hud.arrange"}]
             delete the coordinates: [{"type":"hud.set","element":"coordinates","visible":false}]
             only show FPS and coordinates: [{"type":"hud.only","elements":["fps","coordinates"]}]
@@ -148,7 +150,10 @@ public final class NexusAssistant {
             p.append("- crosshair.set {preset?, shape?, size?, thickness?, gap?, color?, outline?, opacity?, ")
                     .append("vanilla?}: preset ").append(String.join(", ", CrosshairPresets.IDS)).append("; shape ")
                     .append(String.join(", ", NexusActions.crosshairShapeIds()))
-                    .append("; size 1..32, thickness 1..8, gap 0..16, opacity 0.1..1; color #RRGGBB or ")
+                    .append("; size 1..").append(CrosshairStyle.MAX_SIZE).append(", thickness 1..")
+                    .append(CrosshairStyle.MAX_THICKNESS).append(", gap 0..").append(CrosshairStyle.MAX_GAP)
+                    .append(", opacity ").append(NexusActions.format(NexusActions.MIN_CROSSHAIR_OPACITY))
+                    .append("..1; color #RRGGBB or ")
                     .append(String.join(", ", CrosshairColors.names()))
                     .append("; vanilla true = Minecraft's own crosshair.\n");
         }

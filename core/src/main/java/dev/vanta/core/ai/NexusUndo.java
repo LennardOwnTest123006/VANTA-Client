@@ -49,8 +49,8 @@ public final class NexusUndo {
         }
 
         /**
-         * Notes a HUD widget this turn moved or showed ({@code hud.set}); {@link NexusActions#finishTurn} checks
-         * these for overlaps once all of the turn's actions ran.
+         * Notes a HUD widget this turn moved, resized or showed ({@code hud.set}, {@code hud.only});
+         * {@link NexusActions#finishTurn} checks these for overlaps once all of the turn's actions ran.
          */
         void noteHudChange(String widgetId) {
             hudChanged.add(Objects.requireNonNull(widgetId, "widgetId"));
