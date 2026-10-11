@@ -30,6 +30,10 @@ import java.util.function.Consumer;
  * {@value #CONTEXT_TURNS} turns as context, sends the question through the {@link ChatBackend}, validates and applies
  * the returned actions through {@link NexusActions}, records an undo snapshot and the transcript, and returns a
  * {@link NexusReply}. Render-thread only; the backend runs the HTTP call elsewhere and calls back on the main thread.
+ * <p>
+ * From client 1.6.0 on every question first goes through {@link NexusCommands}: an everyday command it understands
+ * ("music off", "make the crosshair a circle", "sort the HUD") is applied at once through the same actions, receipts,
+ * transcript and Undo as a model turn, without starting or asking the Local AI; only the rest goes to the model.
  */
 public final class NexusAssistant {
     /** Turns (player + assistant) sent as context. */
@@ -85,6 +89,7 @@ public final class NexusAssistant {
     private final ProfileManager profiles;
     private final PerformanceCenter performance;
     private final Clock clock;
+    private final NexusCommands commands;
     private boolean busy;
 
     public NexusAssistant(NexusActions actions, NexusUndo undo, NexusTranscript transcript, ChatBackend backend,
@@ -97,6 +102,7 @@ public final class NexusAssistant {
         this.profiles = Objects.requireNonNull(profiles, "profiles");
         this.performance = Objects.requireNonNull(performance, "performance");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.commands = new NexusCommands(actions, hud);
     }
 
     public NexusActions actions() {
@@ -109,6 +115,11 @@ public final class NexusAssistant {
 
     public NexusTranscript transcript() {
         return transcript;
+    }
+
+    /** The instant commands tried before the model (from client 1.6.0 on). */
+    public NexusCommands commands() {
+        return commands;
     }
 
     /** True while a question is in flight. */
@@ -274,7 +285,9 @@ public final class NexusAssistant {
 
     /**
      * Sends a question. Exactly one {@code onReply} call follows on the main thread: the applied reply, or a reply
-     * carrying the error. A blank question or one while another is in flight is answered immediately with an error.
+     * carrying the error. A blank question is ignored; one while another is in flight is answered immediately with an
+     * error. A question {@link NexusCommands} understands is applied and answered right here, before this method
+     * returns, and the backend is not called; every other question goes to the backend (the Local AI).
      */
     public void ask(String question, Consumer<NexusReply> onReply) {
         Objects.requireNonNull(onReply, "onReply");
@@ -290,6 +303,12 @@ public final class NexusAssistant {
                     "a question is still being answered")));
             return;
         }
+        NexusCommands.Parse parsed = commands.parse(text);
+        if (parsed.understood()) {
+            transcript.append(NexusTranscript.Entry.user(text, clock.millis()));
+            onReply.accept(applyCommands(text, parsed));
+            return;
+        }
         LocalAiClient.ChatRequest request = request(text);
         transcript.append(NexusTranscript.Entry.user(text, clock.millis()));
         busy = true;
@@ -299,10 +318,48 @@ public final class NexusAssistant {
             onReply.accept(handle(asked, response));
         }, error -> {
             busy = false;
-            transcript.append(NexusTranscript.Entry.failure(Lang.tr(error.kind().langKey()), clock.millis()));
+            transcript.append(NexusTranscript.Entry.failure(failureText(error), clock.millis()));
             CoreLog.warn("Vanta Nexus could not answer: {} ({})", error.getMessage(), error.kind());
             onReply.accept(NexusReply.failed(error));
         });
+    }
+
+    /**
+     * Applies an understood instant command as one turn: the actions through {@link NexusActions#execute} (with the
+     * end-of-turn overlap repair), one undo turn, the transcript entry with the receipts and a short answer built from
+     * what was really applied.
+     */
+    private NexusReply applyCommands(String question, NexusCommands.Parse parsed) {
+        NexusUndo.Turn turn = undo.begin();
+        NexusActions.Outcome outcome = actions.execute(parsed.toJsonArray(), turn);
+        String message = commands.reply(outcome, parsed.notes());
+        boolean undoable = undo.commit(turn, message);
+        List<String> applied = new ArrayList<>();
+        for (AppliedAction action : outcome.applied()) {
+            applied.add(action.summary());
+        }
+        List<String> rejected = new ArrayList<>();
+        for (RejectedAction action : outcome.rejected()) {
+            rejected.add(action.summary());
+        }
+        transcript.append(NexusTranscript.Entry.assistant(message, clock.millis(), applied, rejected));
+        CoreLog.info("Vanta Nexus instant command ({} characters) applied without the Local AI: {} applied, {} not "
+                + "applied", question.length(), outcome.applied().size(), outcome.rejected().size());
+        return new NexusReply(message, outcome.applied(), outcome.rejected(), undoable, Optional.empty(),
+                NexusReply.Source.COMMANDS);
+    }
+
+    /**
+     * The transcript text of a failed model turn. When the model is needed but not installed (or not available on
+     * this system), it says which commands work without it (from client 1.6.0 on); otherwise the error's own text.
+     */
+    static String failureText(LocalAiException error) {
+        return switch (error.kind()) {
+            case NOT_INSTALLED -> Lang.tr("vanta.nexus.commands.needs_local_ai");
+            case UNSUPPORTED_PLATFORM, INVALID_MANIFEST -> Lang.tr("vanta.nexus.commands.local_ai_unavailable",
+                    Lang.tr(error.kind().langKey()));
+            default -> Lang.tr(error.kind().langKey());
+        };
     }
 
     /**
