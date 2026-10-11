@@ -111,7 +111,7 @@ class SettingsStoreTest {
         store.save();
         JsonObject written = jsonStore.readObject(file).orElseThrow();
         JsonObject values = written.getAsJsonObject("values");
-        assertEquals(1, written.get("schemaVersion").getAsInt());
+        assertEquals(SettingsStore.SCHEMA_VERSION, written.get("schemaVersion").getAsInt());
         assertFalse(values.get("hud.snap").getAsBoolean());
         assertTrue(values.has("future.setting"), "unknown ids preserved");
         assertFalse(values.has("video.renderDistance"), "vanilla-bound settings are not persisted");

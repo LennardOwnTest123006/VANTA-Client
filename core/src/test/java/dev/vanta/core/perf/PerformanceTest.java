@@ -183,6 +183,7 @@ class PerformanceTest {
                 new dev.vanta.core.hud.FrameTimeTracker(), new MemorySampler(() -> new MemorySampler.MemorySample(
                         512L << 20, 1024L << 20, 2048L << 20)), new CpuSampler(() -> OptionalDouble.of(0.25)));
 
+        settings.set(VantaSettings.PERFORMANCE_RENDER_DISTANCE_SUGGESTIONS, true);
         assertTrue(center.detectPreset().isEmpty(), "vanilla defaults match no preset");
         center.applyPreset(PerformancePreset.LOW);
         assertEquals(6, options.getInt(VanillaOption.RENDER_DISTANCE, 0));

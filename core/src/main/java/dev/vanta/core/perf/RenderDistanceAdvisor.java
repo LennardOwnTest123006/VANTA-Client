@@ -14,7 +14,7 @@ public final class RenderDistanceAdvisor {
     /** Averaging window. */
     public static final long WINDOW_MS = 10_000L;
     /** Pause after a suggestion. */
-    public static final long COOLDOWN_MS = 60_000L;
+    public static final long COOLDOWN_MS = 15 * 60_000L;
     /** Below this fraction of the target the distance is too high. */
     public static final double LOW_RATIO = 0.75;
     /** Above this fraction of the target there is headroom. */

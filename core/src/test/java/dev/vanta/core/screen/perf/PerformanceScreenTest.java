@@ -171,6 +171,7 @@ class PerformanceScreenTest {
 
     @Test
     void renderDistanceSuggestionIsShownAndAppliedOnlyOnRequest() {
+        t.services.settings().set(VantaSettings.PERFORMANCE_RENDER_DISTANCE_SUGGESTIONS, true);
         PerformanceScreen screen = t.show(ScreenId.PERFORMANCE, 854, 480);
         assertTrue(screen.suggestionBanner().isEmpty());
         t.game.fps = 30;

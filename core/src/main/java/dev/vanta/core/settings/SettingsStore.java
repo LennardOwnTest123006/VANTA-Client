@@ -29,9 +29,18 @@ import java.util.function.BiConsumer;
  */
 public final class SettingsStore {
     /** Current schema version of {@code settings.json}. */
-    public static final int SCHEMA_VERSION = 1;
-    /** Migration chain for {@code settings.json}. */
-    public static final Migrations MIGRATIONS = Migrations.none(SCHEMA_VERSION);
+    public static final int SCHEMA_VERSION = 2;
+    /**
+     * Migration chain for {@code settings.json}. 1 to 2 (client 1.6.0): the render distance tip became opt-in, so a
+     * stored {@code performance.dynamicRenderDistanceSuggestions} is dropped and the new default (off) applies.
+     */
+    public static final Migrations MIGRATIONS = new Migrations(SCHEMA_VERSION, java.util.List.of(
+            new Migrations.Step(1, 2, root -> {
+                if (root.has("values") && root.get("values").isJsonObject()) {
+                    root.getAsJsonObject("values").remove("performance.dynamicRenderDistanceSuggestions");
+                }
+                return root;
+            })));
 
     private static final String VALUES = "values";
 

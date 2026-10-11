@@ -13,6 +13,8 @@ No changes yet.
 ## [Client 1.6.0] - 2026-10-11
 
 ### Fixed
+- **The "Render distance tip" came up every minute**: `performance.dynamicRenderDistanceSuggestions` is now off by default,
+  `settings.json` schema 1 to 2 drops a stored value once, and `RenderDistanceAdvisor.COOLDOWN_MS` is 15 minutes (was 60 s).
 - **The HUD clock showed UTC**: the services clock is `Clock.systemUTC()` and the HUD formatted its time of day in that
   zone, so a player in Germany saw `6:00 AM` at `8:00 AM`. All times of day (HUD clock, Statistics sessions and export
   name, profile cards, Smart Boost date, timer) now use `VantaServices.timeZone()`: the PC's zone, read on every use, or

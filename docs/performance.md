@@ -272,11 +272,12 @@ Boost measures or adjusts the render distance:
 | --- | --- |
 | average FPS over the last 10 s stays below 75 % of the target | lower the render distance by 2 chunks (never below 6; 4 before client 1.3.0) |
 | average FPS over the last 10 s stays above 160 % of the target, and the frame rate is not capped by VSync or a limit | raise the render distance by 2 chunks (never above 32) |
-| a suggestion was made less than 60 s ago, or the distance just changed | nothing — the advisor waits for fresh samples |
+| a suggestion was made less than 15 minutes ago, or the distance just changed | nothing — the advisor waits for fresh samples |
 
 A suggestion appears as a banner with **Apply suggestion**; it is **never applied automatically** unless you turn on
-*Settings → Performance → Apply render distance suggestions automatically* (off by default). Turn the feature off
-entirely with *Render distance suggestions*.
+*Settings → Performance → Apply render distance suggestions automatically* (off by default). The suggestions are **off by default from client 1.6.0 on** (they used to appear every minute); turn them on with
+*Settings → Performance → Render distance suggestions*, and settings saved by older versions are reset to off once.
+Turn the feature off again the same way.
 
 ## The Performance pack
 

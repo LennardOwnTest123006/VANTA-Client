@@ -10,6 +10,7 @@ Update of VANTA Client 1.5.0 for Minecraft Java Edition 1.21.11 (Fabric Loader 0
 
 ## Fixed
 
+- **The "Render distance tip" no longer comes up again and again.** It was on by default and could appear every minute. It is now off by default (*Settings → Performance → Render distance suggestions*), settings saved by older versions are reset to off once, and if you do turn it on it waits 15 minutes between tips
 - **The HUD clock showed the wrong hour.** It was formatted in UTC, so a player in Germany saw `6:00 AM` at `8:00 AM`. Every time of day VANTA shows (the HUD clock, Statistics sessions, profile cards, the Smart Boost date, the timer) now uses your PC's time zone and follows daylight saving time by itself
 - **"Sort the GUIs" no longer puts every element on the same spot.** Whatever the assistant moves or shows again is checked at the end of the turn; overlapping elements are stacked apart and the receipt says so
 - **Music, volume, chat and crosshair requests work.** "Make music off", "make the crosshair a circle" and "make the chat smaller" were rejected or ignored by the 1.5.0 assistant

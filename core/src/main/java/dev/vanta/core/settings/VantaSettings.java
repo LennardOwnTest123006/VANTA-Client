@@ -140,9 +140,13 @@ public final class VantaSettings {
     /** Show the frame time graph in the Performance Center. */
     public static final Setting<Boolean> PERFORMANCE_SHOW_FRAME_TIME_GRAPH = add(Setting.bool(
             "performance.showFrameTimeGraph", PERFORMANCE, true).keywords("fps", "graph", "chart", "frametime"));
-    /** Suggest a lower or higher render distance when the frame rate drifts from the target. */
+    /**
+     * Suggest a lower or higher render distance when the frame rate drifts from the target. Off by default (from
+     * client 1.6.0 on): the "Render distance tip" notification came up again and again for players who never asked
+     * for it. Settings written before 1.6.0 lose the stored value in migration 1 to 2, so the new default applies.
+     */
     public static final Setting<Boolean> PERFORMANCE_RENDER_DISTANCE_SUGGESTIONS = add(Setting.bool(
-            "performance.dynamicRenderDistanceSuggestions", PERFORMANCE, true)
+            "performance.dynamicRenderDistanceSuggestions", PERFORMANCE, false)
             .keywords("render distance", "chunks", "advice", "suggestion", "fps"));
     /** Apply render distance suggestions automatically (off by default; suggestions only otherwise). */
     public static final Setting<Boolean> PERFORMANCE_AUTO_APPLY_RENDER_DISTANCE = add(Setting.bool(

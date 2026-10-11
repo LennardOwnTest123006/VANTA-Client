@@ -123,6 +123,7 @@ class NoAutomaticFrameRateCapTest {
     void theRenderDistanceAdvisorOnlyMovesTheRenderDistance() {
         uncap();
         services.settings().set(VantaSettings.PERFORMANCE_SMART_BOOST, false);
+        services.settings().set(VantaSettings.PERFORMANCE_RENDER_DISTANCE_SUGGESTIONS, true);
         services.settings().set(VantaSettings.PERFORMANCE_AUTO_APPLY_RENDER_DISTANCE, true);
         game.fps = 20;
         options.set(VanillaOption.RENDER_DISTANCE, 12);
