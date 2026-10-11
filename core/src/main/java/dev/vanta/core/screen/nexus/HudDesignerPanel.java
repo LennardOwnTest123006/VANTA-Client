@@ -38,8 +38,9 @@ import java.util.Optional;
 /**
  * The HUD Designer section: the six {@link NexusHudPreset} buttons (applied through {@link NexusActions}, the same
  * code path the assistant uses, so they are undoable from the chat), the named layouts of the {@link HudStore}
- * (built-in and user presets) with Load, Duplicate and Delete, "Save current as layout", "New from preset" and the
- * button into the HUD editor, which keeps per-widget position, size, scale and opacity.
+ * (built-in and user presets) with Load, Duplicate and Delete, "Save current as layout", "New from preset", the
+ * button into the HUD editor, which keeps per-widget position, size, scale and opacity, and (from client 1.6.0 on)
+ * the button that opens the Timer screen, whose countdown the Timer widget shows on the HUD.
  */
 public final class HudDesignerPanel extends NexusPanel {
     private final HudStore hud;
@@ -52,6 +53,7 @@ public final class HudDesignerPanel extends NexusPanel {
     private final Button saveCurrent;
     private final Button newLayout;
     private final Button openEditor;
+    private final Button openTimer;
     private final List<Button> presetButtons = new ArrayList<>();
     private final Runnable unsubscribe;
     private UiContext lastContext;
@@ -107,6 +109,15 @@ public final class HudDesignerPanel extends NexusPanel {
         editor.add(openEditor);
         content().add(editor);
 
+        Card timer = new Card(Lang.tr("vanta.nexus.hud.timer")).caption(Lang.tr("vanta.nexus.hud.timer.caption"));
+        timer.setId("nexus.hud.timerCard");
+        openTimer = Button.secondary(Lang.tr("vanta.nexus.hud.open_timer"),
+                () -> navigator.openScreen(lastContext, ScreenId.TIMER)).compact(true);
+        openTimer.icon(Icons.PLAY);
+        openTimer.setId("nexus.hud.openTimer");
+        timer.add(openTimer);
+        content().add(timer);
+
         unsubscribe = hud.onLayoutChanged(layout -> refresh());
         refresh();
     }
@@ -127,6 +138,11 @@ public final class HudDesignerPanel extends NexusPanel {
 
     public Button openEditorButton() {
         return openEditor;
+    }
+
+    /** "Open timer" (from client 1.6.0 on). */
+    public Button openTimerButton() {
+        return openTimer;
     }
 
     public Select<NexusHudPreset> newFromPresetSelect() {

@@ -57,7 +57,8 @@ class HudDataCaptureTest {
             int expected = switch (type) {
                 case FPS, PING, COORDINATES, CLOCK, ARMOR -> 2;
                 case SERVER, MEMORY, MINECRAFT_VERSION -> 3;
-                case CPS, CROSSHAIR, FRAMETIME_GRAPH -> 0;
+                // The timer reading comes from the timer service (attached by the renderer), not from the game.
+                case CPS, CROSSHAIR, FRAMETIME_GRAPH, TIMER -> 0;
                 default -> 1;
             };
             assertEquals(expected, others, type + " reads " + game.calls());
@@ -138,6 +139,8 @@ class HudDataCaptureTest {
         services.load();
         // The frame time graph is a Vanta Lab widget: it only draws while its feature is on.
         services.lab().set(dev.vanta.core.lab.LabFeature.FRAMETIME_GRAPH, true);
+        // The timer widget only draws while a timer is set.
+        services.timer().startMinutes(10, "Tea");
         for (HudWidgetType type : HudWidgetType.values()) {
             services.hud().setLayout(new HudLayout(List.of(HudWidgetState.defaults("only", type))));
             HudRenderer lean = new HudRenderer(services);

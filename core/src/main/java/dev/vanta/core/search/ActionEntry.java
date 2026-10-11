@@ -70,6 +70,8 @@ public record ActionEntry(String id, List<String> keywords, Optional<ScreenId> s
     public static final String OPEN_WEBSITE = "open_website";
     /** Id of the navigation action that opens Vanta Nexus ({@code open_} + {@link ScreenId#NEXUS}). */
     public static final String OPEN_NEXUS = "open_nexus";
+    /** Id of the navigation action that opens the Timer screen ({@code open_} + {@link ScreenId#TIMER}). */
+    public static final String OPEN_TIMER = "open_timer";
 
     /** Every built-in action. */
     public static List<ActionEntry> builtIns() {
@@ -88,6 +90,7 @@ public record ActionEntry(String id, List<String> keywords, Optional<ScreenId> s
                 open(ScreenId.ACCESSIBILITY, "contrast", "motion", "large text", "scale"),
                 open(ScreenId.ABOUT, "version", "credits", "license", "website"),
                 open(ScreenId.NEXUS, "nexus", "ai", "assistant", "local ai", "hud designer", "waypoints", "lab"),
+                open(ScreenId.TIMER, "timer", "alarm", "countdown", "minutes", "wecker", "stoppuhr"),
                 command(RESET_SETTINGS, "defaults", "restore", "factory"),
                 command(OPEN_CONFIG_FOLDER, "files", "directory", "settings.json"),
                 command(EXPORT_PROFILE, "backup", "share", "json"),

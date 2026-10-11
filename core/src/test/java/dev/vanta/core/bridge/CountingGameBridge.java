@@ -259,6 +259,12 @@ public final class CountingGameBridge implements GameBridge {
     }
 
     @Override
+    public void playAlarmSound() {
+        hit("playAlarmSound");
+        delegate.playAlarmSound();
+    }
+
+    @Override
     public Optional<Path> screenshotsDir() {
         hit("screenshotsDir");
         return delegate.screenshotsDir();

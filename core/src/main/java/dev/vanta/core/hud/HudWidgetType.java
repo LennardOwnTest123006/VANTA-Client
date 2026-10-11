@@ -47,6 +47,12 @@ public enum HudWidgetType implements LangKeyed {
     MINECRAFT_VERSION(96, 14, HudAnchor.BOTTOM_LEFT, true, true, true, false,
             List.of(HudProp.bool("showFabric", false))),
     /**
+     * The countdown of VANTA's timer (from client 1.6.0 on): the remaining time and the label while a timer runs, is
+     * paused or rings (accent colour), nothing while no timer is set. Not part of any built-in layout.
+     */
+    TIMER(96, 14, HudAnchor.TOP_RIGHT, true, true, true, false,
+            List.of(HudProp.bool("showLabel", true))),
+    /**
      * Vanta Lab: the last {@value #FRAMETIME_GRAPH_SAMPLES} frame times as a sparkline with p50 and p99 labels.
      * Drawn, listed in the editor and offered to the assistant only while {@code LabFeature.FRAMETIME_GRAPH} is on;
      * a layout keeps the widget while the feature is off, so switching it back on restores the player's placement.

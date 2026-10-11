@@ -30,6 +30,7 @@ is open.
 | **CPU** | process CPU load when the JVM can report it, otherwise "n/a" | show label |
 | **Entity count** | entities currently loaded around you | show label |
 | **Minecraft version** | `1.21.11`, optionally the Fabric Loader version | show Fabric |
+| **Timer** (from client 1.6.0 on) | the [timer](timer.md)'s label (or "Timer") and the time left (`m:ss`, `h:mm:ss` from one hour on); "Paused" for a paused timer, "Time is up" in the accent colour while the alarm rings; nothing at all while no timer is set | show label |
 | **Frame time graph** (Vanta Lab, from client 1.4.0 on) | the last 120 frame times as a bar graph, frames over 50 ms in the danger colour, with p50 and p99 labels; "n/a" without history | show p50 and p99 labels. Available only while *Vanta Lab → Frame time HUD graph* is on (see below) |
 | **Crosshair** | VANTA's crosshair, always centred | configured in the crosshair customizer |
 
@@ -37,6 +38,10 @@ Every widget except the crosshair can be moved, scaled (0.5×–2×), made trans
 and accent colours, and resized (keystrokes keeps its aspect). The HUD honours the global **HUD scale**, **HUD
 opacity** and **text shadow** settings from *Settings → HUD* and the **HUD theme** from Cosmetics
 (Clean, Glass, Outline, Minimal — see [Cosmetics](cosmetics.md)).
+
+**The Timer** widget (from client 1.6.0 on) draws nothing, not even its panel, while no timer is set; in the HUD
+editor it shows a sample `9:59` marked "Preview" so you can place it. It is in no built-in layout and in no Nexus
+preset except *Full* (every widget); add it from the editor's widget list. See [Timer](timer.md).
 
 **The Frame time graph** is a [Vanta Lab](nexus.md#6-vanta-lab) widget. While *Frame time HUD graph* is off (the
 default) it is not drawn, not listed in the HUD editor's widget list and not offered to the Nexus assistant, and the

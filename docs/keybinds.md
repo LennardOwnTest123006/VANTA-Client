@@ -19,10 +19,12 @@ controls screen as well and are saved in `options.txt` like every other binding.
 | Open Vanta Nexus | **N** | from client 1.4.0 on: opens [Vanta Nexus](nexus.md) (the local assistant, HUD Designer, profiles, performance, waypoints, Vanta Lab) |
 | Zoom | **C** | hold to zoom (see below); shares C with vanilla's *Save Hotbar Activator* |
 | HUD-free screenshot | unbound | takes a screenshot with the VANTA HUD hidden for that frame |
+| Open timer | unbound | from client 1.6.0 on: opens the [Timer](timer.md) screen (presets, your own time, pause and cancel) |
 
 Unbound keys do nothing until you assign them. The keys that open a screen react in a world when no other screen is
-open; `/vanta menu` opens the VANTA settings as well, `/vanta nexus` opens Vanta Nexus. The Nexus assistant can never
-change a key binding: key bindings are outside its list of actions ([Vanta Nexus](nexus.md#what-the-assistant-can-do)).
+open; `/vanta menu` opens the VANTA settings as well, `/vanta nexus` opens Vanta Nexus, `/vanta timer` the Timer
+screen. The Nexus assistant can never change a key binding: key bindings are outside its list of actions
+([Vanta Nexus](nexus.md#what-the-assistant-can-do)).
 
 ## The keybind manager
 

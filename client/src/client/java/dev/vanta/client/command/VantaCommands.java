@@ -9,6 +9,8 @@ import dev.vanta.core.profiles.Profile;
 import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.stats.SessionStats;
+import dev.vanta.core.timer.TimerCommand;
+import dev.vanta.core.timer.TimerFormats;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -19,7 +21,8 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The client-side {@code /vanta} command: {@code menu}, {@code hud}, {@code perf}, {@code nexus},
- * {@code profiles [name]}, {@code stats} and {@code reload}. Everything runs locally; nothing is sent to the server.
+ * {@code timer [minutes|m:ss|stop] [label]}, {@code profiles [name]}, {@code stats} and {@code reload}. Everything runs
+ * locally; nothing is sent to the server.
  * <p>
  * Screens are opened on the next tick because the chat screen closes itself after the command ran and would
  * otherwise replace the screen we just opened.
@@ -41,6 +44,11 @@ public final class VantaCommands {
                                 .executes(ctx -> openScreen(ctx, runtime, ScreenId.PERFORMANCE, "vanta.command.perf")))
                         .then(ClientCommandManager.literal("nexus")
                                 .executes(ctx -> openScreen(ctx, runtime, ScreenId.NEXUS, "vanta.command.nexus")))
+                        .then(ClientCommandManager.literal("timer")
+                                .executes(ctx -> openScreen(ctx, runtime, ScreenId.TIMER, "vanta.command.timer"))
+                                .then(ClientCommandManager.argument("arguments", StringArgumentType.greedyString())
+                                        .executes(ctx -> timer(ctx, runtime,
+                                                StringArgumentType.getString(ctx, "arguments")))))
                         .then(ClientCommandManager.literal("profiles")
                                 .executes(ctx -> listProfiles(ctx, runtime))
                                 .then(ClientCommandManager.argument("name", StringArgumentType.greedyString())
@@ -64,6 +72,21 @@ public final class VantaCommands {
         String feedback = Lang.has(feedbackKey) ? Lang.tr(feedbackKey) : Lang.tr(id.langKey());
         ctx.getSource().sendFeedback(Component.literal(feedback));
         runtime.scheduler().nextTick(() -> VantaScreens.open(id, null));
+        return 1;
+    }
+
+    /**
+     * {@code /vanta timer <minutes|m:ss> [label]} starts a timer, {@code /vanta timer stop} (or {@code cancel}) stops
+     * the alarm or cancels the timer; the reply names the time it rings at in the PC's time zone.
+     */
+    private static int timer(CommandContext<FabricClientCommandSource> ctx, VantaRuntime runtime, String arguments) {
+        TimerCommand.Reply reply = TimerCommand.execute(arguments, runtime.services().timer(),
+                TimerFormats.localZone());
+        if (reply.error()) {
+            ctx.getSource().sendError(text(reply.key(), reply.argsArray()));
+            return 0;
+        }
+        ctx.getSource().sendFeedback(text(reply.key(), reply.argsArray()));
         return 1;
     }
 

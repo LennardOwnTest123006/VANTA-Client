@@ -102,7 +102,11 @@ class KeybindsTest {
         assertTrue(VantaKeys.find(VantaKeys.TOGGLE_HUD).orElseThrow().defaultKey().isUnbound());
         assertTrue(VantaKeys.isVantaKey("key.vanta.zoom"));
         assertFalse(VantaKeys.isVantaKey("key.forward"));
-        assertEquals(7, VantaKeys.all().size());
+        assertEquals(8, VantaKeys.all().size());
         assertEquals(KeyRef.keyboard(78, "key.keyboard.n"), VantaKeys.find(VantaKeys.OPEN_NEXUS).orElseThrow().defaultKey());
+        assertTrue(VantaKeys.find(VantaKeys.OPEN_TIMER).orElseThrow().defaultKey().isUnbound(),
+                "the timer key is unbound by default (from client 1.6.0 on)");
+        assertEquals(VantaKeys.OPEN_TIMER, VantaKeys.all().get(VantaKeys.all().size() - 1).id(),
+                "new keys go last so the order of the existing ones in the Controls screen stays");
     }
 }

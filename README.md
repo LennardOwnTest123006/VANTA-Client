@@ -23,9 +23,9 @@ manipulation or anything that gives an unfair advantage on multiplayer servers.
 
 - **VANTA main menu** in place of the vanilla title screen (can be switched off), with every vanilla destination one
   click away.
-- **HUD** with seventeen movable widgets (FPS, ping, coordinates, armor, effects, keystrokes, …; the frame time graph
-  belongs to Vanta Lab), a drag-and-drop HUD editor, named layouts with six presets in the Nexus HUD Designer and a
-  crosshair designer.
+- **HUD** with eighteen movable widgets (FPS, ping, coordinates, armor, effects, keystrokes, the timer, …; the frame
+  time graph belongs to Vanta Lab), a drag-and-drop HUD editor, named layouts with six presets in the Nexus HUD
+  Designer and a crosshair designer.
 - **Vanta Nexus** (client 1.4.0, [docs/nexus.md](docs/nexus.md)): one screen with an assistant you ask in plain
   language ("Only show FPS and coordinates", "Create a recording profile"), the HUD Designer, profiles, live
   performance values, waypoints, Vanta Lab and its settings. The assistant applies only a fixed list of actions to your own client, shows exactly what it

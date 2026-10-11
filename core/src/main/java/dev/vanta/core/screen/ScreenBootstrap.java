@@ -20,5 +20,6 @@ public final class ScreenBootstrap {
         dev.vanta.core.screen.Screens2.register(services);         // profiles, keybinds, cosmetics, statistics
         dev.vanta.core.hud.editor.HudScreens.register(services);   // HUD editor, crosshair editor
         dev.vanta.core.screen.nexus.NexusScreens.register(services); // Vanta Nexus, Local AI setup
+        dev.vanta.core.screen.timer.TimerScreens.register(services); // timer, "Time is up" alarm
     }
 }

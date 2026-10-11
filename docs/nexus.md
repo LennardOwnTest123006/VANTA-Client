@@ -73,6 +73,8 @@ The named HUD layouts and the presets, next to the editor you already know:
   refused with a message.
 - **Open editor** opens the [HUD editor](hud.md#the-hud-editor), which remains the place to move, resize, scale and
   set the opacity of every widget.
+- **Open timer** (from client 1.6.0 on, in the *Timer* card) opens the [Timer](timer.md) screen; its countdown shows on
+  the HUD through the Timer widget.
 
 A layout here is what the HUD editor calls a preset: the same files in `config/vanta/hud/presets/`.
 

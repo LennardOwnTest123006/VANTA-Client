@@ -10,6 +10,7 @@ import dev.vanta.core.hud.FrameTimeTracker;
 import dev.vanta.core.hud.HudWidgetType;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.time.TimeOfDay;
+import dev.vanta.core.timer.TimerReading;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -83,6 +84,8 @@ public final class HudData {
     private String gameClock;
     private String biomeName;
     private java.util.HashMap<String, String> memo;
+    /** The timer the TIMER widget shows, attached by the renderer right after the capture (null: none attached). */
+    private TimerReading timer;
 
     HudData(boolean inWorld, boolean singleplayer, int fps, double frameTimeMs, double onePercentLowFps,
             OptionalInt pingMillis, Optional<Vec3d> position, float yaw, Optional<String> biomeId,
@@ -432,6 +435,33 @@ public final class HudData {
 
     public String clientVersion() {
         return clientVersion;
+    }
+
+    /**
+     * The timer the TIMER widget shows: the reading the renderer attached for this tick; without one, the
+     * {@link TimerReading#SAMPLE} ({@code 9:59}) in sample data and {@link TimerReading#IDLE} in live data.
+     */
+    public TimerReading timer() {
+        if (timer != null) {
+            return timer;
+        }
+        return sample ? TimerReading.SAMPLE : TimerReading.IDLE;
+    }
+
+    /**
+     * Attaches the timer reading of this tick. {@link HudRenderer} calls it once, right after the capture and
+     * before the snapshot is drawn, so the snapshot stays unchanged while widgets render from it.
+     *
+     * @return this snapshot
+     * @throws IllegalStateException when a reading was attached already or this is {@link #EMPTY}
+     */
+    public HudData withTimer(TimerReading reading) {
+        Objects.requireNonNull(reading, "reading");
+        if (this == EMPTY || timer != null) {
+            throw new IllegalStateException("the timer reading of a snapshot is attached once, right after capture");
+        }
+        timer = reading;
+        return this;
     }
 
     // ---- memoised formatting --------------------------------------------------------------------------------------

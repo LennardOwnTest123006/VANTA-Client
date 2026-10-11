@@ -54,6 +54,7 @@ import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.stats.StatsStore;
 import dev.vanta.core.stats.StatsTracker;
 import dev.vanta.core.time.TimeZoneChoice;
+import dev.vanta.core.timer.TimerService;
 import dev.vanta.core.waypoints.NexusWaypointBridge;
 import dev.vanta.core.waypoints.WaypointStore;
 import java.io.IOException;
@@ -113,6 +114,7 @@ public final class VantaServices {
     private final NexusWaypointBridge waypointBridge;
     private final LabSettings lab;
     private final LabEffects labEffects;
+    private final TimerService timer;
     private final ScreenRegistry screens = new ScreenRegistry();
     private Optional<String> websiteUrl = Optional.empty();
     private ModrinthService modrinth;
@@ -179,6 +181,9 @@ public final class VantaServices {
         nexusActions.setPlayerPosition(game::playerPosition);
         // crosshair.set (from client 1.6.0 on) changes the same store the crosshair customizer edits.
         nexusActions.setCrosshair(crosshair);
+        // The timer counts on the services clock and rings through the game bridge (a bell every second); the client
+        // installs the alarm window opener (TimerService.setAlarmWindow).
+        this.timer = new TimerService(clock, game::playAlarmSound);
     }
 
     /**
@@ -324,6 +329,7 @@ public final class VantaServices {
         stats.onTick(game);
         performance.tick();
         localAi.tick();
+        timer.tick();
     }
 
     /** True after {@link #load()}. */
@@ -725,5 +731,10 @@ public final class VantaServices {
 
     public ScreenRegistry screens() {
         return screens;
+    }
+
+    /** The countdown timer with its ringing alarm (in memory only, not kept across restarts). */
+    public TimerService timer() {
+        return timer;
     }
 }
