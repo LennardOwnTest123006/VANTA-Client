@@ -36,7 +36,8 @@ class SearchOverlayTest {
         List<SearchOverlay.Entry> entries = overlay.entries();
         assertTrue(entries.get(0).isHeader());
         assertEquals(SearchOverlay.Group.SCREENS, entries.get(0).group());
-        assertEquals(13, overlay.results().size(), "one result per VANTA screen action");
+        // 14 from client 1.6.0 on: Open timer joined the screen actions.
+        assertEquals(14, overlay.results().size(), "one result per VANTA screen action");
         assertEquals(1, overlay.selectedIndex());
         assertFalse(overlay.isPauseScreen());
     }

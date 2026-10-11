@@ -48,7 +48,8 @@ public final class HudEditorSession {
         this.services = Objects.requireNonNull(services, "services");
         this.model = new HudEditorModel(services.hud().layout(), screenWidth, screenHeight);
         GameBridge source = services.game().isInWorld() ? services.game() : new SampleGameData();
-        this.renderer = new HudRenderer(services, source);
+        // While no timer runs the TIMER widget shows its 9:59 sample here, so it can be placed (in-game it is hidden).
+        this.renderer = new HudRenderer(services, source).sampleIdleTimer(true);
         this.model.setSnapEnabled(services.settings().get(VantaSettings.HUD_SNAP));
         this.model.onChange(this::pushToStore);
     }

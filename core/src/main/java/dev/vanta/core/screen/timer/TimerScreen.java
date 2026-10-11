@@ -23,9 +23,12 @@ import dev.vanta.core.ui.widget.Button;
 import dev.vanta.core.ui.widget.Card;
 import dev.vanta.core.ui.widget.Label;
 import dev.vanta.core.ui.widget.TextField;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.OptionalLong;
+import java.util.function.Supplier;
 
 /**
  * The timer: a large countdown with Pause/Resume and Cancel, preset buttons (1, 5, 10, 15, 30 and 60 minutes) that
@@ -35,6 +38,7 @@ import java.util.OptionalLong;
  */
 public final class TimerScreen extends VantaUiScreen {
     private final TimerService timer;
+    private final Supplier<ZoneId> zone;
     private final List<Button> presetButtons = new ArrayList<>();
     private BigText display;
     private Label status;
@@ -50,8 +54,16 @@ public final class TimerScreen extends VantaUiScreen {
     private String shownStatus;
 
     public TimerScreen(VantaServices services, ScreenNavigator navigator) {
+        this(services, navigator, TimerFormats::localZone);
+    }
+
+    /**
+     * @param zone the time zone of the "Rings at" time (the PC's zone in the game, a fixed one in tests)
+     */
+    public TimerScreen(VantaServices services, ScreenNavigator navigator, Supplier<ZoneId> zone) {
         super(services, navigator, ScreenId.TIMER);
         this.timer = services.timer();
+        this.zone = Objects.requireNonNull(zone, "zone");
     }
 
     @Override
@@ -253,7 +265,7 @@ public final class TimerScreen extends VantaUiScreen {
                 OptionalLong ends = timer.endsAt();
                 yield ends.isPresent()
                         ? Lang.tr("vanta.timer.status.running", TimerFormats.timeOfDay(ends.getAsLong(),
-                                services().clock().getZone()))
+                                zone.get()))
                         : Lang.tr(state.langKey());
             }
             case PAUSED -> Lang.tr("vanta.timer.status.paused");

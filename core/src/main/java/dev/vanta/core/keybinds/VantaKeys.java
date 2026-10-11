@@ -22,6 +22,8 @@ public final class VantaKeys {
     public static final String SCREENSHOT_HUD_FREE = "key.vanta.screenshot_hud_free";
     /** Opens Vanta Nexus (default N). */
     public static final String OPEN_NEXUS = "key.vanta.open_nexus";
+    /** Opens the Timer screen (unbound by default). */
+    public static final String OPEN_TIMER = "key.vanta.open_timer";
 
     /** GLFW key code of Right Shift. */
     public static final int GLFW_RIGHT_SHIFT = 344;
@@ -60,7 +62,8 @@ public final class VantaKeys {
             new Definition(PERFORMANCE, KeyRef.UNBOUND),
             new Definition(ZOOM, KeyRef.keyboard(GLFW_C, "key.keyboard.c")),
             new Definition(SCREENSHOT_HUD_FREE, KeyRef.UNBOUND),
-            new Definition(OPEN_NEXUS, KeyRef.keyboard(GLFW_N, "key.keyboard.n")));
+            new Definition(OPEN_NEXUS, KeyRef.keyboard(GLFW_N, "key.keyboard.n")),
+            new Definition(OPEN_TIMER, KeyRef.UNBOUND));
 
     private VantaKeys() {
     }

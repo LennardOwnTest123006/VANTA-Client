@@ -46,6 +46,15 @@ public final class TimerFormats {
     }
 
     /**
+     * The zone the Timer screens show times of day in: the PC's time zone, read on every call, so a change of the
+     * PC's zone or the switch to or from daylight saving time is followed without a restart. The services clock
+     * stays in UTC; only the formatting uses this zone.
+     */
+    public static ZoneId localZone() {
+        return ZoneId.systemDefault();
+    }
+
+    /**
      * Minutes for the minutes field when a duration is shown in the custom fields (whole minutes, seconds dropped).
      */
     public static long minutesPart(long millis) {

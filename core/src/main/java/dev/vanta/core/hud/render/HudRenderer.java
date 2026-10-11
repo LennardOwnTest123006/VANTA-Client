@@ -10,6 +10,7 @@ import dev.vanta.core.hud.widgets.HudWidgetRenderers;
 import dev.vanta.core.lab.LabFeature;
 import dev.vanta.core.screen.VantaServices;
 import dev.vanta.core.settings.VantaSettings;
+import dev.vanta.core.timer.TimerReading;
 import dev.vanta.core.ui.Canvas;
 import dev.vanta.core.ui.Keys;
 import dev.vanta.core.ui.Size;
@@ -50,6 +51,7 @@ public final class HudRenderer {
     private final CpsCounter rightCps = new CpsCounter();
     private HudData data = HudData.EMPTY;
     private boolean captured;
+    private boolean sampleIdleTimer;
     private HudPaint paint;
 
     /** Renderer fed by the live game. */
@@ -87,8 +89,35 @@ public final class HudRenderer {
                 ? HudData.sample()
                 : HudData.capture(source, leftCps.cps(now), rightCps.cps(now), services.performance().frameTimes(),
                         services.clock().getZone(), types);
+        if (types.contains(HudWidgetType.TIMER)) {
+            data.withTimer(timerReading());
+        }
         captured = true;
         refreshPaint();
+    }
+
+    /**
+     * The reading the TIMER widget draws this tick: the live timer while one runs, is paused or rings; otherwise
+     * {@link TimerReading#IDLE} in the game (the widget draws nothing) and the {@link TimerReading#SAMPLE} in the HUD
+     * editor preview (sample data, or {@link #sampleIdleTimer(boolean)}).
+     */
+    public TimerReading timerReading() {
+        TimerReading live = services.timer().reading();
+        if (!live.isActive() && (sampleSource || sampleIdleTimer)) {
+            return TimerReading.SAMPLE;
+        }
+        return live;
+    }
+
+    /**
+     * Makes an idle timer show as the {@link TimerReading#SAMPLE}; the HUD editor turns it on so the TIMER widget can
+     * be placed while no timer runs, also when the preview shows live game data in a world.
+     *
+     * @return this renderer
+     */
+    public HudRenderer sampleIdleTimer(boolean on) {
+        this.sampleIdleTimer = on;
+        return this;
     }
 
     /** The widget types enabled in a layout (what a tick has to capture). */

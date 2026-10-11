@@ -26,7 +26,11 @@ public enum ScreenId implements LangKeyed {
     /** Vanta Nexus: the assistant, HUD Designer, profiles, performance, waypoints, Vanta Lab and its settings. */
     NEXUS,
     /** The Local AI download and setup steps (opened from Nexus; nothing downloads before Install is clicked). */
-    LOCAL_AI_SETUP;
+    LOCAL_AI_SETUP,
+    /** The countdown timer: presets, custom minutes and seconds, a label, Pause/Resume and Cancel. */
+    TIMER,
+    /** "Time is up": opened over whatever is showing while the timer rings; Stop ends the alarm. */
+    TIMER_ALARM;
 
     /** Lower-case id used in JSON and lang keys. */
     public String id() {
