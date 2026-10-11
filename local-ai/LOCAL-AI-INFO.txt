@@ -1,0 +1,4 @@
+commit=a7f59f77076870433a52bd3625db1da251f5efe6
+run=https://github.com/LennardOwnTest123006/VANTA-Client/actions/runs/37800422840
+resolvedAt=2026-10-08T15:24:03Z
+apply=cp local-ai.json <repo>/shared/local-ai/

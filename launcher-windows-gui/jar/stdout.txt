@@ -1,0 +1,29 @@
+Prism pipeline init order: d3d sw 
+Using Double Precision Marlin Rasterizer
+Using dirty region optimizations
+Not using texture mask for primitives
+Not forcing power of 2 sizes for textures
+Using hardware CLAMP_TO_ZERO mode
+Opting in for HiDPI pixel scaling
+Prism pipeline name = com.sun.prism.d3d.D3DPipeline
+Loading D3D native library ...
+	succeeded.
+Direct3D initialization succeeded
+(X) Got class = class com.sun.prism.d3d.D3DPipeline
+Initialized prism pipeline: com.sun.prism.d3d.D3DPipeline
+OS Information:
+	Windows version 10.0 build 26100
+D3D Driver Information:
+	Microsoft Basic Render Driver
+	\\.\DISPLAY1
+	Driver d3d10warp.dll, version 10.0.26100.33438
+	Pixel Shader version 3.0
+	Device : ven_1414, dev_008C, subsys_00000000
+	Max Multisamples supported: 4
+new alphas with length = 4096
+new alphas with length = 45056
+PPSRenderer: scenario.effect - createShader: LinearConvolveShadow_96
+PPSRenderer: scenario.effect - createShader: Blend_SRC_IN
+PPSRenderer: scenario.effect - createShader: LinearConvolveShadow_64
+PPSRenderer: scenario.effect - createShader: LinearConvolveShadow_128
+QuantumRenderer: shutdown

@@ -1,0 +1,7 @@
+tag=client-v1.6.0
+channel=stable
+commit=a2d99d510a3a0bd6ce295ddd7da8b10de6715a33
+release=https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/client-v1.6.0
+run=https://github.com/LennardOwnTest123006/VANTA-Client/actions/runs/38141852348
+public_urls_verified=true
+apply=cp client-1.6.0.json <repo>/shared/releases/ && cp latest/client-latest.json <repo>/shared/releases/latest/

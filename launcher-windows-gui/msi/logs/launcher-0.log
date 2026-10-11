@@ -1,0 +1,22 @@
+2026-10-11T13:25:36.794Z INFO [VANTA.Startup] VANTA Launcher 1.6.0 starting (Java 21.0.12.1, Windows Server 2025 10.0 amd64, JavaFX platform win)
+2026-10-11T13:25:36.877Z INFO [VANTA.Startup]   code source = file:/C:/Users/runneradmin/AppData/Local/VANTA%20Launcher/app/vanta-launcher-1.6.0-all.jar
+2026-10-11T13:25:36.879Z INFO [VANTA.Startup]   file.encoding = UTF-8
+2026-10-11T13:25:36.879Z INFO [VANTA.Startup]   java.home = C:\Users\runneradmin\AppData\Local\VANTA Launcher\runtime
+2026-10-11T13:25:36.883Z INFO [VANTA.Startup]   java.runtime.version = 21.0.12.1+1-LTS
+2026-10-11T13:25:36.885Z INFO [VANTA.Startup]   java.vendor = Eclipse Adoptium
+2026-10-11T13:25:37.166Z INFO [VANTA.Startup]   java.version = 21.0.12.1
+2026-10-11T13:25:37.166Z INFO [VANTA.Startup]   javafx.platform (build) = win
+2026-10-11T13:25:37.168Z INFO [VANTA.Startup]   jpackage.app-path = C:\Users\runneradmin\AppData\Local\VANTA Launcher\VANTA Launcher.exe
+2026-10-11T13:25:37.168Z INFO [VANTA.Startup]   launcher.version = 1.6.0
+2026-10-11T13:25:37.168Z INFO [VANTA.Startup]   module = unnamed module @4d95d2a2
+2026-10-11T13:25:37.170Z INFO [VANTA.Startup]   os.arch = amd64
+2026-10-11T13:25:37.173Z INFO [VANTA.Startup]   os.name = Windows Server 2025
+2026-10-11T13:25:37.173Z INFO [VANTA.Startup]   os.version = 10.0
+2026-10-11T13:25:37.173Z INFO [VANTA.Startup]   sun.jnu.encoding = Cp1252
+2026-10-11T13:25:37.175Z INFO [VANTA.Startup]   user.dir = D:\a\VANTA-Client\VANTA-Client
+2026-10-11T13:25:37.177Z INFO [VANTA.Startup]   vanta.launcher.packaged = true
+2026-10-11T13:25:38.027Z FINE [VANTA.UI] Loaded fonts: [Inter Regular, Inter Medium, Inter SemiBold, Inter Bold, Space Grotesk Bold]
+2026-10-11T13:25:39.043Z INFO [VANTA.UI] Main window shown (1,120 x 720)
+2026-10-11T13:25:39.053Z INFO [VANTA.UI.Smoke] UI smoke: window shown; screenshot D:\a\_temp\launcher-windows-gui\msi\window.png, exit after 20 s, page unchanged, size unchanged
+2026-10-11T13:25:41.369Z INFO [VANTA.UI.Smoke] UI smoke: wrote D:\a\_temp\launcher-windows-gui\msi\window.png (1,120 x 720)
+2026-10-11T13:25:59.062Z INFO [VANTA.UI.Smoke] UI smoke: exiting with code 0

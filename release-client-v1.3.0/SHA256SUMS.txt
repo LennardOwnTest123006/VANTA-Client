@@ -1,0 +1,3 @@
+3a9f347d37c8fffb1474a9d5b12924e32ff49f80328b31e703bc7d3180484970  vanta-client-1.3.0.jar
+b17a3349185ad0dd4d08efba6baf34d5ae1060ded670aaaa5c87c4f5bacbf55d  vanta-client-1.3.0-mods.zip
+bdff7fd7e220085cfad2ff9b1f40dde6534ae0b96cf378f97a374bc54cb9ed0f  fabric-api-0.141.6+1.21.11.jar

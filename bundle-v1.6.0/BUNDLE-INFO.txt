@@ -1,0 +1,8 @@
+tag=v1.6.0
+client_version=1.6.0
+launcher_version=1.6.0
+commit=006d3b03d47b544fc75960baf79dc820086f5130
+release=https://github.com/LennardOwnTest123006/VANTA-Client/releases/tag/v1.6.0
+run=https://github.com/LennardOwnTest123006/VANTA-Client/actions/runs/38142483725
+public_url_verified=true
+apply=cp vanta-1.6.0.json <repo>/shared/releases/bundles/

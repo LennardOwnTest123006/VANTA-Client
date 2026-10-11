@@ -1,0 +1,22 @@
+2026-10-11T13:26:00.920Z INFO [VANTA.Startup] VANTA Launcher 1.6.0 starting (Java 21.0.12.1, Windows Server 2025 10.0 amd64, JavaFX platform win)
+2026-10-11T13:26:00.980Z INFO [VANTA.Startup]   code source = file:/D:/a/_temp/portable/VANTA%20Launcher/app/vanta-launcher-1.6.0-all.jar
+2026-10-11T13:26:00.980Z INFO [VANTA.Startup]   file.encoding = UTF-8
+2026-10-11T13:26:00.982Z INFO [VANTA.Startup]   java.home = D:\a\_temp\portable\VANTA Launcher\runtime
+2026-10-11T13:26:00.986Z INFO [VANTA.Startup]   java.runtime.version = 21.0.12.1+1-LTS
+2026-10-11T13:26:00.986Z INFO [VANTA.Startup]   java.vendor = Eclipse Adoptium
+2026-10-11T13:26:00.994Z INFO [VANTA.Startup]   java.version = 21.0.12.1
+2026-10-11T13:26:00.994Z INFO [VANTA.Startup]   javafx.platform (build) = win
+2026-10-11T13:26:00.996Z INFO [VANTA.Startup]   jpackage.app-path = D:\a\_temp\portable\VANTA Launcher\VANTA Launcher.exe
+2026-10-11T13:26:00.996Z INFO [VANTA.Startup]   launcher.version = 1.6.0
+2026-10-11T13:26:00.998Z INFO [VANTA.Startup]   module = unnamed module @1e965684
+2026-10-11T13:26:00.998Z INFO [VANTA.Startup]   os.arch = amd64
+2026-10-11T13:26:00.998Z INFO [VANTA.Startup]   os.name = Windows Server 2025
+2026-10-11T13:26:01Z INFO [VANTA.Startup]   os.version = 10.0
+2026-10-11T13:26:01.002Z INFO [VANTA.Startup]   sun.jnu.encoding = Cp1252
+2026-10-11T13:26:01.002Z INFO [VANTA.Startup]   user.dir = D:\a\VANTA-Client\VANTA-Client
+2026-10-11T13:26:01.002Z INFO [VANTA.Startup]   vanta.launcher.packaged = true
+2026-10-11T13:26:02.190Z FINE [VANTA.UI] Loaded fonts: [Inter Regular, Inter Medium, Inter SemiBold, Inter Bold, Space Grotesk Bold]
+2026-10-11T13:26:03.459Z INFO [VANTA.UI] Main window shown (1,136 x 759)
+2026-10-11T13:26:03.477Z INFO [VANTA.UI.Smoke] UI smoke: window shown; screenshot D:\a\_temp\launcher-windows-gui\portable\window.png, exit after 20 s, page unchanged, size unchanged
+2026-10-11T13:26:05.699Z INFO [VANTA.UI.Smoke] UI smoke: wrote D:\a\_temp\launcher-windows-gui\portable\window.png (1,136 x 759)
+2026-10-11T13:26:23.491Z INFO [VANTA.UI.Smoke] UI smoke: exiting with code 0

@@ -1,0 +1,238 @@
+{
+  "schemaVersion": 1,
+  "kind": "bundle",
+  "version": "1.6.0",
+  "clientVersion": "1.6.0",
+  "launcherVersion": "1.6.0",
+  "minecraftVersion": "1.21.11",
+  "releaseDate": "2026-10-11",
+  "channel": "stable",
+  "file": {
+    "name": "VantaClient-1.6.0-Release.zip",
+    "downloadUrl": "https://github.com/LennardOwnTest123006/VANTA-Client/releases/download/v1.6.0/VantaClient-1.6.0-Release.zip",
+    "size": 251318321,
+    "sha256": "00f095ba1adc0ca3a1145d3b75444df706b65566f8d90628a41c08841fa984e8"
+  },
+  "contents": [
+    {
+      "path": "README.txt",
+      "size": 4983,
+      "sha256": "806fdf3c8c60b9ca33992ef9bd2d3593b5eff76b59851c8b04c0a47cda4471b6"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "size": 120719,
+      "sha256": "246f28a1ffe5416f9361065b747549d26e13932fb36a422aaa20bbca46b465e4"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1452,
+      "sha256": "fa9a11eb08a88b9ce38ff668f23fe656bc688e57956078001e9bee0ccb396e56"
+    },
+    {
+      "path": "LOCAL-AI.txt",
+      "size": 3020,
+      "sha256": "dd3df9a30513676be002315595ced3434f7ee33b154e9cba1f813377cca422da"
+    },
+    {
+      "path": "release-notes/client-1.6.0.md",
+      "size": 4069,
+      "sha256": "c23bdffac9c048522717f3489ef5ecdb590fcf1e4a68cb3fc4838bcc37428b55"
+    },
+    {
+      "path": "release-notes/launcher-1.6.0.md",
+      "size": 602,
+      "sha256": "e3537fb5a144bcae47103c38e8b98994815421ad381d0030c5e27a2d42668998"
+    },
+    {
+      "path": "docs/accessibility.md",
+      "size": 4225,
+      "sha256": "ff1cebec35fb8c0f12e2e069e065aa3e44934c1ab13488b777b28d3e10b88b9e"
+    },
+    {
+      "path": "docs/building-from-source.md",
+      "size": 5710,
+      "sha256": "b430a08f4efb52ed54310b1c4c099faebb6e68e63afd8cf34ab34ac47edd7099"
+    },
+    {
+      "path": "docs/cosmetics.md",
+      "size": 3815,
+      "sha256": "f5f4fde817d7c9dbec46004a74a9963ed3fc082fdb68e9670e0893c3bd638cda"
+    },
+    {
+      "path": "docs/fabric.md",
+      "size": 11301,
+      "sha256": "a6d04f844cc064311545512c2bb188148a855f40f750069d64c8859520a83688"
+    },
+    {
+      "path": "docs/faq.md",
+      "size": 24708,
+      "sha256": "b4e5dbfe07ad46745d31335d0ba8b4398bbdb9d4c4aeeafb52d7225093583a77"
+    },
+    {
+      "path": "docs/hud.md",
+      "size": 11919,
+      "sha256": "c1dbfcaeff47f90ebee4bacd00a172c180f5afa5582622c89ee750e47bf05d53"
+    },
+    {
+      "path": "docs/index.md",
+      "size": 9180,
+      "sha256": "f0965e54a406a9798c442aea7d8027b0264cf0ea86ae08dab4926176998a5252"
+    },
+    {
+      "path": "docs/installation.md",
+      "size": 44254,
+      "sha256": "46150de9e8a34d4d8e80e637e12a3cccfbf6428c771746e571b60f2ea8a63d5a"
+    },
+    {
+      "path": "docs/java-21.md",
+      "size": 6023,
+      "sha256": "61f904e47d29d4f28bac34821b30fa30e439bae1d2a3f01ac9785b2cd7390649"
+    },
+    {
+      "path": "docs/keybinds.md",
+      "size": 6122,
+      "sha256": "292fec5cf3a3b70526a609cb69ffb95bece96674073e94d3fa2ac415cb47217a"
+    },
+    {
+      "path": "docs/launcher.md",
+      "size": 58601,
+      "sha256": "4f55b605357f2624e585523dbc8f4f9703a23b78f44e71ec7b3d857f8938a7b2"
+    },
+    {
+      "path": "docs/local-ai.md",
+      "size": 17834,
+      "sha256": "eb15760c788c1f505ec9cf0c5e5503f9b204b9a2f592b981883f19325a3a2a5a"
+    },
+    {
+      "path": "docs/minecraft-requirements.md",
+      "size": 9135,
+      "sha256": "f17da27bc62651840784ea9595c7fcc17140e57bea89beecbb0e25896e450565"
+    },
+    {
+      "path": "docs/mods-and-shaders.md",
+      "size": 17326,
+      "sha256": "9f50af9bd7865a5ca66bef0cea47b0d8b60fd34ef6c6385531af252af5394075"
+    },
+    {
+      "path": "docs/nexus.md",
+      "size": 33596,
+      "sha256": "25822bb5f1dfcb459c1b91521972ccff7e5a191eb5c7693660618e51de60c4d8"
+    },
+    {
+      "path": "docs/performance.md",
+      "size": 23884,
+      "sha256": "c927f6a2ffe109197000648bb739d8c990e998ecb5d9f9e6edcbfda7e2f5c78f"
+    },
+    {
+      "path": "docs/privacy.md",
+      "size": 15475,
+      "sha256": "282afcf34b40259143fa87fc02d0d99964bb04b812190ebcfc0458ca4d89801b"
+    },
+    {
+      "path": "docs/profiles.md",
+      "size": 10037,
+      "sha256": "c382839a420b41ad8527d1e78cea5cf89625adcb9ec4900afc11a592af5a5760"
+    },
+    {
+      "path": "docs/settings.md",
+      "size": 15401,
+      "sha256": "a4dbeca1b7e9d877f7f3c96599ac8f2b42b58586e8980de84eb2be6d7ff4c934"
+    },
+    {
+      "path": "docs/statistics-and-privacy.md",
+      "size": 5444,
+      "sha256": "df890ab9b4230a455c80844c57a11d3d28f3dc1351c590ac2fe223b6bb22c6cf"
+    },
+    {
+      "path": "docs/terms.md",
+      "size": 4691,
+      "sha256": "02f7115f159bff0b878907695872ca3976cf76c61e4021b285a5222e531f90fd"
+    },
+    {
+      "path": "docs/timer.md",
+      "size": 5818,
+      "sha256": "1a6eac2771167454ba0708aa94d5ce5221606a212032a17e1d8bee8ff03b29ba"
+    },
+    {
+      "path": "docs/troubleshooting.md",
+      "size": 56192,
+      "sha256": "661e08517350f40ffb2ab37b57d2a269c907bf81aa6fdf630c64fe8cce09178d"
+    },
+    {
+      "path": "docs/waypoints.md",
+      "size": 6753,
+      "sha256": "c8346d95da99e60ab2d03acfa7ba9d09ef46b198d40dfee1c5bad5b0e735967b"
+    },
+    {
+      "path": "local-ai/local-ai.json",
+      "size": 3080,
+      "sha256": "31cad27f475988327d8c4c9b59f5385f07ce9385b96f3c6445929232995c6946"
+    },
+    {
+      "path": "client/vanta-client-1.6.0.jar",
+      "size": 2318579,
+      "sha256": "62c8c5df0f56d3e59d3f6305597782281c3a66e3eac2e7c1cd1d7d2553df0bdf"
+    },
+    {
+      "path": "client/vanta-client-1.6.0-mods.zip",
+      "size": 10132969,
+      "sha256": "3144756ba1f039d7071959ba5aa45722f9a3a881d6dfcbb68a79cfb10731a0af"
+    },
+    {
+      "path": "client/fabric-api-0.141.6+1.21.11.jar",
+      "size": 2426039,
+      "sha256": "bdff7fd7e220085cfad2ff9b1f40dde6534ae0b96cf378f97a374bc54cb9ed0f"
+    },
+    {
+      "path": "client/SHA256SUMS.txt",
+      "size": 280,
+      "sha256": "5232a2274ef1a0f427cb1407c2ac89f2ba9bb53ad72d6e2416614354394d75ec"
+    },
+    {
+      "path": "client/client-1.6.0.json",
+      "size": 1225,
+      "sha256": "fa436556f611b6ed81179f844468f9b27c932da8b3264fc3b79591ee902ce338"
+    },
+    {
+      "path": "launcher/VANTA-Launcher-1.6.0.msi",
+      "size": 67175449,
+      "sha256": "f03db313f5a5ff3ae45fa4104c2092e9ff9f7c2c9bfb1a994ebcca7580a3694b"
+    },
+    {
+      "path": "launcher/VANTA-Launcher-1.6.0-windows-portable.zip",
+      "size": 65366976,
+      "sha256": "e0cfa86c9509c3759b42ab8d7dd3fb04494c78868d8fd5e47e27f2792e287337"
+    },
+    {
+      "path": "launcher/vanta-launcher-1.6.0-windows-all.jar",
+      "size": 14549990,
+      "sha256": "2c24d01ea8aa6e6ecc3874e518b723ceeef85ac1494f3e526c22b59073ba9feb"
+    },
+    {
+      "path": "launcher/VANTA-Launcher-1.6.0-linux-x64.tar.gz",
+      "size": 67179295,
+      "sha256": "30cb6be55776a06786291a00f35c034a3a3a045c4769ec45ddffdf24cedd23b5"
+    },
+    {
+      "path": "launcher/vanta-launcher-1.6.0-linux-all.jar",
+      "size": 13323109,
+      "sha256": "dc489521ff43a10b9186457dfe0572a18094bb5bde30a964098f08f4c4bef211"
+    },
+    {
+      "path": "launcher/vanta-launcher-1.6.0-macos-aarch64-all.jar",
+      "size": 13409934,
+      "sha256": "e03ea0fceb005f444686379fb25f55761009ff6ffed6c62cedd490068a4a7961"
+    },
+    {
+      "path": "launcher/SHA256SUMS.txt",
+      "size": 616,
+      "sha256": "cc091318474e04d36ad1c2bad9df83dd8dbac1d1405afdcc4dc512467d9f0162"
+    },
+    {
+      "path": "launcher/launcher-1.6.0.json",
+      "size": 2257,
+      "sha256": "fec18c1d8826c45ec834ba0d762e5e60fa60ecccf648a532ebd7e7ef51d917ee"
+    }
+  ]
+}

@@ -1,0 +1,284 @@
+{
+  "framesPerMode": 300,
+  "modeTimeoutTicks": 900,
+  "java": "21.0.12.1",
+  "os": "Linux amd64",
+  "window": {
+    "width": 1920,
+    "height": 1080,
+    "guiScale": 2,
+    "guiWidth": 960,
+    "guiHeight": 540,
+    "renderDistance": 10
+  },
+  "performanceModsLoaded": [],
+  "modes": {
+    "hudEnabled": {
+      "frames": 300,
+      "ticks": 300,
+      "wallMs": 16247,
+      "wallFps": 18.465,
+      "gameFrameTime": {
+        "avgMs": 49.716,
+        "p50Ms": 48.327,
+        "p95Ms": 60.233,
+        "maxMs": 74.985,
+        "fps": 20.114
+      },
+      "hudElement": {
+        "calls": 300,
+        "avgMs": 0.33,
+        "maxMs": 4.7,
+        "totalMs": 99.017
+      },
+      "crosshairElement": {
+        "calls": 300,
+        "avgMs": 0.026,
+        "maxMs": 0.106,
+        "totalMs": 7.859
+      },
+      "screenRender": {
+        "calls": 0,
+        "avgMs": 0.0,
+        "maxMs": 0.0,
+        "totalMs": 0.0
+      },
+      "primitivesTotal": {
+        "fills": 58807,
+        "gradients": 0,
+        "texts": 8784,
+        "images": 0,
+        "scissorChanges": 0,
+        "transformPushes": 6628,
+        "textWidths": 11164
+      },
+      "primitivesPerHudFrame": {
+        "fills": 196.023,
+        "gradients": 0.0,
+        "texts": 29.28,
+        "images": 0.0,
+        "scissorChanges": 0.0,
+        "transformPushes": 22.093,
+        "textWidths": 37.213
+      }
+    },
+    "hudDisabled": {
+      "frames": 300,
+      "ticks": 298,
+      "wallMs": 15217,
+      "wallFps": 19.715,
+      "gameFrameTime": {
+        "avgMs": 46.216,
+        "p50Ms": 45.825,
+        "p95Ms": 48.851,
+        "maxMs": 66.173,
+        "fps": 21.638
+      },
+      "hudElement": {
+        "calls": 300,
+        "avgMs": 0.014,
+        "maxMs": 0.027,
+        "totalMs": 4.054
+      },
+      "crosshairElement": {
+        "calls": 0,
+        "avgMs": 0.0,
+        "maxMs": 0.0,
+        "totalMs": 0.0
+      },
+      "screenRender": {
+        "calls": 0,
+        "avgMs": 0.0,
+        "maxMs": 0.0,
+        "totalMs": 0.0
+      },
+      "primitivesTotal": {
+        "fills": 0,
+        "gradients": 0,
+        "texts": 0,
+        "images": 0,
+        "scissorChanges": 0,
+        "transformPushes": 0,
+        "textWidths": 0
+      },
+      "primitivesPerHudFrame": {
+        "fills": 0.0,
+        "gradients": 0.0,
+        "texts": 0.0,
+        "images": 0.0,
+        "scissorChanges": 0.0,
+        "transformPushes": 0.0,
+        "textWidths": 0.0
+      }
+    },
+    "guiHidden": {
+      "frames": 300,
+      "ticks": 289,
+      "wallMs": 14716,
+      "wallFps": 20.386,
+      "gameFrameTime": {
+        "avgMs": 43.774,
+        "p50Ms": 42.874,
+        "p95Ms": 49.18,
+        "maxMs": 77.011,
+        "fps": 22.845
+      },
+      "hudElement": {
+        "calls": 0,
+        "avgMs": 0.0,
+        "maxMs": 0.0,
+        "totalMs": 0.0
+      },
+      "crosshairElement": {
+        "calls": 0,
+        "avgMs": 0.0,
+        "maxMs": 0.0,
+        "totalMs": 0.0
+      },
+      "screenRender": {
+        "calls": 0,
+        "avgMs": 0.0,
+        "maxMs": 0.0,
+        "totalMs": 0.0
+      },
+      "primitivesTotal": {
+        "fills": 0,
+        "gradients": 0,
+        "texts": 0,
+        "images": 0,
+        "scissorChanges": 0,
+        "transformPushes": 0,
+        "textWidths": 0
+      },
+      "primitivesPerHudFrame": {
+        "fills": 0.0,
+        "gradients": 0.0,
+        "texts": 0.0,
+        "images": 0.0,
+        "scissorChanges": 0.0,
+        "transformPushes": 0.0,
+        "textWidths": 0.0
+      }
+    }
+  },
+  "derived": {
+    "hudFrameTimeDeltaMs": 3.5,
+    "hudElementShareOfFrame": 0.007
+  },
+  "hitches": {
+    "framesPerMode": 600,
+    "maxElementFrameMs": 8.0,
+    "turnDegreesPerTick": 1.5,
+    "jvm": {
+      "heapAndGcArgs": [],
+      "collectors": [
+        "G1 Young Generation",
+        "G1 Concurrent GC",
+        "G1 Old Generation"
+      ],
+      "heapMaxMb": 3998,
+      "heapCommittedMb": 648,
+      "availableProcessors": 4
+    },
+    "modes": {
+      "hudOn": {
+        "frames": 600,
+        "framesKept": 600,
+        "ticks": 600,
+        "ticksWithGc": 1,
+        "wallMs": 32210,
+        "gameFrameTime": {
+          "avgMs": 49.205,
+          "p99Ms": 62.909,
+          "p999Ms": 96.883,
+          "maxMs": 96.883,
+          "over50Ms": 159,
+          "over100Ms": 0
+        },
+        "hudElement": {
+          "calls": 600,
+          "avgMs": 0.239,
+          "maxMs": 2.835,
+          "maxDuringGcTick": false,
+          "gcMsInMaxTick": 0,
+          "maxTick": 266
+        },
+        "crosshairElement": {
+          "calls": 600,
+          "avgMs": 0.014,
+          "maxMs": 0.081,
+          "maxDuringGcTick": false,
+          "gcMsInMaxTick": 0,
+          "maxTick": 502
+        },
+        "gc": {
+          "count": 1,
+          "timeMs": 10,
+          "byCollector": {
+            "G1 Young Generation": {
+              "count": 1,
+              "timeMs": 10
+            },
+            "G1 Concurrent GC": {
+              "count": 0,
+              "timeMs": 0
+            },
+            "G1 Old Generation": {
+              "count": 0,
+              "timeMs": 0
+            }
+          }
+        }
+      },
+      "hudOff": {
+        "frames": 600,
+        "framesKept": 600,
+        "ticks": 597,
+        "ticksWithGc": 0,
+        "wallMs": 31007,
+        "gameFrameTime": {
+          "avgMs": 46.907,
+          "p99Ms": 61.534,
+          "p999Ms": 83.359,
+          "maxMs": 83.359,
+          "over50Ms": 41,
+          "over100Ms": 0
+        },
+        "hudElement": {
+          "calls": 600,
+          "avgMs": 0.011,
+          "maxMs": 0.126,
+          "maxDuringGcTick": false,
+          "gcMsInMaxTick": 0,
+          "maxTick": 567
+        },
+        "crosshairElement": {
+          "calls": 0,
+          "avgMs": 0.0,
+          "maxMs": 0.0,
+          "maxDuringGcTick": false,
+          "gcMsInMaxTick": 0,
+          "maxTick": -1
+        },
+        "gc": {
+          "count": 0,
+          "timeMs": 0,
+          "byCollector": {
+            "G1 Young Generation": {
+              "count": 0,
+              "timeMs": 0
+            },
+            "G1 Concurrent GC": {
+              "count": 0,
+              "timeMs": 0
+            },
+            "G1 Old Generation": {
+              "count": 0,
+              "timeMs": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}
