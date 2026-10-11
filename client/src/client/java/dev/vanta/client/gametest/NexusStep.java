@@ -365,8 +365,9 @@ final class NexusStep {
 
     /**
      * Client 1.6.0's assistant actions in one turn through {@code NexusActions}, on the real game options: music off
-     * ({@code audio.music} 0), a smaller chat ({@code accessibility.chatScale} 0.8, the vanilla {@code chatScale}
-     * option), a circle crosshair ({@code crosshair.set}) and {@code hud.arrange}; then Undo restores all four.
+     * ({@code audio.music} 0), a smaller chat (the step {@code "-0.2"} on {@code accessibility.chatScale}, the vanilla
+     * {@code chatScale} option, never below the readable minimum), a circle crosshair ({@code crosshair.set}) and
+     * {@code hud.arrange}; then Undo restores all four.
      */
     private static void assistantActions(ClientGameTestContext context, VantaServices services) {
         record State(Object music, Object chatScale, CrosshairShape shape, HudLayout layout) {
@@ -378,13 +379,17 @@ final class NexusStep {
                     services.hud().layout());
         };
         State before = context.computeOnClient(client -> read.get());
-        check(before.chatScale() != null, "the options bridge does not provide chatScale (VanillaOption.CHAT_SCALE)");
+        check(before.chatScale() instanceof Number,
+                "the options bridge does not provide chatScale (VanillaOption.CHAT_SCALE): " + before.chatScale());
+        double scaleBefore = ((Number) before.chatScale()).doubleValue();
+        double expectedScale = Math.max(Math.max(0.0, scaleBefore - 0.2),
+                Math.min(NexusActions.MIN_CHAT_SCALE, scaleBefore));
         NexusActions.Outcome outcome = context.computeOnClient(client -> {
             JsonArray actions = new JsonArray();
             actions.add(com.google.gson.JsonParser.parseString(
                     "{\"type\":\"setting.set\",\"id\":\"audio.music\",\"value\":0}"));
             actions.add(com.google.gson.JsonParser.parseString(
-                    "{\"type\":\"setting.set\",\"id\":\"accessibility.chatScale\",\"value\":0.8}"));
+                    "{\"type\":\"setting.set\",\"id\":\"accessibility.chatScale\",\"value\":\"-0.2\"}"));
             actions.add(com.google.gson.JsonParser.parseString("{\"type\":\"crosshair.set\",\"shape\":\"circle\"}"));
             actions.add(com.google.gson.JsonParser.parseString("{\"type\":\"hud.arrange\"}"));
             NexusUndo.Turn turn = services.nexusUndo().begin();
@@ -397,8 +402,9 @@ final class NexusStep {
         State after = context.computeOnClient(client -> read.get());
         check(after.music() instanceof Number n && n.doubleValue() == 0.0,
                 "music volume after audio.music 0 is " + after.music());
-        check(after.chatScale() instanceof Number n && Math.abs(n.doubleValue() - 0.8) < 1e-6,
-                "chat text size after accessibility.chatScale 0.8 is " + after.chatScale());
+        check(after.chatScale() instanceof Number n && Math.abs(n.doubleValue() - expectedScale) < 1e-6,
+                "chat text size after the step -0.2 from " + scaleBefore + " is " + after.chatScale()
+                        + ", expected " + expectedScale);
         check(after.shape() == CrosshairShape.CIRCLE, "crosshair shape after crosshair.set circle is " + after.shape());
         int[] gui = context.computeOnClient(client -> new int[]{client.getWindow().getGuiScaledWidth(),
                 client.getWindow().getGuiScaledHeight()});
