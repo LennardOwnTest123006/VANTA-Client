@@ -1,6 +1,6 @@
 ---
 title: Vanta Nexus
-description: Vanta Nexus (client 1.4.0, more actions from 1.6.0): its seven sections, how the strictly local assistant works, what it can and cannot do (sound, chat size, crosshair and a tidy HUD from client 1.6.0 on), actions with examples, undo, the transcript file, the N key and the palette entry.
+description: Vanta Nexus (client 1.4.0, more actions and instant commands from 1.6.0): its seven sections, how the strictly local assistant works, the everyday commands it applies at once without the Local AI, what it can and cannot do (sound, chat size, crosshair and a tidy HUD from client 1.6.0 on), actions with examples, undo, the transcript file, the N key and the palette entry.
 order: 29
 category: Client
 ---
@@ -14,6 +14,10 @@ nowhere else. There is no cloud AI, no API key, no account and no telemetry.
 The assistant only ever changes **your own client**: the HUD layout, the crosshair, VANTA settings (from client 1.6.0
 on also the sound volumes and the chat size), profiles, performance presets, waypoints and Vanta Lab features. It never acts in the game world, never touches other players, key bindings or the
 network, and it cannot run anything that is not one of the actions listed [below](#what-the-assistant-can-do).
+
+From client 1.6.0 on, everyday commands such as "music off", "make the crosshair a circle", "make the chat smaller"
+or "sort the HUD" are read by VANTA itself and applied at once, without the model and also while the Local AI is not
+installed ([Commands that work instantly](#commands-that-work-instantly)); only the other requests go to the model.
 
 ## Opening Vanta Nexus
 
@@ -44,12 +48,15 @@ and the mouse. Esc closes the screen.
 - A single-line text field; **Enter** (or *Send*) sends. While the transcript is empty, example chips send a
   prompt with one click: *Make my HUD minimal*, *Only show FPS and coordinates*, *Create a recording profile*,
   *Move the FPS counter to the bottom right* and, from client 1.6.0 on, *Sort the HUD* and *Turn the music off*.
-- While the Local AI is **not installed**, the section shows the Local AI card instead of the input: runtime and
+  From client 1.6.0 on all of them except *Create a recording profile* are
+  [instant commands](#commands-that-work-instantly).
+- While the Local AI is **not installed**, the section shows the Local AI card above the transcript: runtime and
   model with their versions, the download size, the licences (MIT and Apache-2.0), the two hosts the download
   contacts (`github.com`, `huggingface.co`), the disk and RAM it needs, the sentence *Nothing is downloaded until you
   click Install Local AI. After the download, prompts go to 127.0.0.1 only.*, and the button **Install Local AI**,
   which opens the [Local AI setup](local-ai.md#installing-from-the-game). When the VANTA Launcher manages the Local AI,
-  the card says so and has no Install button.
+  the card says so and has no Install button. The text field stays usable: from client 1.6.0 on the instant commands
+  work without the Local AI, and the welcome text and the install pointer say so.
 - When *Vanta Nexus assistant* is switched off in the settings, a banner says so with a **Turn on** button.
 
 ### 2. HUD Designer
@@ -115,7 +122,85 @@ is not, and the link **All settings** to the full Settings screen on the Vanta N
 and Remove buttons are hidden while the VANTA Launcher manages the install, because the client only uses that folder
 ([Local AI → Two install paths](local-ai.md#two-install-paths)).
 
+## Commands that work instantly
+
+From client 1.6.0 on, every message first goes through VANTA's own command reader (no model involved). When it
+understands the **whole** message, VANTA applies it at once (in well under a second, without starting or asking
+`llama-server`) through exactly the same actions, receipts (*Applied: …*, *Not applied: …*), transcript entry,
+notification and **Undo** as an answer of the model. The answer is a short sentence built from what really changed,
+for example *Done: music volume 0 %; crosshair shape circle.* This works while the Local AI is not installed, not
+running or still busy starting, and nothing leaves your PC either way. Everything the reader does not understand goes
+to the model as before. When the model is needed but not installed, the answer is *I can do this without the Local
+AI: …* with examples of the commands below, and *For other requests install the Local AI.* (the install card stays
+where it was).
+
+How a message is read:
+
+- English and German, upper or lower case, umlauts optional (*groesser* is *größer*), with filler words around the
+  command ("please", "can you", "make", "turn", "set", "the", "my", "bitte", "kannst du", "mach", "stell", "die",
+  "den", "mein", …).
+- Small typos are tolerated: one letter wrong, missing, extra or two letters swapped, two in words of eight letters
+  or more, as long as the first letter is right and only one known word is that close ("cordinates", "crosshiar",
+  "musc"). Words of four letters or fewer must be spelled right.
+- Several commands in one message, joined by "and", "und", "then", "dann", commas or full stops, are one turn and one
+  Undo: *make music off and the crosshair a circle*. A part may leave out what the part before it said: *remove the
+  FPS and the ping*, *music and weather off*, *make the crosshair red and bigger*, *only show FPS and coordinates*.
+- It never guesses. A message with a word it does not know, a question (*is the music off?*), a negation (*don't
+  turn the music off*), a word that fits more than one thing (*red* without the word crosshair, *smaller* without
+  chat or crosshair), a contradiction (*crosshair red and blue*), a number out of range (*music 150*) or more than 40
+  words goes to the model as a whole; nothing of it is applied by the reader.
+
+| Area | What you can type (examples) | What happens |
+| --- | --- | --- |
+| Sound | *music off*, *Musik aus*, *turn off the music*, *mute the music* | `audio.music` 0 |
+| | *music on*, *Musik an*, *schalte die Musik ein* | `audio.music` 100 % |
+| | *mute*, *mute all sound*, *alles stumm*, *Ton aus*; *unmute* | `audio.master` 0; *unmute* 100 % |
+| | *music 30*, *music volume 30 %*, *Lautstärke 50*, *set the weather to 20 percent*, *music to half*, *Musik auf null* | that volume; without a channel the master volume. A whole number is percent (0 to 100), a decimal number up to 1 is the fraction itself (0.5 is 50 %) |
+| | *make the music louder*, *Musik leiser*, *turn the volume down* | 20 % up or down from the current volume (the step `"+0.2"` / `"-0.2"`) |
+| | *subtitles on*, *Untertitel aus*, *show subtitles* | `audio.subtitles` on or off |
+| Crosshair | *make the crosshair a circle*, *Fadenkreuz Kreis*, *crosshair dot*, *cross*, *square*, *chevron*, *plus dot* | `crosshair.set` shape |
+| | *red dot crosshair*, *grünes Fadenkreuz*, *mach das Fadenkreuz zu einem roten Punkt* | colour (and shape) |
+| | *crosshair bigger* / *smaller*, *Fadenkreuz größer* / *kleiner*; *thicker* / *thinner* | size 2 pixels up or down (1 to 32); thickness 1 up or down (1 to 8) |
+| | *crosshair size 10*, *crosshair thickness 2*, *crosshair gap 3*, *crosshair opacity 50* | that value (kept in the crosshair's ranges) |
+| | *vanilla crosshair*, *default crosshair*, *use the normal Minecraft crosshair*, *Standard Fadenkreuz* | Minecraft's own crosshair |
+| Chat | *make the chat smaller*, *Chat kleiner*; *bigger*, *größer* | text size and width by the step `"-0.2"` / `"+0.2"` |
+| | *make the chat text smaller* | only the text size |
+| | *chat narrower* / *wider*, *Chat schmaler* / *breiter* | only the width, by 0.2 |
+| | *chat opacity 50 %*, *Chat Deckkraft 70* | `accessibility.chatOpacity` |
+| Sorting | *sort the HUD*, *sort the GUIs*, *tidy up my GUI*, *organize my widgets*, *line up the widgets*, *HUD sortieren*, *ordne die GUIs an*, *räum das HUD auf* | `hud.arrange` ([A tidy HUD](#a-tidy-hud)) |
+| | *arrange the HUD in the top right*, *sortiere das HUD oben links* | `hud.arrange` into that corner |
+| Removing | *delete the coordinates*, *remove the FPS and the ping*, *hide XYZ*, *coords off*, *entferne die Koordinaten*, *lösche die Koordinaten*, *blende die Koordinaten aus*, *Rüstung weg* | `hud.set` visible false for every shown widget of that type |
+| Showing | *show memory*, *add the CPS*, *zeige den Arbeitsspeicher*, *FPS an* | `hud.set` visible true (the widget is added when it is not on the HUD) |
+| Only | *only show FPS and coordinates*, *show only FPS and coords*, *nur FPS und Koordinaten*, *zeige nur FPS, Ping und Koordinaten* | `hud.only` |
+| Moving | *move FPS to the top right*, *move the FPS counter to the bottom right*, *FPS top right*, *verschiebe die FPS nach oben links*, *Ping links unten* | `hud.set` anchor: top left, top right, bottom left, bottom right, top, bottom, left, right or centre (oben, unten, links, rechts, Mitte); a hidden widget is shown |
+| HUD presets | *make my HUD minimal*, *PvP HUD*, *HUD preset survival*, *full HUD* | `hud.preset` (`minimal`, `pvp`, `recording`, `survival`, `building`, `full`; also *Aufnahme*, *Überleben*, *Bauen*, *voll*) |
+| Whole HUD | *hide the HUD*, *show the HUD* | the setting `hud.enabled` (every VANTA widget) |
+
+Sound channels: master (*master*, *sound*, *audio*, *Ton*, *Gesamtlautstärke*), music (*Musik*), records (*jukebox*,
+*note blocks*, *Plattenspieler*), weather (*rain*, *thunder*, *Wetter*, *Regen*), blocks (*Blöcke*), hostile
+(*monsters*, *Monster*, *feindliche*), friendly (*animals*, *neutral*, *Tiere*), players (*Spieler*), ambient
+(*environment*, *Umgebung*) and voice (*speech*, *Stimme*). Crosshair colours: the twelve of
+[The crosshair](#the-crosshair) in English and German (*weiß*, *rot*, *grün*, *blau*, *gelb*, *türkis*, *schwarz*,
+*lila*, *rosa*, *grau*, also with endings such as *roter* or *grünes*).
+
+Widget names: FPS (*FPS*, *frames*, *frame rate*, *FPS counter*, *Bildrate*), ping (*latency*, *Latenz*), coordinates
+(*coords*, *XYZ*, *position*, *Koordinaten*), direction (*facing*, *compass*, *Richtung*, *Kompass*), biome (*Biom*),
+server (*server address*, *Serveradresse*), CPS (*clicks*, *Klicks*), clock (*time*, *Uhr*, *Uhrzeit*, *Zeit*), armor
+(*armour*, *Rüstung*), item durability (*durability*, *Haltbarkeit*), potion effects (*effects*, *potions*,
+*Effekte*), keystrokes (*keys*, *WASD*, *Tasten*), memory (*RAM*, *Speicher*, *Arbeitsspeicher*), CPU (*Prozessor*),
+entities (*entity count*, *Entitäten*), Minecraft version (*version*) and the frame time graph (*frame time graph*,
+only while its Vanta Lab feature is on).
+
+The steps, minimums and ranges are the same as for the model's actions: the chat never gets smaller than text size
+0.5 and width 0.25, crosshair numbers are kept in the customizer's ranges, and two widgets moved onto the same corner
+are stacked apart before the turn ends. When a command needs no change, the answer says so instead of changing
+anything: *FPS: already shown.*, *Ping: already hidden.*, or for the frame time graph while its Lab feature is off
+*Frame time graph: only offered while its Vanta Lab feature is on.*
+
 ## How the assistant works
+
+From client 1.6.0 on, a message the [instant commands](#commands-that-work-instantly) understand never reaches the
+model. Every other question goes this way:
 
 1. Every question is sent together with a **system prompt built from the live state of your client**: the HUD widget
    ids with their current visibility and position, the widget types that can be added, the crosshair (from client
@@ -282,7 +367,8 @@ screen reads it; delete it to start fresh.
 ## When the Local AI is not installed
 
 Opening Nexus while the Local AI is not installed shows the install card ([above](#1-ai-assistant)); every other
-section works without the Local AI. The first time the VANTA main menu is shown in a game session (and no other popup
+section works without the Local AI, and from client 1.6.0 on so do the
+[instant commands](#commands-that-work-instantly) in the assistant section. The first time the VANTA main menu is shown in a game session (and no other popup
 is open), client 1.4.0 also shows one dialog, *Vanta Nexus: Local AI is not installed. Open Nexus to install it.
 Nothing is downloaded until you click Install Local AI there*, with **Open Nexus** and **Not now**. Either choice is
 remembered per client version in `config/vanta/nexus-first-start.json`, so you see the dialog once per version. The
@@ -298,6 +384,11 @@ dialog downloads nothing. With *Settings → Vanta Nexus → Vanta Nexus assista
   anything outside the action list, and every value is clamped or rejected before it is applied.
 - The assistant does not answer general questions well and has no knowledge of the Minecraft world, your inventory or
   other players; it reads only the state listed under [How the assistant works](#how-the-assistant-works).
-- The CI game test runs the whole path end to end on a software renderer ("Only show FPS and coordinates" through
-  the real `llama-server` and model, with the HUD checked afterwards) when the Local AI is prepared for the run; that
-  checks the mechanism, not the quality of every answer.
+- The CI game test checks an instant command in the real game on every run ("make music off and the crosshair a
+  circle": answered within a second without the model, the music volume 0 and a circle crosshair, then Undo) and,
+  when the Local AI is prepared for the run, the whole model path end to end on a software renderer ("Hide everything
+  on the HUD except FPS and coordinates", which the instant commands leave to the model, through the real
+  `llama-server` and model, with the HUD checked afterwards). While it waits for the model the test lowers the game's
+  Max Framerate to 20 and lets the game render only a few frames per second, so the CI runner's four cores are not
+  spent drawing the menu; the request keeps its 90 s timeout. That checks the mechanism, not the quality of every
+  answer.
