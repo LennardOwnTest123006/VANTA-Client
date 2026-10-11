@@ -36,7 +36,8 @@ import net.minecraft.client.Minecraft;
  *       ({@link MinecraftGameBridge#alarmSoundsRequested()}) → {@code 70_timer_alarm};</li>
  *   <li>its Stop button (the core widget, the same code path as a mouse click) ends the alarm: the window closes back
  *       to the game, the timer is IDLE and no further alarm sound is requested;</li>
- *   <li>a second alarm is stopped with the Enter key through the game's real keyboard input, a third one with
+ *   <li>a second alarm, rung while the Timer screen is open, opens over it as its parent and is stopped with the Enter
+ *       key through the game's real keyboard input, which returns to the Timer screen; a third one is stopped with
  *       {@code /vanta timer stop}'s core path ({@link TimerCommand#execute}), after which the window closes itself;</li>
  *   <li>the Timer screen opens through the registry, its 10 minute preset starts a labelled timer → {@code 71_timer},
  *       the TIMER HUD widget shows it in the world → {@code 72_timer_hud}, and Cancel ends it.</li>
@@ -108,31 +109,45 @@ final class TimerStep {
             return true;
         });
         check(clicked, "timer: the alarm window disappeared before Stop was pressed");
-        check(awaitWall(context, DEADLINE_MS, client -> client.screen == null),
-                "timer: Stop did not close the alarm window back to the game (" + describe(context, timer) + ")");
+        check(awaitWall(context, DEADLINE_MS, client -> !isAlarm(client)),
+                "timer: Stop did not close the alarm window (" + describe(context, timer) + ")");
+        String backTo = context.computeOnClient(client -> client.screen == null ? "the game"
+                : client.screen.getClass().getSimpleName());
         check(context.computeOnClient(client -> timer.state()) == TimerState.IDLE,
                 "timer: after Stop the timer is " + context.computeOnClient(client -> timer.state()));
         int afterStop = sounds(context, services);
         awaitWall(context, QUIET_MS, client -> false);
         int later = sounds(context, services);
         check(later == afterStop, "timer: alarm sounds kept coming after Stop (" + afterStop + " -> " + later + ")");
-        step("timer: Stop closed the window, the timer is IDLE, no alarm sound in the " + QUIET_MS + " ms after ("
-                + (afterStop - soundsBefore) + " in total)");
+        step("timer: Stop closed the window back to " + backTo + ", the timer is IDLE, no alarm sound in the "
+                + QUIET_MS + " ms after (" + (afterStop - soundsBefore) + " in total)");
 
-        // 3. Enter through the real keyboard input stops a second alarm.
+        // 3. Over an open VANTA screen: Enter through the real keyboard input stops a second alarm and the window
+        //    returns to that screen (its parent).
+        context.setScreen(() -> VantaScreens.create(ScreenId.TIMER, null));
+        context.waitFor(client -> timerScreen(client) != null);
+        context.waitTicks(5);
         ring(context, timer, 1_000L, "");
+        boolean overTimer = context.computeOnClient(client -> client.screen instanceof VantaScreen vanta
+                && vanta.parent() instanceof VantaScreen parent && parent.screenId() == ScreenId.TIMER);
+        check(overTimer, "timer: the alarm window did not open over the Timer screen as its parent ("
+                + describe(context, timer) + ")");
         context.getInput().pressKey(InputConstants.KEY_RETURN);
-        check(awaitWall(context, DEADLINE_MS, client -> client.screen == null),
+        check(awaitWall(context, DEADLINE_MS, client -> !isAlarm(client)),
                 "timer: Enter did not close the alarm window (" + describe(context, timer) + ")");
         check(context.computeOnClient(client -> timer.state()) == TimerState.IDLE, "timer: Enter did not stop the alarm");
-        step("timer: Enter stopped a second alarm");
+        check(awaitWall(context, DEADLINE_MS, client -> timerScreen(client) != null),
+                "timer: after Enter the window did not return to the Timer screen (" + describe(context, timer) + ")");
+        step("timer: Enter stopped a second alarm opened over the Timer screen and returned to it");
+        context.setScreen(() -> null);
+        context.waitForScreen(null);
 
         // 4. /vanta timer stop (its core path) ends a third alarm; the window closes itself.
         ring(context, timer, 1_000L, "Command");
         TimerCommand.Reply reply = context.computeOnClient(client -> TimerCommand.execute("stop", timer,
                 TimerFormats.localZone()));
         check(reply.key().equals(TimerCommand.STOPPED), "timer: '/vanta timer stop' answered " + reply);
-        check(awaitWall(context, DEADLINE_MS, client -> client.screen == null),
+        check(awaitWall(context, DEADLINE_MS, client -> !isAlarm(client)),
                 "timer: the alarm window stayed open after the alarm was stopped another way");
         step("timer: /vanta timer stop ended a third alarm and the window closed itself");
 
