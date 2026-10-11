@@ -107,7 +107,7 @@ public final class NexusProfilesPanel extends NexusPanel implements ProfileCard.
         for (Profile profile : all) {
             boolean isActive = active.map(a -> a.id().equals(profile.id())).orElse(false);
             ProfileCard card = new ProfileCard(ProfileSummary.of(profile), isActive, deletable,
-                    name -> actions.validateName(name, profile.id()), services().clock().getZone(), now, this);
+                    name -> actions.validateName(name, profile.id()), services().timeZone(), now, this);
             cards.add(card);
             grid.add(card);
         }

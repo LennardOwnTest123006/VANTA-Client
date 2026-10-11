@@ -2,6 +2,10 @@ package dev.vanta.core.screen.stats;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import dev.vanta.core.time.DefaultZone;
+import dev.vanta.core.time.TimeZoneChoice;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 
@@ -48,5 +52,24 @@ class StatFormatsTest {
         assertEquals("yesterday", StatFormats.relative(T0 - 86_400_000L, T0, ZoneOffset.UTC));
         assertEquals("2 days ago", StatFormats.relative(T0 - 2 * 86_400_000L, T0, ZoneOffset.UTC));
         assertEquals("5 Aug 2026", StatFormats.relative(T0 - 60L * 86_400_000L, T0, ZoneOffset.UTC));
+    }
+
+    @Test
+    void timesOfDayUseTheChosenZoneInTwelveHourTime() {
+        long summer = Instant.parse("2026-07-15T06:00:00Z").toEpochMilli();
+        long winter = Instant.parse("2026-01-15T06:00:00Z").toEpochMilli();
+        ZoneId berlin = TimeZoneChoice.EUROPE_BERLIN.zone();
+        assertEquals("8:00 AM", StatFormats.time(summer, berlin));
+        assertEquals("7:00 AM", StatFormats.time(winter, berlin));
+        assertEquals("15 Jul 2026, 8:00 AM", StatFormats.dateTime(summer, berlin));
+        assertEquals("15 Jan 2026, 7:00 AM", StatFormats.dateTime(winter, berlin));
+        assertEquals("15 Jul 2026, 6:00 AM", StatFormats.dateTime(summer, TimeZoneChoice.UTC.zone()));
+        // Late evening UTC is already the next day in Berlin.
+        long late = Instant.parse("2026-10-04T23:30:00Z").toEpochMilli();
+        assertEquals("4 Oct 2026", StatFormats.date(late, ZoneOffset.UTC));
+        assertEquals("5 Oct 2026", StatFormats.date(late, berlin));
+        assertEquals("1:30 AM", StatFormats.time(late, berlin));
+        DefaultZone.with("Europe/Berlin", () ->
+                assertEquals("8:00 AM", StatFormats.time(summer, TimeZoneChoice.AUTO.zone())));
     }
 }

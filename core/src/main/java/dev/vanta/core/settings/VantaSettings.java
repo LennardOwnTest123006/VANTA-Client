@@ -9,6 +9,7 @@ import dev.vanta.core.cosmetics.MenuParticles;
 import dev.vanta.core.notifications.NotificationPosition;
 import dev.vanta.core.perf.FpsLimitPreset;
 import dev.vanta.core.perf.PerformancePreset;
+import dev.vanta.core.time.TimeZoneChoice;
 import dev.vanta.core.worlds.WorldsFolderMode;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -69,6 +70,14 @@ public final class VantaSettings {
     /** Id of the active UI theme (see {@code CosmeticsRegistry}). */
     public static final Setting<String> GENERAL_THEME_ID = add(Setting.string("general.themeId", GENERAL, "vanta-dark")
             .keywords("theme", "colors", "accent", "dark"));
+    /**
+     * Time zone of every time of day VANTA shows (HUD clock, statistics, profiles, timer). {@code auto}, the default,
+     * is this PC's zone; timestamps stay UTC, only the formatting changes. From client 1.6.0 on.
+     */
+    public static final Setting<TimeZoneChoice> GENERAL_TIME_ZONE = add(Setting.enumOf("general.timeZone", GENERAL,
+            TimeZoneChoice.class, TimeZoneChoice.AUTO).keywords("time zone", "timezone", "clock", "hud clock", "time",
+            "hour", "wrong time", "utc", "gmt", "daylight saving", "summer time", "am pm", "local time", "zeitzone",
+            "uhr", "uhrzeit"));
     // ---- general: worlds ---------------------------------------------------------------------------------------
     /**
      * Which saves folder Singleplayer lists (see {@code WorldsFolder}): the official Minecraft folder's worlds when it

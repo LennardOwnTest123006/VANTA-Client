@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TimeZone;
 
 /**
  * Command line entry point of the {@code previewScreens} Gradle task: renders every registered screen to
@@ -42,6 +43,9 @@ public final class PreviewMain {
     /** Renders previews and returns the written files. */
     public static List<Path> render(Path outDir, String only) throws IOException {
         System.setProperty("java.awt.headless", "true");
+        // Times of day follow this PC's zone by default (general.timeZone = auto); the previews pin UTC so the
+        // screenshots read the same on every machine.
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
         Files.createDirectories(outDir);
         List<Path> written = new ArrayList<>();
         List<String> failures = new ArrayList<>();

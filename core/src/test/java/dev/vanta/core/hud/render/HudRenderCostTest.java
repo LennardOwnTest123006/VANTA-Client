@@ -373,7 +373,8 @@ class HudRenderCostTest {
         assertTrue(maxFills <= 6_600, "screen fills per frame: " + maxFills);
         assertTrue(maxTexts <= 80, "screen texts per frame: " + maxTexts);
         // 1.3.0: the General category gained the "Singleplayer worlds" row (+16 widths at 480x270: 110 -> 126).
-        assertTrue(maxWidths <= 135, "screen width measurements per frame: " + maxWidths);
+        // 1.6.0: and the "Time zone" row (+13 widths at 480x270: 126 -> 139).
+        assertTrue(maxWidths <= 150, "screen width measurements per frame: " + maxWidths);
     }
 
     // ---- diagnostics: Mods & Shaders detail column at small windows ------------------------------------------------

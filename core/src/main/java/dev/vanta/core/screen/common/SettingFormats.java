@@ -2,6 +2,7 @@ package dev.vanta.core.screen.common;
 
 import dev.vanta.core.bridge.VanillaOption;
 import dev.vanta.core.i18n.Lang;
+import dev.vanta.core.i18n.LiveLabel;
 import dev.vanta.core.perf.FpsLimitPreset;
 import dev.vanta.core.settings.Setting;
 import dev.vanta.core.settings.SettingKind;
@@ -48,9 +49,15 @@ public final class SettingFormats {
         return formatVanta(setting, number);
     }
 
-    /** Translated label of an enum option. */
+    /**
+     * Translated label of an enum option. An option that is a {@link LiveLabel} is labelled for the moment it is
+     * shown (a time zone with its current UTC offset, such as {@code Berlin (UTC+2)}).
+     */
     @SuppressWarnings("unchecked")
     public static String optionLabel(Setting<?> setting, Object option) {
+        if (option instanceof LiveLabel live) {
+            return live.liveLabel();
+        }
         return Lang.tr(((Setting<Object>) setting).optionLangKey(option));
     }
 

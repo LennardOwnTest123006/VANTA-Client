@@ -53,11 +53,13 @@ import dev.vanta.core.settings.SettingsStore;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.stats.StatsStore;
 import dev.vanta.core.stats.StatsTracker;
+import dev.vanta.core.time.TimeZoneChoice;
 import dev.vanta.core.waypoints.NexusWaypointBridge;
 import dev.vanta.core.waypoints.WaypointStore;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -565,6 +567,15 @@ public final class VantaServices {
 
     public Clock clock() {
         return clock;
+    }
+
+    /**
+     * The time zone every VANTA time of day is formatted in (HUD clock, statistics, profiles, timer): the
+     * {@code general.timeZone} choice, by default {@link TimeZoneChoice#AUTO}, this PC's zone, read on every call.
+     * The {@link #clock()} stays UTC for timestamps; only the formatting uses this zone. From client 1.6.0 on.
+     */
+    public ZoneId timeZone() {
+        return settings.get(VantaSettings.GENERAL_TIME_ZONE).zone();
     }
 
     public VantaPaths paths() {

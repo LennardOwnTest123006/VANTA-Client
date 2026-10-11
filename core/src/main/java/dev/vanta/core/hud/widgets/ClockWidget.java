@@ -9,6 +9,10 @@ import dev.vanta.core.i18n.Lang;
  * System time or the in-game time of day, both in 12-hour time with AM/PM (optionally with seconds for the system
  * time), selected by the {@code format} property. A layout saved with the former 24-hour format is read as the system
  * time in AM/PM, because the property no longer offers that value and falls back to its default.
+ * <p>
+ * The system time is shown in the zone of {@code VantaServices.timeZone()}: the {@code general.timeZone} setting, by
+ * default this PC's time zone (from client 1.6.0 on; 1.5.0 and older showed UTC). The in-game time does not depend on
+ * any time zone.
  */
 public final class ClockWidget extends AbstractLineWidget {
 

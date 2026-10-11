@@ -31,7 +31,7 @@ public final class SessionTable extends UiNode {
 
     /**
      * @param sessions      newest first
-     * @param zone          time zone for dates
+     * @param zone          time zone for dates and times of day ({@code VantaServices.timeZone()})
      * @param namesRecorded false when both world and server names are turned off in the privacy settings
      */
     public SessionTable(List<SessionRecord> sessions, ZoneId zone, boolean namesRecorded) {
@@ -42,6 +42,16 @@ public final class SessionTable extends UiNode {
 
     public List<SessionRecord> sessions() {
         return sessions;
+    }
+
+    /** The time zone the date column is shown in. */
+    public ZoneId zone() {
+        return zone;
+    }
+
+    /** Text of the date column for a session: its start, {@code 4 Oct 2026, 1:30 PM}, in {@link #zone()}. */
+    public String dateText(SessionRecord session) {
+        return StatFormats.dateTime(session.startedAt(), zone);
     }
 
     /** Text of the "where" column for a session. */
@@ -94,7 +104,7 @@ public final class SessionTable extends UiNode {
                 canvas.fill(b.x() + 1, y, b.w() - 2, ROW_H, Colors.withAlpha(theme.surface2(), 0.5f));
             }
             int ty = y + (ROW_H - lh) / 2;
-            cell(canvas, theme, xs, 0, ty, StatFormats.dateTime(s.startedAt(), zone), theme.textPrimary());
+            cell(canvas, theme, xs, 0, ty, dateText(s), theme.textPrimary());
             cell(canvas, theme, xs, 1, ty, StatFormats.duration(s.playtimeMs()), theme.textSecondary());
             cell(canvas, theme, xs, 2, ty, StatFormats.fps(s.averageFps()), theme.textSecondary());
             String where = whereText(s);

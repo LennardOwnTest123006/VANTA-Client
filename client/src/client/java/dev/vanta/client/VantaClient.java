@@ -77,6 +77,8 @@ public final class VantaClient implements ClientModInitializer {
         VantaRuntime.prepareLocalAiNote(paths);
         MinecraftResourcePackBridge resourcePacks = new MinecraftResourcePackBridge();
         MinecraftScreenshotBridge screenshots = new MinecraftScreenshotBridge();
+        // The services clock is UTC: it stamps sessions, profiles and files. Times of day are formatted in
+        // VantaServices.timeZone() (this PC's zone unless the player picks another one), never in this clock's zone.
         VantaServices services = VantaServices.create(paths, new MinecraftGameBridge(), new MinecraftOptionsBridge(),
                 new MinecraftKeybindBridge(), resourcePacks, screenshots, new MinecraftClipboardBridge(),
                 Clock.systemUTC());

@@ -96,7 +96,7 @@ public final class StatisticsScreen extends ThemedScreen {
         StatsSummary summary = StatsSummary.of(store);
         StatsPrivacy privacy = services().stats().privacy();
         LiveStats live = services().stats().live();
-        ZoneId zone = services().clock().getZone();
+        ZoneId zone = services().timeZone();
 
         disabledBanner = new InfoBanner(InfoBanner.Tone.WARNING, Lang.tr("vanta.stats.disabled"),
                 Lang.tr("vanta.stats.disabled.body"));
@@ -305,7 +305,7 @@ public final class StatisticsScreen extends ThemedScreen {
     /** Writes {@code config/vanta/exports/vanta-statistics-<timestamp>.json} and copies the JSON to the clipboard. */
     public Optional<Path> exportJson() {
         long now = services().clock().millis();
-        String stamp = StatFormats.dateTime(now, services().clock().getZone()).replaceAll("[^0-9A-Za-z]+", "-");
+        String stamp = StatFormats.dateTime(now, services().timeZone()).replaceAll("[^0-9A-Za-z]+", "-");
         Path target = services().paths().root().resolve(EXPORTS_DIR).resolve("vanta-statistics-" + stamp + ".json");
         store.exportTo(target);
         String json = services().jsonStore().gson().toJson(store.toJson());

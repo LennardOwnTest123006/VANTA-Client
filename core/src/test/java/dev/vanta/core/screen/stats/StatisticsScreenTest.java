@@ -10,9 +10,12 @@ import dev.vanta.core.screen.ScreenId;
 import dev.vanta.core.screen.cosmetics.ServicesFixture;
 import dev.vanta.core.settings.VantaSettings;
 import dev.vanta.core.stats.SessionStats;
+import dev.vanta.core.time.DefaultZone;
+import dev.vanta.core.time.TimeZoneChoice;
 import dev.vanta.core.ui.TestCanvas;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,6 +71,28 @@ class StatisticsScreenTest {
         List<CurrentSessionCard.Fact> facts = screen.currentCard().facts();
         assertEquals(6, facts.size());
         assertEquals("Survival World", facts.get(5).value());
+    }
+
+    @Test
+    void sessionTimesUseThePlayersTimeZone() {
+        fx.recordSessions(1, 30, 120); // started 2026-10-04T11:30:00Z
+        fx.services.settings().set(VantaSettings.GENERAL_TIME_ZONE, TimeZoneChoice.EUROPE_BERLIN);
+        StatisticsScreen screen = fx.open(ScreenId.STATISTICS);
+        SessionTable table = screen.table().orElseThrow();
+        assertEquals(ZoneId.of("Europe/Berlin"), table.zone());
+        assertEquals("4 Oct 2026, 1:30 PM", table.dateText(table.sessions().get(0)), "Berlin summer time, UTC+2");
+
+        fx.services.settings().set(VantaSettings.GENERAL_TIME_ZONE, TimeZoneChoice.UTC);
+        screen.rebuild();
+        table = screen.table().orElseThrow();
+        assertEquals("4 Oct 2026, 11:30 AM", table.dateText(table.sessions().get(0)));
+
+        fx.services.settings().set(VantaSettings.GENERAL_TIME_ZONE, TimeZoneChoice.AUTO);
+        DefaultZone.with("Asia/Tokyo", () -> {
+            screen.rebuild();
+            SessionTable local = screen.table().orElseThrow();
+            assertEquals("4 Oct 2026, 8:30 PM", local.dateText(local.sessions().get(0)), "this PC's zone");
+        });
     }
 
     @Test
