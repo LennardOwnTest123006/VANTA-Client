@@ -8,6 +8,7 @@ import dev.vanta.client.keys.VantaKeyMappings;
 import dev.vanta.client.lab.LabInputs;
 import dev.vanta.client.render.GuiGraphicsCanvas;
 import dev.vanta.client.screen.ThemeFactory;
+import dev.vanta.client.screen.TimerAlarmOpener;
 import dev.vanta.client.zoom.ZoomController;
 import dev.vanta.core.ai.LocalAiPaths;
 import dev.vanta.core.config.VantaPaths;
@@ -78,6 +79,9 @@ public final class VantaRuntime {
         this.theme = ThemeFactory.build(services);
         services.accessibility().listen(state -> refreshTheme());
         services.cosmetics().onSelectionChanged(selection -> refreshTheme());
+        // The timer's "Time is up" window: opened over the current screen (its parent) while the alarm rings and the
+        // window is not showing; the services tick asks again every tick, so it comes back after a loading screen.
+        services.timer().setAlarmWindow(new TimerAlarmOpener());
     }
 
     /** Publishes the runtime for mixins and HUD elements. */

@@ -66,6 +66,7 @@ public final class GameEvents {
             case VantaKeys.HUD_EDITOR -> VantaScreens.open(ScreenId.HUD_EDITOR, null);
             case VantaKeys.PERFORMANCE -> VantaScreens.open(ScreenId.PERFORMANCE, null);
             case VantaKeys.OPEN_NEXUS -> VantaScreens.open(ScreenId.NEXUS, null);
+            case VantaKeys.OPEN_TIMER -> VantaScreens.open(ScreenId.TIMER, null);
             case VantaKeys.SCREENSHOT_HUD_FREE -> runtime.services().runAction(ActionEntry.SCREENSHOT_HUD_FREE);
             default -> {
                 // The zoom key is read while held (see ZoomController), not on click.

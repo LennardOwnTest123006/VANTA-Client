@@ -1,5 +1,6 @@
 package dev.vanta.client.bridge;
 
+import dev.vanta.client.VantaClient;
 import dev.vanta.client.screen.VanillaScreenOpener;
 import dev.vanta.core.VantaVersion;
 import dev.vanta.core.bridge.EffectInfo;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
@@ -47,6 +49,9 @@ public final class MinecraftGameBridge implements GameBridge {
     private final String fabricLoaderVersion;
     /** {@code GL_RENDERER}, read once at CLIENT_STARTED by {@link #captureGpuRenderer()}. */
     private volatile String gpuRenderer;
+    /** Alarm sounds the timer asked for since the start (the client game test reads it). */
+    private final AtomicInteger alarmSoundsRequested = new AtomicInteger();
+    private volatile boolean alarmSoundFailureLogged;
 
     public MinecraftGameBridge() {
         this.fabricLoaderVersion = FabricLoader.getInstance().getModContainer("fabricloader")
@@ -413,6 +418,32 @@ public final class MinecraftGameBridge implements GameBridge {
         if (minecraft != null) {
             minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
         }
+    }
+
+    /**
+     * The timer's alarm: the note block bell, played as an interface sound exactly the way {@link #playUiSound()}
+     * plays its click (not positioned in the world, so it is heard in menus and without a world too). Counted before
+     * it is played, and never throws: without a sound device (CI) or before the sound manager exists it is skipped.
+     */
+    @Override
+    public void playAlarmSound() {
+        alarmSoundsRequested.incrementAndGet();
+        try {
+            Minecraft minecraft = minecraft();
+            if (minecraft != null && minecraft.getSoundManager() != null) {
+                minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_BELL, 1.0F));
+            }
+        } catch (RuntimeException e) {
+            if (!alarmSoundFailureLogged) {
+                alarmSoundFailureLogged = true;
+                VantaClient.LOGGER.warn("The timer's alarm sound could not be played", e);
+            }
+        }
+    }
+
+    /** Alarm sounds the timer requested since the game started (client game test). */
+    public int alarmSoundsRequested() {
+        return alarmSoundsRequested.get();
     }
 
     @Override

@@ -70,9 +70,11 @@ with no cloud AI, no API key, no account and no telemetry ([Privacy](privacy.md)
   settings, verify / reinstall / remove, unsupported systems, licences
 - [Waypoints](waypoints.md): the waypoint store and per-world keys, screen markers and their settings, the beams of
   Vanta Lab, the Waypoints section of Nexus, the assistant's waypoint actions
+- [Timer](timer.md): from client 1.6.0 on, a countdown with presets or your own time, pause and cancel, the *Time is
+  up* window and its bell, the Timer HUD widget, the Open timer key, the search entry and `/vanta timer`
 - [Settings](settings.md): categories (including Vanta Nexus, Waypoints and Vanta Lab), search, reset, tooltips,
   keyboard navigation, `settings.json`
-- [HUD and crosshair](hud.md): every widget (including the frame time graph of Vanta Lab), the HUD editor, presets,
+- [HUD and crosshair](hud.md): every widget (including the frame time graph of Vanta Lab and the Timer), the HUD editor, presets,
   the HUD Designer of Nexus and its six presets, keyboard shortcuts, the crosshair customizer
 - [Profiles](profiles.md): the seven built-in profiles, create, duplicate, export and import safely, the assistant's
   profile actions
@@ -81,7 +83,7 @@ with no cloud AI, no API key, no account and no telemetry ([Privacy](privacy.md)
   pack, honest limits
 - [Mods & Shaders](mods-and-shaders.md): mods, shader packs and resource packs from Modrinth in game and in the
   launcher, the Performance pack, Iris shaders, disabling and removing, restart, what is sent to Modrinth
-- [Keybinds](keybinds.md): VANTA keys, rebinding, conflict detection, zoom
+- [Keybinds](keybinds.md): VANTA keys (including Open timer), rebinding, conflict detection, zoom
 - [Cosmetics](cosmetics.md): UI themes, menu backgrounds, HUD themes, particles, badges, cosmetic packs
 - [Statistics and privacy](statistics-and-privacy.md): what is recorded, where, how to disable, export or delete it
 - [Accessibility](accessibility.md): UI scale, reduced motion, high contrast, larger text, colour-blind palettes,

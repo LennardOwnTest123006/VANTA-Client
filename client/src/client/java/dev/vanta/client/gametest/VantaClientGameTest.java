@@ -80,7 +80,9 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *       {@code NexusActions} path and its Undo; the Recording profile and back; a waypoint added through the store
  *       under the bridge's world key, drawn by the marker element → {@code 60_waypoint_marker} and, with the Lab
  *       feature on, as a beam → {@code 61_waypoint_beam}, then removed; every Lab toggle and the
- *       {@code LabEffects} curves);</li>
+ *       {@code LabEffects} curves); then the timer ({@link TimerStep}: a 2 s timer opens the "Time is up" window
+ *       with its bell → {@code 70_timer_alarm}, Stop, Enter and {@code /vanta timer stop} end three alarms, the
+ *       Timer screen's preset → {@code 71_timer} and the TIMER HUD widget → {@code 72_timer_hud});</li>
  *   <li>with a world on disk, Singleplayer opens the world list → Escape, and → Back, both back on the VANTA menu;</li>
  *   <li>the Local AI ({@link LocalAiStep}), only when {@code VANTA_LOCAL_AI_DIR} names the prepared install: status
  *       INSTALLED (launcher-managed), {@code llama-server} started and READY within 5 minutes, "Only show FPS and
@@ -107,6 +109,11 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *       {@code nexus: marker drawn (...)}, {@code nexus: waypoint beam drawn}, {@code nexus: waypoint removed, no
  *       marker drawn}, {@code nexus: every Lab toggle flips its setting and back (5 features)},
  *       {@code nexus: LabEffects curves (...)}, {@code nexus: first-start notice decision checked (...)};</li>
+ *   <li>{@code timer: a 2 s timer rang after N ms; window "Time is up / Game test / Ended at ..." ...},
+ *       {@code timer: Stop closed the window, the timer is IDLE, ...}, {@code timer: Enter stopped a second alarm},
+ *       {@code timer: /vanta timer stop ended a third alarm ...}, {@code timer: the Timer screen started a 10 min
+ *       preset (...)}, {@code timer: the TIMER widget shows ... on the HUD}, {@code timer: Cancel ended the timer
+ *       ...};</li>
  *   <li>{@code local ai: VANTA_LOCAL_AI_DIR is not set, the Local AI step is skipped} without the variable;
  *       with it {@code local ai: VANTA_LOCAL_AI_DIR=... status INSTALLED (...)}, {@code local ai: status STARTING},
  *       {@code local ai: status READY}, {@code local ai: READY after N s on 127.0.0.1:PORT (...)},
@@ -437,6 +444,9 @@ public final class VantaClientGameTest implements FabricClientGameTest {
             // Vanta Nexus: sections and their controls at the small window, the assistant's HUD preset path, a
             // profile switch, a waypoint with its marker and beam, the Lab toggles and curves.
             NexusStep.run(context, services, findings);
+            // The timer (from client 1.6.0 on): a 2 s timer rings, the alarm window and its bell, Stop, Enter,
+            // /vanta timer stop, the Timer screen and the TIMER HUD widget.
+            TimerStep.run(context, services);
         }
     }
 
