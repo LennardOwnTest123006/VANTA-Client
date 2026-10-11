@@ -1,0 +1,15 @@
+---
+product: launcher
+version: 1.6.0
+date: 2026-10-11
+title: VANTA Launcher 1.6.0
+minecraftVersion: 1.21.11
+---
+
+VANTA Launcher 1.6.0 is released together with VANTA Client 1.6.0 so both keep the same version number. Installing, PLAY, the Local AI, the Logs page and the updater work as in 1.5.0.
+
+- Installs and offers VANTA Client 1.6.0, the release with the clock in your own time zone, the timer and the improved Nexus assistant
+
+## Notes
+
+- Launchers from 1.0.1 on see the update by themselves and offer the file that matches how they were installed; on Windows that is `VANTA-Launcher-1.6.0.msi`

@@ -21,6 +21,7 @@ import {
   Zap,
   ZoomIn,
   Layers,
+  AlarmClock,
 } from 'lucide-react';
 import { formatBytes } from '../lib/format';
 import {
@@ -63,7 +64,7 @@ export const featureHighlights: readonly FeatureHighlight[] = [
     title: 'Vanta Nexus',
     icon: Bot,
     summary:
-      'New in 1.4.0: one screen for the assistant, HUD Designer, profiles, performance, waypoints and Vanta Lab. The assistant runs on your own PC and changes only your client, when you ask. No cloud, no account.',
+      'One screen for the assistant, HUD Designer, profiles, performance, waypoints and Vanta Lab. The assistant runs on your own PC and changes only your client, when you ask. From 1.6.0 it also handles sound, chat size, crosshair and a tidy HUD, and runs everyday commands instantly. No cloud, no account.',
   },
   {
     id: 'performance',
@@ -287,6 +288,7 @@ export const featureFamilies: readonly FeatureFamily[] = [
     description:
       'One screen for the assistant, the HUD Designer, profiles, performance, waypoints, Vanta Lab and its own settings. Open it with N, the Vanta Nexus button on the main menu, the command palette or /vanta nexus.',
     bullets: [
+      'New in 1.6.0: ask for sound ("music off", "volume 50 %"), a smaller chat, another crosshair ("make it a red circle") or a tidy HUD ("sort the HUD", no more elements on the same spot); everyday English and German commands are applied instantly without the Local AI, with receipts and Undo',
       'Seven sections in one window: AI Assistant, HUD Designer, Profiles, Performance, Waypoints, Vanta Lab and Settings; every button stays reachable in a small window, like on every VANTA screen',
       'The assistant changes your own client when you ask, in plain English: HUD layout (show, hide, move, scale, opacity, presets, saved layouts), settings of the Video, HUD, Performance and Accessibility categories, profiles (switch, or create one from the current state), performance presets and Smart Boost, waypoints (add at your position, remove, enable or disable) and Vanta Lab features',
       'Every action is checked against what really exists before it runs. What was not applied is listed with the reason, and Undo takes back the last assistant change (the last 20 turns are kept)',
@@ -559,6 +561,21 @@ export const featureFamilies: readonly FeatureFamily[] = [
       'Worlds and servers you joined; each list can be switched off separately',
       'Pause tracking, reset or delete the data at any time from the Privacy settings',
       'Nothing is uploaded: there is no account and no telemetry',
+    ],
+  },
+  {
+    id: 'timer',
+    title: 'Timer',
+    icon: AlarmClock,
+    eyebrow: 'New in 1.6.0',
+    description:
+      'A countdown inside the game. When the time is up, a window opens over whatever you are doing and a bell rings until you click Stop.',
+    bullets: [
+      'Presets of 1, 5, 10, 15, 30 and 60 minutes, or your own minutes and seconds up to 24 hours, with an optional label',
+      'Pause, resume and cancel; it counts in real time, also in menus, in the pause menu and with the game in the background',
+      'The Time is up window shows the label and when the time was up in your own time zone; Stop (or Enter or Escape) ends the ringing and closes it',
+      'Open it from the command palette (Open timer), the Open timer key, or type /vanta timer 10 in chat; /vanta timer stop stops it. A Timer HUD widget shows the time left',
+      'Kept in memory only: a running timer does not survive closing the game',
     ],
   },
   {

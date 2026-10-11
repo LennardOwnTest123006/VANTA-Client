@@ -1,6 +1,6 @@
 ---
 title: Timer
-description: The countdown timer of client 1.6.0: presets and your own durations, pause and cancel, the Time is up window and its bell, the Timer HUD widget, the Open timer key, the search entry and the /vanta timer chat command.
+description: The timer of client 1.6.0: presets or your own time, pause and cancel, the ringing Time is up window with Stop, the HUD widget, the Open timer key and the /vanta timer command.
 order: 33
 category: Client
 ---

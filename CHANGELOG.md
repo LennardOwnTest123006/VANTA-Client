@@ -10,6 +10,36 @@ Machine-readable release notes live in `website/content/changelog/` and are rend
 
 No changes yet.
 
+## [Client 1.6.0] - 2026-10-11
+
+### Fixed
+- **The HUD clock showed UTC**: the services clock is `Clock.systemUTC()` and the HUD formatted its time of day in that
+  zone, so a player in Germany saw `6:00 AM` at `8:00 AM`. All times of day (HUD clock, Statistics sessions and export
+  name, profile cards, Smart Boost date, timer) now use `VantaServices.timeZone()`: the PC's zone, read on every use, or
+  the zone chosen in the new setting `general.timeZone` (*Automatic (this PC)* or one of 54 zones with their current
+  offset). New `dev.vanta.core.time` (`TimeOfDay`, `TimeZoneChoice`); game test step `ClockStep`.
+- **"Sort the GUIs" stacked everything on one spot**: new action `hud.arrange` (`HudArranger`) packs the visible
+  widgets in columns without overlap; after every assistant turn `finishTurn` stacks apart widgets that `hud.set` or
+  `hud.only` moved, showed or resized onto each other (receipt `hud.resolve`).
+- Music, volume, chat and crosshair requests were rejected: the Audio category is allowed for `setting.set`; new chat
+  settings `accessibility.chatScale`, `chatWidth`, `chatHeightFocused`, `chatHeightUnfocused`, `chatLineSpacing`;
+  relative steps (`"-0.2"`, `"-20 %"`); new action `crosshair.set`.
+
+### Added
+- **Timer** (`dev.vanta.core.timer`, screens *Timer* and *Time is up*, HUD widget `TIMER`, key *Open timer*, action
+  *Open timer*, `/vanta timer [minutes|m:ss] [label]` and `/vanta timer stop`): presets 1, 5, 10, 15, 30, 60 minutes or
+  a custom duration up to 24 hours; real time, also in menus; the alarm window opens over any screen and a bell
+  (`GameBridge.playAlarmSound`) rings every second until **Stop**. A running timer is not kept across restarts.
+- **Instant commands** (`NexusCommands`): a rule-based parser for English and German everyday requests (music and
+  volume, crosshair, chat size, removing, showing, arranging and moving HUD elements) applied through `NexusActions`
+  with receipts and Undo in well under a second, without starting the Local AI; other requests still go to the model.
+  Game test step `LocalAiStep` checks one instant command in the real game.
+
+## [Launcher 1.6.0] - 2026-10-11
+
+### Changed
+- Version aligned with VANTA Client 1.6.0; no functional change.
+
 ## [Client 1.5.0] - 2026-10-10
 
 ### Fixed

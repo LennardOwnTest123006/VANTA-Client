@@ -1,6 +1,6 @@
 ---
 title: Vanta Nexus
-description: Vanta Nexus (client 1.4.0, more actions and instant commands from 1.6.0): its seven sections, how the strictly local assistant works, the everyday commands it applies at once without the Local AI, what it can and cannot do (sound, chat size, crosshair and a tidy HUD from client 1.6.0 on), actions with examples, undo, the transcript file, the N key and the palette entry.
+description: Vanta Nexus: the strictly local assistant, instant commands without the Local AI, what it can change (HUD, sound, chat, crosshair, profiles, waypoints), undo, the transcript and the N key.
 order: 29
 category: Client
 ---
