@@ -119,10 +119,11 @@ final class LocalAiStep {
     /** Ticks to wait for the server to stop. */
     static final int STOP_TIMEOUT_TICKS = 600;
     /**
-     * The question of the end-to-end check: what "Only show FPS and coordinates" asks, in words the instant commands
-     * do not understand ("everything", "except"), so it really goes to llama-server.
+     * The question of the end-to-end check: the 1.5.0 question "Only show FPS and coordinates" (one of the prompt's
+     * examples) with words the instant commands do not understand ("nothing else"), so it really goes to
+     * llama-server.
      */
-    static final String QUESTION = "Hide everything on the HUD except FPS and coordinates";
+    static final String QUESTION = "Only show FPS and coordinates, nothing else";
     /** Visible widgets the question must leave. */
     static final Set<HudWidgetType> EXPECTED = EnumSet.of(HudWidgetType.FPS, HudWidgetType.COORDINATES);
     private static final int BUFFER = 64 * 1024;

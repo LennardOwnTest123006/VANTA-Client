@@ -85,8 +85,8 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *   <li>the Local AI ({@link LocalAiStep}): always the instant command "make music off and the crosshair a circle"
  *       answered within a second without the model (music 0, circle crosshair, Undo restores both); then, only when
  *       {@code VANTA_LOCAL_AI_DIR} names the prepared install: status INSTALLED (launcher-managed),
- *       {@code llama-server} started and READY within 5 minutes, "Hide everything on the HUD except FPS and
- *       coordinates" (not an instant command) answered by the model within its 90 s request timeout while the game
+ *       {@code llama-server} started and READY within 5 minutes, "Only show FPS and coordinates, nothing else"
+ *       (not an instant command) answered by the model within its 90 s request timeout while the game
  *       renders little (Max Framerate 20, the test thread sleeping between ticks) and the HUD reduced to exactly those
  *       two widgets, the runtime stopped with its port closed, and the installer run against a loopback HTTP server
  *       into a temporary folder (download, verify, extract, {@code installed.json}, executable bit, quick check,

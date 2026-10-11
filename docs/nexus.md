@@ -386,8 +386,8 @@ dialog downloads nothing. With *Settings → Vanta Nexus → Vanta Nexus assista
   other players; it reads only the state listed under [How the assistant works](#how-the-assistant-works).
 - The CI game test checks an instant command in the real game on every run ("make music off and the crosshair a
   circle": answered within a second without the model, the music volume 0 and a circle crosshair, then Undo) and,
-  when the Local AI is prepared for the run, the whole model path end to end on a software renderer ("Hide everything
-  on the HUD except FPS and coordinates", which the instant commands leave to the model, through the real
+  when the Local AI is prepared for the run, the whole model path end to end on a software renderer ("Only show FPS
+  and coordinates, nothing else", which the instant commands leave to the model, through the real
   `llama-server` and model, with the HUD checked afterwards). While it waits for the model the test lowers the game's
   Max Framerate to 20 and lets the game render only a few frames per second, so the CI runner's four cores are not
   spent drawing the menu; the request keeps its 90 s timeout. That checks the mechanism, not the quality of every
