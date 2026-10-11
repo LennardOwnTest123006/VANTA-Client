@@ -82,11 +82,15 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *       feature on, as a beam → {@code 61_waypoint_beam}, then removed; every Lab toggle and the
  *       {@code LabEffects} curves);</li>
  *   <li>with a world on disk, Singleplayer opens the world list → Escape, and → Back, both back on the VANTA menu;</li>
- *   <li>the Local AI ({@link LocalAiStep}), only when {@code VANTA_LOCAL_AI_DIR} names the prepared install: status
- *       INSTALLED (launcher-managed), {@code llama-server} started and READY within 5 minutes, "Only show FPS and
- *       coordinates" answered within 4 minutes and the HUD reduced to exactly those two widgets, the runtime stopped
- *       with its port closed, and the installer run against a loopback HTTP server into a temporary folder
- *       (download, verify, extract, {@code installed.json}, executable bit, quick check, remove);</li>
+ *   <li>the Local AI ({@link LocalAiStep}): always the instant command "make music off and the crosshair a circle"
+ *       answered within a second without the model (music 0, circle crosshair, Undo restores both); then, only when
+ *       {@code VANTA_LOCAL_AI_DIR} names the prepared install: status INSTALLED (launcher-managed),
+ *       {@code llama-server} started and READY within 5 minutes, "Hide everything on the HUD except FPS and
+ *       coordinates" (not an instant command) answered by the model within its 90 s request timeout while the game
+ *       renders little (Max Framerate 20, the test thread sleeping between ticks) and the HUD reduced to exactly those
+ *       two widgets, the runtime stopped with its port closed, and the installer run against a loopback HTTP server
+ *       into a temporary folder (download, verify, extract, {@code installed.json}, executable bit, quick check,
+ *       remove);</li>
  *   <li>the click reproduction again without a world → {@code 40_mods_*};</li>
  *   <li>the test ends on the vanilla title screen as the Fabric runner requires;</li>
  *   <li>finally every collected finding (clicks without effect, unreachable Nexus controls, a HUD render average
@@ -107,9 +111,13 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *       {@code nexus: marker drawn (...)}, {@code nexus: waypoint beam drawn}, {@code nexus: waypoint removed, no
  *       marker drawn}, {@code nexus: every Lab toggle flips its setting and back (5 features)},
  *       {@code nexus: LabEffects curves (...)}, {@code nexus: first-start notice decision checked (...)};</li>
- *   <li>{@code local ai: VANTA_LOCAL_AI_DIR is not set, the Local AI step is skipped} without the variable;
+ *   <li>{@code local ai: instant command '...' answered in N ms without the model: ...},
+ *       {@code local ai: Undo restored music 0.6 and the CROSS crosshair};
+ *       {@code local ai: VANTA_LOCAL_AI_DIR is not set, the Local AI step is skipped} without the variable;
  *       with it {@code local ai: VANTA_LOCAL_AI_DIR=... status INSTALLED (...)}, {@code local ai: status STARTING},
  *       {@code local ai: status READY}, {@code local ai: READY after N s on 127.0.0.1:PORT (...)},
+ *       {@code local ai: Max Framerate N -> 20 while the model answers; ...},
+ *       {@code local ai: waited N s over N game ticks; Max Framerate back at N},
  *       {@code local ai: reply after N s: message="..." applied=[...] rejected=[...] error=none ...},
  *       {@code local ai: the HUD shows exactly [FPS, COORDINATES] (...)}, {@code local ai: runtime stopped, ...},
  *       {@code local ai: mirror on http://127.0.0.1:PORT/ serving ...}, {@code local ai: installer step
@@ -193,8 +201,9 @@ public final class VantaClientGameTest implements FabricClientGameTest {
         inWorld(context, services, findings);
         backPathsWithAWorld(context);
         WorldsFolderStep.run(context);
-        // The Local AI end to end (only with VANTA_LOCAL_AI_DIR; logs that it is skipped otherwise), in the menu so
-        // llama-server does not compete with the world renderer for the CI runner's cores.
+        // The instant command (always), then the Local AI end to end (only with VANTA_LOCAL_AI_DIR; logs that it is
+        // skipped otherwise), in the menu so llama-server does not compete with the world renderer for the CI runner's
+        // cores; while the model answers the step also keeps the menu from rendering back to back.
         LocalAiStep.run(context, services);
         // Without a world, last: the findings are collected and judged once at the end.
         ModsClickReproduction.run(context, services, "menu", 40, findings);

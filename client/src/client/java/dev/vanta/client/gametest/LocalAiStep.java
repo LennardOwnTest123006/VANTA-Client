@@ -10,7 +10,9 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import dev.vanta.client.VantaRuntime;
 import dev.vanta.core.VantaVersion;
+import dev.vanta.core.ai.ChatBackend;
 import dev.vanta.core.ai.InstallStep;
+import dev.vanta.core.ai.LocalAiClient;
 import dev.vanta.core.ai.LocalAiException;
 import dev.vanta.core.ai.LocalAiInstalled;
 import dev.vanta.core.ai.LocalAiInstaller;
@@ -22,6 +24,10 @@ import dev.vanta.core.ai.LocalAiStatus;
 import dev.vanta.core.ai.NexusReply;
 import dev.vanta.core.ai.NexusTranscript;
 import dev.vanta.core.ai.Platform;
+import dev.vanta.core.bridge.OptionsBridge;
+import dev.vanta.core.bridge.VanillaOption;
+import dev.vanta.core.crosshair.CrosshairShape;
+import dev.vanta.core.crosshair.CrosshairStyle;
 import dev.vanta.core.hud.HudWidgetType;
 import dev.vanta.core.release.Sha256;
 import dev.vanta.core.screen.VantaServices;
@@ -44,26 +50,44 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
 
 /**
- * The Local AI end to end in the real game. Runs only when {@value VantaRuntime#LOCAL_AI_DIR_ENV} names a prepared
- * install (CI prepares it from the committed manifest and the client wrote the launcher note from it at start-up);
- * without the variable the step logs that it is skipped.
+ * The Local AI end to end in the real game (runs in the VANTA main menu, without a world).
+ * <p>
+ * First, always (from client 1.6.0 on), the instant command {@value #INSTANT_COMMAND} goes through the assistant
+ * ({@code NexusAssistant.ask}, the path the Nexus chat uses): it must be answered before the call returns, within
+ * {@value #INSTANT_LIMIT_MS} ms, by the instant commands and not the model (a counting backend sees no request and the
+ * Local AI status does not move); afterwards the vanilla music volume is 0 and the crosshair a circle, and Undo puts
+ * both back.
+ * <p>
+ * The rest runs only when {@value VantaRuntime#LOCAL_AI_DIR_ENV} names a prepared install (CI prepares it from the
+ * committed manifest and the client wrote the launcher note from it at start-up); without the variable the step logs
+ * that it is skipped.
  * <ol>
  *   <li>the service reports {@link LocalAiStatus#INSTALLED} for that directory, launcher-managed (read-only);</li>
  *   <li>{@code llama-server} is started through {@code LocalAiService.start()}; every status change is logged; the
  *       step waits up to {@value #READY_TIMEOUT_TICKS} ticks (5 minutes) for {@link LocalAiStatus#READY};</li>
- *   <li>several HUD widgets are made visible, then "Only show FPS and coordinates" is sent through the assistant
- *       ({@code NexusAssistant.ask}, the same path the Nexus chat uses) with a {@value #ANSWER_TIMEOUT_TICKS} tick
- *       (4 minute) timeout; the reply (message, applied and rejected actions, the transcript entry) is logged; the
- *       reply must carry at least one applied action and afterwards exactly FPS and coordinates may be visible,
- *       whatever action sequence the model chose;</li>
+ *   <li>several HUD widgets are made visible, then {@value #QUESTION}, which the instant commands do not understand,
+ *       is sent through the assistant; the reply (message, applied and rejected actions, the transcript entry) is
+ *       logged; the reply must come from the model, carry at least one applied action, and afterwards exactly FPS and
+ *       coordinates may be visible, whatever action sequence the model chose. The request keeps its own
+ *       {@code LocalAiClient.DEFAULT_TIMEOUT} (90 s); the step waits at most {@value #ANSWER_WAIT_MS} ms of real time,
+ *       so a model that does not answer in time still fails the step with the timeout error. While it waits, the
+ *       CI runner's cores go to the model instead of the software renderer: the game's Max Framerate is lowered to
+ *       {@value #WAIT_FRAMERATE} and put back afterwards, and the test thread sleeps {@value #QUIET_POLL_MS} ms
+ *       between single game ticks (the client game test runs the game in lock-step with the test thread, so the game
+ *       renders no frame while the test thread sleeps). The 1.5.0 Performance-pack job failed here because the menu
+ *       was rendered back to back in software on 4 cores next to the model; there is no world to pause in the menu;</li>
  *   <li>the runtime is stopped; its port must no longer accept connections;</li>
  *   <li>the installer runs against a local {@code com.sun.net.httpserver.HttpServer} on 127.0.0.1 serving the
  *       prepared model file and a tiny archive (zip or tar.gz as the platform's manifest entry says) built here around
@@ -77,14 +101,28 @@ import net.fabricmc.loader.api.FabricLoader;
 final class LocalAiStep {
     /** Ticks to wait for READY (5 minutes). */
     static final int READY_TIMEOUT_TICKS = 6_000;
-    /** Ticks to wait for the assistant's answer (4 minutes). */
-    static final int ANSWER_TIMEOUT_TICKS = 4_800;
+    /**
+     * Real time to wait for the assistant's answer: the request's own timeout ({@code LocalAiClient.DEFAULT_TIMEOUT},
+     * 90 s) plus a margin, so the request's timeout, not this wait, ends a turn the model does not answer.
+     */
+    static final long ANSWER_WAIT_MS = 120_000;
+    /** Max Framerate while the step waits for the model (the game's own value is put back afterwards). */
+    static final int WAIT_FRAMERATE = 20;
+    /** Real time the test thread sleeps between two game ticks while it waits for the model. */
+    static final long QUIET_POLL_MS = 250;
+    /** The instant command of the fast check (from client 1.6.0 on). */
+    static final String INSTANT_COMMAND = "make music off and the crosshair a circle";
+    /** Longest time the instant command may take, measured around the call on the render thread. */
+    static final long INSTANT_LIMIT_MS = 1_000;
     /** Ticks to wait for the local install (5 minutes; the model is copied from loopback and hashed twice). */
     static final int INSTALL_TIMEOUT_TICKS = 6_000;
     /** Ticks to wait for the server to stop. */
     static final int STOP_TIMEOUT_TICKS = 600;
-    /** The question of the end-to-end check. */
-    static final String QUESTION = "Only show FPS and coordinates";
+    /**
+     * The question of the end-to-end check: what "Only show FPS and coordinates" asks, in words the instant commands
+     * do not understand ("everything", "except"), so it really goes to llama-server.
+     */
+    static final String QUESTION = "Hide everything on the HUD except FPS and coordinates";
     /** Visible widgets the question must leave. */
     static final Set<HudWidgetType> EXPECTED = EnumSet.of(HudWidgetType.FPS, HudWidgetType.COORDINATES);
     private static final int BUFFER = 64 * 1024;
@@ -93,6 +131,7 @@ final class LocalAiStep {
     }
 
     static void run(ClientGameTestContext context, VantaServices services) {
+        instantCommand(context, services);
         String value = System.getenv(VantaRuntime.LOCAL_AI_DIR_ENV);
         if (value == null || value.isBlank()) {
             step("local ai: " + VantaRuntime.LOCAL_AI_DIR_ENV + " is not set, the Local AI step is skipped");
@@ -155,11 +194,33 @@ final class LocalAiStep {
         check(before.size() > EXPECTED.size(), "the HUD should show more than " + EXPECTED + " before the question, "
                 + "but shows " + before);
 
+        boolean parsed = context.computeOnClient(client -> services.nexus().commands().parse(QUESTION).understood());
+        check(!parsed, "'" + QUESTION + "' is understood by the instant commands, so it would not test the model");
+
         AtomicReference<NexusReply> reply = new AtomicReference<>();
         long askedAt = System.currentTimeMillis();
-        context.runOnClient(client -> services.nexus().ask(QUESTION, reply::set));
-        boolean answered = pollFor(context, client -> reply.get() != null, ANSWER_TIMEOUT_TICKS);
-        check(answered, "no answer to '" + QUESTION + "' within " + ANSWER_TIMEOUT_TICKS + " ticks; status "
+        OptionsBridge options = services.settings().optionsBridge().orElseThrow();
+        Object framerate = context.computeOnClient(client -> options.get(VanillaOption.FRAMERATE_LIMIT).orElse(null));
+        boolean answered;
+        int[] ticks = {0};
+        try {
+            boolean lowered = context.computeOnClient(client -> options.set(VanillaOption.FRAMERATE_LIMIT,
+                    WAIT_FRAMERATE));
+            step("local ai: Max Framerate " + framerate + " -> " + (lowered ? WAIT_FRAMERATE : "unchanged (refused)")
+                    + " while the model answers; the test thread sleeps " + QUIET_POLL_MS + " ms between ticks");
+            context.runOnClient(client -> services.nexus().ask(QUESTION, reply::set));
+            answered = waitQuietly(context, client -> reply.get() != null, ANSWER_WAIT_MS, ticks);
+        } finally {
+            if (framerate != null) {
+                context.runOnClient(client -> options.set(VanillaOption.FRAMERATE_LIMIT, framerate));
+            }
+        }
+        Object restored = context.computeOnClient(client -> options.get(VanillaOption.FRAMERATE_LIMIT).orElse(null));
+        check(java.util.Objects.equals(restored, framerate), "Max Framerate is " + restored + " after the wait instead "
+                + "of " + framerate);
+        step(String.format(Locale.ROOT, "local ai: waited %.1f s over %d game ticks; Max Framerate back at %s",
+                (System.currentTimeMillis() - askedAt) / 1000.0, ticks[0], restored));
+        check(answered, "no answer to '" + QUESTION + "' within " + ANSWER_WAIT_MS + " ms; status "
                 + context.computeOnClient(client -> ai.status() + " (" + ai.statusReason() + ")")
                 + "; server log tail:\n" + logTail(ai.paths().serverLogFile(), 40));
         NexusReply answer = reply.get();
@@ -174,7 +235,9 @@ final class LocalAiStep {
                 applied, rejected, answer.error().map(e -> e.kind() + ": " + e.getMessage()).orElse("none"),
                 transcript));
         check(!answer.isError(), "the assistant failed: " + answer.error().map(e -> e.kind() + ": " + e.getMessage())
-                .orElse("?") + "; raw message " + quote(answer.message()));
+                .orElse("?") + "; raw message " + quote(answer.message()) + "; server log tail:\n"
+                + logTail(ai.paths().serverLogFile(), 40));
+        check(!answer.instant(), "the reply came from the instant commands, not from the model");
         check(!answer.applied().isEmpty(), "the reply applied no action; raw message " + quote(answer.message())
                 + "; rejected " + rejected);
         Set<HudWidgetType> after = context.computeOnClient(client -> NexusStep.visibleTypes(services.hud().layout()));
@@ -193,6 +256,126 @@ final class LocalAiStep {
         }
         step("local ai: runtime stopped, status " + context.computeOnClient(client -> ai.status())
                 + (port.isPresent() ? ", port " + port.getAsInt() + " closed" : ""));
+    }
+
+    /**
+     * Polls with the game mostly paused: one game tick, then {@value #QUIET_POLL_MS} ms of sleep on the test thread,
+     * until the predicate holds or {@code timeoutMillis} of real time passed. The client game test runs the game in
+     * lock-step with the test thread, so no frame is rendered while the test thread sleeps; the Local AI's request
+     * runs on its own worker thread and its reply is delivered on the next tick.
+     */
+    private static boolean waitQuietly(ClientGameTestContext context, Predicate<Minecraft> predicate,
+                                       long timeoutMillis, int[] ticks) {
+        long deadline = System.currentTimeMillis() + timeoutMillis;
+        while (System.currentTimeMillis() < deadline) {
+            if (context.computeOnClient(predicate::test)) {
+                return true;
+            }
+            try {
+                Thread.sleep(QUIET_POLL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            context.waitTick();
+            ticks[0]++;
+        }
+        return context.computeOnClient(predicate::test);
+    }
+
+    // ---- the instant command (from client 1.6.0 on) -------------------------------------------------------------
+
+    /** Counts the requests that reach the model and passes them on. */
+    private static final class CountingBackend implements ChatBackend {
+        private final ChatBackend delegate;
+        private final AtomicInteger requests = new AtomicInteger();
+
+        CountingBackend(ChatBackend delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void chat(LocalAiClient.ChatRequest request, Consumer<LocalAiClient.ChatResponse> onReply,
+                         Consumer<LocalAiException> onError) {
+            requests.incrementAndGet();
+            delegate.chat(request, onReply, onError);
+        }
+    }
+
+    /** Music volume and crosshair shape as the game and VANTA report them. */
+    private record Sound(Object music, CrosshairShape shape) {
+    }
+
+    /**
+     * {@value #INSTANT_COMMAND} through the assistant: answered at once without the model, music 0 and a circle
+     * crosshair in the real game, then Undo restores both. The music is set to 0.6 and the crosshair to a cross first so
+     * the command always changes something; the player's own values are put back at the end.
+     */
+    private static void instantCommand(ClientGameTestContext context, VantaServices services) {
+        OptionsBridge options = services.settings().optionsBridge().orElseThrow();
+        LocalAiService ai = services.localAi();
+        Object originalMusic = context.computeOnClient(client -> options.get(VanillaOption.MUSIC_VOLUME).orElse(null));
+        CrosshairStyle originalStyle = context.computeOnClient(client -> services.crosshair().style());
+        check(originalMusic instanceof Number, "the options bridge does not provide the music volume: "
+                + originalMusic);
+        ChatBackend backend = context.computeOnClient(client -> services.nexusBackend());
+        CountingBackend counting = new CountingBackend(backend);
+        try {
+            context.runOnClient(client -> {
+                options.set(VanillaOption.MUSIC_VOLUME, 0.6);
+                services.crosshair().setStyle(originalStyle.withShape(CrosshairShape.CROSS));
+                services.setNexusBackend(counting);
+            });
+            Sound before = context.computeOnClient(client -> new Sound(options.get(VanillaOption.MUSIC_VOLUME)
+                    .orElse(null), services.crosshair().style().shape()));
+            LocalAiStatus statusBefore = context.computeOnClient(client -> ai.status());
+            boolean parsed = context.computeOnClient(client -> services.nexus().commands().parse(INSTANT_COMMAND)
+                    .understood());
+            check(parsed, "'" + INSTANT_COMMAND + "' is not understood by the instant commands");
+
+            long[] nanos = {0};
+            NexusReply reply = context.computeOnClient(client -> {
+                AtomicReference<NexusReply> answer = new AtomicReference<>();
+                long started = System.nanoTime();
+                services.nexus().ask(INSTANT_COMMAND, answer::set);
+                nanos[0] = System.nanoTime() - started;
+                return answer.get();
+            });
+            long millis = nanos[0] / 1_000_000;
+            check(reply != null, "'" + INSTANT_COMMAND + "' was not answered before ask returned");
+            List<String> applied = new ArrayList<>();
+            reply.applied().forEach(a -> applied.add(a.summary()));
+            step("local ai: instant command '" + INSTANT_COMMAND + "' answered in " + millis + " ms without the "
+                    + "model: message=" + quote(reply.message()) + " applied=" + applied + " rejected="
+                    + reply.rejected());
+            check(reply.instant() && !reply.isError(), "'" + INSTANT_COMMAND + "' was not answered by the instant "
+                    + "commands: " + reply);
+            check(counting.requests.get() == 0, "the model was asked " + counting.requests.get() + " time(s)");
+            check(millis < INSTANT_LIMIT_MS, "the instant command took " + millis + " ms");
+            check(reply.rejected().isEmpty() && reply.applied().size() == 2, "the instant command applied "
+                    + applied + " and refused " + reply.rejected());
+            Sound after = context.computeOnClient(client -> new Sound(options.get(VanillaOption.MUSIC_VOLUME)
+                    .orElse(null), services.crosshair().style().shape()));
+            check(after.music() instanceof Number n && n.doubleValue() == 0.0, "the vanilla music volume after the "
+                    + "instant command is " + after.music());
+            check(after.shape() == CrosshairShape.CIRCLE, "the crosshair after the instant command is "
+                    + after.shape());
+            check(context.computeOnClient(client -> ai.status()) == statusBefore, "the Local AI status moved from "
+                    + statusBefore + " to " + context.computeOnClient(client -> ai.status()));
+
+            boolean undone = context.computeOnClient(client -> services.nexus().undoLast());
+            check(undone, "Undo after the instant command returned false");
+            Sound restored = context.computeOnClient(client -> new Sound(options.get(VanillaOption.MUSIC_VOLUME)
+                    .orElse(null), services.crosshair().style().shape()));
+            check(restored.equals(before), "Undo restored " + restored + " instead of " + before);
+            step("local ai: Undo restored music " + restored.music() + " and the " + restored.shape() + " crosshair");
+        } finally {
+            context.runOnClient(client -> {
+                services.setNexusBackend(backend);
+                options.set(VanillaOption.MUSIC_VOLUME, originalMusic);
+                services.crosshair().setStyle(originalStyle);
+            });
+        }
     }
 
     private static boolean accepts(int port) {
