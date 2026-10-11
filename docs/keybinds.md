@@ -23,8 +23,8 @@ controls screen as well and are saved in `options.txt` like every other binding.
 
 Unbound keys do nothing until you assign them. The keys that open a screen react in a world when no other screen is
 open; `/vanta menu` opens the VANTA settings as well, `/vanta nexus` opens Vanta Nexus, `/vanta timer` the Timer
-screen. The Nexus assistant can never
-change a key binding: key bindings are outside its list of actions ([Vanta Nexus](nexus.md#what-the-assistant-can-do)).
+screen. The Nexus assistant can never change a key binding: key bindings are outside its list of actions
+([Vanta Nexus](nexus.md#what-the-assistant-can-do)).
 
 ## The keybind manager
 

@@ -40,8 +40,8 @@ opacity** and **text shadow** settings from *Settings → HUD* and the **HUD the
 (Clean, Glass, Outline, Minimal — see [Cosmetics](cosmetics.md)).
 
 **The Timer** widget (from client 1.6.0 on) draws nothing, not even its panel, while no timer is set; in the HUD
-editor it shows a sample `9:59` marked "Preview" so you can place it. It is not part of any built-in layout and not
-of the Nexus presets except *Full*; add it from the editor's widget list. See [Timer](timer.md).
+editor it shows a sample `9:59` marked "Preview" so you can place it. It is in no built-in layout and in no Nexus
+preset except *Full* (every widget); add it from the editor's widget list. See [Timer](timer.md).
 
 **The Frame time graph** is a [Vanta Lab](nexus.md#6-vanta-lab) widget. While *Frame time HUD graph* is off (the
 default) it is not drawn, not listed in the HUD editor's widget list and not offered to the Nexus assistant, and the
