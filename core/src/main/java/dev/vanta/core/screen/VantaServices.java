@@ -177,6 +177,8 @@ public final class VantaServices {
         nexusActions.setWaypoints(waypointBridge, waypointBridge);
         nexusActions.setLab(lab.asToggle());
         nexusActions.setPlayerPosition(game::playerPosition);
+        // crosshair.set (from client 1.6.0 on) changes the same store the crosshair customizer edits.
+        nexusActions.setCrosshair(crosshair);
     }
 
     /**

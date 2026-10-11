@@ -40,6 +40,13 @@ The Accessibility screen also exposes Minecraft's **high contrast** (the vanilla
 background opacity** and **chat opacity**, and has an *Open Minecraft accessibility options* row for everything else
 (narrator, subtitles, auto-jump, distortion effects, …).
 
+From client 1.6.0 on the same card has Minecraft's chat size options, so you can make the chat smaller or bigger
+without leaving VANTA: **Chat text size** (`chatScale`), **Chat width** (`chatWidth`, 40 to 320 pixels), **Chat
+height (open)** (`chatHeightFocused`, 20 to 180 pixels), **Chat height (playing)** (`chatHeightUnfocused`, 20 to 180
+pixels; Minecraft's default is 90) and **Chat line spacing** (`chatLineSpacing`). Each is a slider from 0 to 100 %
+that writes the real Minecraft option, exactly like Minecraft's *Chat Settings* screen, and is saved to
+`options.txt`.
+
 ## Keyboard navigation
 
 Every VANTA screen is fully operable without a mouse:

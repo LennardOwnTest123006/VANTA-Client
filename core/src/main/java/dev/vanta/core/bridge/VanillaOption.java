@@ -108,7 +108,17 @@ public enum VanillaOption implements LangKeyed {
     /** {@code textBackgroundOpacity}: 0–1. */
     TEXT_BACKGROUND_OPACITY(Group.ACCESSIBILITY, Kind.DOUBLE, 0.0, 1.0, 0.05),
     /** {@code chatOpacity}: 0–1. */
-    CHAT_OPACITY(Group.ACCESSIBILITY, Kind.DOUBLE, 0.0, 1.0, 0.05);
+    CHAT_OPACITY(Group.ACCESSIBILITY, Kind.DOUBLE, 0.0, 1.0, 0.05),
+    /** {@code chatScale}: chat text size, 0–1 (1 = 100 %). From client 1.6.0 on. */
+    CHAT_SCALE(Group.ACCESSIBILITY, Kind.DOUBLE, 0.0, 1.0, 0.05),
+    /** {@code chatWidth}: 0–1 (0 = 40 px, 1 = 320 px). From client 1.6.0 on. */
+    CHAT_WIDTH(Group.ACCESSIBILITY, Kind.DOUBLE, 0.0, 1.0, 0.05),
+    /** {@code chatHeightFocused}: chat height while the chat is open, 0–1 (0 = 20 px, 1 = 180 px). From 1.6.0 on. */
+    CHAT_HEIGHT_FOCUSED(Group.ACCESSIBILITY, Kind.DOUBLE, 0.0, 1.0, 0.05),
+    /** {@code chatHeightUnfocused}: chat height while playing, 0–1 (vanilla default 0.4375 = 90 px). From 1.6.0 on. */
+    CHAT_HEIGHT_UNFOCUSED(Group.ACCESSIBILITY, Kind.DOUBLE, 0.0, 1.0, 0.05),
+    /** {@code chatLineSpacing}: extra space between chat lines, 0–1. From client 1.6.0 on. */
+    CHAT_LINE_SPACING(Group.ACCESSIBILITY, Kind.DOUBLE, 0.0, 1.0, 0.05);
 
     /** Value type of an option. */
     public enum Kind {
@@ -259,7 +269,10 @@ public enum VanillaOption implements LangKeyed {
             case CLOUDS -> "FANCY";
             case SMOOTH_LIGHTING, ENTITY_SHADOWS, VSYNC, VIEW_BOBBING, AUTOSAVE_INDICATOR, RAW_MOUSE_INPUT -> true;
             case ENTITY_DISTANCE_SCALING, PANORAMA_SPEED, SCREEN_EFFECT_SCALE, FOV_EFFECT_SCALE, CHAT_OPACITY,
-                 MOUSE_WHEEL_SENSITIVITY -> 1.0;
+                 MOUSE_WHEEL_SENSITIVITY, CHAT_SCALE, CHAT_WIDTH, CHAT_HEIGHT_FOCUSED -> 1.0;
+            // ChatComponent.defaultUnfocusedPct(): (90 - 20) / (180 - 20) = 0.4375, a 90 px tall chat.
+            case CHAT_HEIGHT_UNFOCUSED -> 0.4375;
+            case CHAT_LINE_SPACING -> 0.0;
             case GUI_SCALE -> 0;
             case BIOME_BLEND -> 2;
             case MIPMAP_LEVELS -> 4;

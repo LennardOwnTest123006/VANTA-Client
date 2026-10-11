@@ -141,15 +141,15 @@ class NexusScreenTest {
 
         backend.next = "{\"message\":\"Minimal HUD: FPS and coordinates only.\","
                 + "\"actions\":[{\"type\":\"hud.preset\",\"preset\":\"minimal\"}]}";
-        panel.inputField().setText("Make my HUD minimal");
+        panel.inputField().setText("Strip my HUD down to the essentials");
         click(screen, panel.sendButton());
-        assertEquals(1, backend.requests);
+        assertEquals(1, backend.requests, "not an instant command: the model answers");
         assertEquals(NexusHudPreset.MINIMAL.apply(before), t.services.hud().layout(), "the preset was applied");
         assertFalse(t.services.hud().layout().find("armor").orElseThrow().enabled());
         List<AssistantPanel.Bubble> bubbles = panel.bubbles();
         assertEquals(2, bubbles.size());
         assertEquals(AssistantPanel.Bubble.Kind.USER, bubbles.get(0).kind());
-        assertEquals("Make my HUD minimal", bubbles.get(0).text());
+        assertEquals("Strip my HUD down to the essentials", bubbles.get(0).text());
         assertEquals(AssistantPanel.Bubble.Kind.ASSISTANT, bubbles.get(1).kind());
         assertEquals("Minimal HUD: FPS and coordinates only.", bubbles.get(1).text());
         assertEquals(1, bubbles.get(1).applied().size());
@@ -189,19 +189,55 @@ class NexusScreenTest {
         AssistantPanel panel = screen.panel(NexusSection.ASSISTANT);
         backend.next = "{\"message\":\"Moved.\",\"actions\":[{\"type\":\"hud.set\",\"element\":\"fps\",\"x\":1,\"y\":1}]}";
         panel.inputField().requestFocus(screen.context());
-        ScreenTestSupport.type(screen, "Move the FPS counter to the bottom right");
+        ScreenTestSupport.type(screen, "Could you park the FPS counter in the bottom right corner");
         ScreenTestSupport.key(screen, Keys.ENTER);
         settle(screen);
         assertEquals(1, backend.requests);
         assertEquals(dev.vanta.core.hud.HudAnchor.BOTTOM_RIGHT, t.services.hud().layout().find("fps").orElseThrow().anchor());
         t.services.nexus().clearTranscript();
         settle(screen);
+        // The example chips are instant commands (from client 1.6.0 on): applied without the model.
         UiNode chip = screen.root().findById("nexus.assistant.chip.1");
         assertNotNull(chip);
-        backend.next = "{\"message\":\"ok\",\"actions\":[]}";
         click(screen, chip);
-        assertEquals(2, backend.requests);
+        assertEquals(1, backend.requests, "an instant command does not ask the model");
         assertEquals("Only show FPS and coordinates", panel.bubbles().get(0).text());
+        assertEquals("Done: only FPS and coordinates on the HUD.", panel.bubbles().get(1).text());
+        assertEquals(java.util.Set.of(HudWidgetType.FPS, HudWidgetType.COORDINATES, HudWidgetType.CROSSHAIR),
+                t.services.hud().layout().enabled().stream().map(w -> w.type())
+                        .collect(java.util.stream.Collectors.toSet()));
+        assertFalse(panel.isPending());
+        assertTrue(panel.undoButton().isPresent(), "Undo offered for the instant command too");
+    }
+
+    @Test
+    void instantCommandsWorkWhileTheLocalAiIsMissing() {
+        // The test build carries the unresolved template manifest: the Local AI cannot run at all.
+        t.services.setNexusBackend(t.services.localAi());
+        NexusScreen screen = open(854, 480);
+        AssistantPanel panel = screen.panel(NexusSection.ASSISTANT);
+        assertTrue(panel.inputField().isEnabled(), "the input accepts commands without the Local AI");
+        assertNotNull(screen.root().findById("nexus.assistant.localai"), "the Local AI card stays");
+        double before = t.services.settings().optionsBridge().orElseThrow()
+                .getDouble(dev.vanta.core.bridge.VanillaOption.MUSIC_VOLUME, -1);
+        assertEquals(1.0, before, 1e-9);
+        panel.send("Turn the music off");
+        assertEquals(0.0, t.services.settings().optionsBridge().orElseThrow()
+                .getDouble(dev.vanta.core.bridge.VanillaOption.MUSIC_VOLUME, -1), 1e-9);
+        List<AssistantPanel.Bubble> bubbles = panel.bubbles();
+        assertEquals(AssistantPanel.Bubble.Kind.ASSISTANT, bubbles.get(bubbles.size() - 1).kind());
+        assertEquals("Done: music volume 0 %.", bubbles.get(bubbles.size() - 1).text());
+        assertFalse(panel.isPending());
+
+        panel.send("Create a recording profile");
+        t.services.tick();
+        settle(screen);
+        bubbles = panel.bubbles();
+        AssistantPanel.Bubble last = bubbles.get(bubbles.size() - 1);
+        assertEquals(AssistantPanel.Bubble.Kind.ERROR, last.kind());
+        assertTrue(last.text().startsWith("I can do this without the Local AI:"), last.text());
+        assertFalse(panel.isPending());
+        assertTrue(panel.inputField().isEnabled());
     }
 
     @Test

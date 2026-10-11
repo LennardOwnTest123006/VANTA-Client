@@ -5,7 +5,15 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import dev.vanta.core.bridge.Vec3d;
+import dev.vanta.core.crosshair.CrosshairColors;
+import dev.vanta.core.crosshair.CrosshairPreset;
+import dev.vanta.core.crosshair.CrosshairPresets;
+import dev.vanta.core.crosshair.CrosshairShape;
+import dev.vanta.core.crosshair.CrosshairStore;
+import dev.vanta.core.crosshair.CrosshairStyle;
+import dev.vanta.core.crosshair.CrosshairWidget;
 import dev.vanta.core.hud.HudAnchor;
+import dev.vanta.core.hud.HudArranger;
 import dev.vanta.core.hud.HudLayout;
 import dev.vanta.core.hud.HudPreset;
 import dev.vanta.core.hud.HudRect;
@@ -22,44 +30,76 @@ import dev.vanta.core.settings.Setting;
 import dev.vanta.core.settings.SettingCategory;
 import dev.vanta.core.settings.SettingKind;
 import dev.vanta.core.settings.SettingsStore;
+import dev.vanta.core.settings.VantaSettings;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The only things the assistant can do. Every action the model returns is validated against the live registries (HUD
- * layout and widget types, allowed settings, profiles, presets, waypoints, lab features) before it runs; anything else
- * is reported as a {@link RejectedAction}. The same methods also build the JSON schema sent to llama-server, so the
- * model can only name things that exist, and the live lists the system prompt shows.
+ * layout and widget types, allowed settings, profiles, presets, waypoints, lab features, the crosshair model) before it
+ * runs; anything else is reported as a {@link RejectedAction}. The same methods also build the JSON schema sent to
+ * llama-server, so the model can only name things that exist, and the live lists the system prompt shows.
  * <p>
  * Render-thread only, like every core service.
  */
 public final class NexusActions {
-    /** Setting categories the assistant may change. Keybinds, privacy, network and the rest are never touched. */
+    /**
+     * Setting categories the assistant may change (Audio from client 1.6.0 on). Controls, keybinds, privacy, network
+     * and the rest are never touched.
+     */
     public static final Set<SettingCategory> ALLOWED_CATEGORIES = Collections.unmodifiableSet(EnumSet.of(
-            SettingCategory.VIDEO, SettingCategory.HUD, SettingCategory.PERFORMANCE, SettingCategory.ACCESSIBILITY));
+            SettingCategory.VIDEO, SettingCategory.AUDIO, SettingCategory.HUD, SettingCategory.PERFORMANCE,
+            SettingCategory.ACCESSIBILITY));
     /** Reference screen (GUI pixels) used to turn x/y fractions into anchor offsets. */
-    public static final int REFERENCE_WIDTH = 854;
+    public static final int REFERENCE_WIDTH = HudArranger.REFERENCE_WIDTH;
     /** Reference screen height. */
-    public static final int REFERENCE_HEIGHT = 480;
+    public static final int REFERENCE_HEIGHT = HudArranger.REFERENCE_HEIGHT;
     /** Margin kept from the screen edge when placing by fraction. */
-    public static final int MARGIN = 4;
+    public static final int MARGIN = HudArranger.MARGIN;
     /** Smallest {@code hud.set} opacity. */
     public static final double MIN_OPACITY = 0.1;
+    /** Smallest crosshair opacity {@code crosshair.set} applies (it never makes the crosshair invisible). */
+    public static final double MIN_CROSSHAIR_OPACITY = 0.1;
+    /** Smallest chat text size the assistant sets ({@code accessibility.chatScale}); smaller text is hard to read. */
+    public static final double MIN_CHAT_SCALE = 0.5;
+    /** Smallest chat width the assistant sets ({@code accessibility.chatWidth}: 0.25 is 110 pixels). */
+    public static final double MIN_CHAT_WIDTH = 0.25;
+    /** Readable minimums the assistant keeps for some settings, by id. */
+    public static final Map<String, Double> ASSISTANT_MINIMUMS = Map.of(
+            VantaSettings.ACCESSIBILITY_CHAT_SCALE.id(), MIN_CHAT_SCALE,
+            VantaSettings.ACCESSIBILITY_CHAT_WIDTH.id(), MIN_CHAT_WIDTH);
 
-    /** Every action type, as the model must spell it. */
-    public static final List<String> TYPES = List.of("hud.set", "hud.only", "hud.layout.save", "hud.layout.load",
-            "hud.preset", "profile.switch", "profile.create", "perf.preset", "perf.smartBoost", "setting.set",
-            "waypoint.add", "waypoint.remove", "waypoint.toggle", "lab.set");
+    /** Every action type, as the model must spell it ({@code hud.arrange} and {@code crosshair.set} from 1.6.0 on). */
+    public static final List<String> TYPES = List.of("hud.set", "hud.only", "hud.arrange", "hud.layout.save",
+            "hud.layout.load", "hud.preset", "crosshair.set", "profile.switch", "profile.create", "perf.preset",
+            "perf.smartBoost", "setting.set", "waypoint.add", "waypoint.remove", "waypoint.toggle", "lab.set");
+    /**
+     * Receipt-only types: changes VANTA makes on its own after a turn, never sent by the model. {@code hud.resolve}
+     * moves apart widgets the turn's {@code hud.set} or {@code hud.only} actions left overlapping
+     * ({@link #finishTurn}).
+     */
+    public static final List<String> RECEIPT_TYPES = List.of("hud.resolve");
+    /**
+     * A signed text value for a relative {@code setting.set} step: {@code "+0.2"}, {@code "-0.2"}, {@code "- 20 %"}
+     * (from client 1.6.0 on).
+     */
+    private static final Pattern RELATIVE = Pattern.compile("([+-])\\s*(\\d+(?:\\.\\d+)?|\\.\\d+)\\s*(%?)");
+    /** Fields of {@code crosshair.set}, in the order they are applied. */
+    public static final List<String> CROSSHAIR_FIELDS = List.of("preset", "shape", "size", "thickness", "gap",
+            "color", "outline", "opacity", "vanilla");
 
     /** Result of a turn's actions. */
     public record Outcome(List<AppliedAction> applied, List<RejectedAction> rejected) {
@@ -90,6 +130,7 @@ public final class NexusActions {
     private volatile NexusWaypointActions waypointActions = NexusWaypointActions.none();
     private volatile Supplier<Optional<Vec3d>> playerPosition = Optional::empty;
     private volatile LabToggle lab = LabToggle.none();
+    private volatile CrosshairStore crosshair;
 
     /**
      * @param profileActivator activates a profile by id with the usual side effects ({@code VantaServices.activateProfile})
@@ -122,6 +163,19 @@ public final class NexusActions {
      */
     public void setPlayerPosition(Supplier<Optional<Vec3d>> position) {
         this.playerPosition = Objects.requireNonNull(position, "position");
+    }
+
+    /**
+     * Wires the crosshair store (the composition root calls this; until then {@code crosshair.set} is not offered and
+     * is refused).
+     */
+    public void setCrosshair(CrosshairStore store) {
+        this.crosshair = Objects.requireNonNull(store, "store");
+    }
+
+    /** The wired crosshair store, empty before {@link #setCrosshair}. */
+    public Optional<CrosshairStore> crosshair() {
+        return Optional.ofNullable(crosshair);
     }
 
     public WaypointLookup waypoints() {
@@ -237,6 +291,36 @@ public final class NexusActions {
         return lab.features();
     }
 
+    /** {@link CrosshairShape} ids. */
+    public static List<String> crosshairShapeIds() {
+        List<String> out = new ArrayList<>();
+        for (CrosshairShape shape : CrosshairShape.values()) {
+            out.add(shape.id());
+        }
+        return out;
+    }
+
+    /**
+     * The crosshair as the system prompt shows it, e.g. {@code custom, shape cross, size 5, thickness 1, gap 1, color
+     * white, outline on, opacity 1}; empty while no crosshair store is wired.
+     */
+    public Optional<String> crosshairSummary() {
+        CrosshairStore store = crosshair;
+        if (store == null) {
+            return Optional.empty();
+        }
+        CrosshairStyle s = store.style();
+        return Optional.of((CrosshairWidget.isVanilla(hud.layout()) ? "vanilla (Minecraft's own), VANTA style "
+                : "custom, ") + "shape " + s.shape().id() + ", size " + s.size() + ", thickness " + s.thickness()
+                + ", gap " + s.gap() + ", color " + CrosshairColors.describe(s.color()) + ", outline "
+                + (s.outline() ? "on" : "off") + ", opacity " + format(s.opacity()));
+    }
+
+    /** The live {@code hud.globalScale}: the arrangement packs the widgets at the size they are drawn. */
+    private double globalScale() {
+        return settings.get(VantaSettings.HUD_GLOBAL_SCALE);
+    }
+
     // ---- schema --------------------------------------------------------------------------------------------------
 
     /**
@@ -254,11 +338,19 @@ public final class NexusActions {
         JsonObject elementsArray = type("array");
         elementsArray.add("items", enumOf(elements));
         variants.add(action("hud.only", List.of("elements"), prop("elements", elementsArray)));
+        variants.add(action("hud.arrange", List.of(), prop("corner", enumOf(HudArranger.Target.ids()))));
         variants.add(action("hud.layout.save", List.of("name"), prop("name", type("string"))));
         List<String> layouts = layoutNames();
         variants.add(action("hud.layout.load", List.of("name"),
                 prop("name", layouts.isEmpty() ? type("string") : enumOf(layouts))));
         variants.add(action("hud.preset", List.of("preset"), prop("preset", enumOf(hudPresetIds()))));
+        if (crosshair != null) {
+            variants.add(action("crosshair.set", List.of(), prop("preset", enumOf(CrosshairPresets.IDS)),
+                    prop("shape", enumOf(crosshairShapeIds())), prop("size", type("integer")),
+                    prop("thickness", type("integer")), prop("gap", type("integer")), prop("color", type("string")),
+                    prop("outline", type("boolean")), prop("opacity", type("number")),
+                    prop("vanilla", type("boolean"))));
+        }
         List<String> profileNames = profileNames();
         if (!profileNames.isEmpty()) {
             variants.add(action("profile.switch", List.of("name"), prop("name", enumOf(profileNames))));
@@ -360,13 +452,23 @@ public final class NexusActions {
 
     // ---- execution -----------------------------------------------------------------------------------------------
 
-    /** Validates and applies every action in order; rejected ones are reported, the rest still run. */
+    /**
+     * Validates and applies every action in order; rejected ones are reported, the rest still run. Then
+     * {@link #finishTurn} moves apart widgets the turn's {@code hud.set} actions left overlapping, as one more receipt.
+     */
     public Outcome execute(JsonArray actions, NexusUndo.Turn turn) {
         List<AppliedAction> applied = new ArrayList<>();
         List<RejectedAction> rejected = new ArrayList<>();
         if (actions == null) {
             return new Outcome(applied, rejected);
         }
+        runAll(actions, turn, applied, rejected);
+        finishTurn(turn).ifPresent(applied::add);
+        return new Outcome(applied, rejected);
+    }
+
+    private void runAll(JsonArray actions, NexusUndo.Turn turn, List<AppliedAction> applied,
+                        List<RejectedAction> rejected) {
         for (JsonElement element : actions) {
             if (!element.isJsonObject()) {
                 rejected.add(new RejectedAction("?", RejectedAction.Reason.UNKNOWN_TYPE, element.toString()));
@@ -382,7 +484,39 @@ public final class NexusActions {
                 rejected.add(new RejectedAction(type, RejectedAction.Reason.FAILED, String.valueOf(e.getMessage())));
             }
         }
-        return new Outcome(applied, rejected);
+    }
+
+    /**
+     * Ends a turn whose actions were applied one by one with {@link #applyOne} ({@link #execute} calls it itself):
+     * when the turn's {@code hud.set} or {@code hud.only} actions moved, showed or scaled widgets so that two visible
+     * widgets overlap, the corner or edge groups involved are stacked again with the {@code hud.arrange} packing
+     * ({@link HudArranger#resolveOverlaps}), so a turn can never leave widgets on one spot.
+     *
+     * @return the {@code hud.resolve} receipt, empty when nothing overlapped
+     */
+    public Optional<AppliedAction> finishTurn(NexusUndo.Turn turn) {
+        if (turn == null) {
+            return Optional.empty();
+        }
+        List<String> changed = turn.takeHudChanges();
+        if (changed.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<HudArranger.Result> resolved = HudArranger.resolveOverlaps(hud.layout(), changed, globalScale());
+        if (resolved.isEmpty() || resolved.get().moved().isEmpty()) {
+            return Optional.empty();
+        }
+        HudArranger.Result result = resolved.get();
+        hud.setLayout(result.layout());
+        List<String> groups = new ArrayList<>();
+        for (HudAnchor group : result.groups()) {
+            groups.add(group.id());
+        }
+        String detail = "stacked again in " + String.join(", ", groups);
+        if (!result.unplaced().isEmpty()) {
+            detail += "; no free spot for " + String.join(", ", result.unplaced());
+        }
+        return Optional.of(new AppliedAction("hud.resolve", String.join(", ", result.moved()), detail));
     }
 
     /** Validates and applies one action. */
@@ -398,11 +532,13 @@ public final class NexusActions {
 
     private AppliedAction apply(String type, JsonObject a, NexusUndo.Turn turn) throws Rejection {
         return switch (type) {
-            case "hud.set" -> hudSet(a);
-            case "hud.only" -> hudOnly(a);
+            case "hud.set" -> hudSet(a, turn);
+            case "hud.only" -> hudOnly(a, turn);
+            case "hud.arrange" -> hudArrange(a);
             case "hud.layout.save" -> layoutSave(a);
             case "hud.layout.load" -> layoutLoad(a);
             case "hud.preset" -> hudPreset(a);
+            case "crosshair.set" -> crosshairSet(a, turn);
             case "profile.switch" -> profileSwitch(a);
             case "profile.create" -> profileCreate(a, turn);
             case "perf.preset" -> perfPreset(a);
@@ -440,11 +576,12 @@ public final class NexusActions {
         throw new Rejection(type, RejectedAction.Reason.UNKNOWN_ELEMENT, wanted);
     }
 
-    private AppliedAction hudSet(JsonObject a) throws Rejection {
+    private AppliedAction hudSet(JsonObject a, NexusUndo.Turn turn) throws Rejection {
         String type = "hud.set";
         String element = require(a, "element", type);
         HudLayout layout = hud.layout();
         ElementRef ref = resolveElement(layout, element, type);
+        HudWidgetState before = ref.state();
         HudWidgetState state = ref.state();
         List<String> changes = new ArrayList<>();
         Optional<Boolean> visible = bool(a, "visible", type);
@@ -508,10 +645,22 @@ public final class NexusActions {
             changes.add(0, "added");
         }
         hud.setLayout(layout.with(state));
+        boolean moved = state.anchor() != before.anchor() || state.offsetX() != before.offsetX()
+                || state.offsetY() != before.offsetY();
+        boolean shown = state.enabled() && (!before.enabled() || ref.isNew());
+        boolean resized = state.scale() != before.scale();
+        if (turn != null && state.enabled() && state.type().movable() && (moved || shown || resized)) {
+            turn.noteHudChange(state.id());
+        }
         return new AppliedAction(type, state.id(), String.join(", ", changes));
     }
 
-    private AppliedAction hudOnly(JsonObject a) throws Rejection {
+    /**
+     * {@code hud.only}: shows exactly the given widgets. Widgets it shows again are noted for the end-of-turn overlap
+     * repair (from client 1.6.0 on), like {@code hud.set} moves: a widget hidden on a spot another one took meanwhile
+     * is stacked apart instead of drawn on top of it.
+     */
+    private AppliedAction hudOnly(JsonObject a, NexusUndo.Turn turn) throws Rejection {
         String type = "hud.only";
         JsonElement elements = a.get("elements");
         if (elements == null || !elements.isJsonArray()) {
@@ -531,17 +680,53 @@ public final class NexusActions {
             }
         }
         HudLayout result = layout;
+        List<String> shown = new ArrayList<>();
         for (HudWidgetState widget : layout.widgets()) {
             boolean enabled = keep.contains(widget.id()) || widget.type() == HudWidgetType.CROSSHAIR;
             if (widget.enabled() != enabled) {
                 result = result.with(widget.withEnabled(enabled));
+                if (enabled && widget.type().movable()) {
+                    shown.add(widget.id());
+                }
             }
         }
         for (HudWidgetState widget : added) {
             result = result.with(result.placedClear(widget, REFERENCE_WIDTH, REFERENCE_HEIGHT));
+            shown.add(widget.id());
         }
         hud.setLayout(result);
+        if (turn != null) {
+            shown.forEach(turn::noteHudChange);
+        }
         return new AppliedAction(type, String.join(", ", keep), keep.size() + " shown");
+    }
+
+    /**
+     * {@code hud.arrange {corner?}}: lays out every visible movable widget without overlap ({@link HudArranger}).
+     * Sizes are kept; the crosshair and hidden widgets do not move.
+     */
+    private AppliedAction hudArrange(JsonObject a) throws Rejection {
+        String type = "hud.arrange";
+        HudArranger.Target target = HudArranger.Target.AUTO;
+        Optional<String> corner = str(a, "corner").filter(s -> !s.isBlank());
+        if (corner.isPresent()) {
+            String id = corner.get().trim();
+            target = HudArranger.Target.fromId(id).orElseThrow(() -> new Rejection(type,
+                    RejectedAction.Reason.INVALID_VALUE, "corner " + id + " (one of "
+                    + String.join(", ", HudArranger.Target.ids()) + ")"));
+        }
+        HudArranger.Result result = HudArranger.arrange(hud.layout(), target, globalScale());
+        if (result.arranged().isEmpty() && result.unplaced().isEmpty()) {
+            throw new Rejection(type, RejectedAction.Reason.NOT_AVAILABLE, "no visible HUD widgets to arrange");
+        }
+        hud.setLayout(result.layout());
+        int count = result.arranged().size();
+        String detail = count + (count == 1 ? " widget" : " widgets") + " without overlap, " + result.moved().size()
+                + " moved";
+        if (!result.unplaced().isEmpty()) {
+            detail += "; no free spot for " + String.join(", ", result.unplaced());
+        }
+        return new AppliedAction(type, target.id(), detail);
     }
 
     private AppliedAction layoutSave(JsonObject a) throws Rejection {
@@ -579,6 +764,118 @@ public final class NexusActions {
                 new Rejection(type, RejectedAction.Reason.UNKNOWN_PRESET, id));
         hud.setLayout(preset.apply(hud.layout()));
         return new AppliedAction(type, preset.id(), Lang.tr(preset.langKey()));
+    }
+
+    // ---- crosshair -----------------------------------------------------------------------------------------------
+
+    /**
+     * {@code crosshair.set}: applies a built-in preset, then the given shape, size, thickness, gap, colour, outline and
+     * opacity (numbers clamped to the crosshair model's ranges), through {@link CrosshairStore} the way the crosshair
+     * customizer does (the store plus the {@code cosmetics.crosshairPreset} setting). {@code vanilla} switches between
+     * Minecraft's crosshair and VANTA's; a style change without {@code vanilla} turns VANTA's crosshair on, so the
+     * change can be seen. Undo restores the previous style (the setting and the crosshair widget are in the turn's
+     * snapshots).
+     */
+    private AppliedAction crosshairSet(JsonObject a, NexusUndo.Turn turn) throws Rejection {
+        String type = "crosshair.set";
+        CrosshairStore store = crosshair;
+        if (store == null) {
+            throw new Rejection(type, RejectedAction.Reason.NOT_AVAILABLE, "crosshair");
+        }
+        CrosshairStyle before = store.style();
+        CrosshairStyle next = before;
+        List<String> changes = new ArrayList<>();
+        boolean styleGiven = false;
+        Optional<String> presetId = present(a, "preset") ? Optional.of(require(a, "preset", type)) : Optional.empty();
+        if (presetId.isPresent()) {
+            CrosshairPreset preset = CrosshairPresets.find(presetId.get()).orElseThrow(() -> new Rejection(type,
+                    RejectedAction.Reason.UNKNOWN_PRESET, presetId.get()));
+            next = preset.style();
+            changes.add("preset " + preset.id());
+            styleGiven = true;
+        }
+        if (present(a, "shape")) {
+            String id = require(a, "shape", type);
+            CrosshairShape shape = CrosshairShape.fromId(id.replace(' ', '_').replace('-', '_')).orElseThrow(() ->
+                    new Rejection(type, RejectedAction.Reason.INVALID_VALUE, "shape " + id + " (one of "
+                            + String.join(", ", crosshairShapeIds()) + ")"));
+            next = next.withShape(shape);
+            changes.add("shape " + shape.id());
+            styleGiven = true;
+        }
+        OptionalDouble size = number(a, "size", type);
+        if (size.isPresent()) {
+            next = next.withSize((int) Math.round(clamp(size.getAsDouble(), 1, CrosshairStyle.MAX_SIZE)));
+            changes.add("size " + next.size());
+            styleGiven = true;
+        }
+        OptionalDouble thickness = number(a, "thickness", type);
+        if (thickness.isPresent()) {
+            next = next.withThickness((int) Math.round(clamp(thickness.getAsDouble(), 1,
+                    CrosshairStyle.MAX_THICKNESS)));
+            changes.add("thickness " + next.thickness());
+            styleGiven = true;
+        }
+        OptionalDouble gap = number(a, "gap", type);
+        if (gap.isPresent()) {
+            next = next.withGap((int) Math.round(clamp(gap.getAsDouble(), 0, CrosshairStyle.MAX_GAP)));
+            changes.add("gap " + next.gap());
+            styleGiven = true;
+        }
+        if (present(a, "color")) {
+            String text = require(a, "color", type);
+            int argb = CrosshairColors.parse(text).orElseThrow(() -> new Rejection(type,
+                    RejectedAction.Reason.INVALID_VALUE, "color " + text + " (#RRGGBB or one of "
+                    + String.join(", ", CrosshairColors.names()) + ")"));
+            next = next.withColor(argb);
+            changes.add("color " + CrosshairColors.describe(argb));
+            styleGiven = true;
+        }
+        Optional<Boolean> outline = bool(a, "outline", type);
+        if (outline.isPresent()) {
+            next = next.withOutline(outline.get(), next.outlineThickness());
+            changes.add("outline " + (outline.get() ? "on" : "off"));
+            styleGiven = true;
+        }
+        OptionalDouble opacity = number(a, "opacity", type);
+        if (opacity.isPresent()) {
+            double value = opacity.getAsDouble();
+            if (value > 1.0 && value <= 100.0) {
+                value /= 100.0; // "50" from a model that thinks in percent
+            }
+            next = next.withOpacity(clamp(value, MIN_CROSSHAIR_OPACITY, 1.0));
+            changes.add("opacity " + format(next.opacity()));
+            styleGiven = true;
+        }
+        Optional<Boolean> vanilla = bool(a, "vanilla", type);
+        if (!styleGiven && vanilla.isEmpty()) {
+            throw new Rejection(type, RejectedAction.Reason.MISSING_FIELD, String.join(", ", CROSSHAIR_FIELDS));
+        }
+        if (!next.equals(before)) {
+            store.setStyle(next);
+            settings.set(VantaSettings.COSMETICS_CROSSHAIR_PRESET, CrosshairPresets.settingValueFor(next));
+            if (turn != null) {
+                turn.addRestore(() -> store.setStyle(before));
+            }
+        }
+        boolean wantVanilla = vanilla.orElse(false);
+        if (vanilla.isPresent() || styleGiven) {
+            HudLayout layout = hud.layout();
+            HudLayout switched = CrosshairWidget.withVanilla(layout, wantVanilla);
+            if (!switched.equals(layout)) {
+                hud.setLayout(switched);
+                changes.add(wantVanilla ? "Minecraft's crosshair" : "VANTA crosshair on");
+            } else if (vanilla.isPresent()) {
+                changes.add(wantVanilla ? "Minecraft's crosshair (already)" : "VANTA crosshair (already on)");
+            }
+        }
+        return new AppliedAction(type, "crosshair", String.join(", ", changes));
+    }
+
+    /** True when the field is present and not null. */
+    private static boolean present(JsonObject a, String key) {
+        JsonElement e = a.get(key);
+        return e != null && !e.isJsonNull();
     }
 
     // ---- profiles ------------------------------------------------------------------------------------------------
@@ -658,15 +955,131 @@ public final class NexusActions {
         if (!value.isJsonPrimitive()) {
             throw new Rejection(type, RejectedAction.Reason.INVALID_VALUE, value.toString());
         }
-        Optional<?> decoded = setting.decode(value);
+        JsonPrimitive primitive = value.getAsJsonPrimitive();
+        Object before = settings.get(setting);
+        OptionalDouble step = relativeStep(setting, primitive);
+        JsonPrimitive wanted;
+        if (step.isPresent()) {
+            // "+0.2" / "-0.2": a step from the current value (from client 1.6.0 on), clamped like any value.
+            double target = (before instanceof Number n ? n.doubleValue() : 0.0) + step.getAsDouble();
+            wanted = setting.kind() == SettingKind.INT_RANGE ? new JsonPrimitive(Math.round(target))
+                    : new JsonPrimitive(target);
+        } else {
+            wanted = fractionValue(setting, primitive);
+        }
+        Optional<?> decoded = setting.decode(wanted);
         if (decoded.isEmpty()) {
             throw new Rejection(type, RejectedAction.Reason.INVALID_VALUE, id + " = " + value.getAsString()
                     + " (" + allowedValues(setting) + ")");
         }
-        settings.setRaw(setting, decoded.get());
+        Object raw = decoded.get();
+        String note = "";
+        Double minimum = ASSISTANT_MINIMUMS.get(setting.id());
+        if (minimum != null && raw instanceof Double d) {
+            // Never below the readable minimum; a value the player already set below it is not lowered further (and
+            // not raised by a request to make it smaller).
+            double current = before instanceof Number n ? n.doubleValue() : minimum;
+            double floor = Math.min(minimum, current);
+            if (d < floor) {
+                raw = floor;
+                note = floor < minimum ? ", not lowered: already below " + format(minimum)
+                        : ", the smallest the assistant sets";
+            }
+        }
+        settings.setRaw(setting, raw);
         Object now = settings.get(setting);
-        return new AppliedAction(type, id, String.valueOf(now instanceof Enum<?> e ? e.name().toLowerCase(Locale.ROOT)
-                : now));
+        String shown;
+        if (now instanceof Enum<?> e) {
+            shown = e.name().toLowerCase(Locale.ROOT);
+        } else if (now instanceof Double d) {
+            shown = format(d) + (readsPercent(setting) ? " (" + Math.round(d * 100) + " %" + note + ")"
+                    : note.isEmpty() ? "" : " (" + note.substring(2) + ")");
+        } else {
+            shown = String.valueOf(now);
+        }
+        return new AppliedAction(type, id, shown);
+    }
+
+    /** True for number settings from 0 to 1 (volumes, opacities, the chat size), which the prompt calls fractions. */
+    static boolean isFraction(Setting<?> setting) {
+        return setting.kind() == SettingKind.DOUBLE_RANGE && setting.min() == 0.0 && setting.max() == 1.0;
+    }
+
+    /**
+     * True for every number setting that ends at 1 and starts at 0 or above (the fractions plus, for example,
+     * {@code hud.globalOpacity} 0.1..1): their values may be given in percent and the receipt shows the percentage.
+     */
+    static boolean readsPercent(Setting<?> setting) {
+        return setting.kind() == SettingKind.DOUBLE_RANGE && setting.min() >= 0.0 && setting.max() == 1.0;
+    }
+
+    /**
+     * A relative value for a number setting (from client 1.6.0 on): a text starting with {@code +} or {@code -}
+     * changes the current value by that much ({@code "-0.2"} makes the chat 0.2 smaller whatever it is now). For the
+     * settings that read percent ({@link #readsPercent}) {@code "-20 %"} and {@code "-20"} are a step of 0.2, like
+     * absolute values. JSON numbers are always absolute.
+     *
+     * @return the step, empty when the value is not a signed text or the setting is not a number
+     * @throws Rejection for a percent step on a setting that does not read percent
+     */
+    private static OptionalDouble relativeStep(Setting<?> setting, JsonPrimitive value) throws Rejection {
+        if (!value.isString() || (setting.kind() != SettingKind.DOUBLE_RANGE
+                && setting.kind() != SettingKind.INT_RANGE)) {
+            return OptionalDouble.empty();
+        }
+        Matcher m = RELATIVE.matcher(value.getAsString().trim());
+        if (!m.matches()) {
+            return OptionalDouble.empty();
+        }
+        double amount = Double.parseDouble(m.group(2));
+        boolean percent = !m.group(3).isEmpty();
+        if (readsPercent(setting)) {
+            if (percent || amount > 1.0) {
+                amount /= 100.0;
+            }
+        } else if (percent) {
+            throw new Rejection("setting.set", RejectedAction.Reason.INVALID_VALUE, setting.id() + " = "
+                    + value.getAsString() + " (" + allowedValues(setting) + ", or a step like +1 or -1)");
+        }
+        return OptionalDouble.of(m.group(1).equals("-") ? -amount : amount);
+    }
+
+    /**
+     * Tolerant reading of a fraction setting's value: {@code "50 %"} and a number above 1 up to 100 are percent
+     * (0.5); for the volumes {@code false}, "off" and "mute" are 0 and {@code true} and "on" are 1 (100 %). Every
+     * other value is returned unchanged.
+     */
+    static JsonPrimitive fractionValue(Setting<?> setting, JsonPrimitive value) {
+        // Every number setting that ends at 1 reads percent (hud.globalOpacity 0.1..1 too), not only the 0..1 ones.
+        if (!readsPercent(setting)) {
+            return value;
+        }
+        boolean volume = setting.category() == SettingCategory.AUDIO;
+        if (value.isBoolean()) {
+            return volume ? new JsonPrimitive(value.getAsBoolean() ? 1.0 : 0.0) : value;
+        }
+        if (value.isNumber()) {
+            double d = value.getAsDouble();
+            return d > 1.0 && d <= 100.0 ? new JsonPrimitive(d / 100.0) : value;
+        }
+        String text = value.getAsString().trim().toLowerCase(Locale.ROOT);
+        if (volume && (text.equals("off") || text.equals("mute") || text.equals("muted"))) {
+            return new JsonPrimitive(0.0);
+        }
+        if (volume && text.equals("on")) {
+            return new JsonPrimitive(1.0);
+        }
+        boolean percent = text.endsWith("%");
+        String number = percent ? text.substring(0, text.length() - 1).trim() : text;
+        try {
+            double d = Double.parseDouble(number);
+            if (percent || (d > 1.0 && d <= 100.0)) {
+                return new JsonPrimitive(d / 100.0);
+            }
+            return new JsonPrimitive(d);
+        } catch (NumberFormatException e) {
+            return value;
+        }
     }
 
     /** Readable allowed values of a setting for the prompt and for rejection hints. */

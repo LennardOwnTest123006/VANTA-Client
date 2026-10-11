@@ -4,8 +4,7 @@ import dev.vanta.core.crosshair.CrosshairPreset;
 import dev.vanta.core.crosshair.CrosshairPresets;
 import dev.vanta.core.crosshair.CrosshairShape;
 import dev.vanta.core.crosshair.CrosshairStyle;
-import dev.vanta.core.hud.HudLayout;
-import dev.vanta.core.hud.HudWidgetState;
+import dev.vanta.core.crosshair.CrosshairWidget;
 import dev.vanta.core.hud.HudWidgetType;
 import dev.vanta.core.i18n.Lang;
 import dev.vanta.core.notifications.NotificationKind;
@@ -33,7 +32,6 @@ import dev.vanta.core.ui.widget.Toggle;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * The crosshair customizer: live preview tiles, the preset gallery and a control for every
@@ -298,8 +296,7 @@ public final class CrosshairEditorScreen extends UiScreen {
             return;
         }
         services.crosshair().setStyle(next);
-        Optional<CrosshairPreset> preset = CrosshairPresets.matching(next);
-        services.settings().set(VantaSettings.COSMETICS_CROSSHAIR_PRESET, preset.map(CrosshairPreset::id).orElse("custom"));
+        services.settings().set(VantaSettings.COSMETICS_CROSSHAIR_PRESET, CrosshairPresets.settingValueFor(next));
         syncControls();
     }
 
@@ -310,31 +307,12 @@ public final class CrosshairEditorScreen extends UiScreen {
 
     /** True when the HUD layout has no enabled crosshair widget (vanilla draws the crosshair). */
     public boolean isVanillaCrosshair() {
-        for (HudWidgetState widget : services.hud().layout().widgets()) {
-            if (widget.type() == HudWidgetType.CROSSHAIR) {
-                return !widget.enabled();
-            }
-        }
-        return true;
+        return CrosshairWidget.isVanilla(services.hud().layout());
     }
 
     /** Switches between the vanilla crosshair and the custom one by toggling the crosshair widget. */
     public void setVanillaCrosshair(boolean vanilla) {
-        HudLayout layout = services.hud().layout();
-        HudWidgetState crosshair = null;
-        for (HudWidgetState widget : layout.widgets()) {
-            if (widget.type() == HudWidgetType.CROSSHAIR) {
-                crosshair = widget;
-                break;
-            }
-        }
-        if (crosshair == null) {
-            if (vanilla) {
-                return;
-            }
-            crosshair = HudWidgetState.defaults(layout.nextId(HudWidgetType.CROSSHAIR), HudWidgetType.CROSSHAIR);
-        }
-        services.hud().setLayout(layout.with(crosshair.withEnabled(!vanilla)));
+        services.hud().setLayout(CrosshairWidget.withVanilla(services.hud().layout(), vanilla));
         syncControls();
     }
 

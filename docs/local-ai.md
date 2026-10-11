@@ -20,7 +20,9 @@ to `127.0.0.1` (your own computer) and nowhere else. There is **no cloud AI, no 
 and nothing you type is sent anywhere ([Privacy](privacy.md#the-local-ai)).
 
 VANTA Client 1.4.0 works without the Local AI: every section of Vanta Nexus except the assistant, and everything else
-in VANTA, needs nothing from it.
+in VANTA, needs nothing from it. From client 1.6.0 on the assistant also applies everyday commands ("music off",
+"crosshair circle", "chat smaller", "sort the HUD") itself, at once and without the Local AI
+([Vanta Nexus → Commands that work instantly](nexus.md#commands-that-work-instantly)); only other requests need it.
 
 ## What is downloaded, from where, how big
 

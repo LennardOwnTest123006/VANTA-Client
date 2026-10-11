@@ -35,7 +35,8 @@ class AccessibilityScreenTest {
     @Test
     void changesRethemeTheScreenImmediately() {
         AccessibilityScreen screen = t.show(ScreenId.ACCESSIBILITY, 854, 480);
-        assertEquals(9, screen.rows().size(), "4 display + 1 motion + 1 colours + 3 vanilla");
+        assertEquals(14, screen.rows().size(), "4 display + 1 motion + 1 colours + 8 vanilla (5 chat size rows)");
+        assertTrue(screen.rows().stream().anyMatch(r -> r.setting().id().equals("accessibility.chatScale")));
         assertFalse(screen.theme().isHighContrast());
         Toggle highContrast = (Toggle) row(screen, "accessibility.highContrast").editor();
         ScreenTestSupport.click(screen, highContrast);

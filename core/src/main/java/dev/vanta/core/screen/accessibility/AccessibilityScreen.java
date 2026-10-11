@@ -90,7 +90,10 @@ public final class AccessibilityScreen extends VantaUiScreen {
 
         Card vanilla = card("vanta.accessibility.section.vanilla", "vanta.accessibility.vanilla_hint");
         addRows(vanilla, VantaSettings.ACCESSIBILITY_VANILLA_HIGH_CONTRAST,
-                VantaSettings.ACCESSIBILITY_TEXT_BACKGROUND_OPACITY, VantaSettings.ACCESSIBILITY_CHAT_OPACITY);
+                VantaSettings.ACCESSIBILITY_TEXT_BACKGROUND_OPACITY, VantaSettings.ACCESSIBILITY_CHAT_OPACITY,
+                VantaSettings.ACCESSIBILITY_CHAT_SCALE, VantaSettings.ACCESSIBILITY_CHAT_WIDTH,
+                VantaSettings.ACCESSIBILITY_CHAT_HEIGHT_FOCUSED, VantaSettings.ACCESSIBILITY_CHAT_HEIGHT_UNFOCUSED,
+                VantaSettings.ACCESSIBILITY_CHAT_LINE_SPACING);
         vanilla.add(new LinkRow(Icons.ACCESSIBILITY, Lang.tr("vanta.accessibility.open_vanilla"),
                 Lang.tr("vanta.setting.accessibility.openVanilla.description"),
                 () -> navigator().openVanilla(VanillaScreen.ACCESSIBILITY)).external(true).id("accessibility.openVanilla"));
